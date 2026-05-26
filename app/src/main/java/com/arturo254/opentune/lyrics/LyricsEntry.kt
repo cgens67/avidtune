@@ -3,7 +3,6 @@ package com.arturo254.opentune.lyrics
 data class LyricsEntry(
     val time: Long,
     val text: String,
-    val words: List<LyricsWord>? = null
 ) : Comparable<LyricsEntry> {
     override fun compareTo(other: LyricsEntry): Int = (time - other.time).toInt()
 
