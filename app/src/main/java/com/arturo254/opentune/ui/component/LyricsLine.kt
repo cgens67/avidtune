@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +42,7 @@ import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -366,6 +368,7 @@ private fun WordLevelLyrics(
     alignment: TextAlign,
     entryTime: Long
 ) {
+    val density = LocalDensity.current
     val textMeasurer = rememberTextMeasurer()
     val glowPaint = remember {
         android.graphics.Paint().apply {
@@ -526,7 +529,7 @@ private fun WordLevelLyrics(
         
         Canvas(modifier = Modifier
             .fillMaxWidth()
-            .height(androidx.compose.ui.unit.Dp(layoutResult.size.height / androidx.compose.ui.platform.LocalDensity.current.density))
+            .height((layoutResult.size.height / density.density).dp)
             .graphicsLayer(
                 clip = false,
                 compositingStrategy = CompositingStrategy.Offscreen,
