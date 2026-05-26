@@ -51,7 +51,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
@@ -75,6 +74,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -171,7 +171,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.saket.squiggles.SquigglySlider
 import kotlin.math.absoluteValue
-import kotlin.math.exp
 import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.seconds
 
@@ -777,7 +776,7 @@ fun Lyrics(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(WindowInsets.systemBars.asPaddingValues())
+                .padding(WindowInsets.systemBars.only(WindowInsetsSides.Top).asPaddingValues())
         ) {
             Box(
                 modifier = Modifier
@@ -793,7 +792,7 @@ fun Lyrics(
                         .fillMaxSize()
                 ) {
                     val topPadding = with(LocalDensity.current) {
-                        100.dp + WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+                        100.dp
                     }
 
                     LazyColumn(
@@ -1028,7 +1027,7 @@ fun Lyrics(
 
                                         val minDistanceThreshold = 50f
                                         val velocityThreshold = (0.73f * -8.25f) + 8.5f
-                                        val autoSwipeThreshold = (600 / (1f + exp(-(-11.44748 * 0.73f + 9.04945)))).roundToInt()
+                                        val autoSwipeThreshold = (600 / (1f + kotlin.math.exp(-(-11.44748 * 0.73f + 9.04945)))).roundToInt()
 
                                         val shouldChangeSong = (
                                                 currentOffset.absoluteValue > minDistanceThreshold &&
@@ -1510,7 +1509,7 @@ fun Lyrics(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun InstrumentalGapIndicator(
     prevEndMs: Long,
@@ -1518,25 +1517,30 @@ fun InstrumentalGapIndicator(
     positionProvider: () -> Long,
     expressiveAccent: Color
 ) {
-    val currentPos = positionProvider()
-    val gap = nextStartMs - prevEndMs
-    val isGapActive = currentPos in prevEndMs..nextStartMs
+    val isActiveGap by remember {
+        derivedStateOf { 
+            val currentPos = positionProvider()
+            currentPos in prevEndMs..nextStartMs 
+        }
+    }
     
     AnimatedVisibility(
-        visible = isGapActive,
+        visible = isActiveGap,
         enter = fadeIn() + expandVertically(),
         exit = fadeOut() + shrinkVertically()
     ) {
-        val gapProgress = if (gap > 0) {
-            ((currentPos - prevEndMs).toFloat() / gap.toFloat()).coerceIn(0f, 1f)
-        } else 1f
-        
         Box(
             modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
             contentAlignment = Alignment.Center
         ) {
             LinearWavyProgressIndicator(
-                progress = { gapProgress },
+                progress = {
+                    val currentPos = positionProvider()
+                    val gap = nextStartMs - prevEndMs
+                    if (gap > 0) {
+                        ((currentPos - prevEndMs).toFloat() / gap.toFloat()).coerceIn(0f, 1f)
+                    } else 1f
+                },
                 modifier = Modifier.width(160.dp),
                 color = expressiveAccent,
                 trackColor = expressiveAccent.copy(alpha = 0.2f)
@@ -1667,7 +1671,7 @@ private fun ShareLyricsDialog(
  * Calculates the auto-swipe threshold based on swipe sensitivity.
  */
 private fun calculateAutoSwipeThreshold(swipeSensitivity: Float): Int {
-    return (600 / (1f + exp(-(-11.44748 * swipeSensitivity + 9.04945)))).roundToInt()
+    return (600 / (1f + kotlin.math.exp(-(-11.44748 * swipeSensitivity + 9.04945)))).roundToInt()
 }
 
 // Preview time constant
