@@ -258,11 +258,13 @@ fun LyricsLine(
             }
         } else null
 
-        if (isSynced && effectiveWords != null && (isActive || distanceFromCurrent <= 3) && mainText.isNotBlank()) {
+        val isTracking = isActive || distanceFromCurrent <= 3
+
+        if (isSynced && effectiveWords != null && isTracking && mainText.isNotBlank()) {
             WordLevelLyrics(
                 mainText = mainText,
                 words = effectiveWords,
-                isActiveLine = isActive,
+                isTracking = isTracking,
                 lyricsOffset = 0L,
                 playerConnection = playerConnection,
                 lyricStyle = lyricStyle,
@@ -357,7 +359,7 @@ fun LyricsLine(
 private fun WordLevelLyrics(
     mainText: String,
     words: List<WordTimestamp>,
-    isActiveLine: Boolean,
+    isTracking: Boolean,
     lyricsOffset: Long,
     playerConnection: PlayerConnection,
     lyricStyle: TextStyle,
@@ -378,8 +380,8 @@ private fun WordLevelLyrics(
     
     var smoothPosition by remember { mutableLongStateOf(entryTime + lyricsOffset) }
     
-    LaunchedEffect(isActiveLine) {
-        if (isActiveLine) {
+    LaunchedEffect(isTracking) {
+        if (isTracking) {
             var lastPlayerPos = playerConnection.player.currentPosition
             var lastUpdateTime = System.currentTimeMillis()
             while (isActive) {
@@ -536,7 +538,7 @@ private fun WordLevelLyrics(
             )
         ) {
             if (mainText.isEmpty()) return@Canvas
-            if (!isActiveLine) {
+            if (!isTracking) {
                 drawText(layoutResult, color = lineColor)
             } else {
                 if (isRtlText) {
