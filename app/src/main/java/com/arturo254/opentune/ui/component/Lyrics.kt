@@ -171,6 +171,8 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.platform.LocalLayoutDirection
 import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 
 @RequiresApi(Build.VERSION_CODES.M)
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class,
@@ -824,7 +826,7 @@ fun Lyrics(
                                     isSelected = isSelected,
                                     isSelectionModeActive = isSelectionModeActive,
                                     isAutoScrollActive = isAutoScrollEnabled,
-                                    position = sliderPosition ?: position, // PASSING RUNTIME POSITION FOR SYLLABLE HIGHLIGHTS
+                                    position = sliderPosition ?: position,
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clip(RoundedCornerShape(8.dp))
