@@ -116,6 +116,8 @@ import com.arturo254.opentune.ui.menu.SelectionSongMenu
 import com.arturo254.opentune.ui.menu.SongMenu
 import com.arturo254.opentune.ui.menu.YouTubeAlbumMenu
 import com.arturo254.opentune.ui.utils.ItemWrapper
+import com.arturo254.opentune.ui.utils.backToMain
+import com.arturo254.opentune.ui.utils.resize
 import com.arturo254.opentune.viewmodels.AlbumViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -217,7 +219,7 @@ fun AlbumScreen(
                                 .padding(horizontal = 48.dp)
                         ) {
                             AsyncImage(
-                                model = albumWithSongs.album.thumbnailUrl,
+                                model = albumWithSongs.album.thumbnailUrl?.resize(1200, 1200),
                                 contentDescription = null,
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -234,7 +236,7 @@ fun AlbumScreen(
                                         albumWithSongs.album.thumbnailUrl?.let {
                                             saveAlbumImageToGallery(
                                                 context,
-                                                it,
+                                                it.resize(1200, 1200),
                                                 albumWithSongs.album.title
                                             )
                                         }
@@ -460,7 +462,7 @@ fun AlbumScreen(
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
                                         AsyncImage(
-                                            model = albumWithSongs.album.thumbnailUrl,
+                                            model = albumWithSongs.album.thumbnailUrl?.resize(120, 120),
                                             contentDescription = null,
                                             modifier = Modifier
                                                 .size(50.dp)
