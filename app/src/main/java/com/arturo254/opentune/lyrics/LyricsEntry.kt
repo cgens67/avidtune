@@ -1,4 +1,3 @@
-// app/src/main/java/com/arturo254/opentune/lyrics/LyricsEntry.kt
 package com.arturo254.opentune.lyrics
 
 data class WordTimestamp(
