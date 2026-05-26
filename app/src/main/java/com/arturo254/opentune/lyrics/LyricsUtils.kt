@@ -45,14 +45,13 @@ object LyricsUtils {
                         words = wordData.split("|").mapNotNull { wordToken ->
                             val parts = wordToken.split(":")
                             if (parts.size >= 3) {
-                                // In case the word text itself has a ':' inside it
                                 val wordText = parts.dropLast(2).joinToString(":")
                                 val start = parts[parts.size - 2].toDoubleOrNull() ?: 0.0
                                 val end = parts[parts.size - 1].toDoubleOrNull() ?: 0.0
                                 WordTimestamp(wordText, start, end)
                             } else null
                         }
-                        i++ // Skip the word timing line since we just consumed it
+                        i++ // Skip word timing line
                     }
                 }
 
