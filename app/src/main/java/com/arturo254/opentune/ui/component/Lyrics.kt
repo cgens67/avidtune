@@ -194,8 +194,10 @@ fun Lyrics(
     val currentSongId = currentMetadata?.id
 
     var currentLineIndex by remember { mutableIntStateOf(-1) }
-    var deferredCurrentLineIndex by remember(currentSongId) { mutableIntStateOf(0) }
-    var previousLineIndex by remember(currentSongId) { mutableIntStateOf(0) }
+    var currentMainLineIndex by remember { mutableIntStateOf(-1) }
+    var deferredCurrentMainLineIndex by remember(currentSongId) { mutableIntStateOf(0) }
+    var previousMainLineIndex by remember(currentSongId) { mutableIntStateOf(0) }
+
     var lastPreviewTime by remember(currentSongId) { mutableLongStateOf(0L) }
     var isSeeking by remember { mutableStateOf(false) }
     var initialScrollDone by remember(currentSongId) { mutableStateOf(false) }
@@ -393,8 +395,9 @@ fun Lyrics(
         isSelectionModeActive = false
         selectedIndices.clear()
         currentLineIndex = -1
-        deferredCurrentLineIndex = 0
-        previousLineIndex = 0
+        currentMainLineIndex = -1
+        deferredCurrentMainLineIndex = 0
+        previousMainLineIndex = 0
         initialScrollDone = false
         shouldScrollToFirstLine = true
         isAutoScrollEnabled = true
@@ -475,7 +478,7 @@ fun Lyrics(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_STOP) {
                 val visibleItemsInfo = lazyListState.layoutInfo.visibleItemsInfo
-                val isCurrentLineVisible = visibleItemsInfo.any { it.index == currentLineIndex }
+                val isCurrentLineVisible = visibleItemsInfo.any { it.index == currentMainLineIndex }
                 if (isCurrentLineVisible) {
                     initialScrollDone = false
                 }
@@ -493,16 +496,25 @@ fun Lyrics(
     LaunchedEffect(lyrics) {
         if (lyrics.isNullOrEmpty() || !lyrics.startsWith("[")) {
             currentLineIndex = -1
+            currentMainLineIndex = -1
             return@LaunchedEffect
         }
         while (isActive) {
             delay(50)
             val sliderPos = sliderPositionProvider()
             isSeeking = sliderPos != null
-            currentLineIndex = findCurrentLineIndex(
+            val rawIndex = findCurrentLineIndex(
                 lines,
                 sliderPos ?: playerConnection.player.currentPosition
             )
+            currentLineIndex = rawIndex
+
+            var mainIdx = rawIndex
+            // Navigate back to find the closest main line (ignoring background lines)
+            while (mainIdx >= 0 && lines.getOrNull(mainIdx)?.isBackground == true) {
+                mainIdx--
+            }
+            currentMainLineIndex = mainIdx
         }
     }
 
@@ -541,33 +553,36 @@ fun Lyrics(
         }
     }
 
-    LaunchedEffect(currentLineIndex, lastPreviewTime, initialScrollDone, isAutoScrollEnabled) {
+    LaunchedEffect(currentMainLineIndex, lastPreviewTime, initialScrollDone, isAutoScrollEnabled) {
         if (!isSynced) return@LaunchedEffect
 
+        if (currentMainLineIndex != -1) {
+            deferredCurrentMainLineIndex = currentMainLineIndex
+        }
+
         if (isAutoScrollEnabled) {
-            if ((currentLineIndex == 0 && shouldScrollToFirstLine) || !initialScrollDone) {
+            if ((currentMainLineIndex == 0 && shouldScrollToFirstLine) || !initialScrollDone) {
                 shouldScrollToFirstLine = false
-                val initialCenterIndex = kotlin.math.max(0, currentLineIndex)
+                val initialCenterIndex = kotlin.math.max(0, currentMainLineIndex)
                 performSmoothPageScroll(initialCenterIndex, 800)
                 if (!isAppMinimized) {
                     initialScrollDone = true
                 }
-            } else if (currentLineIndex != -1) {
-                deferredCurrentLineIndex = currentLineIndex
+            } else if (currentMainLineIndex != -1) {
                 if (isSeeking) {
-                    val seekCenterIndex = kotlin.math.max(0, currentLineIndex - 1)
+                    val seekCenterIndex = kotlin.math.max(0, currentMainLineIndex - 1)
                     performSmoothPageScroll(seekCenterIndex, 500)
-                } else if ((lastPreviewTime == 0L || currentLineIndex != previousLineIndex) && scrollLyrics) {
-                    if (currentLineIndex != previousLineIndex) {
-                        performSmoothPageScroll(currentLineIndex, 1500)
+                } else if ((lastPreviewTime == 0L || currentMainLineIndex != previousMainLineIndex) && scrollLyrics) {
+                    if (currentMainLineIndex != previousMainLineIndex) {
+                        performSmoothPageScroll(currentMainLineIndex, 1500)
                     }
                 }
             }
         }
-        if (currentLineIndex > 0) {
+        if (currentMainLineIndex > 0) {
             shouldScrollToFirstLine = true
         }
-        previousLineIndex = currentLineIndex
+        previousMainLineIndex = currentMainLineIndex
     }
 
     Box(
@@ -723,11 +738,11 @@ fun Lyrics(
                             .fadingEdge(vertical = 32.dp)
                             .nestedScroll(nestedScrollConnection)
                     ) {
-                        val displayedCurrentLineIndex =
-                            if (!isAutoScrollEnabled || isSeeking || isSelectionModeActive)
-                                deferredCurrentLineIndex
+                        val displayedCurrentMainLineIndex =
+                            if (isSeeking || isSelectionModeActive)
+                                deferredCurrentMainLineIndex
                             else
-                                currentLineIndex
+                                currentMainLineIndex
 
                         if (isLoadingLyrics) {
                             item {
@@ -762,8 +777,14 @@ fun Lyrics(
                                 key = { index, item -> "$index-${item.time}" }
                             ) { index, item ->
                                 val isSelected = selectedIndices.contains(index)
-                                val isActiveLine = index == displayedCurrentLineIndex && isSynced
-                                val distance = kotlin.math.abs(index - displayedCurrentLineIndex)
+                                
+                                val isAssociatedBg = item.isBackground &&
+                                        displayedCurrentMainLineIndex >= 0 &&
+                                        index > displayedCurrentMainLineIndex &&
+                                        lines.subList(displayedCurrentMainLineIndex + 1, index + 1).all { it.isBackground }
+
+                                val isActiveLine = (index == displayedCurrentMainLineIndex || isAssociatedBg) && isSynced
+                                val distance = if (isActiveLine) 0 else kotlin.math.abs(index - displayedCurrentMainLineIndex)
 
                                 LyricsLine(
                                     entry = item,
@@ -1511,3 +1532,4 @@ private fun calculateAutoSwipeThreshold(swipeSensitivity: Float): Int {
 // Preview time constant
 val LyricsPreviewTime = 2.seconds
 const val ANIMATE_SCROLL_DURATION = 300L
+
