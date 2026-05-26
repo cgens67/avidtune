@@ -38,10 +38,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.add
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -53,6 +49,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -83,6 +80,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -112,7 +110,8 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -147,6 +146,10 @@ import com.arturo254.opentune.ui.component.shimmer.TextPlaceholder
 import com.arturo254.opentune.ui.menu.LyricsMenu
 import com.arturo254.opentune.ui.screens.settings.DarkMode
 import com.arturo254.opentune.ui.screens.settings.LyricsPosition
+import com.arturo254.opentune.ui.theme.ColorSaver
+import com.arturo254.opentune.ui.theme.DefaultThemeColor
+import com.arturo254.opentune.ui.theme.OpenTuneTheme
+import com.arturo254.opentune.ui.theme.extractThemeColor
 import com.arturo254.opentune.ui.utils.fadingEdge
 import com.arturo254.opentune.utils.makeTimeString
 import com.arturo254.opentune.utils.rememberEnumPreference
@@ -164,13 +167,10 @@ import kotlin.time.Duration.Companion.seconds
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.platform.LocalLayoutDirection
 import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
-import kotlin.math.exp
-import kotlin.math.roundToInt
 
 @RequiresApi(Build.VERSION_CODES.M)
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class,
@@ -200,13 +200,12 @@ fun Lyrics(
     val sliderStyle by rememberEnumPreference(SliderStyleKey, SliderStyle.DEFAULT)
     val landscapeOffset = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val lyricsTextPosition by rememberEnumPreference(LyricsTextPositionKey, LyricsPosition.CENTER)
-    val changeLyrics by rememberPreference(LyricsClickKey, true)
-    val scrollLyrics by rememberPreference(LyricsScrollKey, true)
-    val animateLyrics by rememberPreference(AnimateLyricsKey, true)
+    val changeLyrics by rememberPreference(LyricsClickKey, defaultValue = true)
+    val scrollLyrics by rememberPreference(LyricsScrollKey, defaultValue = true)
+    val animateLyrics by rememberPreference(AnimateLyricsKey, defaultValue = true)
 
     val rotateBackground by rememberPreference(RotateBackgroundKey, defaultValue = false)
 
-    // Usar mediaMetadata proporcionada o la del playerConnection
     val currentMetadata = mediaMetadata ?: playerConnection.mediaMetadata.collectAsState().value
     val currentSongId = currentMetadata?.id
 
@@ -224,12 +223,10 @@ fun Lyrics(
 
     var isAutoScrollEnabled by rememberSaveable { mutableStateOf(true) }
 
-    // Improved selection system
     var isSelectionModeActive by remember(currentSongId) { mutableStateOf(false) }
     val selectedIndices = remember(currentSongId) { mutableStateListOf<Int>() }
     var showMaxSelectionToast by remember { mutableStateOf(false) }
 
-    // States for sharing
     var showProgressDialog by remember { mutableStateOf(false) }
     var showShareDialog by remember { mutableStateOf(false) }
     var shareDialogData by remember { mutableStateOf<Triple<String, String, String>?>(null) }
@@ -238,11 +235,9 @@ fun Lyrics(
     var isAnimating by remember { mutableStateOf(false) }
     val maxSelectionLimit = 5
 
-
     val canSkipPrevious by playerConnection.canSkipPrevious.collectAsState()
     val canSkipNext by playerConnection.canSkipNext.collectAsState()
 
-    // Optimized cache system
     var lyricsCache by remember { mutableStateOf<Map<String, LyricsEntity>>(emptyMap()) }
     var currentLyricsEntity by remember(currentSongId) {
         mutableStateOf<LyricsEntity?>(lyricsCache[currentSongId])
@@ -266,7 +261,6 @@ fun Lyrics(
     val useDarkTheme = remember(darkTheme, isSystemInDarkTheme) {
         if (darkTheme == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON
     }
-
 
     var progress by remember { mutableFloatStateOf(0f) }
     val animatedProgress by
@@ -313,7 +307,6 @@ fun Lyrics(
 
             withContext(Dispatchers.IO) {
                 try {
-
                     val fallbackColors = listOf(primaryColor, secondaryColor, tertiaryColor)
                     gradientColorsCache[currentMetadata.id] = fallbackColors
                     withContext(Dispatchers.Main) { gradientColors = fallbackColors }
@@ -438,7 +431,6 @@ fun Lyrics(
         }
     }
 
-    // Disable auto-scroll cuando el usuario interactúa
     val nestedScrollConnection = remember {
         object : NestedScrollConnection {
             override fun onPostScroll(
@@ -477,7 +469,7 @@ fun Lyrics(
     LaunchedEffect(playbackState) {
         if (isFullscreen && playbackState == Player.STATE_READY) {
             while (isActive) {
-                delay(100)
+                delay(33) // BUTTERY SMOOTH 30fps refresh
                 position = playerConnection.player.currentPosition
                 duration = playerConnection.player.duration
             }
@@ -521,7 +513,7 @@ fun Lyrics(
             return@LaunchedEffect
         }
         while (isActive) {
-            delay(50)
+            delay(33)
             val sliderPos = sliderPositionProvider()
             isSeeking = sliderPos != null
             currentLineIndex = findCurrentLineIndex(
@@ -600,7 +592,6 @@ fun Lyrics(
             .fillMaxSize()
             .background(if (isFullscreen) MaterialTheme.colorScheme.background else Color.Transparent)
     ) {
-        // Fondo para modo fullscreen
         if (isFullscreen) {
             Box(
                 modifier = Modifier
@@ -651,20 +642,17 @@ fun Lyrics(
                     PlayerBackgroundStyle.APPLE_MUSIC -> {
                         Box(modifier = Modifier.fillMaxSize()) {
                             if (gradientColors.isNotEmpty()) {
-                                // Sophisticated blurred gradient background
                                 val color1 = gradientColors[0]
                                 val color2 = gradientColors.getOrElse(1) { gradientColors[0].copy(alpha = 0.8f) }
                                 val color3 = gradientColors.getOrElse(2) { gradientColors[0].copy(alpha = 0.6f) }
 
                                 androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize().blur(100.dp)) {
-                                    // Main vertical gradient base
                                     drawRect(
                                         brush = androidx.compose.ui.graphics.Brush.verticalGradient(
                                             listOf(color1, color2, color3)
                                         )
                                     )
 
-                                    // Multiple circular "color blobs" for a dynamic feel
                                     drawCircle(
                                         brush = androidx.compose.ui.graphics.Brush.radialGradient(
                                             colors = listOf(color1, Color.Transparent),
@@ -696,7 +684,6 @@ fun Lyrics(
                                     )
                                 }
 
-                                // Dark overlay for text readability
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
@@ -706,7 +693,6 @@ fun Lyrics(
                         }
                     }
                     PlayerBackgroundStyle.DEFAULT -> {
-                        // DEFAULT background
                     }
                 }
 
@@ -720,13 +706,11 @@ fun Lyrics(
             }
         }
 
-        // Layout principal con letras y controles
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(WindowInsets.systemBars.asPaddingValues())
         ) {
-            // Espacio para las letras
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -783,7 +767,6 @@ fun Lyrics(
                                             containerColor = expressiveAccent.copy(alpha = 0.15f),
                                             indicatorColor = expressiveAccent
                                         )
-
                                     }
                                 }
                             }
@@ -794,13 +777,8 @@ fun Lyrics(
                                 key = { index, item -> "$index-${item.time}" }
                             ) { index, item ->
                                 val isSelected = selectedIndices.contains(index)
-                                val nextEntryTime = lines.getOrNull(index + 1)?.time
-                                val currentTime = sliderPosition ?: position
-                                val isSynced = remember(lyrics) {
-                                    !lyrics.isNullOrEmpty() && lyrics.startsWith("[")
-                                }
-                                val isActiveLine = index == displayedCurrentLineIndex && isSynced
                                 val distance = kotlin.math.abs(index - displayedCurrentLineIndex)
+                                val isActiveLine = index == displayedCurrentLineIndex && isSynced
 
                                 LyricsLine(
                                     entry = item,
@@ -846,6 +824,7 @@ fun Lyrics(
                                     isSelected = isSelected,
                                     isSelectionModeActive = isSelectionModeActive,
                                     isAutoScrollActive = isAutoScrollEnabled,
+                                    position = sliderPosition ?: position, // PASSING RUNTIME POSITION FOR SYLLABLE HIGHLIGHTS
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clip(RoundedCornerShape(8.dp))
@@ -860,7 +839,6 @@ fun Lyrics(
                         }
                     }
 
-                    // Lyrics not found
                     if (lyrics == LYRICS_NOT_FOUND) {
                         Card(
                             modifier = Modifier
@@ -910,7 +888,6 @@ fun Lyrics(
                     .padding(horizontal = 16.dp)
                     .padding(bottom = 16.dp)
             ) {
-
                 val coroutineScope = rememberCoroutineScope()
                 val offsetXAnimatable = remember { Animatable(0f) }
                 var dragStartTime by remember { mutableLongStateOf(0L) }
@@ -963,7 +940,7 @@ fun Lyrics(
 
                                         val minDistanceThreshold = 50f
                                         val velocityThreshold = (0.73f * -8.25f) + 8.5f
-                                        val autoSwipeThreshold = calculateAutoSwipeThreshold(0.73f)
+                                        val autoSwipeThreshold = (600 / (1f + exp(-(-11.44748 * 0.73f + 9.04945)))).roundToInt()
 
                                         val shouldChangeSong = (
                                                 currentOffset.absoluteValue > minDistanceThreshold &&
@@ -1021,9 +998,8 @@ fun Lyrics(
                                     )
                                 }
 
-                                // Overlay and Icon
                                 val overlayAlpha by androidx.compose.animation.core.animateFloatAsState(
-                                    targetValue = if (isPlaying) 0.4f else 0.4f,
+                                    targetValue = 0.4f,
                                     label = "overlay_alpha"
                                 )
 
@@ -1092,9 +1068,7 @@ fun Lyrics(
                             }
                         }
 
-                        // Iconos sutiles de flecha que aparecen al deslizar
                         if (offsetXAnimatable.value.absoluteValue > 20f) {
-                            // Icono izquierdo (skip_previous cuando deslizas a la derecha)
                             if (offsetXAnimatable.value > 0 && canSkipPrevious) {
                                 Box(
                                     modifier = Modifier
@@ -1111,7 +1085,6 @@ fun Lyrics(
                                 }
                             }
 
-                            // Icono derecho (skip_next cuando deslizas a la izquierda)
                             if (offsetXAnimatable.value < 0 && canSkipNext) {
                                 Box(
                                     modifier = Modifier
@@ -1130,12 +1103,10 @@ fun Lyrics(
                         }
                     }
 
-                    // Right side - Action buttons (sin cambios)
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // Favorite button
                         Box(
                             modifier = Modifier
                                 .size(32.dp)
@@ -1159,21 +1130,20 @@ fun Lyrics(
                             )
                         }
 
-                        // More button
                         Box(
                             modifier = Modifier
                                 .size(32.dp)
-                                .clickable {
-                                    currentMetadata?.let { metadata ->
-                                        menuState.show {
-                                            LyricsMenu(
-                                                lyricsProvider = { currentLyricsEntity },
-                                                mediaMetadataProvider = { metadata },
-                                                onDismiss = menuState::dismiss
-                                            )
-                                        }
-                                    }
-                                },
+                                        .clickable {
+                                            currentMetadata?.let { metadata ->
+                                                menuState.show {
+                                                    LyricsMenu(
+                                                        lyricsProvider = { currentLyricsEntity },
+                                                        mediaMetadataProvider = { metadata },
+                                                        onDismiss = menuState::dismiss
+                                                    )
+                                                }
+                                            }
+                                        },
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
@@ -1188,7 +1158,6 @@ fun Lyrics(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Slider
                 when (sliderStyle) {
                     SliderStyle.DEFAULT -> {
                         Slider(
@@ -1258,7 +1227,6 @@ fun Lyrics(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // Time display
                 Row(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
@@ -1283,7 +1251,6 @@ fun Lyrics(
             }
         }
 
-        // Auto-scroll button
         AnimatedVisibility(
             visible = !isAutoScrollEnabled && isSynced,
             enter = slideInVertically { it } + fadeIn(),
@@ -1337,7 +1304,6 @@ fun Lyrics(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Botón de cancelar
                     Surface(
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f),
@@ -1359,7 +1325,6 @@ fun Lyrics(
                         }
                     }
 
-                    // Botón de compartir (solo visible si hay selección)
                     if (selectedIndices.isNotEmpty()) {
                         Surface(
                             shape = RoundedCornerShape(28.dp),
@@ -1407,12 +1372,10 @@ fun Lyrics(
                 }
             }
         }
-
     }
 
-    // Dialogs
     if (showProgressDialog) {
-        BasicAlertDialog(onDismissRequest = { /* No permitir cerrar */ }) {
+        BasicAlertDialog(onDismissRequest = { }) {
             Card(
                 shape = MaterialTheme.shapes.medium,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -1441,132 +1404,3 @@ fun Lyrics(
         )
     }
 }
-
-@SuppressLint("LocalContextGetResourceValueCall")
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ShareLyricsDialog(
-    lyricsText: String,
-    songTitle: String,
-    artists: String,
-    mediaMetadata: com.arturo254.opentune.models.MediaMetadata?,
-    onDismiss: () -> Unit,
-    onShareAsImage: (String, String, String) -> Unit = { _, _, _ -> }
-) {
-    val context = LocalContext.current
-
-    BasicAlertDialog(onDismissRequest = onDismiss) {
-        Card(
-            shape = RoundedCornerShape(20.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface,
-            ),
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(0.85f)
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Text(
-                    text = stringResource(R.string.share_lyrics),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Share as text
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            val shareIntent = Intent().apply {
-                                action = Intent.ACTION_SEND
-                                type = "text/plain"
-                                val songLink =
-                                    "https://music.youtube.com/watch?v=${mediaMetadata?.id}"
-                                putExtra(
-                                    Intent.EXTRA_TEXT,
-                                    "\"$lyricsText\"\n\n$songTitle - $artists\n$songLink"
-                                )
-                            }
-                            context.startActivity(
-                                Intent.createChooser(
-                                    shareIntent,
-                                    context.getString(R.string.share_lyrics)
-                                )
-                            )
-                            onDismiss()
-                        }
-                        .padding(vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.media3_icon_share),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = stringResource(R.string.share_as_text),
-                        fontSize = 16.sp,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-
-                // Share as image
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            onShareAsImage(lyricsText, songTitle, artists)
-                        }
-                        .padding(vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.media3_icon_share),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = stringResource(R.string.share_as_image),
-                        fontSize = 16.sp,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-
-                // Cancel button
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp, bottom = 4.dp),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    Text(
-                        text = stringResource(R.string.cancel),
-                        fontSize = 16.sp,
-                        color = MaterialTheme.colorScheme.error,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier
-                            .clickable { onDismiss() }
-                            .padding(vertical = 8.dp, horizontal = 12.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
-
-/**
- * Calculates the auto-swipe threshold based on swipe sensitivity.
- */
-private fun calculateAutoSwipeThreshold(swipeSensitivity: Float): Int {
-    return (600 / (1f + exp(-(-11.44748 * swipeSensitivity + 9.04945)))).roundToInt()
-}
-
-// Preview time constant
-val LyricsPreviewTime = 2.seconds
-const val ANIMATE_SCROLL_DURATION = 300L
