@@ -3,7 +3,6 @@ package com.arturo254.opentune.ui.component
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.res.Configuration
-import android.graphics.BlurMaskFilter
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -51,6 +50,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
@@ -65,7 +65,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
@@ -74,7 +73,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -85,7 +83,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -94,40 +91,27 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.drawscope.clipRect
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.drawscope.scale
-import androidx.compose.ui.graphics.drawscope.translate
-import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.PlatformTextStyle
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.drawText
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -138,7 +122,6 @@ import com.arturo254.opentune.LocalDatabase
 import com.arturo254.opentune.LocalPlayerConnection
 import com.arturo254.opentune.R
 import com.arturo254.opentune.constants.AnimateLyricsKey
-import com.arturo254.opentune.constants.AppleMusicLyricsBlurKey
 import com.arturo254.opentune.constants.DarkModeKey
 import com.arturo254.opentune.constants.LyricsClickKey
 import com.arturo254.opentune.constants.LyricsScrollKey
@@ -151,10 +134,8 @@ import com.arturo254.opentune.constants.SliderStyleKey
 import com.arturo254.opentune.db.entities.LyricsEntity
 import com.arturo254.opentune.db.entities.LyricsEntity.Companion.LYRICS_NOT_FOUND
 import com.arturo254.opentune.lyrics.LyricsEntry
-import com.arturo254.opentune.lyrics.WordTimestamp
 import com.arturo254.opentune.lyrics.LyricsUtils.findCurrentLineIndex
 import com.arturo254.opentune.lyrics.LyricsUtils.parseLyrics
-import com.arturo254.opentune.playback.PlayerConnection
 import com.arturo254.opentune.ui.component.shimmer.ShimmerHost
 import com.arturo254.opentune.ui.menu.LyricsMenu
 import com.arturo254.opentune.ui.screens.settings.DarkMode
@@ -171,57 +152,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.saket.squiggles.SquigglySlider
 import kotlin.math.absoluteValue
+import kotlin.math.exp
 import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.seconds
-
-private val RomanizeCjkKey = booleanPreferencesKey("romanize_cjk")
-
-private data class HyphenGroupWord(
-    val pos: Int,
-    val size: Int,
-    val isLast: Boolean,
-    val groupStartMs: Long,
-    val groupEndMs: Long
-)
-
-private fun String.containsRtl(): Boolean {
-    for (c in this) {
-        val directionality = Character.getDirectionality(c).toInt()
-        if (directionality == Character.DIRECTIONALITY_RIGHT_TO_LEFT.toInt() ||
-            directionality == Character.DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC.toInt()
-        ) {
-            return true
-        }
-    }
-    return false
-}
-
-private fun String.toGraphemeClusters(): List<String> {
-    if (isEmpty()) return emptyList()
-    val result = mutableListOf<String>()
-    val it = java.text.BreakIterator.getCharacterInstance()
-    it.setText(this)
-    var start = it.first()
-    var end = it.next()
-    while (end != java.text.BreakIterator.DONE) {
-        result.add(substring(start, end))
-        start = end
-        end = it.next()
-    }
-    return result
-}
-
-fun String.romanize(): String {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        return try {
-            val transliterator = android.icu.text.Transliterator.getInstance("Any-Latin; Latin-ASCII")
-            transliterator.transliterate(this)
-        } catch (e: Exception) {
-            this
-        }
-    }
-    return this
-}
 
 @RequiresApi(Build.VERSION_CODES.M)
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class,
@@ -254,8 +187,6 @@ fun Lyrics(
     val changeLyrics by rememberPreference(LyricsClickKey, true)
     val scrollLyrics by rememberPreference(LyricsScrollKey, true)
     val animateLyrics by rememberPreference(AnimateLyricsKey, true)
-    
-    val (romanizeCjk, setRomanizeCjk) = rememberPreference(RomanizeCjkKey, false)
 
     val rotateBackground by rememberPreference(RotateBackgroundKey, defaultValue = false)
 
@@ -776,7 +707,7 @@ fun Lyrics(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(WindowInsets.systemBars.only(WindowInsetsSides.Top).asPaddingValues())
+                .padding(WindowInsets.systemBars.asPaddingValues())
         ) {
             Box(
                 modifier = Modifier
@@ -792,7 +723,7 @@ fun Lyrics(
                         .fillMaxSize()
                 ) {
                     val topPadding = with(LocalDensity.current) {
-                        100.dp
+                        100.dp + WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
                     }
 
                     LazyColumn(
@@ -808,7 +739,7 @@ fun Lyrics(
                             .nestedScroll(nestedScrollConnection)
                     ) {
                         val displayedCurrentMainLineIndex =
-                            if (!isAutoScrollEnabled || isSeeking || isSelectionModeActive)
+                            if (isSeeking || isSelectionModeActive)
                                 deferredCurrentMainLineIndex
                             else
                                 currentMainLineIndex
@@ -845,25 +776,6 @@ fun Lyrics(
                                 items = lines,
                                 key = { index, item -> "$index-${item.time}" }
                             ) { index, item ->
-                                if (index > 0 && isSynced) {
-                                    val prevItem = lines[index - 1]
-                                    val prevEndMs = if (prevItem.words != null && prevItem.words.isNotEmpty()) {
-                                        (prevItem.words.last().endTime * 1000).toLong()
-                                    } else {
-                                        prevItem.time + 3000L
-                                    }
-                                    
-                                    val gap = item.time - prevEndMs
-                                    if (gap >= 10000L) {
-                                        InstrumentalGapIndicator(
-                                            prevEndMs = prevEndMs,
-                                            nextStartMs = item.time,
-                                            positionProvider = { sliderPositionProvider() ?: position },
-                                            expressiveAccent = expressiveAccent
-                                        )
-                                    }
-                                }
-
                                 val isSelected = selectedIndices.contains(index)
                                 
                                 val isAssociatedBg = item.isBackground &&
@@ -918,7 +830,6 @@ fun Lyrics(
                                     isSelected = isSelected,
                                     isSelectionModeActive = isSelectionModeActive,
                                     isAutoScrollActive = isAutoScrollEnabled,
-                                    romanizeCjk = romanizeCjk,
                                     modifier = Modifier
                                 )
                             }
@@ -1027,7 +938,7 @@ fun Lyrics(
 
                                         val minDistanceThreshold = 50f
                                         val velocityThreshold = (0.73f * -8.25f) + 8.5f
-                                        val autoSwipeThreshold = (600 / (1f + kotlin.math.exp(-(-11.44748 * 0.73f + 9.04945)))).roundToInt()
+                                        val autoSwipeThreshold = (600 / (1f + exp(-(-11.44748 * 0.73f + 9.04945)))).roundToInt()
 
                                         val shouldChangeSong = (
                                                 currentOffset.absoluteValue > minDistanceThreshold &&
@@ -1213,22 +1124,6 @@ fun Lyrics(
                                     MaterialTheme.colorScheme.error
                                 else
                                     textBackgroundColor.copy(alpha = 0.8f),
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clickable {
-                                    setRomanizeCjk(!romanizeCjk)
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.translate),
-                                contentDescription = "Romanize",
-                                tint = if (romanizeCjk) expressiveAccent else textBackgroundColor.copy(alpha = 0.8f),
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -1509,46 +1404,6 @@ fun Lyrics(
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-fun InstrumentalGapIndicator(
-    prevEndMs: Long,
-    nextStartMs: Long,
-    positionProvider: () -> Long,
-    expressiveAccent: Color
-) {
-    val isActiveGap by remember {
-        derivedStateOf { 
-            val currentPos = positionProvider()
-            currentPos in prevEndMs..nextStartMs 
-        }
-    }
-    
-    AnimatedVisibility(
-        visible = isActiveGap,
-        enter = fadeIn() + expandVertically(),
-        exit = fadeOut() + shrinkVertically()
-    ) {
-        Box(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            LinearWavyProgressIndicator(
-                progress = {
-                    val currentPos = positionProvider()
-                    val gap = nextStartMs - prevEndMs
-                    if (gap > 0) {
-                        ((currentPos - prevEndMs).toFloat() / gap.toFloat()).coerceIn(0f, 1f)
-                    } else 1f
-                },
-                modifier = Modifier.width(160.dp),
-                color = expressiveAccent,
-                trackColor = expressiveAccent.copy(alpha = 0.2f)
-            )
-        }
-    }
-}
-
 @SuppressLint("LocalContextGetResourceValueCall")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1671,7 +1526,7 @@ private fun ShareLyricsDialog(
  * Calculates the auto-swipe threshold based on swipe sensitivity.
  */
 private fun calculateAutoSwipeThreshold(swipeSensitivity: Float): Int {
-    return (600 / (1f + kotlin.math.exp(-(-11.44748 * swipeSensitivity + 9.04945)))).roundToInt()
+    return (600 / (1f + exp(-(-11.44748 * swipeSensitivity + 9.04945)))).roundToInt()
 }
 
 // Preview time constant
