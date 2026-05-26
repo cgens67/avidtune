@@ -61,6 +61,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -96,6 +97,7 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -137,7 +139,6 @@ import com.arturo254.opentune.db.entities.LyricsEntity.Companion.LYRICS_NOT_FOUN
 import com.arturo254.opentune.lyrics.LyricsEntry
 import com.arturo254.opentune.lyrics.LyricsUtils.findCurrentLineIndex
 import com.arturo254.opentune.lyrics.LyricsUtils.parseLyrics
-import com.arturo254.opentune.ui.component.shimmer.ContainedLoadingIndicator
 import com.arturo254.opentune.ui.menu.LyricsMenu
 import com.arturo254.opentune.ui.screens.settings.DarkMode
 import com.arturo254.opentune.ui.screens.settings.LyricsPosition
@@ -701,11 +702,11 @@ fun Lyrics(
                     }
                 }
 
-                if (playerBackground != PlayerBackgroundStyle.DEFAULT) {
+                if (playerBackground != PlayerBackgroundStyle.DEFAULT && showLyrics) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(Color.Black.copy(alpha = 0.3f))
+                            .background(Color.Black.copy(alpha = 0.4f))
                     )
                 }
             }
@@ -769,10 +770,9 @@ fun Lyrics(
                                         horizontalAlignment = Alignment.CenterHorizontally,
                                         verticalArrangement = Arrangement.spacedBy(16.dp)
                                     ) {
-                                        ContainedLoadingIndicator(
+                                        CircularProgressIndicator(
                                             modifier = Modifier.size(56.dp),
-                                            containerColor = expressiveAccent.copy(alpha = 0.15f),
-                                            indicatorColor = expressiveAccent
+                                            color = expressiveAccent
                                         )
 
                                     }
