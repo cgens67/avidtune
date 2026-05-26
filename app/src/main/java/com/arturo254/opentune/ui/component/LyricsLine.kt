@@ -24,10 +24,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -38,6 +38,7 @@ import com.arturo254.opentune.lyrics.LyricsEntry
 import com.arturo254.opentune.constants.AppleMusicLyricsBlurKey
 import com.arturo254.opentune.ui.screens.settings.LyricsPosition
 import com.arturo254.opentune.utils.rememberPreference
+import kotlinx.coroutines.launch
 import kotlin.math.sin
 
 @Composable
@@ -54,10 +55,11 @@ fun LyricsLine(
     onLongClick: () -> Unit,
     isSelected: Boolean,
     isSelectionModeActive: Boolean,
+
     isAutoScrollActive: Boolean,
-    position: Long,
     modifier: Modifier = Modifier
 ) {
+
     val (appleMusicLyricsBlur) = rememberPreference(AppleMusicLyricsBlurKey, true)
 
     val blurRadius by animateFloatAsState(
@@ -68,6 +70,7 @@ fun LyricsLine(
         animationSpec = tween(durationMillis = 600),
         label = "blur"
     )
+
 
     val animatedScale by animateFloatAsState(
         targetValue = when {
@@ -89,15 +92,6 @@ fun LyricsLine(
         animationSpec = tween(durationMillis = 400)
     )
 
-    val isBackground = entry.text.contains("{bg}")
-
-    val cleanDisplayText = remember(entry.text) {
-        entry.text
-            .replace("{bg}", "")
-            .replace(Regex("\\{agent:v\\d+\\}"), "")
-            .trim()
-    }
-
     val itemModifier = modifier
         .fillMaxWidth()
         .clip(RoundedCornerShape(8.dp))
@@ -118,54 +112,6 @@ fun LyricsLine(
             this.scaleY = animatedScale
         }
         .blur(blurRadius.dp)
-
-    val annotatedText = remember(entry, position, isActive, isSelectionModeActive, textColor) {
-        buildAnnotatedString {
-            val words = entry.words
-            if (!words.isNullOrEmpty() && isSynced) {
-                words.forEachIndexed { i, word ->
-                    val isActiveWord = position >= word.startTime && position < word.endTime
-                    val isPastWord = position >= word.endTime
-                    
-                    val wordColor = when {
-                        !isActive -> textColor.copy(alpha = 0.5f)
-                        isActiveWord -> textColor
-                        isPastWord -> textColor.copy(alpha = 0.9f)
-                        else -> textColor.copy(alpha = 0.35f)
-                    }
-                    
-                    val wordWeight = when {
-                        isActiveWord -> FontWeight.Black
-                        isPastWord -> FontWeight.Bold
-                        else -> FontWeight.Medium
-                    }
-
-                    val wordStyle = SpanStyle(
-                        color = if (isBackground) wordColor.copy(alpha = wordColor.alpha * 0.7f) else wordColor,
-                        fontWeight = wordWeight,
-                        fontStyle = if (isBackground) androidx.compose.ui.text.font.FontStyle.Italic else androidx.compose.ui.text.font.FontStyle.Normal
-                    )
-                    
-                    withStyle(wordStyle) {
-                        append(word.text)
-                    }
-                    if (i < words.lastIndex) {
-                        append(" ")
-                    }
-                }
-            } else {
-                withStyle(
-                    SpanStyle(
-                        color = if (isBackground) textColor.copy(alpha = 0.7f) else textColor,
-                        fontWeight = if (isActive) FontWeight.ExtraBold else FontWeight.Bold,
-                        fontStyle = if (isBackground) androidx.compose.ui.text.font.FontStyle.Italic else androidx.compose.ui.text.font.FontStyle.Normal
-                    )
-                ) {
-                    append(cleanDisplayText)
-                }
-            }
-        }
-    }
 
     Column(
         modifier = itemModifier,
@@ -211,36 +157,69 @@ fun LyricsLine(
                     LyricsPosition.RIGHT -> Alignment.CenterEnd
                 }
             ) {
-                val pulse = pulseProgress.value
-                val pulseEffect = (sin(pulse * Math.PI.toFloat()) * 0.15f).coerceIn(0f, 0.15f)
-                
+                LaunchedEffect(fillProgress.value, pulseProgress.value) {
+                    launch {
+                        val fill = fillProgress.value
+                        val pulse = pulseProgress.value
+                        val pulseEffect = (sin(pulse * Math.PI.toFloat()) * 0.15f).coerceIn(0f, 0.15f)
+                        val glowIntensity = (fill + pulseEffect).coerceIn(0f, 1.2f)
+
+                        val glowBrush = Brush.horizontalGradient(
+                            0.0f to textColor.copy(alpha = 0.3f),
+                            (fill * 0.7f).coerceIn(0f, 1f) to textColor.copy(alpha = 0.9f),
+                            fill to textColor,
+                            (fill + 0.1f).coerceIn(0f, 1f) to textColor.copy(alpha = 0.7f),
+                            1.0f to textColor.copy(alpha = if (fill >= 1f) 1f else 0.3f)
+                        )
+
+                        val styledText = buildAnnotatedString {
+                            withStyle(
+                                style = SpanStyle(
+                                    shadow = androidx.compose.ui.graphics.Shadow(
+                                        color = textColor.copy(alpha = 0.8f * glowIntensity),
+                                        offset = Offset(0f, 0f),
+                                        blurRadius = 28f * (1f + pulseEffect)
+                                    ),
+                                    brush = glowBrush
+                                )
+                            ) {
+                                append(entry.text)
+                            }
+                        }
+
+                        val bounceScale = if (fill < 0.3f) {
+                            1f + (sin(fill * 3.33f * Math.PI.toFloat()) * 0.03f)
+                        } else {
+                            1f
+                        }
+                    }
+                }
+
                 Text(
-                    text = annotatedText,
+                    text = entry.text,
                     fontSize = textSize.sp,
                     textAlign = when (lyricsTextPosition) {
                         LyricsPosition.LEFT -> TextAlign.Left
                         LyricsPosition.CENTER -> TextAlign.Center
                         LyricsPosition.RIGHT -> TextAlign.Right
                     },
-                    style = TextStyle(
-                        shadow = androidx.compose.ui.graphics.Shadow(
-                            color = textColor.copy(alpha = 0.4f),
-                            offset = Offset(0f, 0f),
-                            blurRadius = 14f * (1f + pulseEffect)
-                        )
-                    ),
+                    fontWeight = FontWeight.ExtraBold,
+                    color = textColor,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
         } else {
+            // Línea inactiva
             Text(
-                text = annotatedText,
+                text = entry.text,
                 fontSize = textSize.sp,
+                color = textColor.copy(alpha = if (isSynced) 0.7f else 1f),
                 textAlign = when (lyricsTextPosition) {
                     LyricsPosition.LEFT -> TextAlign.Left
                     LyricsPosition.CENTER -> TextAlign.Center
                     LyricsPosition.RIGHT -> TextAlign.Right
                 },
+                fontWeight = FontWeight.Bold,
                 modifier = Modifier.fillMaxWidth()
             )
         }
