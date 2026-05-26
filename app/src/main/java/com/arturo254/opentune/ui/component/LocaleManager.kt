@@ -70,8 +70,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -89,6 +87,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.os.ConfigurationCompat
 import androidx.core.os.LocaleListCompat
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import com.arturo254.opentune.R
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -97,7 +97,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import java.util.Locale
 import timber.log.Timber
 
-/** Modelo de datos para representar un idioma */
+/** Data model to represent a language */
 data class LanguageItem(
     val code: String,
     val displayName: String,
@@ -107,21 +107,22 @@ data class LanguageItem(
     val flag: String = ""
 )
 
-/** Estado de completitud de las traducciones */
+/** Translation completion status */
 enum class CompletionStatus(val label: String, val color: @Composable () -> Color) {
     COMPLETE("", { Color.Transparent }),
-    INCOMPLETE("Incompleta", { MaterialTheme.colorScheme.tertiary }),
+    INCOMPLETE("Incomplete", { MaterialTheme.colorScheme.tertiary }),
     BETA("Beta", { MaterialTheme.colorScheme.primary }),
     EXPERIMENTAL("Exp", { MaterialTheme.colorScheme.secondary })
 }
 
-/** Estados de la operación de cambio de idioma */
+/** States of the language change operation */
 sealed class LanguageChangeState {
     object Idle : LanguageChangeState()
     object Changing : LanguageChangeState()
     object Success : LanguageChangeState()
     data class Error(val message: String) : LanguageChangeState()
 }
+
 class LocaleManager private constructor(private val context: Context) {
 
     companion object {
@@ -141,7 +142,7 @@ class LocaleManager private constructor(private val context: Context) {
             }
         }
 
-        // Mapeo de banderas y estados de traducción
+        // Flag and translation state mapping
         private val LANGUAGE_METADATA = mapOf(
             "en" to LanguageMetadata("🇺🇸", CompletionStatus.COMPLETE),
             "es" to LanguageMetadata("🇪🇸", CompletionStatus.COMPLETE),
@@ -206,13 +207,14 @@ class LocaleManager private constructor(private val context: Context) {
 
                 formatLocaleCode(systemLocale)
             } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "Error obteniendo idioma del sistema")
+                Timber.tag(TAG).e(e, "Error getting system language")
                 "en"
             }
             _cachedSystemLanguage = systemCode
             systemCode
         }
     }
+
     private fun detectAvailableLanguages(): List<String> {
         val availableLocales = mutableSetOf<String>()
 
@@ -230,7 +232,7 @@ class LocaleManager private constructor(private val context: Context) {
                 val pm = context.packageManager
                 val res = pm.getResourcesForApplication(context.packageName)
 
-                // Intentar detectar mediante configuraciones disponibles
+                // Attempt to detect using available configurations
                 val configs = res.assets.locales
                 configs.forEach { locale ->
                     if (locale.isNotEmpty()) {
@@ -253,10 +255,10 @@ class LocaleManager private constructor(private val context: Context) {
                 }
             }
 
-            Timber.tag(TAG).d("Idiomas detectados: $availableLocales")
+            Timber.tag(TAG).d("Detected languages: $availableLocales")
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error detectando idiomas disponibles")
-            // Fallback al idioma por defecto
+            Timber.tag(TAG).e(e, "Error detecting available languages")
+            // Fallback to default language
             availableLocales.add("en")
         }
 
@@ -264,7 +266,7 @@ class LocaleManager private constructor(private val context: Context) {
     }
 
     /**
-     * Verifica si existen traducciones para un locale específico
+     * Verifies if translations exist for a specific locale
      */
     private fun hasTranslationsForLocale(localeCode: String): Boolean {
         return try {
@@ -280,7 +282,7 @@ class LocaleManager private constructor(private val context: Context) {
             val localizedContext = context.createConfigurationContext(config)
             val localizedResources = localizedContext.resources
 
-            // Intentar obtener un string básico para verificar
+            // Try to get a basic string to verify
             try {
                 val appName = localizedResources.getString(R.string.app_name)
                 true
@@ -312,7 +314,7 @@ class LocaleManager private constructor(private val context: Context) {
     }
 
     /**
-     * Convierte código de locale a Locale
+     * Converts a locale code to Locale
      */
     private fun parseLocaleCode(code: String): Locale {
         return when {
@@ -337,7 +339,7 @@ class LocaleManager private constructor(private val context: Context) {
 
             val languages = mutableListOf<LanguageItem>()
 
-            // Agregar opción de sistema
+            // Add system option
             val systemDisplayName = try {
                 val locale = parseLocaleCode(systemLanguageCode)
                 locale.displayLanguage.replaceFirstChar { it.uppercase() }
@@ -348,7 +350,7 @@ class LocaleManager private constructor(private val context: Context) {
             languages.add(
                 LanguageItem(
                     code = SYSTEM_DEFAULT,
-                    displayName = "Sistema ($systemDisplayName)",
+                    displayName = "System ($systemDisplayName)",
                     nativeName = systemDisplayName,
                     completionStatus = CompletionStatus.COMPLETE,
                     isSystemDefault = true,
@@ -356,7 +358,7 @@ class LocaleManager private constructor(private val context: Context) {
                 )
             )
 
-            // Agregar idiomas detectados
+            // Add detected languages
             availableLocaleCodes.forEach { localeCode ->
                 try {
                     val locale = parseLocaleCode(localeCode)
@@ -365,7 +367,7 @@ class LocaleManager private constructor(private val context: Context) {
                     val nativeName = locale.getDisplayLanguage(locale)
                         .replaceFirstChar { it.uppercase() }
 
-                    // Obtener metadata (bandera y estado)
+                    // Get metadata (flag and status)
                     val metadata = LANGUAGE_METADATA[localeCode]
                         ?: LanguageMetadata("🌍", CompletionStatus.COMPLETE)
 
@@ -380,11 +382,11 @@ class LocaleManager private constructor(private val context: Context) {
                         )
                     )
                 } catch (e: Exception) {
-                    Timber.tag(TAG).e(e, "Error procesando locale: $localeCode")
+                    Timber.tag(TAG).e(e, "Error processing locale: $localeCode")
                 }
             }
 
-            // Ordenar por: sistema primero, luego completos, luego alfabéticamente
+            // Sort by: system first, then complete, then alphabetically
             val sorted = languages.sortedWith(
                 compareBy<LanguageItem> { !it.isSystemDefault }
                     .thenBy { it.completionStatus.ordinal }
@@ -403,7 +405,7 @@ class LocaleManager private constructor(private val context: Context) {
 
         return try {
             _changeState.value = LanguageChangeState.Changing
-            Timber.tag(TAG).d("Cambiando idioma a: $languageCode")
+            Timber.tag(TAG).d("Changing language to: $languageCode")
 
             delay(ANIMATION_DELAY)
 
@@ -412,7 +414,7 @@ class LocaleManager private constructor(private val context: Context) {
             val saved = editor.commit()
 
             if (!saved) {
-                throw Exception("No se pudo guardar la preferencia")
+                throw Exception("Could not save preference")
             }
 
             _currentLanguage.value = languageCode
@@ -429,11 +431,11 @@ class LocaleManager private constructor(private val context: Context) {
             _changeState.value = LanguageChangeState.Success
 
             Timber.tag(TAG)
-                .d("Idioma actualizado: $languageCode (efectivo: $effectiveLanguageCode)")
+                .d("Language updated: $languageCode (effective: $effectiveLanguageCode)")
             true
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error actualizando idioma a $languageCode")
-            _changeState.value = LanguageChangeState.Error(e.message ?: "Error desconocido")
+            Timber.tag(TAG).e(e, "Error updating language to $languageCode")
+            _changeState.value = LanguageChangeState.Error(e.message ?: "Unknown error")
             false
         }
     }
@@ -460,7 +462,7 @@ class LocaleManager private constructor(private val context: Context) {
             @Suppress("DEPRECATION")
             context.resources.updateConfiguration(config, context.resources.displayMetrics)
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error aplicando configuración de idioma")
+            Timber.tag(TAG).e(e, "Error applying language configuration")
         }
     }
 
@@ -488,7 +490,7 @@ class LocaleManager private constructor(private val context: Context) {
                 baseContext
             }
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error aplicando idioma al contexto")
+            Timber.tag(TAG).e(e, "Error applying language to context")
             baseContext
         }
     }
@@ -510,7 +512,7 @@ class LocaleManager private constructor(private val context: Context) {
                 }, RESTART_DELAY)
             }
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error reiniciando aplicación")
+            Timber.tag(TAG).e(e, "Error restarting application")
         }
     }
 
@@ -519,7 +521,7 @@ class LocaleManager private constructor(private val context: Context) {
     }
 }
 
-// Los composables permanecen igual...
+// Composables remain the same...
 // (LanguageSelector, SearchBar, ChangeStateIndicator, etc.)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -716,7 +718,7 @@ private fun SearchBar(
                 decorationBox = { innerTextField ->
                     if (query.isEmpty()) {
                         Text(
-                            text = "Buscar idioma...",
+                            text = "Search language...",
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -736,7 +738,7 @@ private fun SearchBar(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Clear,
-                        contentDescription = "Limpiar búsqueda",
+                        contentDescription = "Clear search",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp)
                     )
@@ -765,7 +767,7 @@ private fun ChangeStateIndicator(
             )
             Spacer(modifier = Modifier.width(12.dp))
             Text(
-                text = "Aplicando...",
+                text = "Applying...",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -778,7 +780,7 @@ private fun ChangeStateIndicator(
             )
             Spacer(modifier = Modifier.width(12.dp))
             Text(
-                text = "Reiniciando...",
+                text = "Restarting...",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -795,12 +797,12 @@ private fun EmptySearchResult(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Sin resultados",
+            text = "No results",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
-            text = "Prueba con otro término",
+            text = "Try another term",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             modifier = Modifier.padding(top = 4.dp)
@@ -847,7 +849,7 @@ private fun LanguageItem(
                 .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Bandera
+            // Flag
             Text(
                 text = language.flag,
                 style = MaterialTheme.typography.headlineMedium,
@@ -857,7 +859,7 @@ private fun LanguageItem(
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            // Información
+            // Information
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = language.displayName,
@@ -890,7 +892,7 @@ private fun LanguageItem(
                 }
             }
 
-            // Badge de estado
+            // Status badge
             if (language.completionStatus != CompletionStatus.COMPLETE) {
                 val statusColor = language.completionStatus.color()
 
@@ -1045,7 +1047,7 @@ abstract class LocaleAwareApplication : android.app.Application() {
             val updatedContext = LocaleManager.getInstance(base).applyLocaleToContext(base)
             super.attachBaseContext(updatedContext)
         } catch (e: Exception) {
-            Timber.tag("LocaleAwareApplication").e(e, "Error aplicando idioma")
+            Timber.tag("LocaleAwareApplication").e(e, "Error applying language")
             super.attachBaseContext(base)
         }
     }
@@ -1054,9 +1056,9 @@ abstract class LocaleAwareApplication : android.app.Application() {
         super.onCreate()
         try {
             localeManager
-            Timber.tag("LocaleAwareApplication").d("LocaleManager inicializado")
+            Timber.tag("LocaleAwareApplication").d("LocaleManager initialized")
         } catch (e: Exception) {
-            Timber.tag("LocaleAwareApplication").e(e, "Error inicializando LocaleManager")
+            Timber.tag("LocaleAwareApplication").e(e, "Error initializing LocaleManager")
         }
     }
 
@@ -1065,4 +1067,3 @@ abstract class LocaleAwareApplication : android.app.Application() {
         localeManager.clearCache()
     }
 }
-
