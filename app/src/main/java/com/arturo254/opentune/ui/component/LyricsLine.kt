@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameMillis
@@ -64,6 +65,7 @@ import com.arturo254.opentune.lyrics.WordTimestamp
 import com.arturo254.opentune.playback.PlayerConnection
 import com.arturo254.opentune.ui.screens.settings.LyricsPosition
 import com.arturo254.opentune.utils.rememberPreference
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.PI
@@ -127,8 +129,59 @@ fun LyricsLine(
     val (appleMusicLyricsBlur) = rememberPreference(AppleMusicLyricsBlurKey, true)
     val playerConnection = LocalPlayerConnection.current ?: return
 
+    val mainText = if (entry.isBackground) entry.text.removePrefix("(").removeSuffix(")") else entry.text
+
+    val effectiveWords = if (entry.words?.isNotEmpty() == true) {
+        entry.words
+    } else if (mainText.isNotBlank()) {
+        remember(mainText, entry.time) {
+            val words = mainText.split(Regex("\\s+")).filter { it.isNotBlank() }
+            val wordDurationSec = 0.18
+            val wordStaggerSec = 0.03
+            val startTimeSec = entry.time / 1000.0
+            words.mapIndexed { idx, wordText ->
+                WordTimestamp(
+                    text = wordText,
+                    startTime = startTimeSec + (idx * wordStaggerSec),
+                    endTime = startTimeSec + (idx * wordStaggerSec) + wordDurationSec,
+                    hasTrailingSpace = idx < words.size - 1
+                )
+            }
+        }
+    } else null
+
+    val endTimeMs = remember(effectiveWords, entry.time) {
+        if (effectiveWords?.isNotEmpty() == true) {
+            (effectiveWords.last().endTime * 1000).toLong()
+        } else {
+            entry.time + 3000L
+        }
+    }
+
+    var isCurrentlyPlaying by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isSynced, entry.time, endTimeMs) {
+        if (isSynced) {
+            while (isActive) {
+                val currentPos = playerConnection.player.currentPosition
+                // Use a small buffer to anticipate the line popping into focus seamlessly
+                val playing = currentPos in (entry.time - 350)..endTimeMs
+                if (isCurrentlyPlaying != playing) {
+                    isCurrentlyPlaying = playing
+                }
+                delay(50)
+            }
+        } else {
+            isCurrentlyPlaying = false
+        }
+    }
+
+    // A line is "active" if it's the exact scroll center OR currently playing according to its timestamps
+    val effectivelyActive = isActive || isCurrentlyPlaying
+    val isTracking = effectivelyActive || distanceFromCurrent <= 3
+
     val blurRadius by animateFloatAsState(
-        targetValue = if (!appleMusicLyricsBlur || !isAutoScrollActive || isActive || !isSynced || isSelectionModeActive)
+        targetValue = if (!appleMusicLyricsBlur || !isAutoScrollActive || effectivelyActive || !isSynced || isSelectionModeActive)
             0f
         else
             6f,
@@ -138,7 +191,7 @@ fun LyricsLine(
 
     val animatedScale by animateFloatAsState(
         targetValue = when {
-            !isSynced || isActive -> 1.05f
+            !isSynced || effectivelyActive -> 1.05f
             distanceFromCurrent == 1 -> 1f
             else -> 0.95f
         },
@@ -149,7 +202,7 @@ fun LyricsLine(
     val animatedAlpha by animateFloatAsState(
         targetValue = when {
             !isSynced || (isSelectionModeActive && isSelected) -> 1f
-            isActive -> 1f
+            effectivelyActive -> 1f
             distanceFromCurrent == 1 -> 0.7f
             distanceFromCurrent == 2 -> 0.4f
             else -> 0.2f
@@ -210,7 +263,7 @@ fun LyricsLine(
         val inactiveAlpha = if (entry.isBackground) 0.08f else 0.2f
         val activeAlpha = 1f
         val focusedAlpha = if (entry.isBackground) 0.5f else 0.3f
-        val targetAlpha = if (!isSynced || entry.isBackground || isActive) {
+        val targetAlpha = if (!isSynced || entry.isBackground || effectivelyActive) {
             activeAlpha
         } else if (isAutoScrollActive) {
             when (distanceFromCurrent) {
@@ -221,8 +274,6 @@ fun LyricsLine(
 
         val lineAlpha by animateFloatAsState(targetAlpha, tween(250), label = "lyricsLineAlpha")
         val lineColor = textColor.copy(alpha = if (entry.isBackground) focusedAlpha else lineAlpha)
-
-        val mainText = if (entry.isBackground) entry.text.removePrefix("(").removeSuffix(")") else entry.text
 
         val lyricStyle = TextStyle(
             fontSize = if (entry.isBackground) (textSize * 0.7f).sp else textSize.sp,
@@ -238,27 +289,6 @@ fun LyricsLine(
                 trim = LineHeightStyle.Trim.Both
             )
         )
-
-        val effectiveWords = if (entry.words?.isNotEmpty() == true) {
-            entry.words
-        } else if (mainText.isNotBlank()) {
-            remember(mainText, entry.time) {
-                val words = mainText.split(Regex("\\s+")).filter { it.isNotBlank() }
-                val wordDurationSec = 0.18
-                val wordStaggerSec = 0.03
-                val startTimeSec = entry.time / 1000.0
-                words.mapIndexed { idx, wordText ->
-                    WordTimestamp(
-                        text = wordText,
-                        startTime = startTimeSec + (idx * wordStaggerSec),
-                        endTime = startTimeSec + (idx * wordStaggerSec) + wordDurationSec,
-                        hasTrailingSpace = idx < words.size - 1
-                    )
-                }
-            }
-        } else null
-
-        val isTracking = isActive || distanceFromCurrent <= 3
 
         if (isSynced && effectiveWords != null && isTracking && mainText.isNotBlank()) {
             WordLevelLyrics(
@@ -276,7 +306,7 @@ fun LyricsLine(
                 entryTime = entry.time
             )
         } else {
-            if (isActive && isSynced) {
+            if (effectivelyActive && isSynced) {
                 val fillProgress = remember { Animatable(0f) }
                 val pulseProgress = remember { Animatable(0f) }
 
@@ -554,7 +584,7 @@ private fun WordLevelLyrics(
                         Triple(sungFactor, isWordSung, isWordActive)
                     }
 
-                    drawText(layoutResult, color = lineColor.copy(alpha = focusedAlpha))
+                    drawText(layoutResult, color = lineColor.copy(alpha = lineColor.alpha))
 
                     effectiveWords.indices.forEach { wIdx ->
                         val (sungFactor, isWordSung, isWordActive) = wordFactors[wIdx]
@@ -584,7 +614,7 @@ private fun WordLevelLyrics(
                                 }
                             } else if (isWordActive && sungFactor > 0f) {
                                 clipRect(left = left, top = top, right = right, bottom = bottom) {
-                                    drawText(layoutResult, color = expressiveAccent.copy(alpha = focusedAlpha + (1f - focusedAlpha) * sungFactor))
+                                    drawText(layoutResult, color = expressiveAccent.copy(alpha = lineColor.alpha + (1f - lineColor.alpha) * sungFactor))
                                 }
                             }
                         }
@@ -783,8 +813,8 @@ private fun WordLevelLyrics(
                                 }
                             }
                         }
-                        val baseAlpha = if (isWordSung || charLp > 0.99f) 1f else (focusedAlpha + (1f - focusedAlpha) * sungFactor)
-                        drawText(letterLayouts[i], color = expressiveAccent.copy(alpha = if (wordIdx == -1) focusedAlpha else baseAlpha))
+                        val baseAlpha = if (isWordSung || charLp > 0.99f) 1f else (lineColor.alpha + (1f - lineColor.alpha) * sungFactor)
+                        drawText(letterLayouts[i], color = expressiveAccent.copy(alpha = if (wordIdx == -1) lineColor.alpha else baseAlpha))
                         if (!isWordSung && charLp > 0f && charLp < 1f) {
                             val fXL = charBounds.width * charLp
                             val eW = (charBounds.width * 0.45f).coerceAtLeast(1f)
