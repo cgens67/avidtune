@@ -1,11 +1,12 @@
 plugins {
     id("com.android.library")
+    kotlin("android")
     alias(libs.plugins.kotlin.serialization)
 }
 
 android {
     namespace = "com.metrolist.betterlyrics"
-    compileSdk = 37
+    compileSdk = 35
 
     defaultConfig {
         minSdk = 26
