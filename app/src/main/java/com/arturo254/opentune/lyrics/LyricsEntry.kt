@@ -1,18 +1,9 @@
 package com.arturo254.opentune.lyrics
 
-data class WordTimestamp(
-    val text: String,
-    val startTime: Double,
-    val endTime: Double,
-    val hasTrailingSpace: Boolean = true
-)
-
 data class LyricsEntry(
     val time: Long,
     val text: String,
-    val words: List<WordTimestamp> = emptyList(),
-    val isBackground: Boolean = false,
-    val agent: String? = null
+    val words: List<LyricsWord>? = null
 ) : Comparable<LyricsEntry> {
     override fun compareTo(other: LyricsEntry): Int = (time - other.time).toInt()
 
