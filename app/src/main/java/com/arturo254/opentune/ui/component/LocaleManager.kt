@@ -149,8 +149,8 @@ class LocaleManager private constructor(private val context: Context) {
             "fr" to LanguageMetadata("🇫🇷", CompletionStatus.COMPLETE),
             "de" to LanguageMetadata("🇩🇪", CompletionStatus.COMPLETE),
             "it" to LanguageMetadata("🇮🇹", CompletionStatus.COMPLETE),
-            "pt" to LanguageMetadata("🇧🇷", CompletionStatus.COMPLETE), // In OpenTune 'pt' is Brazilian Portuguese
-            "pt-PT" to LanguageMetadata("🇵🇹", CompletionStatus.COMPLETE), // 'pt-PT' is Portugal
+            "pt" to LanguageMetadata("🇧🇷", CompletionStatus.COMPLETE),
+            "pt-PT" to LanguageMetadata("🇵🇹", CompletionStatus.COMPLETE),
             "ru" to LanguageMetadata("🇷🇺", CompletionStatus.COMPLETE),
             "zh-CN" to LanguageMetadata("🇨🇳", CompletionStatus.COMPLETE),
             "zh-TW" to LanguageMetadata("🇹🇼", CompletionStatus.COMPLETE),
@@ -216,9 +216,8 @@ class LocaleManager private constructor(private val context: Context) {
     }
 
     private fun detectAvailableLanguages(): List<String> {
-        // Use the explicit translations list defined in LanguageCodeToName map 
-        // to prevent Android from including 100+ unwanted/duplicate library locales.
-        return LanguageCodeToName.keys.toList()
+        // Return STRICTLY the languages defined in your curated LANGUAGE_METADATA map
+        return LANGUAGE_METADATA.keys.toList()
     }
 
     private fun formatLocaleCode(locale: Locale): String {
@@ -293,7 +292,9 @@ class LocaleManager private constructor(private val context: Context) {
                         .replaceFirstChar { it.uppercase() }
                     
                     // Directly use our mapped Native Name to prevent System guesswork
-                    val nativeName = LanguageCodeToName[localeCode]
+                    // Map "he" back to "iw" for proper lookup in LanguageCodeToName if needed
+                    val lookupCode = if (localeCode == "he") "iw" else localeCode
+                    val nativeName = LanguageCodeToName[lookupCode]
                         ?: locale.getDisplayLanguage(locale).replaceFirstChar { it.uppercase() }
 
                     // Get metadata (flag and status)
