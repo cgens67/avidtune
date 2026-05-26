@@ -224,11 +224,12 @@ fun LyricsLine(
 
         val mainText = if (entry.isBackground) entry.text.removePrefix("(").removeSuffix(")") else entry.text
 
+        // FIXED: LineHeight now uses a standard 1.3 multiplier instead of the padding parameter
         val lyricStyle = TextStyle(
             fontSize = if (entry.isBackground) (textSize * 0.7f).sp else textSize.sp,
             fontWeight = FontWeight.Bold,
             fontStyle = if (entry.isBackground) FontStyle.Italic else FontStyle.Normal,
-            lineHeight = if (entry.isBackground) (textSize * 0.7f * lineSpacing).sp else (textSize * lineSpacing).sp,
+            lineHeight = if (entry.isBackground) (textSize * 0.7f * 1.3f).sp else (textSize * 1.3f).sp,
             letterSpacing = (-0.5).sp,
             textAlign = agentTextAlign,
             fontFamily = MaterialTheme.typography.bodyLarge.fontFamily,
