@@ -108,6 +108,7 @@ import com.arturo254.opentune.ui.menu.YouTubeSongMenu
 import com.arturo254.opentune.ui.utils.ItemWrapper
 import com.arturo254.opentune.utils.rememberPreference
 import com.arturo254.opentune.viewmodels.OnlinePlaylistViewModel
+import com.arturo254.opentune.ui.utils.resize
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -231,7 +232,7 @@ fun OnlinePlaylistScreen(
                                                 .fillMaxWidth(),
                                         ) {
                                             AsyncImage(
-                                                model = playlist.thumbnail,
+                                                model = playlist.thumbnail.resize(1200, 1200),
                                                 contentDescription = null,
                                                 modifier = Modifier
                                                     .fillMaxWidth()
