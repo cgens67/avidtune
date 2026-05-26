@@ -1,57 +1,25 @@
 package com.arturo254.opentune.lyrics
 
 import android.text.format.DateUtils
+import com.arturo254.opentune.ui.component.ANIMATE_SCROLL_DURATION
 
 @Suppress("RegExpRedundantEscape")
 object LyricsUtils {
     val LINE_REGEX = "((\\[\\d\\d:\\d\\d\\.\\d{2,3}\\] ?)+)(.+)".toRegex()
     val TIME_REGEX = "\\[(\\d\\d):(\\d\\d)\\.(\\d{2,3})\\]".toRegex()
 
-    fun parseLyrics(lyrics: String): List<LyricsEntry> {
-        val lines = lyrics.lines()
-        val entries = mutableListOf<LyricsEntry>()
-        var lastEntry: LyricsEntry? = null
+    fun parseLyrics(lyrics: String): List<LyricsEntry> =
+        lyrics
+            .lines()
+            .flatMap { line ->
+                parseLine(line).orEmpty()
+            }.sorted()
 
-        for (line in lines) {
-            val trimmed = line.trim()
-            if (trimmed.startsWith("<") && trimmed.endsWith(">") && lastEntry != null) {
-                val wordContent = trimmed.substring(1, trimmed.length - 1)
-                val words = parseWordTimings(wordContent)
-                if (words.isNotEmpty()) {
-                    entries.removeAt(entries.lastIndex)
-                    val updatedEntry = lastEntry.copy(words = words)
-                    entries.add(updatedEntry)
-                    lastEntry = updatedEntry
-                }
-            } else {
-                val parsed = parseLine(line)
-                if (parsed.isNotEmpty()) {
-                    entries.addAll(parsed)
-                    lastEntry = parsed.last()
-                }
-            }
+    private fun parseLine(line: String): List<LyricsEntry>? {
+        if (line.isEmpty()) {
+            return null
         }
-        return entries.sorted()
-    }
-
-    private fun parseWordTimings(content: String): List<LyricsWord> {
-        return content.split('|').mapNotNull { segment ->
-            val parts = segment.split(':')
-            if (parts.size >= 3) {
-                val text = parts[0]
-                val startSec = parts[1].toDoubleOrNull() ?: return@mapNotNull null
-                val endSec = parts[2].toDoubleOrNull() ?: return@mapNotNull null
-                LyricsWord(
-                    text = text,
-                    startTime = (startSec * 1000).toLong(),
-                    endTime = (endSec * 1000).toLong()
-                )
-            } else null
-        }
-    }
-
-    fun parseLine(line: String): List<LyricsEntry> {
-        val matchResult = LINE_REGEX.matchEntire(line.trim()) ?: return emptyList()
+        val matchResult = LINE_REGEX.matchEntire(line.trim()) ?: return null
         val times = matchResult.groupValues[1]
         val text = matchResult.groupValues[3]
         val timeMatchResults = TIME_REGEX.findAll(times)
@@ -75,7 +43,7 @@ object LyricsUtils {
         position: Long,
     ): Int {
         for (index in lines.indices) {
-            if (lines[index].time >= position + 300L) {
+            if (lines[index].time >= position + ANIMATE_SCROLL_DURATION) {
                 return index - 1
             }
         }
