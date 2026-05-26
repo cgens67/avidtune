@@ -40,6 +40,7 @@ import com.arturo254.opentune.LocalPlayerConnection
 import com.arturo254.opentune.R
 import com.arturo254.opentune.constants.*
 import com.arturo254.opentune.ui.component.AppConfig
+import com.arturo254.opentune.ui.utils.resize
 import com.arturo254.opentune.utils.rememberEnumPreference
 import com.arturo254.opentune.utils.rememberPreference
 import kotlinx.coroutines.delay
@@ -193,13 +194,13 @@ fun Thumbnail(
                                     ) {
                                         AsyncImage(
                                             model = ImageRequest.Builder(LocalContext.current)
-                                                .data(item.mediaMetadata.artworkUri?.toString())
+                                                .data(item.mediaMetadata.artworkUri?.toString()?.resize(1200, 1200))
                                                 .memoryCachePolicy(CachePolicy.ENABLED)
                                                 .diskCachePolicy(CachePolicy.ENABLED)
                                                 .networkCachePolicy(CachePolicy.ENABLED)
                                                 .build(),
                                             contentDescription = null,
-                                            contentScale = ContentScale.Fit,
+                                            contentScale = ContentScale.Crop,
                                             modifier = Modifier.fillMaxSize()
                                         )
                                     }
