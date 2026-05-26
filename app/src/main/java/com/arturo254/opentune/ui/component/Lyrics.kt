@@ -50,6 +50,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
@@ -151,6 +152,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.saket.squiggles.SquigglySlider
 import kotlin.math.absoluteValue
+import kotlin.math.exp
 import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.seconds
 
@@ -1351,7 +1353,7 @@ fun Lyrics(
     }
 
     if (showProgressDialog) {
-        BasicAlertDialog(onDismissRequest = { }) {
+        BasicAlertDialog(onDismissRequest = { /* No permitir cerrar */ }) {
             Card(
                 shape = MaterialTheme.shapes.medium,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -1381,5 +1383,131 @@ fun Lyrics(
     }
 }
 
+@SuppressLint("LocalContextGetResourceValueCall")
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ShareLyricsDialog(
+    lyricsText: String,
+    songTitle: String,
+    artists: String,
+    mediaMetadata: com.arturo254.opentune.models.MediaMetadata?,
+    onDismiss: () -> Unit,
+    onShareAsImage: (String, String, String) -> Unit = { _, _, _ -> }
+) {
+    val context = LocalContext.current
+
+    BasicAlertDialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(20.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface,
+            ),
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(0.85f)
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Text(
+                    text = stringResource(R.string.share_lyrics),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Share as text
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            val shareIntent = Intent().apply {
+                                action = Intent.ACTION_SEND
+                                type = "text/plain"
+                                val songLink =
+                                    "https://music.youtube.com/watch?v=${mediaMetadata?.id}"
+                                putExtra(
+                                    Intent.EXTRA_TEXT,
+                                    "\"$lyricsText\"\n\n$songTitle - $artists\n$songLink"
+                                )
+                            }
+                            context.startActivity(
+                                Intent.createChooser(
+                                    shareIntent,
+                                    context.getString(R.string.share_lyrics)
+                                )
+                            )
+                            onDismiss()
+                        }
+                        .padding(vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.media3_icon_share),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = stringResource(R.string.share_as_text),
+                        fontSize = 16.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                // Share as image
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            onShareAsImage(lyricsText, songTitle, artists)
+                        }
+                        .padding(vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.media3_icon_share),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = stringResource(R.string.share_as_image),
+                        fontSize = 16.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                // Cancel button
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp, bottom = 4.dp),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    Text(
+                        text = stringResource(R.string.cancel),
+                        fontSize = 16.sp,
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier
+                            .clickable { onDismiss() }
+                            .padding(vertical = 8.dp, horizontal = 12.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+
+/**
+ * Calculates the auto-swipe threshold based on swipe sensitivity.
+ */
+private fun calculateAutoSwipeThreshold(swipeSensitivity: Float): Int {
+    return (600 / (1f + exp(-(-11.44748 * swipeSensitivity + 9.04945)))).roundToInt()
+}
+
+// Preview time constant
 val LyricsPreviewTime = 2.seconds
 const val ANIMATE_SCROLL_DURATION = 300L
