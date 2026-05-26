@@ -11,7 +11,6 @@ import android.os.Build
 import android.os.Handler
 import android.os.LocaleList
 import android.os.Looper
-import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
@@ -90,6 +89,7 @@ import androidx.core.os.LocaleListCompat
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import com.arturo254.opentune.R
+import com.arturo254.opentune.constants.LanguageCodeToName
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -149,11 +149,11 @@ class LocaleManager private constructor(private val context: Context) {
             "fr" to LanguageMetadata("🇫🇷", CompletionStatus.COMPLETE),
             "de" to LanguageMetadata("🇩🇪", CompletionStatus.COMPLETE),
             "it" to LanguageMetadata("🇮🇹", CompletionStatus.COMPLETE),
-            "pt-rBR" to LanguageMetadata("🇧🇷", CompletionStatus.COMPLETE),
-            "pt" to LanguageMetadata("🇵🇹", CompletionStatus.COMPLETE),
+            "pt" to LanguageMetadata("🇧🇷", CompletionStatus.COMPLETE), // In OpenTune 'pt' is Brazilian Portuguese
+            "pt-PT" to LanguageMetadata("🇵🇹", CompletionStatus.COMPLETE), // 'pt-PT' is Portugal
             "ru" to LanguageMetadata("🇷🇺", CompletionStatus.COMPLETE),
-            "zh-rCN" to LanguageMetadata("🇨🇳", CompletionStatus.COMPLETE),
-            "zh-rTW" to LanguageMetadata("🇹🇼", CompletionStatus.COMPLETE),
+            "zh-CN" to LanguageMetadata("🇨🇳", CompletionStatus.COMPLETE),
+            "zh-TW" to LanguageMetadata("🇹🇼", CompletionStatus.COMPLETE),
             "ja" to LanguageMetadata("🇯🇵", CompletionStatus.COMPLETE),
             "ko" to LanguageMetadata("🇰🇷", CompletionStatus.COMPLETE),
             "ar" to LanguageMetadata("🇸🇦", CompletionStatus.BETA),
@@ -216,84 +216,10 @@ class LocaleManager private constructor(private val context: Context) {
     }
 
     private fun detectAvailableLanguages(): List<String> {
-        val availableLocales = mutableSetOf<String>()
-
-        try {
-            val assetManager = context.assets
-            val locales = assetManager.locales
-
-            locales.forEach { localeString ->
-                if (localeString.isNotEmpty()) {
-                    availableLocales.add(localeString)
-                }
-            }
-
-            if (availableLocales.isEmpty()) {
-                val pm = context.packageManager
-                val res = pm.getResourcesForApplication(context.packageName)
-
-                // Attempt to detect using available configurations
-                val configs = res.assets.locales
-                configs.forEach { locale ->
-                    if (locale.isNotEmpty()) {
-                        availableLocales.add(locale)
-                    }
-                }
-            }
-
-            if (availableLocales.isEmpty()) {
-                val commonLocales = listOf(
-                    "en", "es", "fr", "de", "it", "pt", "pt-rBR",
-                    "ru", "zh-rCN", "zh-rTW", "ja", "ko", "ar",
-                    "hi", "th", "vi", "tr", "pl", "nl", "id", "uk", "he"
-                )
-
-                commonLocales.forEach { localeCode ->
-                    if (hasTranslationsForLocale(localeCode)) {
-                        availableLocales.add(localeCode)
-                    }
-                }
-            }
-
-            Timber.tag(TAG).d("Detected languages: $availableLocales")
-        } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error detecting available languages")
-            // Fallback to default language
-            availableLocales.add("en")
-        }
-
-        return availableLocales.toList()
+        // Use the explicit translations list defined in LanguageCodeToName map 
+        // to prevent Android from including 100+ unwanted/duplicate library locales.
+        return LanguageCodeToName.keys.toList()
     }
-
-    /**
-     * Verifies if translations exist for a specific locale
-     */
-    private fun hasTranslationsForLocale(localeCode: String): Boolean {
-        return try {
-            val locale = parseLocaleCode(localeCode)
-            val config = Configuration(context.resources.configuration)
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                config.setLocale(locale)
-            } else {
-                config.locale = locale
-            }
-
-            val localizedContext = context.createConfigurationContext(config)
-            val localizedResources = localizedContext.resources
-
-            // Try to get a basic string to verify
-            try {
-                val appName = localizedResources.getString(R.string.app_name)
-                true
-            } catch (e: Resources.NotFoundException) {
-                false
-            }
-        } catch (e: Exception) {
-            false
-        }
-    }
-
 
     private fun formatLocaleCode(locale: Locale): String {
         val language = locale.language
@@ -302,13 +228,14 @@ class LocaleManager private constructor(private val context: Context) {
         return when {
             language == "zh" && country.isNotEmpty() -> {
                 when (country) {
-                    "CN" -> "zh-rCN"
-                    "TW", "HK" -> "zh-rTW"
-                    else -> "zh-rCN"
+                    "CN" -> "zh-CN"
+                    "TW", "HK" -> "zh-TW"
+                    else -> "zh-CN"
                 }
             }
-            language == "pt" && country == "BR" -> "pt-rBR"
-            country.isNotEmpty() -> "$language-r$country"
+            language == "pt" && country == "BR" -> "pt"
+            language == "pt" && country == "PT" -> "pt-PT"
+            country.isNotEmpty() -> "$language-$country"
             else -> language
         }
     }
@@ -364,8 +291,10 @@ class LocaleManager private constructor(private val context: Context) {
                     val locale = parseLocaleCode(localeCode)
                     val displayName = locale.getDisplayLanguage(Locale.ENGLISH)
                         .replaceFirstChar { it.uppercase() }
-                    val nativeName = locale.getDisplayLanguage(locale)
-                        .replaceFirstChar { it.uppercase() }
+                    
+                    // Directly use our mapped Native Name to prevent System guesswork
+                    val nativeName = LanguageCodeToName[localeCode]
+                        ?: locale.getDisplayLanguage(locale).replaceFirstChar { it.uppercase() }
 
                     // Get metadata (flag and status)
                     val metadata = LANGUAGE_METADATA[localeCode]
@@ -520,9 +449,6 @@ class LocaleManager private constructor(private val context: Context) {
         _changeState.value = LanguageChangeState.Idle
     }
 }
-
-// Composables remain the same...
-// (LanguageSelector, SearchBar, ChangeStateIndicator, etc.)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
