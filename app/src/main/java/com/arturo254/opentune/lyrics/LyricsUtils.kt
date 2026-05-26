@@ -1,7 +1,6 @@
 package com.arturo254.opentune.lyrics
 
 import android.text.format.DateUtils
-import com.arturo254.opentune.ui.component.ANIMATE_SCROLL_DURATION
 
 @Suppress("RegExpRedundantEscape")
 object LyricsUtils {
@@ -76,7 +75,7 @@ object LyricsUtils {
         position: Long,
     ): Int {
         for (index in lines.indices) {
-            if (lines[index].time >= position + ANIMATE_SCROLL_DURATION) {
+            if (lines[index].time >= position + 300L) {
                 return index - 1
             }
         }
