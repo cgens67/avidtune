@@ -664,6 +664,14 @@
     <string name="start_timer">Start</string>
     <string name="sleep_timer_active">Active timer:</string>
     <string name="sleep_timer_desc">Schedule automatic shutdown</string>
+    
+    <!-- Thumbnail Corner Radius Selector -->
+    <string name="shape_and_corners">Shape and corners</string>
+    <string name="album_preview">Album preview</string>
+    <string name="fine_tune_radius">Radius</string>
+    <string name="decrease">Decrease</string>
+    <string name="increase">Increase</string>
+    <string name="quick_presets">Quick presets</string>
 
 
 </resources>
