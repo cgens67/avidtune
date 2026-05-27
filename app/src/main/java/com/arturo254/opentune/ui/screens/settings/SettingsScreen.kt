@@ -1,5 +1,8 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package com.arturo254.opentune.ui.screens.settings
 
+import android.Manifest
 import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
@@ -93,6 +96,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -110,6 +115,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
@@ -117,10 +123,13 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.arturo254.innertube.utils.parseCookieString
 import com.arturo254.opentune.BuildConfig
 import com.arturo254.opentune.LocalPlayerAwareWindowInsets
 import com.arturo254.opentune.R
 import com.arturo254.opentune.constants.AccountEmailKey
+import com.arturo254.opentune.constants.AccountNameKey
+import com.arturo254.opentune.constants.InnerTubeCookieKey
 import com.arturo254.opentune.ui.component.ChangelogScreen
 import com.arturo254.opentune.ui.component.IconButton
 import com.arturo254.opentune.ui.component.TopSearch
@@ -253,7 +262,7 @@ data class SettingsIntegrationAction(
 // --- MAIN SCREEN ---
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     latestVersion: Long,
@@ -267,10 +276,9 @@ fun SettingsScreen(
     val listState = rememberLazyListState()
     val viewModel: HomeViewModel = hiltViewModel()
     
-    // Fallbacks since HomeViewModel might not have isAccountLoading/isAccountLoggedIn exposed directly
     val innerTubeCookie by rememberPreference(InnerTubeCookieKey, "")
     val isLoggedIn = remember(innerTubeCookie) { "SAPISID" in parseCookieString(innerTubeCookie) }
-    val isLoading = false // Since HomeViewModel might not expose account loading state directly
+    val isLoading = false 
     
     val accountName by rememberPreference(AccountNameKey, "")
     val accountImageUrl by viewModel.accountImageUrl.collectAsState()
@@ -1379,7 +1387,7 @@ fun SettingsProfileHeader(
         label = "profileHeaderScale",
     )
     val title = if (state.isLoading) {
-        stringResource(R.string.loading)
+        "Loading..."
     } else if (state.isLoggedIn) {
         state.accountName.ifBlank { stringResource(R.string.account) }
     } else {
