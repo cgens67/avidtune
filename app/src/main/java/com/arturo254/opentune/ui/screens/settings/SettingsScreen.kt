@@ -3,7 +3,6 @@
 package com.arturo254.opentune.ui.screens.settings
 
 import android.Manifest
-import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -140,8 +139,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import org.json.JSONObject
 import java.io.File
+import java.io.FileOutputStream
 import java.net.URL
 
 val LocalAnimationsDisabled = compositionLocalOf { false }
@@ -444,7 +446,7 @@ fun SettingsScreen(
                             onLongClick = {},
                         ) {
                             Icon(
-                                painter = painterResource(R.drawable.search),
+                                painterResource(R.drawable.search),
                                 contentDescription = null,
                             )
                         }
@@ -2135,8 +2137,7 @@ suspend fun downloadApk(
     onProgressUpdate: (Float) -> Unit
 ): Uri? = withContext(Dispatchers.IO) {
     try {
-        val apkUrl =
-            "https://github.com/Arturo254/OpenTune/releases/download/$version/app-release.apk"
+        val apkUrl = "https://github.com/Arturo254/OpenTune/releases/download/$version/app-release.apk"
 
         val downloadDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
         val apkFile = File(downloadDir, "app-release-$version.apk")
@@ -2145,55 +2146,45 @@ suspend fun downloadApk(
             apkFile.delete()
         }
 
-        val request = DownloadManager.Request(apkUrl.toUri())
-            .setTitle("Downloading OpenTune v$version")
-            .setDescription("Downloading update...")
-            .setDestinationUri(Uri.fromFile(apkFile))
-            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
+        val client = OkHttpClient()
+        var request = Request.Builder().url(apkUrl).build()
+        var response = client.newCall(request).execute()
 
-        val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-        val downloadId = downloadManager.enqueue(request)
+        if (!response.isSuccessful) {
+            val altUrl = "https://github.com/Arturo254/OpenTune/releases/download/$version/OpenTune-$version.apk"
+            request = Request.Builder().url(altUrl).build()
+            response = client.newCall(request).execute()
+            
+            if (!response.isSuccessful) {
+                return@withContext null
+            }
+        }
 
-        var isDownloading = true
-        while (isDownloading) {
-            val query = DownloadManager.Query().setFilterById(downloadId)
-            val cursor = downloadManager.query(query)
+        val body = response.body ?: return@withContext null
+        val contentLength = body.contentLength()
+        val inputStream = body.byteStream()
+        val outputStream = FileOutputStream(apkFile)
+        val buffer = ByteArray(8 * 1024)
+        var totalBytesRead = 0L
+        var bytesRead: Int
 
-            if (cursor.moveToFirst()) {
-                val statusColumn = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
-                val bytesDownloadedColumn =
-                    cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
-                val bytesTotalColumn =
-                    cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
+        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+            outputStream.write(buffer, 0, bytesRead)
+            totalBytesRead += bytesRead
 
-                if (statusColumn != -1 && bytesDownloadedColumn != -1 && bytesTotalColumn != -1) {
-                    val status = cursor.getInt(statusColumn)
-                    val bytesDownloaded = cursor.getLong(bytesDownloadedColumn)
-                    val bytesTotal = cursor.getLong(bytesTotalColumn)
-
-                    when (status) {
-                        DownloadManager.STATUS_SUCCESSFUL -> {
-                            isDownloading = false
-                            onProgressUpdate(1f)
-                        }
-
-                        DownloadManager.STATUS_FAILED -> {
-                            isDownloading = false
-                            onProgressUpdate(0f)
-                            return@withContext null
-                        }
-
-                        else -> {
-                            if (bytesTotal > 0) {
-                                val progress = bytesDownloaded.toFloat() / bytesTotal.toFloat()
-                                onProgressUpdate(progress)
-                            }
-                        }
-                    }
+            if (contentLength > 0) {
+                val progress = totalBytesRead.toFloat() / contentLength.toFloat()
+                withContext(Dispatchers.Main) {
+                    onProgressUpdate(progress)
                 }
             }
-            cursor.close()
-            delay(100)
+        }
+        outputStream.flush()
+        outputStream.close()
+        inputStream.close()
+        
+        withContext(Dispatchers.Main) {
+            onProgressUpdate(1f)
         }
 
         return@withContext FileProvider.getUriForFile(
@@ -2260,7 +2251,7 @@ fun UpdateDownloadDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    var downloadProgress by remember { mutableStateOf(0f) }
+    var downloadProgress by remember { mutableFloatStateOf(0f) }
     var downloadStatus by remember { mutableStateOf(DownloadStatus.NOT_STARTED) }
     var downloadedApkUri by remember { mutableStateOf<Uri?>(null) }
     val downloadScope = rememberCoroutineScope()
@@ -2315,10 +2306,13 @@ fun UpdateDownloadDialog(
                                     downloadedApkUri =
                                         downloadApk(context, latestVersion) { progress ->
                                             downloadProgress = progress
-                                            if (progress >= 1f) {
-                                                downloadStatus = DownloadStatus.COMPLETED
-                                            }
                                         }
+                                    if (downloadedApkUri != null) {
+                                        downloadStatus = DownloadStatus.COMPLETED
+                                        downloadProgress = 1f
+                                    } else {
+                                        downloadStatus = DownloadStatus.ERROR
+                                    }
                                 }
                             }) {
                                 Text("Download")
