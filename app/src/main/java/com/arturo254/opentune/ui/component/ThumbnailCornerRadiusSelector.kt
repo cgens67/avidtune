@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -189,7 +190,7 @@ fun ThumbnailCornerRadiusBottomSheet(
     val coroutineScope = rememberCoroutineScope()
 
     val sheetState = rememberModalBottomSheetState(
-        skipPartiallyExpanded = false
+        skipPartiallyExpanded = true // Crucial to fix touch interception bug
     )
 
     LaunchedEffect(Unit) {
@@ -210,8 +211,10 @@ fun ThumbnailCornerRadiusBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .weight(1f, fill = false) // Limit the maximum height
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp)
+                .navigationBarsPadding() // Ensures bottom action buttons are accessible
                 .padding(bottom = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
