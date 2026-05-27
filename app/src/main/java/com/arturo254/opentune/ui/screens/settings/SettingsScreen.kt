@@ -1,5 +1,3 @@
-// --- START OF FILE avidtune-master/app/src/main/java/com/arturo254/opentune/ui/screens/settings/SettingsScreen.kt ---
-
 @file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
 
 package com.arturo254.opentune.ui.screens.settings
