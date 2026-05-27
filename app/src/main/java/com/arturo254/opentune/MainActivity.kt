@@ -72,8 +72,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -180,6 +180,7 @@ import com.arturo254.opentune.ui.component.AvatarPreferenceManager
 import com.arturo254.opentune.ui.component.AvatarSelection
 import com.arturo254.opentune.ui.component.BottomSheetMenu
 import com.arturo254.opentune.ui.component.FloatingNavigationToolbar
+import com.arturo254.opentune.ui.component.IconButton
 import com.arturo254.opentune.ui.component.LocalMenuState
 import com.arturo254.opentune.ui.component.LocaleManager
 import com.arturo254.opentune.ui.component.Lyrics
@@ -225,6 +226,7 @@ import java.net.URL
 import java.net.URLDecoder
 import java.net.URLEncoder
 import javax.inject.Inject
+import kotlin.time.Duration.Companion.days
 
 // El codigo original de la aplicacion pertenece a : Arturo Cervantes Galindo (Arturo254) Cualquier parecido es copia y pega de mi codigo original
 
@@ -297,7 +299,7 @@ class MainActivity : ComponentActivity() {
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
-    @OptIn(ExperimentalMaterial3Api::class)
+    @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
 
         super.onCreate(savedInstanceState)
@@ -815,7 +817,8 @@ class MainActivity : ComponentActivity() {
                                                                         Toast.LENGTH_SHORT
                                                                     ).show()
                                                                 }
-                                                            }
+                                                            },
+                                                            onLongClick = {}
                                                         ) {
                                                             Icon(
                                                                 painter = painterResource(R.drawable.notification_on),
@@ -845,7 +848,8 @@ class MainActivity : ComponentActivity() {
                                                     }
 
                                                     IconButton(
-                                                        onClick = { onActiveChange(true) }
+                                                        onClick = { onActiveChange(true) },
+                                                        onLongClick = {}
                                                     ) {
                                                         Icon(
                                                             painter = painterResource(R.drawable.search),
@@ -946,6 +950,7 @@ class MainActivity : ComponentActivity() {
                                                             onClick = {
                                                                 onQueryChange(TextFieldValue(""))
                                                             },
+                                                            onLongClick = {}
                                                         ) {
                                                             Icon(
                                                                 painter = painterResource(R.drawable.close),
@@ -962,6 +967,7 @@ class MainActivity : ComponentActivity() {
                                                                     SearchSource.ONLINE
                                                                 }
                                                         },
+                                                        onLongClick = {}
                                                     ) {
                                                         Icon(
                                                             painter = painterResource(
