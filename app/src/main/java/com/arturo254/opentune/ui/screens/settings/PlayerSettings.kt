@@ -50,6 +50,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
@@ -218,9 +219,9 @@ fun PlayerSettings(
                 )},
 
                 {SwitchPreference(
-                    title = { Text(stringResource(R.string.show_nerd_stats)) },
-                    description = stringResource(R.string.description_show_nerd_stats),
-                    icon = { Icon(painterResource(R.drawable.stats), null) },
+                    title = { Text("Show nerd stats") },
+                    description = "Display detailed playback statistics",
+                    icon = { Icon(painterResource(R.drawable.info), null) },
                     checked = showNerdStats,
                     onCheckedChange = onShowNerdStatsChange
                 )}
@@ -300,12 +301,12 @@ private fun NerdStatsSection(playerConnection: PlayerConnection?) {
                 }
                 Column {
                     Text(
-                        text = stringResource(R.string.nerd_stats),
+                        text = "Nerd Stats",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = stringResource(R.string.real_time_playback_stats),
+                        text = "Real-time playback statistics",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -317,8 +318,8 @@ private fun NerdStatsSection(playerConnection: PlayerConnection?) {
             if (mediaMetadata != null) {
                 NerdStatCard(
                     icon = R.drawable.music_note,
-                    label = stringResource(R.string.track_label),
-                    value = mediaMetadata?.title ?: stringResource(R.string.no_track_playing),
+                    label = "Track",
+                    value = mediaMetadata?.title ?: "No track playing",
                     accentColor = MaterialTheme.colorScheme.primary
                 )
 
@@ -329,17 +330,17 @@ private fun NerdStatsSection(playerConnection: PlayerConnection?) {
                     ) {
                         NerdStatChip(
                             icon = R.drawable.graphic_eq,
-                            label = stringResource(R.string.codec_label),
+                            label = "Codec",
                             value = currentFormat?.mimeType?.substringAfter("/")?.uppercase()
-                                ?: stringResource(R.string.unknown_codec),
+                                ?: "Unknown",
                             modifier = Modifier.weight(1f)
                         )
 
                         val bitrateKbps = currentFormat?.bitrate?.let { it / 1000 } ?: 0
                         NerdStatChip(
-                            icon = R.drawable.speed,
-                            label = stringResource(R.string.bitrate_label),
-                            value = if (bitrateKbps > 0) "$bitrateKbps kbps" else stringResource(R.string.unknown_bitrate),
+                            icon = R.drawable.graphic_eq,
+                            label = "Bitrate",
+                            value = if (bitrateKbps > 0) "$bitrateKbps kbps" else "Unknown",
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -350,19 +351,19 @@ private fun NerdStatsSection(playerConnection: PlayerConnection?) {
                     ) {
                         val sampleRateKhz = currentFormat?.sampleRate?.let { (it / 1000.0).roundToInt() } ?: 0
                         NerdStatChip(
-                            icon = R.drawable.waves,
-                            label = stringResource(R.string.sample_rate_label),
-                            value = if (sampleRateKhz > 0) "$sampleRateKhz kHz" else stringResource(R.string.unknown_sample_rate),
+                            icon = R.drawable.graphic_eq,
+                            label = "Sample Rate",
+                            value = if (sampleRateKhz > 0) "$sampleRateKhz kHz" else "Unknown",
                             modifier = Modifier.weight(1f)
                         )
 
                         NerdStatChip(
                             icon = R.drawable.storage,
-                            label = stringResource(R.string.content_length_label),
+                            label = "Size",
                             value = currentFormat?.contentLength?.let {
                                 if (it > 0) "${String.format("%.2f", it / 1024.0 / 1024.0)} MB"
-                                else stringResource(R.string.unknown_content_length)
-                            } ?: stringResource(R.string.unknown_content_length),
+                                else "Unknown"
+                            } ?: "Unknown",
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -381,7 +382,7 @@ private fun NerdStatsSection(playerConnection: PlayerConnection?) {
                                 modifier = Modifier.size(24.dp),
                             )
                             Text(
-                                text = stringResource(R.string.loading_format),
+                                text = "Loading format details...",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -405,7 +406,7 @@ private fun NerdStatsSection(playerConnection: PlayerConnection?) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = stringResource(R.string.buffer_health_label),
+                            text = "Buffer Health",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -437,11 +438,11 @@ private fun NerdStatsSection(playerConnection: PlayerConnection?) {
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     val playbackStateText = when (player.playbackState) {
-                        Player.STATE_IDLE -> stringResource(R.string.playback_state_idle)
-                        Player.STATE_BUFFERING -> stringResource(R.string.playback_state_buffering)
-                        Player.STATE_READY -> stringResource(R.string.playback_state_ready)
-                        Player.STATE_ENDED -> stringResource(R.string.playback_state_ended)
-                        else -> stringResource(R.string.playback_state_unknown)
+                        Player.STATE_IDLE -> "Idle"
+                        Player.STATE_BUFFERING -> "Buffering"
+                        Player.STATE_READY -> "Ready"
+                        Player.STATE_ENDED -> "Ended"
+                        else -> "Unknown"
                     }
 
                     val stateColor = when (player.playbackState) {
@@ -452,16 +453,16 @@ private fun NerdStatsSection(playerConnection: PlayerConnection?) {
                     }
 
                     NerdStatChip(
-                        icon = R.drawable.status,
-                        label = stringResource(R.string.state_label),
+                        icon = R.drawable.info,
+                        label = "State",
                         value = playbackStateText,
                         modifier = Modifier.weight(1f),
                         valueColor = stateColor
                     )
 
                     NerdStatChip(
-                        icon = R.drawable.slow_motion_video,
-                        label = stringResource(R.string.playback_speed_label),
+                        icon = R.drawable.graphic_eq,
+                        label = "Speed",
                         value = "${playbackSpeed}x",
                         modifier = Modifier.weight(1f)
                     )
@@ -489,7 +490,7 @@ private fun NerdStatsSection(playerConnection: PlayerConnection?) {
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
-                                text = stringResource(R.string.media_id_label),
+                                text = "Media ID",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -524,7 +525,7 @@ private fun NerdStatsSection(playerConnection: PlayerConnection?) {
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = stringResource(R.string.no_track_playing),
+                            text = "No track playing",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
