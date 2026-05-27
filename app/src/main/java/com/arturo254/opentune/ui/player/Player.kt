@@ -1,13 +1,15 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package com.arturo254.opentune.ui.player
 
 import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.drawable.BitmapDrawable
 import android.text.format.Formatter
 import android.widget.Toast
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -50,7 +52,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AlertDialogDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -76,8 +77,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -136,6 +142,7 @@ import com.arturo254.opentune.playback.ExoDownloadService
 import com.arturo254.opentune.playback.PlayerConnection
 import com.arturo254.opentune.ui.component.BottomSheet
 import com.arturo254.opentune.ui.component.BottomSheetState
+import com.arturo254.opentune.ui.component.LocalBottomSheetPageState
 import com.arturo254.opentune.ui.component.LocalMenuState
 import com.arturo254.opentune.ui.component.PlayerSliderTrack
 import com.arturo254.opentune.ui.component.rememberBottomSheetState
@@ -143,7 +150,6 @@ import com.arturo254.opentune.ui.menu.PlayerMenu
 import com.arturo254.opentune.ui.screens.settings.DarkMode
 import com.arturo254.opentune.ui.screens.settings.PlayerTextAlignment
 import com.arturo254.opentune.ui.theme.PlayerColorExtractor
-import com.arturo254.opentune.ui.theme.extractGradientColors
 import com.arturo254.opentune.utils.makeTimeString
 import com.arturo254.opentune.utils.rememberEnumPreference
 import com.arturo254.opentune.utils.rememberPreference
@@ -167,7 +173,6 @@ fun BottomSheetPlayer(
     val menuState = LocalMenuState.current
 
     val clipboardManager = LocalClipboardManager.current
-
     val playerConnection = LocalPlayerConnection.current ?: return
 
     val playerTextAlignment by rememberEnumPreference(
@@ -204,6 +209,7 @@ fun BottomSheetPlayer(
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
     val currentSong by playerConnection.currentSong.collectAsState(initial = null)
     val currentSongLiked = currentSong?.song?.liked == true
+    val automix by playerConnection.service.automixItems.collectAsState()
     val repeatMode by playerConnection.repeatMode.collectAsState()
 
     val canSkipPrevious by playerConnection.canSkipPrevious.collectAsState()
@@ -403,6 +409,15 @@ fun BottomSheetPlayer(
             else MaterialTheme.colorScheme.surfaceContainer
     }
 
+    val queueOnBgColor = when (playerBackground) {
+        PlayerBackgroundStyle.DEFAULT -> MaterialTheme.colorScheme.secondary
+        else ->
+            if (useDarkTheme)
+                MaterialTheme.colorScheme.onSurface
+            else
+                MaterialTheme.colorScheme.onPrimary
+    }
+
     LaunchedEffect(playbackState) {
         if (playbackState == STATE_READY) {
             while (isActive) {
@@ -428,12 +443,6 @@ fun BottomSheetPlayer(
                     playerBackground = playerBackground,
                     mediaMetadata = mediaMetadata,
                     gradientColors = gradientColors,
-                    disableBlur = false,
-                    blurRadius = blurRadius.value,
-                    playerCustomImageUri = "",
-                    playerCustomBlur = 0f,
-                    playerCustomContrast = 1f,
-                    playerCustomBrightness = 1f,
                     backgroundAlpha = backgroundAlpha
                 )
             }
@@ -707,7 +716,7 @@ fun BottomSheetPlayer(
                 } else {
                     MaterialTheme.colorScheme.surfaceContainer
                 },
-            onBackgroundColor = onBackgroundColor,
+            onBackgroundColor = queueOnBgColor,
             textBackgroundColor = TextBackgroundColor,
         )
     }
@@ -718,24 +727,15 @@ fun PlayerBackground(
     playerBackground: PlayerBackgroundStyle,
     mediaMetadata: MediaMetadata?,
     gradientColors: List<Color>,
-    disableBlur: Boolean,
-    blurRadius: Float,
-    playerCustomImageUri: String,
-    playerCustomBlur: Float,
-    playerCustomContrast: Float,
-    playerCustomBrightness: Float,
     backgroundAlpha: Float
 ) {
-    val effectiveBlurRadius = blurRadius.coerceIn(0f, 48f)
-    val shouldApplyBlur = !disableBlur && effectiveBlurRadius > 0f
-    
     Box(modifier = Modifier.fillMaxSize()) {
         when (playerBackground) {
             PlayerBackgroundStyle.BLUR -> {
                 AnimatedContent(
                     targetState = mediaMetadata?.thumbnailUrl,
                     transitionSpec = {
-                        fadeIn(tween(800)).togetherWith(fadeOut(tween(800)))
+                        fadeIn(tween(800)) togetherWith fadeOut(tween(800))
                     },
                     label = "blurBackground"
                 ) { thumbnailUrl ->
@@ -747,7 +747,7 @@ fun PlayerBackground(
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .blur(if (shouldApplyBlur) effectiveBlurRadius.dp else 100.dp)
+                                    .blur(100.dp)
                             )
                             Box(
                                 modifier = Modifier
@@ -762,7 +762,7 @@ fun PlayerBackground(
                 AnimatedContent(
                     targetState = gradientColors,
                     transitionSpec = {
-                        fadeIn(tween(800)).togetherWith(fadeOut(tween(800)))
+                        fadeIn(tween(800)) togetherWith fadeOut(tween(800))
                     },
                     label = "gradientBackground"
                 ) { colors ->
@@ -794,10 +794,10 @@ fun PlayerBackground(
                 AnimatedContent(
                     targetState = mediaMetadata?.thumbnailUrl,
                     transitionSpec = {
-                        fadeIn(tween(800)).togetherWith(fadeOut(tween(800)))
+                        fadeIn(tween(800)) togetherWith fadeOut(tween(800))
                     },
                     label = "appleMusicBackground",
-                    modifier = Modifier.graphicsLayer { alpha = backgroundAlpha }
+                    modifier = Modifier.graphicsLayer(alpha = backgroundAlpha)
                 ) { thumbnailUrl ->
                     Box(modifier = Modifier.fillMaxSize()) {
                         AsyncImage(
@@ -813,10 +813,7 @@ fun PlayerBackground(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .blur(80.dp)
-                                .graphicsLayer {
-                                    alpha = 1f
-                                    clip = true
-                                }
+                                .graphicsLayer(alpha = 1f, clip = true)
                                 .drawWithContent {
                                     drawContent()
                                     drawRect(
@@ -1260,7 +1257,7 @@ fun PlayerPlaybackControlsV4(
                     if (isLoading) {
                         CircularWavyProgressIndicator(
                             modifier = Modifier.size(40.dp),
-                            color = icBackgroundColor,
+                            color = iconButtonColor,
                         )
                     } else {
                         Icon(
@@ -1272,7 +1269,7 @@ fun PlayerPlaybackControlsV4(
                                 }
                             ),
                             contentDescription = null,
-                            tint = icBackgroundColor,
+                            tint = iconButtonColor,
                             modifier = Modifier.size(44.dp)
                         )
                     }
