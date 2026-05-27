@@ -326,7 +326,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             LaunchedEffect(Unit) {
-                if (System.currentTimeMillis() - Updater.lastCheckTime > 1.days.inWholeMilliseconds) {
+                if (System.currentTimeMillis() - Updater.lastCheckTime > 86400000L) {
                     Updater.getLatestVersionName().onSuccess {
                         latestVersionName = it
                     }
@@ -817,7 +817,8 @@ class MainActivity : ComponentActivity() {
                                                                         Toast.LENGTH_SHORT
                                                                     ).show()
                                                                 }
-                                                            }
+                                                            },
+                                                            onLongClick = {}
                                                         ) {
                                                             Icon(
                                                                 painter = painterResource(R.drawable.notification_on),
@@ -847,7 +848,8 @@ class MainActivity : ComponentActivity() {
                                                     }
 
                                                     IconButton(
-                                                        onClick = { onActiveChange(true) }
+                                                        onClick = { onActiveChange(true) },
+                                                        onLongClick = {}
                                                     ) {
                                                         Icon(
                                                             painter = painterResource(R.drawable.search),
@@ -948,6 +950,7 @@ class MainActivity : ComponentActivity() {
                                                             onClick = {
                                                                 onQueryChange(TextFieldValue(""))
                                                             },
+                                                            onLongClick = {}
                                                         ) {
                                                             Icon(
                                                                 painter = painterResource(R.drawable.close),
@@ -964,6 +967,7 @@ class MainActivity : ComponentActivity() {
                                                                     SearchSource.ONLINE
                                                                 }
                                                         },
+                                                        onLongClick = {}
                                                     ) {
                                                         Icon(
                                                             painter = painterResource(
