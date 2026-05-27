@@ -776,11 +776,11 @@ private fun LanguageItem(
                 .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Flag
+            // Flag - removed restrictive width requirement allowing full emoji aspect ratio to render
             Text(
                 text = language.flag,
                 style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.size(28.dp),
+                modifier = Modifier.width(36.dp),
                 textAlign = TextAlign.Center
             )
 
