@@ -1,10 +1,8 @@
 package com.arturo254.opentune.ui.screens
 
 import android.annotation.SuppressLint
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Box
@@ -16,7 +14,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -55,21 +54,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -99,9 +95,7 @@ import com.arturo254.opentune.db.entities.LocalItem
 import com.arturo254.opentune.db.entities.Playlist
 import com.arturo254.opentune.db.entities.Song
 import com.arturo254.opentune.extensions.togglePlayPause
-import com.arturo254.opentune.models.MediaMetadata
 import com.arturo254.opentune.models.toMediaMetadata
-import com.arturo254.opentune.playback.PlayerConnection
 import com.arturo254.opentune.playback.queues.LocalAlbumRadio
 import com.arturo254.opentune.playback.queues.YouTubeAlbumRadio
 import com.arturo254.opentune.playback.queues.YouTubeQueue
@@ -110,7 +104,6 @@ import com.arturo254.opentune.ui.component.ArtistGridItem
 import com.arturo254.opentune.ui.component.ChipsRow
 import com.arturo254.opentune.ui.component.HideOnScrollFAB
 import com.arturo254.opentune.ui.component.LocalMenuState
-import com.arturo254.opentune.ui.component.MenuState
 import com.arturo254.opentune.ui.component.NavigationTitle
 import com.arturo254.opentune.ui.component.SongGridItem
 import com.arturo254.opentune.ui.component.SongListItem
@@ -329,6 +322,10 @@ fun HomeScreen(
         )
     }
 
+    LaunchedEffect(quickPicks) {
+        // Kept for backward compatibility if needed, though replaced in implementation
+    }
+
     LaunchedEffect(forgottenFavorites) {
         forgottenFavoritesLazyGridState.scrollToItem(0)
     }
@@ -343,108 +340,6 @@ fun HomeScreen(
             ),
         contentAlignment = Alignment.TopStart
     ) {
-        val color1 = MaterialTheme.colorScheme.primary
-        val color2 = MaterialTheme.colorScheme.secondary
-        val color3 = MaterialTheme.colorScheme.tertiary
-        val color4 = MaterialTheme.colorScheme.primaryContainer
-        val color5 = MaterialTheme.colorScheme.secondaryContainer
-        val surfaceColor = MaterialTheme.colorScheme.surface
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.7f) // Cover top 70% of screen
-                .align(Alignment.TopCenter)
-                .zIndex(-1f) // Place behind all content
-                .drawWithCache {
-                    val width = this.size.width
-                    val height = this.size.height
-
-                    // Create mesh gradient with 5 color blobs for more variation
-                    val brush1 = Brush.radialGradient(
-                        colors = listOf(
-                            color1.copy(alpha = 0.38f),
-                            color1.copy(alpha = 0.24f),
-                            color1.copy(alpha = 0.14f),
-                            color1.copy(alpha = 0.06f),
-                            Color.Transparent
-                        ),
-                        center = Offset(width * 0.15f, height * 0.1f),
-                        radius = width * 0.55f
-                    )
-
-                    val brush2 = Brush.radialGradient(
-                        colors = listOf(
-                            color2.copy(alpha = 0.34f),
-                            color2.copy(alpha = 0.2f),
-                            color2.copy(alpha = 0.11f),
-                            color2.copy(alpha = 0.05f),
-                            Color.Transparent
-                        ),
-                        center = Offset(width * 0.85f, height * 0.2f),
-                        radius = width * 0.65f
-                    )
-
-                    val brush3 = Brush.radialGradient(
-                        colors = listOf(
-                            color3.copy(alpha = 0.3f),
-                            color3.copy(alpha = 0.17f),
-                            color3.copy(alpha = 0.09f),
-                            color3.copy(alpha = 0.04f),
-                            Color.Transparent
-                        ),
-                        center = Offset(width * 0.3f, height * 0.45f),
-                        radius = width * 0.6f
-                    )
-
-                    val brush4 = Brush.radialGradient(
-                        colors = listOf(
-                            color4.copy(alpha = 0.26f),
-                            color4.copy(alpha = 0.14f),
-                            color4.copy(alpha = 0.08f),
-                            color4.copy(alpha = 0.03f),
-                            Color.Transparent
-                        ),
-                        center = Offset(width * 0.7f, height * 0.5f),
-                        radius = width * 0.7f
-                    )
-
-                    val brush5 = Brush.radialGradient(
-                        colors = listOf(
-                            color5.copy(alpha = 0.22f),
-                            color5.copy(alpha = 0.12f),
-                            color5.copy(alpha = 0.06f),
-                            color5.copy(alpha = 0.02f),
-                            Color.Transparent
-                        ),
-                        center = Offset(width * 0.5f, height * 0.75f),
-                        radius = width * 0.8f
-                    )
-
-                    // Add a final vertical gradient overlay to ensure smooth bottom fade
-                    val overlayBrush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            Color.Transparent,
-                            surfaceColor.copy(alpha = 0.22f),
-                            surfaceColor.copy(alpha = 0.55f),
-                            surfaceColor
-                        ),
-                        startY = height * 0.4f,
-                        endY = height
-                    )
-
-                    onDrawBehind {
-                        drawRect(brush = brush1)
-                        drawRect(brush = brush2)
-                        drawRect(brush = brush3)
-                        drawRect(brush = brush4)
-                        drawRect(brush = brush5)
-                        drawRect(brush = overlayBrush)
-                    }
-                }
-        ) {}
-
         val horizontalLazyGridItemWidthFactor = if (maxWidth * 0.475f >= 320.dp) 0.475f else 0.9f
         val horizontalLazyGridItemWidth = maxWidth * horizontalLazyGridItemWidthFactor
         val forgottenFavoritesSnapLayoutInfoProvider = remember(forgottenFavoritesLazyGridState) {
@@ -495,16 +390,127 @@ fun HomeScreen(
 
             quickPicks?.takeIf { it.isNotEmpty() }?.let { quickPicks ->
                 item {
-                    QuickPicksSection(
-                        quickPicks = quickPicks,
-                        mediaMetadata = mediaMetadata,
-                        isPlaying = isPlaying,
-                        navController = navController,
-                        playerConnection = playerConnection,
-                        menuState = menuState,
-                        haptic = haptic,
+                    NavigationTitle(
+                        title = stringResource(R.string.quick_picks),
                         modifier = Modifier.animateItem()
                     )
+                }
+
+                item {
+                    val carouselState = rememberCarouselState { quickPicks.size }
+                    val layoutDirection = LocalLayoutDirection.current
+                    
+                    HorizontalMultiBrowseCarousel(
+                        state = carouselState,
+                        preferredItemWidth = 160.dp,
+                        itemSpacing = 8.dp,
+                        contentPadding = WindowInsets.systemBars
+                            .only(WindowInsetsSides.Horizontal)
+                            .asPaddingValues()
+                            .let {
+                                PaddingValues(
+                                    start = it.calculateStartPadding(layoutDirection) + 16.dp,
+                                    end = it.calculateEndPadding(layoutDirection) + 16.dp
+                                )
+                            },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp)
+                            .animateItem()
+                    ) { index ->
+                        val originalSong = quickPicks[index]
+                        val song by database.song(originalSong.id).collectAsState(initial = originalSong)
+                        val activeSong = song ?: originalSong
+                        val isActive = activeSong.id == mediaMetadata?.id
+                        
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .maskClip(MaterialTheme.shapes.large)
+                                .combinedClickable(
+                                    onClick = {
+                                        if (isActive) {
+                                            playerConnection.player.togglePlayPause()
+                                        } else {
+                                            playerConnection.playQueue(YouTubeQueue.radio(activeSong.toMediaMetadata()))
+                                        }
+                                    },
+                                    onLongClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        menuState.show {
+                                            SongMenu(
+                                                originalSong = activeSong,
+                                                navController = navController,
+                                                onDismiss = menuState::dismiss
+                                            )
+                                        }
+                                    }
+                                )
+                        ) {
+                            AsyncImage(
+                                model = activeSong.song.thumbnailUrl,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                            
+                            // Gradient for text readability
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        Brush.verticalGradient(
+                                            colors = listOf(
+                                                Color.Transparent,
+                                                Color.Black.copy(alpha = 0.8f)
+                                            ),
+                                            startY = 50f
+                                        )
+                                    )
+                            )
+
+                            // Title and Artist
+                            Column(
+                                modifier = Modifier
+                                    .align(Alignment.BottomStart)
+                                    .padding(12.dp)
+                            ) {
+                                Text(
+                                    text = activeSong.song.title,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = Color.White,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = activeSong.artists.joinToString { it.name },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color.White.copy(alpha = 0.7f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            
+                            if (isActive && isPlaying) {
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(8.dp)
+                                        .size(32.dp)
+                                        .background(MaterialTheme.colorScheme.primary, CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.pause),
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -860,128 +866,5 @@ fun HomeScreen(
                 .align(Alignment.TopCenter)
                 .padding(LocalPlayerAwareWindowInsets.current.asPaddingValues()),
         )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
-@Composable
-fun QuickPicksSection(
-    quickPicks: List<Song>,
-    mediaMetadata: MediaMetadata?,
-    isPlaying: Boolean,
-    navController: NavController,
-    playerConnection: PlayerConnection,
-    menuState: MenuState,
-    haptic: HapticFeedback,
-    modifier: Modifier = Modifier
-) {
-    val distinctQuickPicks = remember(quickPicks) { quickPicks.distinctBy { it.id } }
-
-    HorizontalMultiBrowseCarousel(
-        state = rememberCarouselState { distinctQuickPicks.size },
-        preferredItemWidth = 250.dp,
-        itemSpacing = 8.dp,
-        contentPadding = PaddingValues(horizontal = 16.dp),
-        modifier = modifier
-            .fillMaxWidth()
-            .height(290.dp)
-    ) { index ->
-        val song = distinctQuickPicks[index]
-        val isActive = song.id == mediaMetadata?.id
-
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .clip(MaterialTheme.shapes.extraLarge)
-                .border(
-                    BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                    MaterialTheme.shapes.extraLarge
-                )
-                .combinedClickable(
-                    onClick = {
-                        if (isActive) {
-                            playerConnection.player.togglePlayPause()
-                        } else {
-                            playerConnection.playQueue(YouTubeQueue.radio(song.toMediaMetadata()))
-                        }
-                    },
-                    onLongClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        menuState.show {
-                            SongMenu(
-                                originalSong = song,
-                                navController = navController,
-                                onDismiss = menuState::dismiss
-                            )
-                        }
-                    }
-                )
-        ) {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(song.song.thumbnailUrl)
-                    .crossfade(true)
-                    .build(),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.7f)
-                            )
-                        )
-                    )
-            )
-
-            if (isActive && isPlaying) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(12.dp)
-                        .size(32.dp)
-                        .background(
-                            MaterialTheme.colorScheme.primary,
-                            CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.volume_up),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(16.dp)
-            ) {
-                Text(
-                    text = song.song.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Color.White,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = song.artists.joinToString { it.name },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.7f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
     }
 }
