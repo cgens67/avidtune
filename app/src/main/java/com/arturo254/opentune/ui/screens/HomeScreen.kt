@@ -119,6 +119,7 @@ import com.arturo254.opentune.ui.menu.YouTubeArtistMenu
 import com.arturo254.opentune.ui.menu.YouTubePlaylistMenu
 import com.arturo254.opentune.ui.menu.YouTubeSongMenu
 import com.arturo254.opentune.ui.utils.SnapLayoutInfoProvider
+import com.arturo254.opentune.ui.utils.resize
 import com.arturo254.opentune.utils.rememberPreference
 import com.arturo254.opentune.viewmodels.HomeViewModel
 import kotlinx.coroutines.Dispatchers
@@ -811,7 +812,7 @@ fun QuickPicksSection(
         ) {
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
-                    .data(song.song.thumbnailUrl)
+                    .data(song.song.thumbnailUrl?.resize(1200, 1200))
                     .crossfade(true)
                     .build(),
                 contentDescription = null,
