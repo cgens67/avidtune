@@ -2251,7 +2251,7 @@ fun UpdateDownloadDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    var downloadProgress by remember { mutableFloatStateOf(0f) }
+    var downloadProgress by remember { mutableStateOf(0f) }
     var downloadStatus by remember { mutableStateOf(DownloadStatus.NOT_STARTED) }
     var downloadedApkUri by remember { mutableStateOf<Uri?>(null) }
     val downloadScope = rememberCoroutineScope()
