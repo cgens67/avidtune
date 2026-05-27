@@ -2137,10 +2137,10 @@ suspend fun downloadApk(
     onProgressUpdate: (Float) -> Unit
 ): Uri? = withContext(Dispatchers.IO) {
     try {
-        val apkUrl = "https://github.com/Arturo254/OpenTune/releases/download/$version/app-release.apk"
+        val apkUrl = "https://github.com/Arturo254/OpenTune/releases/download/$version/app-universal-release.apk"
 
         val downloadDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
-        val apkFile = File(downloadDir, "app-release-$version.apk")
+        val apkFile = File(downloadDir, "app-universal-release-$version.apk")
 
         if (apkFile.exists()) {
             apkFile.delete()
@@ -2151,12 +2151,18 @@ suspend fun downloadApk(
         var response = client.newCall(request).execute()
 
         if (!response.isSuccessful) {
-            val altUrl = "https://github.com/Arturo254/OpenTune/releases/download/$version/OpenTune-$version.apk"
+            val altUrl = "https://github.com/Arturo254/OpenTune/releases/download/$version/app-release.apk"
             request = Request.Builder().url(altUrl).build()
             response = client.newCall(request).execute()
             
             if (!response.isSuccessful) {
-                return@withContext null
+                val altUrl2 = "https://github.com/Arturo254/OpenTune/releases/download/$version/OpenTune-$version.apk"
+                request = Request.Builder().url(altUrl2).build()
+                response = client.newCall(request).execute()
+                
+                if (!response.isSuccessful) {
+                    return@withContext null
+                }
             }
         }
 
