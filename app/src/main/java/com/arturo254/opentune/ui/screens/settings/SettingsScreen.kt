@@ -1,3 +1,5 @@
+// --- START OF FILE avidtune-master/app/src/main/java/com/arturo254/opentune/ui/screens/settings/SettingsScreen.kt ---
+
 @file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
 
 package com.arturo254.opentune.ui.screens.settings
@@ -82,6 +84,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.compositionLocalOf
@@ -119,6 +122,9 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -345,7 +351,24 @@ fun SettingsScreen(
         }
     }
 
+    // Observe lifecycle events to detect when returning from app settings
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                isStorageGranted = ContextCompat.checkSelfPermission(context, storagePermission) == PackageManager.PERMISSION_GRANTED
+                isNotificationGranted = notificationPermission == null ||
+                    ContextCompat.checkSelfPermission(context, notificationPermission) == PackageManager.PERMISSION_GRANTED
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     val shouldShowPermissionHint = !isStorageGranted || !isNotificationGranted
+    var hasRequestedPermissions by remember { mutableStateOf(false) }
 
     val resetSearch: () -> Unit = {
         isSearching = false
@@ -413,7 +436,29 @@ fun SettingsScreen(
                 }
             }
             if (toRequest.isNotEmpty()) {
-                permissionLauncher.launch(toRequest.toTypedArray())
+                var currentContext = context
+                var activity: android.app.Activity? = null
+                while (currentContext is android.content.ContextWrapper) {
+                    if (currentContext is android.app.Activity) {
+                        activity = currentContext
+                        break
+                    }
+                    currentContext = currentContext.baseContext
+                }
+
+                val shouldShowRationale = activity != null && toRequest.any {
+                    androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(activity, it)
+                }
+
+                if (hasRequestedPermissions && !shouldShowRationale) {
+                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = Uri.fromParts("package", context.packageName, null)
+                    }
+                    context.startActivity(intent)
+                } else {
+                    hasRequestedPermissions = true
+                    permissionLauncher.launch(toRequest.toTypedArray())
+                }
             }
         },
         onUpdateClick = { showUpdateDialog = true },
