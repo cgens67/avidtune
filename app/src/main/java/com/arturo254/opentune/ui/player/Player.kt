@@ -1,9 +1,17 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package com.arturo254.opentune.ui.player
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.drawable.BitmapDrawable
 import android.text.format.Formatter
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -21,6 +29,8 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -33,6 +43,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -52,22 +63,23 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -84,20 +96,15 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
@@ -106,11 +113,14 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.util.fastForEachIndexed
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.graphics.ColorUtils
 import androidx.core.net.toUri
@@ -126,15 +136,12 @@ import androidx.palette.graphics.Palette
 import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import coil.size.Precision
 import com.arturo254.opentune.LocalDatabase
 import com.arturo254.opentune.LocalDownloadUtil
+import com.arturo254.opentune.LocalPlayerAwareWindowInsets
 import com.arturo254.opentune.LocalPlayerConnection
 import com.arturo254.opentune.R
 import com.arturo254.opentune.constants.DarkModeKey
-import com.arturo254.opentune.constants.DefaultPlayPauseButtonShape
-import com.arturo254.opentune.constants.DefaultSmallButtonsShape
-import com.arturo254.opentune.constants.PlayPauseButtonShapeKey
 import com.arturo254.opentune.constants.PlayerBackgroundStyle
 import com.arturo254.opentune.constants.PlayerBackgroundStyleKey
 import com.arturo254.opentune.constants.PlayerButtonsStyle
@@ -146,16 +153,15 @@ import com.arturo254.opentune.constants.QueuePeekHeight
 import com.arturo254.opentune.constants.ShowLyricsKey
 import com.arturo254.opentune.constants.SliderStyle
 import com.arturo254.opentune.constants.SliderStyleKey
-import com.arturo254.opentune.constants.SmallButtonsShapeKey
 import com.arturo254.opentune.extensions.togglePlayPause
 import com.arturo254.opentune.extensions.toggleRepeatMode
 import com.arturo254.opentune.models.MediaMetadata
 import com.arturo254.opentune.playback.ExoDownloadService
 import com.arturo254.opentune.ui.component.BottomSheet
 import com.arturo254.opentune.ui.component.BottomSheetState
+import com.arturo254.opentune.ui.component.LocalBottomSheetPageState
 import com.arturo254.opentune.ui.component.LocalMenuState
 import com.arturo254.opentune.ui.component.PlayerSliderTrack
-import com.arturo254.opentune.ui.component.ResizableIconButton
 import com.arturo254.opentune.ui.component.rememberBottomSheetState
 import com.arturo254.opentune.ui.menu.PlayerMenu
 import com.arturo254.opentune.ui.screens.settings.DarkMode
@@ -163,8 +169,7 @@ import com.arturo254.opentune.ui.screens.settings.PlayerTextAlignment
 import com.arturo254.opentune.ui.theme.PlayerColorExtractor
 import com.arturo254.opentune.ui.theme.PlayerSliderColors
 import com.arturo254.opentune.ui.theme.extractGradientColors
-import com.arturo254.opentune.utils.getPlayPauseShape
-import com.arturo254.opentune.utils.getSmallButtonShape
+import com.arturo254.opentune.ui.utils.ShowMediaInfo
 import com.arturo254.opentune.utils.makeTimeString
 import com.arturo254.opentune.utils.rememberEnumPreference
 import com.arturo254.opentune.utils.rememberPreference
@@ -232,6 +237,7 @@ fun BottomSheetPlayer(
     val isPlaying by playerConnection.isPlaying.collectAsState()
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
     val currentSong by playerConnection.currentSong.collectAsState(initial = null)
+    val currentSongLiked = currentSong?.song?.liked == true
     val automix by playerConnection.service.automixItems.collectAsState()
     val repeatMode by playerConnection.repeatMode.collectAsState()
 
@@ -293,7 +299,6 @@ fun BottomSheetPlayer(
         playerConnection.service.addToQueueAutomix(automix[0], 0)
     }
 
-    // Obtener el color del tema antes de LaunchedEffect
     val surfaceColor = MaterialTheme.colorScheme.surface
     val fallbackColorArgb = surfaceColor.toArgb()
 
@@ -418,7 +423,6 @@ fun BottomSheetPlayer(
             }
         }
 
-    // Sistema de color scheme con PRIMARY y TERTIARY colors
     val (textButtonColor, iconButtonColor) = when (playerButtonsStyle) {
         PlayerButtonsStyle.DEFAULT ->
             if (useDarkTheme) Pair(Color.White, Color.Black)
@@ -469,6 +473,7 @@ fun BottomSheetPlayer(
     var sleepTimerValue by remember {
         mutableFloatStateOf(30f)
     }
+
     if (showSleepTimerDialog) {
         AlertDialog(
             properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -481,13 +486,37 @@ fun BottomSheetPlayer(
             },
             title = { Text(stringResource(R.string.sleep_timer)) },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        showSleepTimerDialog = false
-                        playerConnection.service.sleepTimer.start(sleepTimerValue.roundToInt())
-                    },
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(stringResource(android.R.string.ok))
+                    if (sleepTimerEnabled) {
+                        TextButton(
+                            onClick = {
+                                showSleepTimerDialog = false
+                                playerConnection.service.sleepTimer.clear()
+                            },
+                        ) {
+                            Text(stringResource(R.string.cancel_timer))
+                        }
+                    }
+
+                    TextButton(
+                        onClick = {
+                            showSleepTimerDialog = false
+                            if (sleepTimerEnabled) {
+                                // Si ya hay timer activo, OK solo cierra el diálogo
+                            } else {
+                                playerConnection.service.sleepTimer.start(sleepTimerValue.roundToInt())
+                            }
+                        },
+                    ) {
+                        Text(
+                            text = if (sleepTimerEnabled)
+                                stringResource(android.R.string.ok)
+                            else
+                                stringResource(R.string.start_timer)
+                        )
+                    }
                 }
             },
             dismissButton = {
@@ -499,82 +528,61 @@ fun BottomSheetPlayer(
             },
             text = {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = pluralStringResource(
-                            R.plurals.minute,
-                            sleepTimerValue.roundToInt(),
-                            sleepTimerValue.roundToInt()
-                        ),
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
+                    if (sleepTimerEnabled) {
+                        Text(
+                            text = stringResource(R.string.sleep_timer_active),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
 
-                    Slider(
-                        value = sleepTimerValue,
-                        onValueChange = { sleepTimerValue = it },
-                        valueRange = 5f..120f,
-                        steps = (120 - 5) / 5 - 1,
-                    )
+                        Text(
+                            text = if (playerConnection.service.sleepTimer.pauseWhenSongEnd) {
+                                stringResource(R.string.end_of_song)
+                            } else {
+                                makeTimeString(sleepTimerTimeLeft)
+                            },
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        )
+                    }
 
-                    OutlinedButton(
-                        onClick = {
-                            showSleepTimerDialog = false
-                            playerConnection.service.sleepTimer.start(-1)
-                        },
-                    ) {
-                        Text(stringResource(R.string.end_of_song))
+                    if (!sleepTimerEnabled) {
+                        Text(
+                            text = pluralStringResource(
+                                R.plurals.minute,
+                                sleepTimerValue.roundToInt(),
+                                sleepTimerValue.roundToInt()
+                            ),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+
+                        Slider(
+                            value = sleepTimerValue,
+                            onValueChange = { sleepTimerValue = it },
+                            valueRange = 5f..120f,
+                            steps = (120 - 5) / 5 - 1,
+                        )
+
+                        OutlinedButton(
+                            onClick = {
+                                showSleepTimerDialog = false
+                                playerConnection.service.sleepTimer.start(-1)
+                            },
+                        ) {
+                            Text(stringResource(R.string.end_of_song))
+                        }
                     }
                 }
             },
         )
     }
 
-    var showChoosePlaylistDialog by rememberSaveable {
-        mutableStateOf(false)
-    }
-
-    val smallButtonsShapeState = rememberPreference(
-        key = SmallButtonsShapeKey,
-        defaultValue = DefaultSmallButtonsShape
-    )
-
-    val smallButtonShape = remember(smallButtonsShapeState.value) {
-        getSmallButtonShape(smallButtonsShapeState.value)
-    }
-
-    val playPauseShapeState = rememberPreference(
-        key = PlayPauseButtonShapeKey,
-        defaultValue = DefaultPlayPauseButtonShape
-    )
-
-    val playPauseShape = remember(playPauseShapeState.value) {
-        getPlayPauseShape(playPauseShapeState.value)
-    }
-
-    val infiniteTransition = rememberInfiniteTransition(label = "play_pause_rotation")
-    val playPauseRotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(
-                durationMillis = 9000, // 9 seconds for a full rotation
-                easing = LinearEasing
-            ),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "rotation"
-    )
-
-    LaunchedEffect(playbackState) {
-        if (playbackState == STATE_READY) {
-            while (isActive) {
-                delay(100)
-                position = playerConnection.player.currentPosition
-                duration = playerConnection.player.duration
-            }
-        }
-    }
-
     val currentFormat by playerConnection.currentFormat.collectAsState(initial = null)
+
+    val bottomSheetPageState = LocalBottomSheetPageState.current
 
     var showDetailsDialog by rememberSaveable {
         mutableStateOf(false)
@@ -665,6 +673,529 @@ fun BottomSheetPlayer(
             else MaterialTheme.colorScheme.surfaceContainer
     }
 
+    LaunchedEffect(playbackState) {
+        if (playbackState == STATE_READY) {
+            while (isActive) {
+                delay(100)
+                position = playerConnection.player.currentPosition
+                duration = playerConnection.player.duration
+            }
+        }
+    }
+
+    val isLoading = playbackState == Player.STATE_BUFFERING
+
+    val controlsContent: @Composable ColumnScope.(MediaMetadata) -> Unit = { mediaMetadata ->
+        // 1. Title + Top Actions Row
+        Row(
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = PlayerHorizontalPadding),
+        ) {
+            // Title Section
+            Column(modifier = Modifier.weight(1f)) {
+                AnimatedContent(
+                    targetState = mediaMetadata.title,
+                    transitionSpec = { fadeIn() togetherWith fadeOut() },
+                    label = "",
+                ) { title ->
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = TextBackgroundColor,
+                        modifier = Modifier
+                            .basicMarquee(iterations = 1, initialDelayMillis = 3000, velocity = 30.dp)
+                            .combinedClickable(
+                                enabled = true,
+                                indication = null,
+                                interactionSource = remember { MutableInteractionSource() },
+                                onClick = {
+                                    if (mediaMetadata.album != null) {
+                                        state.snapTo(state.collapsedBound)
+                                        navController.navigate("album/${mediaMetadata.album.id}")
+                                    }
+                                },
+                                onLongClick = {
+                                    val clip = ClipData.newPlainText("Copied Title", title)
+                                    clipboardManager.setPrimaryClip(clip)
+                                    Toast.makeText(context, R.string.copied, Toast.LENGTH_SHORT).show()
+                                }
+                            ),
+                    )
+                }
+
+                Spacer(Modifier.height(6.dp))
+
+                val annotatedString = buildAnnotatedString {
+                    mediaMetadata.artists.forEachIndexed { index, artist ->
+                        val tag = "artist_${artist.id.orEmpty()}"
+                        pushStringAnnotation(tag = tag, annotation = artist.id.orEmpty())
+                        withStyle(SpanStyle(color = TextBackgroundColor, fontSize = 16.sp)) {
+                            append(artist.name)
+                        }
+                        pop()
+                        if (index != mediaMetadata.artists.lastIndex) append(", ")
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .basicMarquee()
+                        .padding(end = 12.dp)
+                ) {
+                    var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+                    var clickOffset by remember { mutableStateOf<Offset?>(null) }
+                    Text(
+                        text = annotatedString,
+                        style = MaterialTheme.typography.titleMedium.copy(color = TextBackgroundColor),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        onTextLayout = { layoutResult = it },
+                        modifier = Modifier
+                            .pointerInput(Unit) {
+                                awaitPointerEventScope {
+                                    while (true) {
+                                        val event = awaitPointerEvent()
+                                        val tapPosition = event.changes.firstOrNull()?.position
+                                        if (tapPosition != null) {
+                                            clickOffset = tapPosition
+                                        }
+                                    }
+                                }
+                            }
+                            .combinedClickable(
+                                enabled = true,
+                                indication = null,
+                                interactionSource = remember { MutableInteractionSource() },
+                                onClick = {
+                                    val tapPosition = clickOffset
+                                    val layout = layoutResult
+                                    if (tapPosition != null && layout != null) {
+                                        val offset = layout.getOffsetForPosition(tapPosition)
+                                        annotatedString.getStringAnnotations(offset, offset)
+                                            .firstOrNull()
+                                            ?.let { ann ->
+                                                val artistId = ann.item
+                                                if (artistId.isNotBlank()) {
+                                                    navController.navigate("artist/$artistId")
+                                                    state.collapseSoft()
+                                                }
+                                            }
+                                    }
+                                },
+                                onLongClick = {
+                                    val clip = ClipData.newPlainText("Copied Artist", annotatedString)
+                                    clipboardManager.setPrimaryClip(clip)
+                                    Toast.makeText(context, R.string.copied, Toast.LENGTH_SHORT).show()
+                                }
+                            )
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // Top Actions (V4)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    onClick = {
+                        val intent = Intent().apply {
+                            action = Intent.ACTION_SEND
+                            type = "text/plain"
+                            putExtra(
+                                Intent.EXTRA_TEXT,
+                                "https://music.youtube.com/watch?v=${mediaMetadata.id}"
+                            )
+                        }
+                        context.startActivity(Intent.createChooser(intent, null))
+                    },
+                    shape = RoundedCornerShape(14.dp),
+                    color = TextBackgroundColor.copy(alpha = 0.12f),
+                    modifier = Modifier
+                        .height(44.dp)
+                        .width(44.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                        Icon(
+                            painter = painterResource(R.drawable.share),
+                            contentDescription = null,
+                            tint = TextBackgroundColor,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+
+                Surface(
+                    onClick = { playerConnection.toggleLike() },
+                    shape = RoundedCornerShape(14.dp),
+                    color = if (currentSongLiked)
+                        MaterialTheme.colorScheme.error.copy(alpha = 0.25f)
+                    else TextBackgroundColor.copy(alpha = 0.12f),
+                    modifier = Modifier
+                        .height(44.dp)
+                        .width(44.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                        Icon(
+                            painter = painterResource(
+                                if (currentSongLiked) R.drawable.favorite
+                                else R.drawable.favorite_border
+                            ),
+                            contentDescription = null,
+                            tint = if (currentSongLiked)
+                                MaterialTheme.colorScheme.error
+                            else TextBackgroundColor,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+
+                // More menu button - cinematic glass card
+                Surface(
+                    onClick = {
+                        menuState.show {
+                            PlayerMenu(
+                                mediaMetadata = mediaMetadata,
+                                navController = navController,
+                                playerBottomSheetState = state,
+                                onShowDetailsDialog = {
+                                    mediaMetadata.id.let {
+                                        bottomSheetPageState.show {
+                                            ShowMediaInfo(it)
+                                        }
+                                    }
+                                },
+                                onDismiss = menuState::dismiss,
+                            )
+                        }
+                    },
+                    shape = RoundedCornerShape(14.dp),
+                    color = TextBackgroundColor.copy(alpha = 0.12f),
+                    modifier = Modifier
+                        .height(44.dp)
+                        .width(44.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                        Icon(
+                            painter = painterResource(R.drawable.more_horiz),
+                            contentDescription = null,
+                            tint = TextBackgroundColor,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        // Slider
+        when (sliderStyle) {
+            SliderStyle.DEFAULT -> {
+                Slider(
+                    value = (sliderPosition ?: position).toFloat(),
+                    valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
+                    onValueChange = {
+                        sliderPosition = it.toLong()
+                    },
+                    onValueChangeFinished = {
+                        sliderPosition?.let {
+                            playerConnection.player.seekTo(it)
+                            position = it
+                        }
+                        sliderPosition = null
+                    },
+                    colors = PlayerSliderColors.getSliderColors(
+                        textButtonColor = TextBackgroundColor,
+                        playerBackground = playerBackground,
+                        useDarkTheme = useDarkTheme
+                    ),
+                    modifier = Modifier.padding(horizontal = PlayerHorizontalPadding),
+                )
+            }
+            SliderStyle.SQUIGGLY -> {
+                SquigglySlider(
+                    value = (sliderPosition ?: position).toFloat(),
+                    valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
+                    onValueChange = {
+                        sliderPosition = it.toLong()
+                    },
+                    onValueChangeFinished = {
+                        sliderPosition?.let {
+                            playerConnection.player.seekTo(it)
+                            position = it
+                        }
+                        sliderPosition = null
+                    },
+                    colors = PlayerSliderColors.getSliderColors(
+                        textButtonColor = TextBackgroundColor,
+                        playerBackground = playerBackground,
+                        useDarkTheme = useDarkTheme
+                    ),
+                    modifier = Modifier.padding(horizontal = PlayerHorizontalPadding),
+                    squigglesSpec = SquigglySlider.SquigglesSpec(
+                        amplitude = if (isPlaying) (4.dp).coerceAtLeast(2.dp) else 0.dp,
+                        strokeWidth = 3.dp,
+                        wavelength = 36.dp,
+                    ),
+                )
+            }
+            SliderStyle.SLIM -> {
+                Slider(
+                    value = (sliderPosition ?: position).toFloat(),
+                    valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
+                    onValueChange = {
+                        sliderPosition = it.toLong()
+                    },
+                    onValueChangeFinished = {
+                        sliderPosition?.let {
+                            playerConnection.player.seekTo(it)
+                            position = it
+                        }
+                        sliderPosition = null
+                    },
+                    thumb = { Spacer(modifier = Modifier.size(0.dp)) },
+                    track = { sliderState ->
+                        PlayerSliderTrack(
+                            sliderState = sliderState,
+                            colors = PlayerSliderColors.getSliderColors(
+                                textButtonColor = TextBackgroundColor,
+                                playerBackground = playerBackground,
+                                useDarkTheme = useDarkTheme
+                            )
+                        )
+                    },
+                    modifier = Modifier.padding(horizontal = PlayerHorizontalPadding)
+                )
+            }
+        }
+
+        Spacer(Modifier.height(4.dp))
+
+        // Time labels
+        Row(
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = PlayerHorizontalPadding + 4.dp),
+        ) {
+            Text(
+                text = makeTimeString(sliderPosition ?: position),
+                style = MaterialTheme.typography.labelMedium,
+                color = TextBackgroundColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+
+            Text(
+                text = if (duration != C.TIME_UNSET) makeTimeString(duration) else "",
+                style = MaterialTheme.typography.labelMedium,
+                color = TextBackgroundColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        // Playback Controls V4
+        val shuffleModeEnabled by playerConnection.shuffleModeEnabled.collectAsState()
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = PlayerHorizontalPadding)
+        ) {
+            val baseLarge = 56.dp
+            val baseSmall = 46.dp
+            val baseGap = 12.dp
+            val baseLargeIcon = 28.dp
+            val baseSmallIcon = 22.dp
+            val baseLargeRadius = 18.dp
+            val baseSmallRadius = 16.dp
+            val centerSize = 88.dp
+            val centerPadding = 40.dp
+            val sideTotal = (maxWidth - centerSize - centerPadding) / 2f
+            val scale =
+                ((sideTotal - baseGap) / (baseLarge + baseSmall)).coerceAtMost(1f).coerceAtLeast(0.6f)
+            val large = baseLarge * scale
+            val small = baseSmall * scale
+            val gap = baseGap * scale
+            val largeIcon = baseLargeIcon * scale
+            val smallIcon = baseSmallIcon * scale
+            val largeRadius = baseLargeRadius * scale
+            val smallRadius = baseSmallRadius * scale
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        onClick = {
+                            playerConnection.player.shuffleModeEnabled = !shuffleModeEnabled
+                        },
+                        shape = RoundedCornerShape(smallRadius),
+                        color = TextBackgroundColor.copy(
+                            alpha = if (shuffleModeEnabled) 0.2f else 0.08f
+                        ),
+                        modifier = Modifier.size(small)
+                    ) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.shuffle),
+                                contentDescription = null,
+                                tint = TextBackgroundColor.copy(
+                                    alpha = if (shuffleModeEnabled) 1f else 0.6f
+                                ),
+                                modifier = Modifier.size(smallIcon)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(gap))
+
+                    Surface(
+                        onClick = { playerConnection.seekToPrevious() },
+                        enabled = canSkipPrevious,
+                        shape = RoundedCornerShape(largeRadius),
+                        color = TextBackgroundColor.copy(alpha = 0.15f),
+                        modifier = Modifier.size(large)
+                    ) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.skip_previous),
+                                contentDescription = null,
+                                tint = TextBackgroundColor.copy(
+                                    alpha = if (canSkipPrevious) 1f else 0.4f
+                                ),
+                                modifier = Modifier.size(largeIcon)
+                            )
+                        }
+                    }
+                }
+
+                Surface(
+                    onClick = {
+                        if (playbackState == STATE_ENDED) {
+                            playerConnection.player.seekTo(0, 0)
+                            playerConnection.player.playWhenReady = true
+                        } else {
+                            playerConnection.player.togglePlayPause()
+                        }
+                    },
+                    shape = RoundedCornerShape(28.dp),
+                    color = textButtonColor,
+                    modifier = Modifier
+                        .padding(horizontal = 20.dp)
+                        .size(88.dp)
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (isLoading) {
+                            CircularWavyProgressIndicator(
+                                modifier = Modifier.size(40.dp),
+                                color = iconButtonColor,
+                            )
+                        } else {
+                            Icon(
+                                painter = painterResource(
+                                    when {
+                                        playbackState == STATE_ENDED -> R.drawable.replay
+                                        isPlaying -> R.drawable.pause
+                                        else -> R.drawable.play
+                                    }
+                                ),
+                                contentDescription = null,
+                                tint = iconButtonColor,
+                                modifier = Modifier.size(44.dp)
+                            )
+                        }
+                    }
+                }
+                
+                Row(
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.Start,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        onClick = { playerConnection.seekToNext() },
+                        enabled = canSkipNext,
+                        shape = RoundedCornerShape(largeRadius),
+                        color = TextBackgroundColor.copy(alpha = 0.15f),
+                        modifier = Modifier.size(large)
+                    ) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.skip_next),
+                                contentDescription = null,
+                                tint = TextBackgroundColor.copy(
+                                    alpha = if (canSkipNext) 1f else 0.4f
+                                ),
+                                modifier = Modifier.size(largeIcon)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(gap))
+
+                    Surface(
+                        onClick = { playerConnection.player.toggleRepeatMode() },
+                        shape = RoundedCornerShape(smallRadius),
+                        color = TextBackgroundColor.copy(
+                            alpha = if (repeatMode != Player.REPEAT_MODE_OFF) 0.2f else 0.08f
+                        ),
+                        modifier = Modifier.size(small)
+                    ) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(
+                                    when (repeatMode) {
+                                        Player.REPEAT_MODE_ONE -> R.drawable.repeat_one
+                                        else -> R.drawable.repeat
+                                    }
+                                ),
+                                contentDescription = null,
+                                tint = TextBackgroundColor.copy(
+                                    alpha = if (repeatMode == Player.REPEAT_MODE_OFF) 0.6f else 1f
+                                ),
+                                modifier = Modifier.size(smallIcon)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     BottomSheet(
         state = state,
         modifier = modifier,
@@ -752,7 +1283,6 @@ fun BottomSheetPlayer(
                                 AsyncImage(
                                     model = ImageRequest.Builder(LocalContext.current)
                                         .data(thumbnailUrl)
-                                        .precision(Precision.EXACT)
                                         .crossfade(true)
                                         .build(),
                                     contentDescription = null,
@@ -806,9 +1336,7 @@ fun BottomSheetPlayer(
             }
         },
         onDismiss = {
-            playerConnection.service.clearAutomix()
-            playerConnection.player.stop()
-            playerConnection.player.clearMediaItems()
+            playerConnection.service.stopAndClearPlayback()
         },
         collapsedContent = {
             MiniPlayer(
@@ -817,590 +1345,20 @@ fun BottomSheetPlayer(
             )
         },
     ) {
-        val controlsContent: @Composable ColumnScope.(MediaMetadata) -> Unit = { mediaMetadata ->
-            // Título con marquesina y click largo para copiar
-            Row(
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = PlayerHorizontalPadding),
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    AnimatedContent(
-                        targetState = mediaMetadata.title,
-                        transitionSpec = { fadeIn() togetherWith fadeOut() },
-                        label = "",
-                    ) { title ->
-                        Text(
-                            text = title,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            color = onBackgroundColor,
-                            modifier =
-                                Modifier
-                                    .basicMarquee(iterations = 1, initialDelayMillis = 3000, velocity = 30.dp)
-                                    .combinedClickable(
-                                        enabled = true,
-                                        indication = null,
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        onClick = {
-                                            if (mediaMetadata.album != null) {
-                                                navController.navigate("album/${mediaMetadata.album.id}")
-                                                state.collapseSoft()
-                                            }
-                                        },
-                                        onLongClick = {
-                                            clipboardManager.setText(AnnotatedString(title))
-                                            Toast.makeText(context, R.string.copied, Toast.LENGTH_SHORT).show()
-                                        }
-                                    ),
-                        )
-                    }
-
-                    Spacer(Modifier.height(6.dp))
-
-                    // Artistas con navegación
-                    if (mediaMetadata.artists.any { it.name.isNotBlank() }) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .basicMarquee(iterations = 1, initialDelayMillis = 3000, velocity = 30.dp)
-                        ) {
-                            mediaMetadata.artists.forEachIndexed { index, artist ->
-                                Text(
-                                    text = artist.name,
-                                    style = MaterialTheme.typography.titleMedium.copy(color = onBackgroundColor),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier
-                                        .clickable(enabled = artist.id != null) {
-                                            artist.id?.let {
-                                                navController.navigate("artist/$it")
-                                                state.collapseSoft()
-                                            }
-                                        }
-                                )
-                                if (index != mediaMetadata.artists.lastIndex) {
-                                    Text(
-                                        text = ", ",
-                                        style = MaterialTheme.typography.titleMedium.copy(color = onBackgroundColor)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                // BOTONES DE ACCIÓN ALINEADOS A LA DERECHA
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Botón Like/Favorito
-                    Box(
-                        modifier = Modifier
-                            .size(42.dp)
-                            .clip(
-                                RoundedCornerShape(
-                                    topStart = 50.dp, bottomStart = 50.dp,
-                                    topEnd = 5.dp, bottomEnd = 5.dp
-                                )
-                            )
-                            .background(textButtonColor)
-                            .clickable {
-                                playerConnection.toggleLike()
-                            }
-                    ) {
-                        Image(
-                            painter = painterResource(
-                                if (currentSong?.song?.liked == true)
-                                    R.drawable.favorite
-                                else R.drawable.favorite_border
-                            ),
-                            contentDescription = null,
-                            colorFilter = ColorFilter.tint(
-                                if (currentSong?.song?.liked == true)
-                                    MaterialTheme.colorScheme.error
-                                else iconButtonColor
-                            ),
-                            modifier = Modifier
-                                .align(Alignment.Center)
-                                .size(24.dp)
-                        )
-                    }
-
-                    // Botón Download
-                    Box(
-                        modifier = Modifier
-                            .size(42.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(textButtonColor)
-                            .clickable {
-                                when (download?.state) {
-                                    Download.STATE_COMPLETED -> {
-                                        DownloadService.sendRemoveDownload(
-                                            context,
-                                            ExoDownloadService::class.java,
-                                            mediaMetadata.id,
-                                            false,
-                                        )
-                                    }
-                                    Download.STATE_QUEUED, Download.STATE_DOWNLOADING -> {
-                                        DownloadService.sendRemoveDownload(
-                                            context,
-                                            ExoDownloadService::class.java,
-                                            mediaMetadata.id,
-                                            false,
-                                        )
-                                    }
-                                    else -> {
-                                        database.transaction {
-                                            insert(mediaMetadata)
-                                        }
-                                        val downloadRequest =
-                                            DownloadRequest
-                                                .Builder(mediaMetadata.id, mediaMetadata.id.toUri())
-                                                .setCustomCacheKey(mediaMetadata.id)
-                                                .setData(mediaMetadata.title.toByteArray())
-                                                .build()
-                                        DownloadService.sendAddDownload(
-                                            context,
-                                            ExoDownloadService::class.java,
-                                            downloadRequest,
-                                            false,
-                                        )
-                                    }
-                                }
-                            }
-                    ) {
-                        when (download?.state) {
-                            Download.STATE_COMPLETED -> {
-                                Image(
-                                    painter = painterResource(R.drawable.offline),
-                                    contentDescription = null,
-                                    colorFilter = ColorFilter.tint(iconButtonColor),
-                                    modifier = Modifier
-                                        .align(Alignment.Center)
-                                        .size(24.dp)
-                                )
-                            }
-                            Download.STATE_QUEUED, Download.STATE_DOWNLOADING -> {
-                                CircularProgressIndicator(
-                                    modifier = Modifier
-                                        .align(Alignment.Center)
-                                        .size(20.dp),
-                                    strokeWidth = 2.dp,
-                                    color = iconButtonColor
-                                )
-                            }
-                            else -> {
-                                Image(
-                                    painter = painterResource(R.drawable.download),
-                                    contentDescription = null,
-                                    colorFilter = ColorFilter.tint(iconButtonColor),
-                                    modifier = Modifier
-                                        .align(Alignment.Center)
-                                        .size(24.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    // Botón More Options
-                    Box(
-                        modifier = Modifier
-                            .size(42.dp)
-                            .clip(
-                                RoundedCornerShape(
-                                    topStart = 5.dp, bottomStart = 5.dp,
-                                    topEnd = 50.dp, bottomEnd = 50.dp
-                                )
-                            )
-                            .background(textButtonColor)
-                            .clickable {
-                                menuState.show {
-                                    PlayerMenu(
-                                        mediaMetadata = mediaMetadata,
-                                        navController = navController,
-                                        playerBottomSheetState = state,
-                                        onShowDetailsDialog = { showDetailsDialog = true },
-                                        onDismiss = menuState::dismiss,
-                                    )
-                                }
-                            }
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.more_vert),
-                            contentDescription = null,
-                            tint = iconButtonColor,
-                            modifier = Modifier
-                                .align(Alignment.Center)
-                                .size(24.dp)
-                        )
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            // Slider (mantén tu implementación actual)
-            when (sliderStyle) {
-                SliderStyle.DEFAULT -> {
-                    Slider(
-                        value = (sliderPosition ?: position).toFloat(),
-                        valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
-                        onValueChange = {
-                            sliderPosition = it.toLong()
-                        },
-                        onValueChangeFinished = {
-                            sliderPosition?.let {
-                                playerConnection.player.seekTo(it)
-                                position = it
-                            }
-                            sliderPosition = null
-                        },
-                        colors = PlayerSliderColors.getSliderColors(
-                            textButtonColor = onBackgroundColor,
-                            playerBackground = playerBackground,
-                            useDarkTheme = useDarkTheme
-                        ),
-                        modifier = Modifier.padding(horizontal = PlayerHorizontalPadding),
-                    )
-                }
-
-                SliderStyle.SQUIGGLY -> {
-                    SquigglySlider(
-                        value = (sliderPosition ?: position).toFloat(),
-                        valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
-                        onValueChange = {
-                            sliderPosition = it.toLong()
-                        },
-                        onValueChangeFinished = {
-                            sliderPosition?.let {
-                                playerConnection.player.seekTo(it)
-                                position = it
-                            }
-                            sliderPosition = null
-                        },
-                        colors = PlayerSliderColors.getSliderColors(
-                            textButtonColor = onBackgroundColor,
-                            playerBackground = playerBackground,
-                            useDarkTheme = useDarkTheme
-                        ),
-                        modifier = Modifier.padding(horizontal = PlayerHorizontalPadding),
-                        squigglesSpec =
-                            SquigglySlider.SquigglesSpec(
-                                amplitude = if (isPlaying) (4.dp).coerceAtLeast(2.dp) else 0.dp,
-                                strokeWidth = 3.dp,
-                                wavelength = 36.dp,
-                            ),
-                    )
-                }
-
-                SliderStyle.SLIM -> {
-                    Slider(
-                        value = (sliderPosition ?: position).toFloat(),
-                        valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
-                        onValueChange = {
-                            sliderPosition = it.toLong()
-                        },
-                        onValueChangeFinished = {
-                            sliderPosition?.let {
-                                playerConnection.player.seekTo(it)
-                                position = it
-                            }
-                            sliderPosition = null
-                        },
-                        thumb = { Spacer(modifier = Modifier.size(0.dp)) },
-                        track = { sliderState ->
-                            PlayerSliderTrack(
-                                sliderState = sliderState,
-                                colors = PlayerSliderColors.getSliderColors(
-                                    textButtonColor = onBackgroundColor,
-                                    playerBackground = playerBackground,
-                                    useDarkTheme = useDarkTheme
-                                )
-                            )
-                        },
-                        modifier = Modifier.padding(horizontal = PlayerHorizontalPadding)
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(4.dp))
-
-            // Tiempos
-            Row(
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = PlayerHorizontalPadding + 4.dp),
-            ) {
-                Text(
-                    text = makeTimeString(sliderPosition ?: position),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = onBackgroundColor,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-
-                Text(
-                    text = if (duration != C.TIME_UNSET) makeTimeString(duration) else "",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = onBackgroundColor,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            // CONTROLES DE REPRODUCCIÓN CON ANIMACIONES AL PRESIONAR
-            Row(
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = PlayerHorizontalPadding)
-            ) {
-                val backInteractionSource = remember { MutableInteractionSource() }
-                val nextInteractionSource = remember { MutableInteractionSource() }
-                val playPauseInteractionSource = remember { MutableInteractionSource() }
-                val isPlayPausePressed by playPauseInteractionSource.collectIsPressedAsState()
-                val isBackPressed by backInteractionSource.collectIsPressedAsState()
-                val isNextPressed by nextInteractionSource.collectIsPressedAsState()
-
-                // Pesos animados con spring animation
-                val playPauseWeight by animateFloatAsState(
-                    targetValue = when {
-                        isPlayPausePressed -> 1.9f
-                        isBackPressed || isNextPressed -> 1.1f
-                        else -> 1.3f
-                    },
-                    animationSpec = spring(dampingRatio = 0.5f, stiffness = 400f),
-                    label = "playPauseWeight"
-                )
-                val backButtonWeight by animateFloatAsState(
-                    targetValue = when {
-                        isBackPressed -> 0.65f
-                        isPlayPausePressed -> 0.35f
-                        else -> 0.45f
-                    },
-                    animationSpec = spring(dampingRatio = 0.5f, stiffness = 400f),
-                    label = "backButtonWeight"
-                )
-                val nextButtonWeight by animateFloatAsState(
-                    targetValue = when {
-                        isNextPressed -> 0.65f
-                        isPlayPausePressed -> 0.35f
-                        else -> 0.45f
-                    },
-                    animationSpec = spring(dampingRatio = 0.5f, stiffness = 400f),
-                    label = "nextButtonWeight"
-                )
-
-                // Colores de botones laterales basados en fondo del player
-                val sideButtonColor = if (playerBackground == PlayerBackgroundStyle.BLUR ||
-                    playerBackground == PlayerBackgroundStyle.GRADIENT) {
-                    Color.White.copy(alpha = 0.2f)
-                } else {
-                    MaterialTheme.colorScheme.surfaceContainerHighest
-                }
-
-                val sideButtonContentColor = if (playerBackground == PlayerBackgroundStyle.BLUR ||
-                    playerBackground == PlayerBackgroundStyle.GRADIENT) {
-                    Color.White
-                } else {
-                    MaterialTheme.colorScheme.onSurface
-                }
-
-                // Botón Previous
-                Box(
-                    modifier = Modifier
-                        .height(68.dp)
-                        .weight(backButtonWeight)
-                        .clip(RoundedCornerShape(50))
-                        .background(sideButtonColor)
-                        .clickable(
-                            enabled = canSkipPrevious,
-                            indication = null,
-                            interactionSource = backInteractionSource
-                        ) {
-                            playerConnection.seekToPrevious()
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.skip_previous),
-                        contentDescription = null,
-                        tint = sideButtonContentColor.copy(
-                            alpha = if (canSkipPrevious) 1f else 0.5f
-                        ),
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                // Botón Play/Pause con texto (opcional)
-                Box(
-                    modifier = Modifier
-                        .height(68.dp)
-                        .weight(playPauseWeight)
-                        .clip(RoundedCornerShape(50))
-                        .background(textButtonColor)
-                        .clickable(
-                            indication = null,
-                            interactionSource = playPauseInteractionSource
-                        ) {
-                            if (playbackState == STATE_ENDED) {
-                                playerConnection.player.seekTo(0, 0)
-                                playerConnection.player.playWhenReady = true
-                            } else {
-                                playerConnection.player.togglePlayPause()
-                            }
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(
-                                if (isPlaying) R.drawable.pause else R.drawable.play
-                            ),
-                            contentDescription = null,
-                            tint = iconButtonColor,
-                            modifier = Modifier.size(32.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (isPlaying) stringResource(R.string.media3_controls_pause_description) else stringResource(R.string.play),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = iconButtonColor
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                // Botón Next
-                Box(
-                    modifier = Modifier
-                        .height(68.dp)
-                        .weight(nextButtonWeight)
-                        .clip(RoundedCornerShape(50))
-                        .background(sideButtonColor)
-                        .clickable(
-                            enabled = canSkipNext,
-                            indication = null,
-                            interactionSource = nextInteractionSource
-                        ) {
-                            playerConnection.seekToNext()
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.skip_next),
-                        contentDescription = null,
-                        tint = sideButtonContentColor.copy(
-                            alpha = if (canSkipNext) 1f else 0.5f
-                        ),
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-            }
+        if (!state.isCollapsed) {
+            PlayerBackground(
+                playerBackground = playerBackground,
+                mediaMetadata = mediaMetadata,
+                gradientColors = gradientColors,
+                disableBlur = false,
+                blurRadius = 36f,
+                playerCustomImageUri = "",
+                playerCustomBlur = 0f,
+                playerCustomContrast = 1f,
+                playerCustomBrightness = 1f
+            )
         }
 
-
-        // Animated background effects
-        Box(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            // Background with blurred image
-            AnimatedVisibility(
-                visible = playerBackground == PlayerBackgroundStyle.BLUR && backgroundImageUrl != null,
-                enter = fadeIn(tween(600)),
-                exit = fadeOut(tween(400))
-            ) {
-                AsyncImage(
-                    model = backgroundImageUrl,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .blur(blurRadius)
-                        .alpha(backgroundAlpha)
-                )
-            }
-
-            // Animated gradient background
-            AnimatedVisibility(
-                visible = playerBackground == PlayerBackgroundStyle.GRADIENT && gradientColors.size >= 2,
-                enter = fadeIn(tween(800)),
-                exit = fadeOut(tween(600))
-            ) {
-                val animatedGradientColors = gradientColors.map { color ->
-                    androidx.compose.animation.animateColorAsState(
-                        targetValue = color,
-                        animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing),
-                        label = "gradientColor"
-                    ).value
-                }
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .alpha(backgroundAlpha)
-                        .background(
-                            Brush.verticalGradient(
-                                colors = if (animatedGradientColors.isNotEmpty()) animatedGradientColors else gradientColors
-                            )
-                        )
-                )
-            }
-
-            // Animated dark overlay
-            AnimatedVisibility(
-                visible = overlayAlpha > 0f,
-                enter = fadeIn(tween(500)),
-                exit = fadeOut(tween(300))
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = overlayAlpha))
-                )
-            }
-
-            // Additional overlay for lyrics
-            if (playerBackground != PlayerBackgroundStyle.DEFAULT && showLyrics) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Color.Black.copy(
-                                alpha = animateFloatAsState(
-                                    targetValue = if (state.isExpanded) 0.4f else 0f,
-                                    animationSpec = tween(durationMillis = 500),
-                                    label = "lyricsOverlay"
-                                ).value
-                            )
-                        )
-                )
-            }
-        }
         when (LocalConfiguration.current.orientation) {
             Configuration.ORIENTATION_LANDSCAPE -> {
                 Row(
