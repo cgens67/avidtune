@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -24,7 +25,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
-import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -35,7 +35,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -190,7 +189,7 @@ fun ThumbnailCornerRadiusBottomSheet(
     val coroutineScope = rememberCoroutineScope()
 
     val sheetState = rememberModalBottomSheetState(
-        skipPartiallyExpanded = true // Crucial to fix touch interception bug
+        skipPartiallyExpanded = false
     )
 
     LaunchedEffect(Unit) {
@@ -205,16 +204,15 @@ fun ThumbnailCornerRadiusBottomSheet(
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         tonalElevation = 0.dp,
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        dragHandle = { BottomSheetDefaults.DragHandle() }
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f, fill = false) // Limit the maximum height
                 .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
+                .imePadding()
                 .padding(horizontal = 24.dp)
-                .navigationBarsPadding() // Ensures bottom action buttons are accessible
                 .padding(bottom = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -223,7 +221,7 @@ fun ThumbnailCornerRadiusBottomSheet(
                 text = stringResource(id = R.string.customize_thumbnail_corner_radius, thumbnailCornerRadius.roundToInt()),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 textAlign = TextAlign.Start
             )
 
