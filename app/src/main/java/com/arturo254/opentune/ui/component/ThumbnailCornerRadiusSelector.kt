@@ -248,7 +248,7 @@ fun ThumbnailCornerRadiusBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Shape & Corners",
+                    text = stringResource(R.string.shape_and_corners),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -281,14 +281,14 @@ fun ThumbnailCornerRadiusBottomSheet(
                 if (mediaMetadata != null) {
                     AsyncImage(
                         model = mediaMetadata?.thumbnailUrl,
-                        contentDescription = "Album Preview",
+                        contentDescription = stringResource(R.string.album_preview),
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
                 } else {
                     Image(
                         painter = painterResource(id = R.drawable.previewalbum),
-                        contentDescription = "Album Preview",
+                        contentDescription = stringResource(R.string.album_preview),
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
@@ -310,7 +310,7 @@ fun ThumbnailCornerRadiusBottomSheet(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "Fine Tune Radius",
+                        text = stringResource(R.string.fine_tune_radius),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 8.dp)
@@ -328,7 +328,7 @@ fun ThumbnailCornerRadiusBottomSheet(
                             },
                             modifier = Modifier.size(40.dp)
                         ) {
-                            Icon(Icons.Rounded.Remove, contentDescription = "Decrease")
+                            Icon(Icons.Rounded.Remove, contentDescription = stringResource(R.string.decrease))
                         }
 
                         // Slider
@@ -351,7 +351,7 @@ fun ThumbnailCornerRadiusBottomSheet(
                             },
                             modifier = Modifier.size(40.dp)
                         ) {
-                            Icon(Icons.Rounded.Add, contentDescription = "Increase")
+                            Icon(Icons.Rounded.Add, contentDescription = stringResource(R.string.increase))
                         }
                     }
                 }
@@ -362,7 +362,7 @@ fun ThumbnailCornerRadiusBottomSheet(
             // Presets Scrollable Row
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = "Quick Presets",
+                    text = stringResource(R.string.quick_presets),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
@@ -411,7 +411,8 @@ fun ThumbnailCornerRadiusBottomSheet(
             // Action buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 TextButton(
                     onClick = {
