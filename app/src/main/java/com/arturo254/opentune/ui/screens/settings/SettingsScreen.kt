@@ -342,10 +342,10 @@ fun SettingsScreen(
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { result ->
-        isStorageGranted = result[storagePermission] == true || isStorageGranted
+    ) { _ ->
+        isStorageGranted = ContextCompat.checkSelfPermission(context, storagePermission) == PackageManager.PERMISSION_GRANTED
         if (notificationPermission != null) {
-            isNotificationGranted = result[notificationPermission] == true || isNotificationGranted
+            isNotificationGranted = ContextCompat.checkSelfPermission(context, notificationPermission) == PackageManager.PERMISSION_GRANTED
         }
     }
 
@@ -365,8 +365,17 @@ fun SettingsScreen(
         }
     }
 
-    val shouldShowPermissionHint = !isStorageGranted || !isNotificationGranted
-    var hasRequestedPermissions by remember { mutableStateOf(false) }
+    // Determine banner visibility. Hide immediately when notifications are allowed (Tiramisu+)
+    val shouldShowPermissionHint = if (notificationPermission != null) {
+        !isNotificationGranted
+    } else {
+        !isStorageGranted
+    }
+
+    val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+    var hasRequestedPermissions by remember { 
+        mutableStateOf(prefs.getBoolean("has_requested_permissions", false)) 
+    }
 
     val resetSearch: () -> Unit = {
         isSearching = false
@@ -448,6 +457,7 @@ fun SettingsScreen(
                     androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(activity, it)
                 }
 
+                // Go directly to settings if previously denied, bypassing silent failures
                 if (hasRequestedPermissions && !shouldShowRationale) {
                     val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                         data = Uri.fromParts("package", context.packageName, null)
@@ -455,6 +465,7 @@ fun SettingsScreen(
                     context.startActivity(intent)
                 } else {
                     hasRequestedPermissions = true
+                    prefs.edit().putBoolean("has_requested_permissions", true).apply()
                     permissionLauncher.launch(toRequest.toTypedArray())
                 }
             }
