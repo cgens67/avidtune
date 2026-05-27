@@ -14,8 +14,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -35,6 +33,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -76,20 +75,20 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-// Extensión de contexto para DataStore
-val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "app_settings")
+// Extensión de contexto para DataStore (hecho privado para evitar conflictos)
+private val Context.appConfigDataStore: DataStore<Preferences> by preferencesDataStore(name = "app_settings")
 
 object AppConfig {
     private val THUMBNAIL_CORNER_RADIUS_KEY = floatPreferencesKey("thumbnail_corner_radius")
 
     suspend fun saveThumbnailCornerRadius(context: Context, radius: Float) {
-        context.dataStore.edit { preferences ->
+        context.appConfigDataStore.edit { preferences ->
             preferences[THUMBNAIL_CORNER_RADIUS_KEY] = radius
         }
     }
 
     suspend fun getThumbnailCornerRadius(context: Context, defaultValue: Float = 16f): Float {
-        return context.dataStore.data
+        return context.appConfigDataStore.data
             .map { preferences ->
                 preferences[THUMBNAIL_CORNER_RADIUS_KEY] ?: defaultValue
             }.first()
@@ -103,6 +102,7 @@ fun ThumbnailCornerRadiusSelectorButton(
     onRadiusSelected: (Float) -> Unit
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     var showBottomSheet by remember { mutableStateOf(false) }
     var currentRadius by remember { mutableStateOf(24f) }
 
@@ -163,6 +163,9 @@ fun ThumbnailCornerRadiusSelectorButton(
             initialRadius = currentRadius,
             onDismiss = { showBottomSheet = false },
             onRadiusSelected = { newRadius ->
+                coroutineScope.launch {
+                    AppConfig.saveThumbnailCornerRadius(context, newRadius)
+                }
                 currentRadius = newRadius
                 onRadiusSelected(newRadius)
                 showBottomSheet = false
@@ -178,7 +181,6 @@ fun ThumbnailCornerRadiusBottomSheet(
     onDismiss: () -> Unit,
     onRadiusSelected: (Float) -> Unit
 ) {
-    val context = LocalContext.current
     val playerConnection = LocalPlayerConnection.current
     val mediaMetadata by playerConnection?.mediaMetadata?.collectAsState() ?: remember { mutableStateOf(null) }
 
@@ -189,7 +191,7 @@ fun ThumbnailCornerRadiusBottomSheet(
     val coroutineScope = rememberCoroutineScope()
 
     val sheetState = rememberModalBottomSheetState(
-        skipPartiallyExpanded = false
+        skipPartiallyExpanded = true
     )
 
     LaunchedEffect(Unit) {
@@ -210,8 +212,6 @@ fun ThumbnailCornerRadiusBottomSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .navigationBarsPadding()
-                .imePadding()
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -332,14 +332,14 @@ fun ThumbnailCornerRadiusBottomSheet(
                             newValue.toIntOrNull()?.let { intValue ->
                                 val limitedValue = minOf(intValue, 45).toFloat()
                                 thumbnailCornerRadius = limitedValue
-                                isCustomSelected = true
                             }
+                            isCustomSelected = true
                         }
                     },
                     modifier = Modifier
                         .weight(1f)
                         .height(56.dp),
-                    enabled = isCustomSelected,
+                    enabled = true,
                     label = {
                         Text(
                             text = stringResource(id = R.string.custom_value),
@@ -442,7 +442,12 @@ fun ThumbnailCornerRadiusBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 TextButton(
-                    onClick = onDismiss,
+                    onClick = {
+                        coroutineScope.launch {
+                            sheetState.hide()
+                            onDismiss()
+                        }
+                    },
                     modifier = Modifier.heightIn(min = 48.dp)
                 ) {
                     Text(
@@ -454,7 +459,7 @@ fun ThumbnailCornerRadiusBottomSheet(
                 Button(
                     onClick = {
                         coroutineScope.launch {
-                            AppConfig.saveThumbnailCornerRadius(context, thumbnailCornerRadius)
+                            sheetState.hide()
                             onRadiusSelected(thumbnailCornerRadius)
                         }
                     },
