@@ -337,7 +337,7 @@ fun AppearanceSettings(
                 )},
                 {AnimatedVisibility(visible = !dynamicTheme) {
                     PreferenceEntry(
-                        title = { Text(stringResource(R.string.color_palette)) },
+                        title = { Text("Color Palette") },
                         description = "Choose a custom color theme",
                         icon = { Icon(painterResource(R.drawable.palette), null) },
                         onClick = { navController.navigate("settings/appearance/palette") }
