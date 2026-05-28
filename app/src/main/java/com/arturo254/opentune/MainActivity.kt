@@ -490,18 +490,23 @@ class MainActivity : ComponentActivity() {
                             expandedBound = maxHeight,
                         )
 
+                    val targetBottomPadding = bottomInset +
+                        (if (shouldShowNavigationBar) NavigationBarHeight else 0.dp) +
+                        (if (!playerBottomSheetState.isDismissed) MiniPlayerHeight else 0.dp)
+
+                    val animatedBottomPadding by animateDpAsState(
+                        targetValue = targetBottomPadding,
+                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                        label = "animatedBottomPadding"
+                    )
+
                     val playerAwareWindowInsets =
                         remember(
-                            bottomInset,
-                            shouldShowNavigationBar,
-                            playerBottomSheetState.isDismissed
+                            animatedBottomPadding
                         ) {
-                            var bottom = bottomInset
-                            if (shouldShowNavigationBar) bottom += NavigationBarHeight
-                            if (!playerBottomSheetState.isDismissed) bottom += MiniPlayerHeight
                             windowsInsets
                                 .only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top)
-                                .add(WindowInsets(top = AppBarHeight, bottom = bottom))
+                                .add(WindowInsets(top = AppBarHeight, bottom = animatedBottomPadding))
                         }
 
                     appBarScrollBehavior(
@@ -1322,7 +1327,7 @@ class MainActivity : ComponentActivity() {
                                     } else {
                                         fadeOut(spring(dampingRatio = Spring.DampingRatioLowBouncy)) +
                                                 slideOutHorizontally(
-                                                    targetOffsetX = { it / 5 },
+                                                    targetOffsetX = { -it / 5 },
                                                     animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
                                                 )
                                     }
