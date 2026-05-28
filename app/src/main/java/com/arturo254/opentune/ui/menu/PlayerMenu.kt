@@ -29,14 +29,18 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -276,13 +280,13 @@ fun PlayerMenu(
         }
     }
 
-    var showPitchTempoDialog by rememberSaveable {
+    var showPitchTempoSheet by rememberSaveable {
         mutableStateOf(false)
     }
 
-    if (showPitchTempoDialog) {
-        TempoPitchDialog(
-            onDismiss = { showPitchTempoDialog = false },
+    if (showPitchTempoSheet) {
+        TempoPitchBottomSheet(
+            onDismiss = { showPitchTempoSheet = false },
         )
     }
 
@@ -840,7 +844,7 @@ fun PlayerMenu(
                                     )
                                 },
                                 onClick = {
-                                    showPitchTempoDialog = true
+                                    showPitchTempoSheet = true
                                 }
                             )
                         )
@@ -851,121 +855,183 @@ fun PlayerMenu(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TempoPitchDialog(onDismiss: () -> Unit) {
+fun TempoPitchBottomSheet(onDismiss: () -> Unit) {
     val playerConnection = LocalPlayerConnection.current ?: return
+    
     var tempo by remember {
         mutableFloatStateOf(playerConnection.player.playbackParameters.speed)
     }
     var transposeValue by remember {
-        mutableIntStateOf(round(12 * log2(playerConnection.player.playbackParameters.pitch)).toInt())
-    }
-    val updatePlaybackParameters = {
-        playerConnection.player.playbackParameters =
-            PlaybackParameters(tempo, 2f.pow(transposeValue.toFloat() / 12))
+        mutableFloatStateOf((12 * log2(playerConnection.player.playbackParameters.pitch)).toFloat())
     }
 
-    AlertDialog(
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+    val updatePlaybackParameters = {
+        playerConnection.player.playbackParameters =
+            PlaybackParameters(tempo, 2f.pow(transposeValue / 12f))
+    }
+
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = {
-            Text(stringResource(R.string.tempo_and_pitch))
-        },
-        dismissButton = {
-            TextButton(
-                onClick = {
-                    tempo = 1f
-                    transposeValue = 0
+        sheetState = sheetState,
+        dragHandle = { BottomSheetDefaults.DragHandle() },
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = stringResource(R.string.tempo_and_pitch),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 24.dp)
+            )
+
+            ContinuousValueAdjuster(
+                title = "Tempo",
+                icon = R.drawable.speed,
+                value = tempo,
+                valueRange = 0.25f..3.0f,
+                onValueChange = { 
+                    tempo = it
                     updatePlaybackParameters()
                 },
+                valueText = { String.format(java.util.Locale.US, "%.2fx", it) },
+                step = 0.01f
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            ContinuousValueAdjuster(
+                title = "Pitch",
+                icon = R.drawable.discover_tune,
+                value = transposeValue,
+                valueRange = -12f..12f,
+                onValueChange = { 
+                    transposeValue = it
+                    updatePlaybackParameters()
+                },
+                valueText = { String.format(java.util.Locale.US, "%s%.2f", if (it > 0) "+" else "", it) },
+                step = 0.01f
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text(stringResource(R.string.reset))
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = onDismiss,
-            ) {
-                Text(stringResource(android.R.string.ok))
-            }
-        },
-        text = {
-            Column {
-                ValueAdjuster(
-                    icon = R.drawable.speed,
-                    currentValue = tempo,
-                    values = (0..35).map { round((0.25f + it * 0.05f) * 100) / 100 },
-                    onValueUpdate = {
-                        tempo = it
+                OutlinedButton(
+                    onClick = {
+                        tempo = 1f
+                        transposeValue = 0f
                         updatePlaybackParameters()
                     },
-                    valueText = { "x$it" },
-                    modifier = Modifier.padding(bottom = 12.dp),
-                )
-                ValueAdjuster(
-                    icon = R.drawable.discover_tune,
-                    currentValue = transposeValue,
-                    values = (-12..12).toList(),
-                    onValueUpdate = {
-                        transposeValue = it
-                        updatePlaybackParameters()
-                    },
-                    valueText = { "${if (it > 0) "+" else ""}$it" },
-                )
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(stringResource(R.string.reset))
+                }
+
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(stringResource(android.R.string.ok))
+                }
             }
-        },
-    )
+        }
+    }
 }
 
 @Composable
-fun <T> ValueAdjuster(
+fun ContinuousValueAdjuster(
+    title: String,
     @DrawableRes icon: Int,
-    currentValue: T,
-    values: List<T>,
-    onValueUpdate: (T) -> Unit,
-    valueText: (T) -> String,
+    value: Float,
+    valueRange: ClosedFloatingPointRange<Float>,
+    onValueChange: (Float) -> Unit,
+    valueText: (Float) -> String,
+    step: Float,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(24.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier,
-    ) {
-        Icon(
-            painter = painterResource(icon),
-            contentDescription = null,
-            modifier = Modifier.size(28.dp),
-        )
-
-        IconButton(
-            enabled = currentValue != values.first(),
-            onClick = {
-                onValueUpdate(values[values.indexOf(currentValue) - 1])
-            },
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Icon(
-                painter = painterResource(R.drawable.remove),
-                contentDescription = null,
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    painter = painterResource(icon),
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp).padding(end = 8.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            Text(
+                text = valueText(value),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
             )
         }
-
-        Text(
-            text = valueText(currentValue),
-            style = MaterialTheme.typography.titleMedium,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.width(80.dp),
-        )
-
-        IconButton(
-            enabled = currentValue != values.last(),
-            onClick = {
-                onValueUpdate(values[values.indexOf(currentValue) + 1])
-            },
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(
-                painter = painterResource(R.drawable.add),
-                contentDescription = null,
+            IconButton(
+                onClick = { 
+                    val newValue = kotlin.math.round((value - step) * 100) / 100f
+                    onValueChange(newValue.coerceIn(valueRange)) 
+                },
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.remove), 
+                    contentDescription = "-",
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            
+            Slider(
+                value = value,
+                onValueChange = { newValue ->
+                    onValueChange(kotlin.math.round(newValue * 100) / 100f)
+                },
+                valueRange = valueRange,
+                modifier = Modifier.weight(1f)
             )
+            
+            IconButton(
+                onClick = { 
+                    val newValue = kotlin.math.round((value + step) * 100) / 100f
+                    onValueChange(newValue.coerceIn(valueRange)) 
+                },
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.add), 
+                    contentDescription = "+",
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+            }
         }
     }
 }
