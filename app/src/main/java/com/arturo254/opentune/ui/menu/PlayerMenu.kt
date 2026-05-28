@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.arturo254.opentune.ui.menu
 
 import android.content.Intent
@@ -20,7 +22,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
@@ -104,9 +106,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
-import kotlin.math.log2
-import kotlin.math.pow
-import kotlin.math.round
 import kotlin.math.roundToInt
 
 @Composable
@@ -136,7 +135,7 @@ fun ColumnScope.PlayerMenu(
             mediaMetadata.artists.filter { it.id != null }
         }
 
-    // Sleep Timer - Misma lógica exacta que Player.kt
+    // Sleep Timer
     val sleepTimerEnabled =
         remember(
             playerConnection.service.sleepTimer.triggerTime,
@@ -307,7 +306,6 @@ fun ColumnScope.PlayerMenu(
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Botón para cancelar si hay temporizador activo
                     if (sleepTimerEnabled) {
                         TextButton(
                             onClick = {
@@ -319,7 +317,6 @@ fun ColumnScope.PlayerMenu(
                         }
                     }
 
-                    // Botón OK (cambia función según estado)
                     TextButton(
                         onClick = {
                             showSleepTimerDialog = false
@@ -349,7 +346,6 @@ fun ColumnScope.PlayerMenu(
             },
             text = {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    // Mostrar estado actual si hay timer activo
                     if (sleepTimerEnabled) {
                         Text(
                             text = stringResource(R.string.sleep_timer_active),
@@ -371,7 +367,6 @@ fun ColumnScope.PlayerMenu(
                         )
                     }
 
-                    // Configuración del timer (mostrar solo si no hay timer activo)
                     if (!sleepTimerEnabled) {
                         Text(
                             text = pluralStringResource(
@@ -404,7 +399,6 @@ fun ColumnScope.PlayerMenu(
     }
 
     if (isQueueTrigger != true) {
-        // State to track if audio is muted
         var isMuted by remember { mutableStateOf(false) }
         var previousVolume by remember { mutableFloatStateOf(playerVolume.value) }
 
@@ -858,7 +852,6 @@ fun ColumnScope.PlayerMenu(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TempoPitchBottomSheet(onDismiss: () -> Unit) {
     val playerConnection = LocalPlayerConnection.current ?: return
@@ -892,11 +885,13 @@ fun TempoPitchBottomSheet(onDismiss: () -> Unit) {
         dragHandle = { BottomSheetDefaults.DragHandle() },
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         containerColor = MaterialTheme.colorScheme.surface,
-        contentColor = MaterialTheme.colorScheme.onSurface
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .navigationBarsPadding()
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
