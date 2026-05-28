@@ -38,6 +38,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -45,14 +46,18 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -796,6 +801,78 @@ private fun Color.toHexString(): String {
     return String.format("#%02X%02X%02X", red, green, blue)
 }
 
+@Composable
+fun CustomThemeDialog(
+    onDismiss: () -> Unit,
+    onSave: (ThemeSeedPalette) -> Unit
+) {
+    var red by remember { mutableFloatStateOf(120f) }
+    var green by remember { mutableFloatStateOf(120f) }
+    var blue by remember { mutableFloatStateOf(120f) }
+
+    val color = Color(red / 255f, green / 255f, blue / 255f)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Custom Theme") },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(80.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(color)
+                )
+
+                Text("Red: ${red.toInt()}")
+                Slider(
+                    value = red,
+                    onValueChange = { red = it },
+                    valueRange = 0f..255f,
+                    colors = SliderDefaults.colors(activeTrackColor = Color.Red, thumbColor = Color.Red)
+                )
+
+                Text("Green: ${green.toInt()}")
+                Slider(
+                    value = green,
+                    onValueChange = { green = it },
+                    valueRange = 0f..255f,
+                    colors = SliderDefaults.colors(activeTrackColor = Color.Green, thumbColor = Color.Green)
+                )
+
+                Text("Blue: ${blue.toInt()}")
+                Slider(
+                    value = blue,
+                    onValueChange = { blue = it },
+                    valueRange = 0f..255f,
+                    colors = SliderDefaults.colors(activeTrackColor = Color.Blue, thumbColor = Color.Blue)
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val palette = ThemeSeedPalette(
+                    primary = color,
+                    secondary = color,
+                    tertiary = color,
+                    neutral = color
+                )
+                onSave(palette)
+            }) {
+                Text(stringResource(android.R.string.ok))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(android.R.string.cancel))
+            }
+        }
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PalettePickerScreen(
@@ -819,6 +896,18 @@ fun PalettePickerScreen(
 
     val isDarkTheme = isSystemInDarkTheme()
 
+    var showCustomThemeDialog by rememberSaveable { mutableStateOf(false) }
+
+    if (showCustomThemeDialog) {
+        CustomThemeDialog(
+            onDismiss = { showCustomThemeDialog = false },
+            onSave = { palette ->
+                onCustomThemeColorChange(ThemeSeedPaletteCodec.encodeForPreference(palette, "Custom Theme"))
+                showCustomThemeDialog = false
+            }
+        )
+    }
+
     val importLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri == null) return@rememberLauncherForActivityResult
@@ -834,7 +923,6 @@ fun PalettePickerScreen(
                     val name = ThemeSeedPaletteCodec.extractNameFromJsonOrNull(text)
                     onCustomThemeColorChange(ThemeSeedPaletteCodec.encodeForPreference(imported, name))
                     Toast.makeText(context, "Theme imported successfully", Toast.LENGTH_SHORT).show()
-                    navController.navigate("settings/appearance/theme_creator")
                 } else {
                     Toast.makeText(context, "Failed to import theme", Toast.LENGTH_SHORT).show()
                 }
@@ -844,7 +932,7 @@ fun PalettePickerScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Color Palette") },
+                title = { Text(stringResource(R.string.color_palette)) },
                 navigationIcon = {
                     IconButton(
                         onClick = navController::navigateUp,
@@ -877,7 +965,7 @@ fun PalettePickerScreen(
                             contentDescription = null
                         )
                     },
-                    onClick = { navController.navigate("settings/appearance/theme_creator") },
+                    onClick = { showCustomThemeDialog = true },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                 )
