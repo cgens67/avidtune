@@ -256,12 +256,6 @@ fun NavGraphBuilder.navigationBuilder(
     composable("settings/appearance/palette") {
         PalettePickerScreen(navController)
     }
-    composable("settings/appearance/theme_creator") {
-        // Placeholder for theme creator, simply bounce back safely
-        LaunchedEffect(Unit) {
-            navController.popBackStack()
-        }
-    }
     composable("settings/account") {
         AccountSettings(navController, scrollBehavior)
     }
