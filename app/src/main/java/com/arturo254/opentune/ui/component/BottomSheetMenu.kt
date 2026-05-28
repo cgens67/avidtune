@@ -1,5 +1,6 @@
 package com.arturo254.opentune.ui.component
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -78,6 +79,7 @@ fun BottomSheetMenu(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp)
+                    .weight(1f, fill = false) // Fixes infinite height measurement causing the scroll glitch
             ) {
                 state.content(this)
             }
