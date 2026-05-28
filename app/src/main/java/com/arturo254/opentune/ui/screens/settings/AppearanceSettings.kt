@@ -328,61 +328,48 @@ fun AppearanceSettings(
     ) {
         SettingsGeneralCategory(
             title = stringResource(R.string.theme),
-            items = buildList {
-                add {
-                    SwitchPreference(
-                        title = { Text(stringResource(R.string.enable_dynamic_theme)) },
+            items = listOf(
+                {SwitchPreference(
+                    title = { Text(stringResource(R.string.enable_dynamic_theme)) },
+                    icon = { Icon(painterResource(R.drawable.palette), null) },
+                    checked = dynamicTheme,
+                    onCheckedChange = onDynamicThemeChange,
+                )},
+                {AnimatedVisibility(visible = !dynamicTheme) {
+                    PreferenceEntry(
+                        title = { Text(stringResource(R.string.color_palette)) },
+                        description = "Choose a custom color theme",
                         icon = { Icon(painterResource(R.drawable.palette), null) },
-                        checked = dynamicTheme,
-                        onCheckedChange = onDynamicThemeChange,
+                        onClick = { navController.navigate("settings/appearance/palette") }
                     )
-                }
-
-                if (!dynamicTheme) {
-                    add {
-                        PreferenceEntry(
-                            title = { Text("Color Palette") },
-                            description = "Choose a custom color theme",
-                            icon = { Icon(painterResource(R.drawable.palette), null) },
-                            onClick = { navController.navigate("settings/appearance/palette") }
-                        )
-                    }
-                }
-
-                add {
-                    EnumListPreference(
-                        title = { Text(stringResource(R.string.dark_theme)) },
-                        icon = { Icon(painterResource(R.drawable.dark_mode), null) },
-                        selectedValue = darkMode,
-                        onValueSelected = onDarkModeChange,
-                        valueText = {
-                            when (it) {
-                                DarkMode.ON -> stringResource(R.string.dark_theme_on)
-                                DarkMode.OFF -> stringResource(R.string.dark_theme_off)
-                                DarkMode.AUTO -> stringResource(R.string.dark_theme_follow_system)
+                }},
+                {EnumListPreference(
+                    title = { Text(stringResource(R.string.dark_theme)) },
+                    icon = { Icon(painterResource(R.drawable.dark_mode), null) },
+                    selectedValue = darkMode,
+                    onValueSelected = onDarkModeChange,
+                    valueText = {
+                        when (it) {
+                            DarkMode.ON -> stringResource(R.string.dark_theme_on)
+                            DarkMode.OFF -> stringResource(R.string.dark_theme_off)
+                            DarkMode.AUTO -> stringResource(R.string.dark_theme_follow_system)
+                        }
+                    },
+                )},
+                {AnimatedVisibility(useDarkTheme) {
+                    SwitchPreference(
+                        title = { Text(stringResource(R.string.pure_black)) },
+                        icon = { Icon(painterResource(R.drawable.contrast), null) },
+                        checked = pureBlack && useDarkTheme,
+                        onCheckedChange = { newValue ->
+                            if (useDarkTheme) {
+                                onPureBlackChange(newValue)
                             }
                         },
+                        isEnabled = useDarkTheme
                     )
-                }
-
-                if (useDarkTheme) {
-                    add {
-                        AnimatedVisibility(useDarkTheme) {
-                            SwitchPreference(
-                                title = { Text(stringResource(R.string.pure_black)) },
-                                icon = { Icon(painterResource(R.drawable.contrast), null) },
-                                checked = pureBlack && useDarkTheme,
-                                onCheckedChange = { newValue ->
-                                    if (useDarkTheme) {
-                                        onPureBlackChange(newValue)
-                                    }
-                                },
-                                isEnabled = useDarkTheme
-                            )
-                        }
-                    }
-                }
-            }
+                }}
+            )
         )
 
         // Language preferences
