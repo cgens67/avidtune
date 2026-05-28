@@ -563,6 +563,7 @@ fun LanguageSelector(
                     state = listState,
                     modifier = Modifier
                         .fillMaxWidth()
+                        .weight(1f, fill = false)
                         .selectableGroup(),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
