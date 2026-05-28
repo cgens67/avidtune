@@ -11,6 +11,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -109,7 +110,7 @@ import kotlin.math.round
 import kotlin.math.roundToInt
 
 @Composable
-fun PlayerMenu(
+fun ColumnScope.PlayerMenu(
     mediaMetadata: MediaMetadata?,
     navController: NavController,
     playerBottomSheetState: BottomSheetState,
@@ -498,6 +499,7 @@ fun PlayerMenu(
     Spacer(modifier = Modifier.height(12.dp))
 
     LazyColumn(
+        modifier = Modifier.weight(1f, fill = false),
         contentPadding = PaddingValues(
             start = 0.dp,
             top = 0.dp,
