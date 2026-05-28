@@ -31,6 +31,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -906,7 +907,7 @@ fun TempoPitchBottomSheet(onDismiss: () -> Unit) {
                     updatePlaybackParameters()
                 },
                 valueText = { String.format(java.util.Locale.US, "%.2fx", it) },
-                step = 0.01f
+                buttonStep = 0.05f
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -921,7 +922,7 @@ fun TempoPitchBottomSheet(onDismiss: () -> Unit) {
                     updatePlaybackParameters()
                 },
                 valueText = { String.format(java.util.Locale.US, "%s%.2f", if (it > 0) "+" else "", it) },
-                step = 0.01f
+                buttonStep = 1.0f
             )
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -960,7 +961,7 @@ fun ContinuousValueAdjuster(
     valueRange: ClosedFloatingPointRange<Float>,
     onValueChange: (Float) -> Unit,
     valueText: (Float) -> String,
-    step: Float,
+    buttonStep: Float,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -998,7 +999,7 @@ fun ContinuousValueAdjuster(
         ) {
             IconButton(
                 onClick = { 
-                    val newValue = kotlin.math.round((value - step) * 100) / 100f
+                    val newValue = kotlin.math.round((value - buttonStep) * 100) / 100f
                     onValueChange(newValue.coerceIn(valueRange)) 
                 },
                 modifier = Modifier.size(36.dp)
@@ -1021,7 +1022,7 @@ fun ContinuousValueAdjuster(
             
             IconButton(
                 onClick = { 
-                    val newValue = kotlin.math.round((value + step) * 100) / 100f
+                    val newValue = kotlin.math.round((value + buttonStep) * 100) / 100f
                     onValueChange(newValue.coerceIn(valueRange)) 
                 },
                 modifier = Modifier.size(36.dp)
