@@ -860,20 +860,29 @@ fun PlayerMenu(
 @Composable
 fun TempoPitchBottomSheet(onDismiss: () -> Unit) {
     val playerConnection = LocalPlayerConnection.current ?: return
+    val coroutineScope = rememberCoroutineScope()
     
     var tempo by remember {
         mutableFloatStateOf(playerConnection.player.playbackParameters.speed)
     }
-    var transposeValue by remember {
-        mutableFloatStateOf((12 * log2(playerConnection.player.playbackParameters.pitch)).toFloat())
+    var pitch by remember {
+        mutableFloatStateOf(playerConnection.player.playbackParameters.pitch)
     }
 
     val updatePlaybackParameters = {
         playerConnection.player.playbackParameters =
-            PlaybackParameters(tempo, 2f.pow(transposeValue / 12f))
+            PlaybackParameters(tempo, pitch)
     }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    val dismissWithAnimation = {
+        coroutineScope.launch {
+            sheetState.hide()
+        }.invokeOnCompletion {
+            onDismiss()
+        }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -915,14 +924,14 @@ fun TempoPitchBottomSheet(onDismiss: () -> Unit) {
             ContinuousValueAdjuster(
                 title = "Pitch",
                 icon = R.drawable.discover_tune,
-                value = transposeValue,
-                valueRange = -12f..12f,
+                value = pitch,
+                valueRange = 0.25f..3.0f,
                 onValueChange = { 
-                    transposeValue = it
+                    pitch = it
                     updatePlaybackParameters()
                 },
-                valueText = { String.format(java.util.Locale.US, "%s%.2f", if (it > 0) "+" else "", it) },
-                buttonStep = 1.0f
+                valueText = { String.format(java.util.Locale.US, "%.2fx", it) },
+                buttonStep = 0.05f
             )
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -934,7 +943,7 @@ fun TempoPitchBottomSheet(onDismiss: () -> Unit) {
                 OutlinedButton(
                     onClick = {
                         tempo = 1f
-                        transposeValue = 0f
+                        pitch = 1f
                         updatePlaybackParameters()
                     },
                     modifier = Modifier.weight(1f)
@@ -943,7 +952,7 @@ fun TempoPitchBottomSheet(onDismiss: () -> Unit) {
                 }
 
                 Button(
-                    onClick = onDismiss,
+                    onClick = { dismissWithAnimation() },
                     modifier = Modifier.weight(1f)
                 ) {
                     Text(stringResource(android.R.string.ok))
