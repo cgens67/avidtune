@@ -321,7 +321,6 @@ fun AppearanceSettings(
         }
     }
 
-
     SettingsPage(
         title = stringResource(R.string.appearance),
         navController = navController,
@@ -329,40 +328,61 @@ fun AppearanceSettings(
     ) {
         SettingsGeneralCategory(
             title = stringResource(R.string.theme),
-            items = listOf(
-                {SwitchPreference(
-                    title = { Text(stringResource(R.string.enable_dynamic_theme)) },
-                    icon = { Icon(painterResource(R.drawable.palette), null) },
-                    checked = dynamicTheme,
-                    onCheckedChange = onDynamicThemeChange,
-                )},
-                {EnumListPreference(
-                    title = { Text(stringResource(R.string.dark_theme)) },
-                    icon = { Icon(painterResource(R.drawable.dark_mode), null) },
-                    selectedValue = darkMode,
-                    onValueSelected = onDarkModeChange,
-                    valueText = {
-                        when (it) {
-                            DarkMode.ON -> stringResource(R.string.dark_theme_on)
-                            DarkMode.OFF -> stringResource(R.string.dark_theme_off)
-                            DarkMode.AUTO -> stringResource(R.string.dark_theme_follow_system)
-                        }
-                    },
-                )},
-                {AnimatedVisibility(useDarkTheme) {
+            items = buildList {
+                add {
                     SwitchPreference(
-                        title = { Text(stringResource(R.string.pure_black)) },
-                        icon = { Icon(painterResource(R.drawable.contrast), null) },
-                        checked = pureBlack && useDarkTheme,
-                        onCheckedChange = { newValue ->
-                            if (useDarkTheme) {
-                                onPureBlackChange(newValue)
+                        title = { Text(stringResource(R.string.enable_dynamic_theme)) },
+                        icon = { Icon(painterResource(R.drawable.palette), null) },
+                        checked = dynamicTheme,
+                        onCheckedChange = onDynamicThemeChange,
+                    )
+                }
+
+                if (!dynamicTheme) {
+                    add {
+                        PreferenceEntry(
+                            title = { Text("Color Palette") },
+                            description = "Choose a custom color theme",
+                            icon = { Icon(painterResource(R.drawable.palette), null) },
+                            onClick = { navController.navigate("settings/appearance/palette") }
+                        )
+                    }
+                }
+
+                add {
+                    EnumListPreference(
+                        title = { Text(stringResource(R.string.dark_theme)) },
+                        icon = { Icon(painterResource(R.drawable.dark_mode), null) },
+                        selectedValue = darkMode,
+                        onValueSelected = onDarkModeChange,
+                        valueText = {
+                            when (it) {
+                                DarkMode.ON -> stringResource(R.string.dark_theme_on)
+                                DarkMode.OFF -> stringResource(R.string.dark_theme_off)
+                                DarkMode.AUTO -> stringResource(R.string.dark_theme_follow_system)
                             }
                         },
-                        isEnabled = useDarkTheme
                     )
-                }}
-            )
+                }
+
+                if (useDarkTheme) {
+                    add {
+                        AnimatedVisibility(useDarkTheme) {
+                            SwitchPreference(
+                                title = { Text(stringResource(R.string.pure_black)) },
+                                icon = { Icon(painterResource(R.drawable.contrast), null) },
+                                checked = pureBlack && useDarkTheme,
+                                onCheckedChange = { newValue ->
+                                    if (useDarkTheme) {
+                                        onPureBlackChange(newValue)
+                                    }
+                                },
+                                isEnabled = useDarkTheme
+                            )
+                        }
+                    }
+                }
+            }
         )
 
         // Language preferences
@@ -514,6 +534,7 @@ fun AppearanceSettings(
             )
         )
 
+        // Misc settings
         SettingsGeneralCategory(
             title = stringResource(R.string.misc),
             items = listOf(
