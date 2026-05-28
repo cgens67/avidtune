@@ -10,6 +10,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.navigation.NavGraphBuilder
@@ -35,6 +36,7 @@ import com.arturo254.opentune.ui.screens.settings.BackupAndRestore
 import com.arturo254.opentune.ui.screens.settings.ContentSettings
 import com.arturo254.opentune.ui.screens.settings.DiscordLoginScreen
 import com.arturo254.opentune.ui.screens.settings.DiscordSettings
+import com.arturo254.opentune.ui.screens.settings.PalettePickerScreen
 import com.arturo254.opentune.ui.screens.settings.PlayerSettings
 import com.arturo254.opentune.ui.screens.settings.PrivacySettings
 import com.arturo254.opentune.ui.screens.settings.SettingsScreen
@@ -251,6 +253,15 @@ fun NavGraphBuilder.navigationBuilder(
     composable("settings/appearance") {
         AppearanceSettings(navController, scrollBehavior)
     }
+    composable("settings/appearance/palette") {
+        PalettePickerScreen(navController)
+    }
+    composable("settings/appearance/theme_creator") {
+        // Placeholder for theme creator, simply bounce back safely
+        LaunchedEffect(Unit) {
+            navController.popBackStack()
+        }
+    }
     composable("settings/account") {
         AccountSettings(navController, scrollBehavior)
     }
@@ -282,4 +293,3 @@ fun NavGraphBuilder.navigationBuilder(
         LoginScreen(navController)
     }
 }
-
