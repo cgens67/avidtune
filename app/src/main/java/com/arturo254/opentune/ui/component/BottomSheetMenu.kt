@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -18,10 +19,15 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 
@@ -64,6 +70,7 @@ fun BottomSheetMenu(
             },
             containerColor = background,
             contentColor = MaterialTheme.colorScheme.onSurface,
+            contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
             dragHandle = {
                 Box(
                     modifier = Modifier
@@ -75,11 +82,28 @@ fun BottomSheetMenu(
             },
             modifier = modifier.fillMaxHeight()
         ) {
+            // Consumes overscroll at the bottom to prevent the sheet from glitching/dragging down
+            val nestedScrollConnection = remember {
+                object : NestedScrollConnection {
+                    override fun onPostScroll(
+                        consumed: Offset,
+                        available: Offset,
+                        source: NestedScrollSource
+                    ): Offset {
+                        if (available.y < 0f) {
+                            return Offset(0f, available.y)
+                        }
+                        return Offset.Zero
+                    }
+                }
+            }
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .nestedScroll(nestedScrollConnection)
                     .padding(horizontal = 20.dp)
-                    .weight(1f, fill = false) // Fixes infinite height measurement causing the scroll glitch
+                    .weight(1f, fill = false)
             ) {
                 state.content(this)
             }
