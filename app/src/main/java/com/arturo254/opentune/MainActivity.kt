@@ -153,6 +153,7 @@ import com.arturo254.innertube.YouTube
 import com.arturo254.innertube.models.SongItem
 import com.arturo254.innertube.models.WatchEndpoint
 import com.arturo254.opentune.constants.AppBarHeight
+import com.arturo254.opentune.constants.CustomThemeColorKey
 import com.arturo254.opentune.constants.DarkModeKey
 import com.arturo254.opentune.constants.DefaultOpenTabKey
 import com.arturo254.opentune.constants.DisableScreenshotKey
@@ -197,9 +198,11 @@ import com.arturo254.opentune.ui.screens.search.LocalSearchScreen
 import com.arturo254.opentune.ui.screens.search.OnlineSearchScreen
 import com.arturo254.opentune.ui.screens.settings.DarkMode
 import com.arturo254.opentune.ui.screens.settings.NavigationTab
+import com.arturo254.opentune.ui.screens.settings.ThemePalettes
 import com.arturo254.opentune.ui.theme.ColorSaver
 import com.arturo254.opentune.ui.theme.DefaultThemeColor
 import com.arturo254.opentune.ui.theme.OpenTuneTheme
+import com.arturo254.opentune.ui.theme.ThemeSeedPaletteCodec
 import com.arturo254.opentune.ui.theme.extractThemeColor
 import com.arturo254.opentune.ui.utils.appBarScrollBehavior
 import com.arturo254.opentune.ui.utils.backToMain
@@ -335,8 +338,8 @@ class MainActivity : ComponentActivity() {
 
             var showFullscreenLyrics by remember { mutableStateOf(false) }
 
-
             val enableDynamicTheme by rememberPreference(DynamicThemeKey, defaultValue = true)
+            val (customThemeColor) = rememberPreference(CustomThemeColorKey, defaultValue = ThemePalettes.Default.id)
             val darkTheme by rememberEnumPreference(DarkModeKey, defaultValue = DarkMode.AUTO)
 
             val pureBlack by rememberPreference(PureBlackKey, defaultValue = false)
@@ -352,12 +355,26 @@ class MainActivity : ComponentActivity() {
                 mutableStateOf(DefaultThemeColor)
             }
 
-            LaunchedEffect(playerConnection, enableDynamicTheme, isSystemInDarkTheme) {
+            LaunchedEffect(playerConnection, enableDynamicTheme, isSystemInDarkTheme, customThemeColor) {
                 val playerConnection = playerConnection
-                if (!enableDynamicTheme || playerConnection == null) {
+                if (!enableDynamicTheme) {
+                    val seedPalette = ThemeSeedPaletteCodec.decodeFromPreference(customThemeColor)
+                    if (seedPalette != null) {
+                        themeColor = seedPalette.primary
+                    } else {
+                        val palette = ThemePalettes.findById(customThemeColor)
+                            ?: ThemePalettes.findByPrimaryColor(customThemeColor)
+                            ?: ThemePalettes.Default
+                        themeColor = palette.primary
+                    }
+                    return@LaunchedEffect
+                }
+                
+                if (playerConnection == null) {
                     themeColor = DefaultThemeColor
                     return@LaunchedEffect
                 }
+                
                 playerConnection.service.currentMediaMetadata.collectLatest { song ->
                     themeColor =
                         if (song != null) {
