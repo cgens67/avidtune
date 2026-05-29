@@ -68,10 +68,8 @@ import com.arturo254.opentune.R
 import com.arturo254.opentune.constants.AudioNormalizationKey
 import com.arturo254.opentune.constants.AudioQuality
 import com.arturo254.opentune.constants.AudioQualityKey
-import com.arturo254.opentune.constants.AutoLoadMoreKey
 import com.arturo254.opentune.constants.AutoSkipNextOnErrorKey
 import com.arturo254.opentune.constants.PersistentQueueKey
-import com.arturo254.opentune.constants.SimilarContent
 import com.arturo254.opentune.constants.SkipSilenceKey
 import com.arturo254.opentune.constants.StopMusicOnTaskClearKey
 import com.arturo254.opentune.playback.PlayerConnection
@@ -107,14 +105,6 @@ fun PlayerSettings(
     )
     val (audioNormalization, onAudioNormalizationChange) = rememberPreference(
         AudioNormalizationKey,
-        defaultValue = true
-    )
-    val (autoLoadMore, onAutoLoadMoreChange) = rememberPreference(
-        AutoLoadMoreKey,
-        defaultValue = true
-    )
-    val (similarContentEnabled, similarContentEnabledChange) = rememberPreference(
-        key = SimilarContent,
         defaultValue = true
     )
     val (autoSkipNextOnError, onAutoSkipNextOnErrorChange) = rememberPreference(
@@ -180,22 +170,6 @@ fun PlayerSettings(
                     icon = { Icon(painterResource(R.drawable.queue_music), null) },
                     checked = persistentQueue,
                     onCheckedChange = onPersistentQueueChange
-                )},
-
-                {SwitchPreference(
-                    title = { Text(stringResource(R.string.auto_load_more)) },
-                    description = stringResource(R.string.auto_load_more_desc),
-                    icon = { Icon(painterResource(R.drawable.playlist_add), null) },
-                    checked = autoLoadMore,
-                    onCheckedChange = onAutoLoadMoreChange
-                )},
-
-                {SwitchPreference(
-                    title = { Text(stringResource(R.string.enable_similar_content)) },
-                    description = stringResource(R.string.similar_content_desc),
-                    icon = { Icon(painterResource(R.drawable.similar), null) },
-                    checked = similarContentEnabled,
-                    onCheckedChange = similarContentEnabledChange,
                 )},
 
                 {SwitchPreference(
