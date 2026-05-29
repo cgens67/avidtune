@@ -776,6 +776,12 @@ private fun buildSettingsGroups(
                     onClick = { resetSearch(); navController.navigate("settings/account") }
                 ),
                 SettingsItem(
+                    icon = painterResource(R.drawable.speed),
+                    title = stringResource(R.string.performance),
+                    keywords = listOf("performance", "speed", "blur", "minimal"),
+                    onClick = { resetSearch(); navController.navigate("settings/performance") }
+                ),
+                SettingsItem(
                     icon = painterResource(R.drawable.security),
                     title = stringResource(R.string.privacy),
                     keywords = listOf("privacy", "history", "security"),
