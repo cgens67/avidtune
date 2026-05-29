@@ -37,6 +37,7 @@ import com.arturo254.opentune.ui.screens.settings.ContentSettings
 import com.arturo254.opentune.ui.screens.settings.DiscordLoginScreen
 import com.arturo254.opentune.ui.screens.settings.DiscordSettings
 import com.arturo254.opentune.ui.screens.settings.PalettePickerScreen
+import com.arturo254.opentune.ui.screens.settings.PerformanceSettings
 import com.arturo254.opentune.ui.screens.settings.PlayerSettings
 import com.arturo254.opentune.ui.screens.settings.PrivacySettings
 import com.arturo254.opentune.ui.screens.settings.SettingsScreen
@@ -267,6 +268,9 @@ fun NavGraphBuilder.navigationBuilder(
     }
     composable("settings/content") {
         ContentSettings(navController, scrollBehavior)
+    }
+    composable("settings/performance") {
+        PerformanceSettings(navController, scrollBehavior)
     }
     composable("settings/player") {
         PlayerSettings(navController, scrollBehavior)
