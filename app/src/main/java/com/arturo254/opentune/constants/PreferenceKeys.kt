@@ -3,10 +3,12 @@ package com.arturo254.opentune.constants
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
-import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import java.time.LocalDateTime
 import java.time.ZoneOffset
+
+val MinimalPlayerDesignKey = booleanPreferencesKey("minimalPlayerDesign")
+val BlurIntensityKey = floatPreferencesKey("blurIntensity")
 
 val DynamicThemeKey = booleanPreferencesKey("dynamicTheme")
 val CustomThemeColorKey = stringPreferencesKey("customThemeColor")
