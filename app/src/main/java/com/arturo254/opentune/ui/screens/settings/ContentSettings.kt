@@ -39,6 +39,8 @@ import com.arturo254.opentune.ui.component.SwitchPreference
 import com.arturo254.opentune.utils.rememberEnumPreference
 import com.arturo254.opentune.utils.rememberPreference
 import java.net.Proxy
+import kotlin.math.roundToInt
+import androidx.compose.ui.res.pluralStringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -235,6 +237,17 @@ fun ContentSettings(
                     icon = { Icon(painterResource(R.drawable.history), null) },
                     value = historyDuration,
                     onValueChange = onHistoryDurationChange,
+                    dialogTitle = stringResource(R.string.history_duration),
+                    valueText = {
+                        Text(
+                            text = pluralStringResource(
+                                R.plurals.seconds,
+                                it.roundToInt(),
+                                it.roundToInt()
+                            ),
+                            style = androidx.compose.material3.MaterialTheme.typography.bodyLarge,
+                        )
+                    }
                 )},
             )
         )
