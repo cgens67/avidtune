@@ -39,7 +39,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.arturo254.opentune.R
-import com.arturo254.opentune.constants.AnimateLyricsKey
 import com.arturo254.opentune.constants.ChipSortTypeKey
 import com.arturo254.opentune.constants.DarkModeKey
 import com.arturo254.opentune.constants.DefaultMiniPlayerThumbnailShape
@@ -60,7 +59,6 @@ import com.arturo254.opentune.constants.PlayerButtonsStyle
 import com.arturo254.opentune.constants.PlayerButtonsStyleKey
 import com.arturo254.opentune.constants.PlayerTextAlignmentKey
 import com.arturo254.opentune.constants.PureBlackKey
-import com.arturo254.opentune.constants.RotateBackgroundKey
 import com.arturo254.opentune.constants.SliderStyle
 import com.arturo254.opentune.constants.SliderStyleKey
 import com.arturo254.opentune.constants.SlimNavBarKey
@@ -134,15 +132,6 @@ fun AppearanceSettings(
     val (gridItemSize, onGridItemSizeChange) = rememberEnumPreference(
         GridItemsSizeKey,
         defaultValue = GridItemSize.BIG
-    )
-    val (animateLyrics, onAnimateLyricsChange) = rememberPreference(
-        AnimateLyricsKey,
-        defaultValue = true
-    )
-
-    val (rotateBackground, onRotateBackgroundChange) = rememberPreference(
-        key = RotateBackgroundKey,
-        defaultValue = false
     )
 
     // Estados de formas
@@ -458,14 +447,6 @@ fun AppearanceSettings(
                     onCheckedChange = onSwipeThumbnailChange,
                 )},
 
-                {SwitchPreference(
-                    title = { Text(stringResource(R.string.Rotatelyricsbackground)) },
-                    description = null,
-                    icon = { Icon(painterResource(R.drawable.album), null) },
-                    checked = rotateBackground,
-                    onCheckedChange = onRotateBackgroundChange
-                )},
-
                 {EnumListPreference(
                     title = { Text(stringResource(R.string.player_text_alignment)) },
                     icon = {
@@ -509,14 +490,6 @@ fun AppearanceSettings(
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = lyricsClick,
                     onCheckedChange = onLyricsClickChange,
-                )},
-
-                {SwitchPreference(
-                    title = { Text(stringResource(R.string.animate_lyrics)) },
-                    icon = { Icon(painterResource(R.drawable.lyrics), null) },
-                    description = stringResource(R.string.animate_lyrics_desc),
-                    checked = animateLyrics,
-                    onCheckedChange = onAnimateLyricsChange
                 )}
             )
         )
