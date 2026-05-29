@@ -102,6 +102,11 @@ import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -136,7 +141,6 @@ import com.arturo254.opentune.LocalDatabase
 import com.arturo254.opentune.LocalPlayerConnection
 import com.arturo254.opentune.R
 import com.arturo254.opentune.constants.AnimateLyricsKey
-import com.arturo254.opentune.constants.AppleMusicLyricsBlurKey
 import com.arturo254.opentune.constants.DarkModeKey
 import com.arturo254.opentune.constants.LyricsClickKey
 import com.arturo254.opentune.constants.LyricsScrollKey
@@ -151,8 +155,6 @@ import com.arturo254.opentune.db.entities.LyricsEntity.Companion.LYRICS_NOT_FOUN
 import com.arturo254.opentune.lyrics.LyricsEntry
 import com.arturo254.opentune.lyrics.LyricsUtils.findCurrentLineIndex
 import com.arturo254.opentune.lyrics.LyricsUtils.parseLyrics
-import com.arturo254.opentune.lyrics.WordTimestamp
-import com.arturo254.opentune.playback.PlayerConnection
 import com.arturo254.opentune.ui.component.shimmer.ShimmerHost
 import com.arturo254.opentune.ui.menu.LyricsMenu
 import com.arturo254.opentune.ui.screens.settings.DarkMode
@@ -557,10 +559,17 @@ fun Lyrics(
                 val itemCenter = itemInfo.offset + itemInfo.size / 2
                 val offset = itemCenter - center
                 if (kotlin.math.abs(offset) > 10) {
-                    lazyListState.animateScrollBy(
-                        value = offset.toFloat(),
-                        animationSpec = if (animateLyrics) tween(durationMillis = duration) else snap()
-                    )
+                    if (animateLyrics) {
+                        lazyListState.animateScrollBy(
+                            value = offset.toFloat(),
+                            animationSpec = tween(durationMillis = duration)
+                        )
+                    } else {
+                        lazyListState.animateScrollBy(
+                            value = offset.toFloat(),
+                            animationSpec = tween(durationMillis = 150)
+                        )
+                    }
                 }
             } else {
                 lazyListState.scrollToItem(targetIndex)
@@ -847,7 +856,7 @@ fun Lyrics(
                                     isSelected = isSelected,
                                     isSelectionModeActive = isSelectionModeActive,
                                     isAutoScrollActive = isAutoScrollEnabled,
-                                    isAnimationEnabled = animateLyrics,
+                                    animateLyrics = animateLyrics,
                                     modifier = Modifier
                                 )
                             }
@@ -1017,7 +1026,7 @@ fun Lyrics(
                                 val overlayAlphaState by androidx.compose.animation.core.animateFloatAsState(
                                     targetValue = if (isPlaying) 0.4f else 0.4f,
                                     label = "overlay_alpha",
-                                    animationSpec = if (animateLyrics) tween() else snap()
+                                    animationSpec = if (animateLyrics) spring() else snap()
                                 )
 
                                 Box(
@@ -1214,7 +1223,7 @@ fun Lyrics(
                                 thumbColor = textBackgroundColor
                             ),
                             squigglesSpec = SquigglySlider.SquigglesSpec(
-                                amplitude = if (isPlaying) (4.dp).coerceAtLeast(2.dp) else 0.dp,
+                                amplitude = if (isPlaying && animateLyrics) (4.dp).coerceAtLeast(2.dp) else 0.dp,
                                 strokeWidth = 3.dp,
                                 wavelength = 36.dp,
                             ),
@@ -1568,7 +1577,7 @@ fun LyricsLine(
     isSelected: Boolean,
     isSelectionModeActive: Boolean,
     isAutoScrollActive: Boolean,
-    isAnimationEnabled: Boolean,
+    animateLyrics: Boolean,
     modifier: Modifier = Modifier
 ) {
     val (appleMusicLyricsBlur) = rememberPreference(AppleMusicLyricsBlurKey, true)
@@ -1579,33 +1588,29 @@ fun LyricsLine(
             0f
         else
             6f,
-        animationSpec = if (isAnimationEnabled) tween(durationMillis = 600) else snap(),
+        animationSpec = if (animateLyrics) tween(durationMillis = 600) else snap(),
         label = "blur"
     )
 
-    val targetScale = when {
-        !isSynced || isActive -> 1.05f
-        distanceFromCurrent == 1 -> 1f
-        else -> 0.95f
-    }
-
     val animatedScale by animateFloatAsState(
-        targetValue = targetScale,
-        animationSpec = if (isAnimationEnabled) tween(durationMillis = 400) else snap(),
+        targetValue = when {
+            !isSynced || isActive -> 1.05f
+            distanceFromCurrent == 1 -> 1f
+            else -> 0.95f
+        },
+        animationSpec = if (animateLyrics) tween(durationMillis = 400) else snap(),
         label = "scale"
     )
 
-    val targetAlphaTop = when {
-        !isSynced || (isSelectionModeActive && isSelected) -> 1f
-        isActive -> 1f
-        distanceFromCurrent == 1 -> 0.7f
-        distanceFromCurrent == 2 -> 0.4f
-        else -> 0.2f
-    }
-
     val animatedAlpha by animateFloatAsState(
-        targetValue = targetAlphaTop,
-        animationSpec = if (isAnimationEnabled) tween(durationMillis = 400) else snap(),
+        targetValue = when {
+            !isSynced || (isSelectionModeActive && isSelected) -> 1f
+            isActive -> 1f
+            distanceFromCurrent == 1 -> 0.7f
+            distanceFromCurrent == 2 -> 0.4f
+            else -> 0.2f
+        },
+        animationSpec = if (animateLyrics) tween(durationMillis = 400) else snap(),
         label = "alpha"
     )
 
@@ -1670,7 +1675,7 @@ fun LyricsLine(
             }
         } else inactiveAlpha
 
-        val lineAlpha by animateFloatAsState(targetAlpha, if (isAnimationEnabled) tween(250) else snap(), label = "lyricsLineAlpha")
+        val lineAlpha by animateFloatAsState(targetAlpha, if (animateLyrics) tween(250) else snap(), label = "lyricsLineAlpha")
         val lineColor = textColor.copy(alpha = if (entry.isBackground) focusedAlpha else lineAlpha)
 
         val mainText = if (entry.isBackground) entry.text.removePrefix("(").removeSuffix(")") else entry.text
@@ -1712,7 +1717,7 @@ fun LyricsLine(
 
         val isTracking = isActive || distanceFromCurrent <= 3
 
-        if (isSynced && effectiveWords != null && isTracking && mainText.isNotBlank() && isAnimationEnabled) {
+        if (isSynced && effectiveWords != null && isTracking && mainText.isNotBlank()) {
             WordLevelLyrics(
                 mainText = mainText,
                 words = effectiveWords,
@@ -1725,33 +1730,40 @@ fun LyricsLine(
                 isBackground = entry.isBackground,
                 focusedAlpha = focusedAlpha,
                 alignment = agentTextAlign,
-                entryTime = entry.time
+                entryTime = entry.time,
+                animateLyrics = animateLyrics
             )
         } else {
-            if (isActive && isSynced && isAnimationEnabled) {
-                val fillProgress = remember { Animatable(0f) }
+            if (isActive && isSynced) {
+                val fillProgress = remember { Animatable(if (animateLyrics) 0f else 1f) }
                 val pulseProgress = remember { Animatable(0f) }
 
-                LaunchedEffect(entry.time) {
-                    fillProgress.snapTo(0f)
-                    fillProgress.animateTo(
-                        targetValue = 1f,
-                        animationSpec = tween(
-                            durationMillis = 1200,
-                            easing = FastOutSlowInEasing
-                        )
-                    )
-                }
-
-                LaunchedEffect(Unit) {
-                    while (true) {
-                        pulseProgress.animateTo(
+                LaunchedEffect(entry.time, animateLyrics) {
+                    fillProgress.snapTo(if (animateLyrics) 0f else 1f)
+                    if (animateLyrics) {
+                        fillProgress.animateTo(
                             targetValue = 1f,
                             animationSpec = tween(
-                                durationMillis = 3000,
-                                easing = LinearEasing
+                                durationMillis = 1200,
+                                easing = FastOutSlowInEasing
                             )
                         )
+                    }
+                }
+
+                LaunchedEffect(animateLyrics) {
+                    if (animateLyrics) {
+                        while (true) {
+                            pulseProgress.animateTo(
+                                targetValue = 1f,
+                                animationSpec = tween(
+                                    durationMillis = 3000,
+                                    easing = LinearEasing
+                                )
+                            )
+                            pulseProgress.snapTo(0f)
+                        }
+                    } else {
                         pulseProgress.snapTo(0f)
                     }
                 }
@@ -1766,7 +1778,7 @@ fun LyricsLine(
                 ) {
                     val fill = fillProgress.value
                     val pulse = pulseProgress.value
-                    val pulseEffect = (kotlin.math.sin(pulse * Math.PI.toFloat()) * 0.15f).coerceIn(0f, 0.15f)
+                    val pulseEffect = if (animateLyrics) (sin(pulse * Math.PI.toFloat()) * 0.15f).coerceIn(0f, 0.15f) else 0f
                     val glowIntensity = (fill + pulseEffect).coerceIn(0f, 1.2f)
 
                     val glowBrush = Brush.horizontalGradient(
@@ -1807,41 +1819,6 @@ fun LyricsLine(
     }
 }
 
-private data class HyphenGroupWord(
-    val pos: Int,
-    val size: Int,
-    val isLast: Boolean,
-    val groupStartMs: Long,
-    val groupEndMs: Long
-)
-
-private fun String.containsRtl(): Boolean {
-    for (c in this) {
-        val directionality = Character.getDirectionality(c).toInt()
-        if (directionality == Character.DIRECTIONALITY_RIGHT_TO_LEFT.toInt() ||
-            directionality == Character.DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC.toInt()
-        ) {
-            return true
-        }
-    }
-    return false
-}
-
-private fun String.toGraphemeClusters(): List<String> {
-    if (isEmpty()) return emptyList()
-    val result = mutableListOf<String>()
-    val it = java.text.BreakIterator.getCharacterInstance()
-    it.setText(this)
-    var start = it.first()
-    var end = it.next()
-    while (end != java.text.BreakIterator.DONE) {
-        result.add(substring(start, end))
-        start = end
-        end = it.next()
-    }
-    return result
-}
-
 @Composable
 private fun WordLevelLyrics(
     mainText: String,
@@ -1855,7 +1832,8 @@ private fun WordLevelLyrics(
     isBackground: Boolean,
     focusedAlpha: Float,
     alignment: TextAlign,
-    entryTime: Long
+    entryTime: Long,
+    animateLyrics: Boolean
 ) {
     val density = LocalDensity.current
     val textMeasurer = rememberTextMeasurer()
@@ -2056,10 +2034,10 @@ private fun WordLevelLyrics(
                             if (wordIdxMap[i] == wIdx) {
                                 val charOffset = clusterCharOffsets[i]
                                 val bounds = layoutResult.getBoundingBox(charOffset)
-                                left = kotlin.math.min(left, bounds.left)
-                                right = kotlin.math.max(right, bounds.right)
-                                top = kotlin.math.min(top, bounds.top)
-                                bottom = kotlin.math.max(bottom, bounds.bottom)
+                                left = minOf(left, bounds.left)
+                                right = maxOf(right, bounds.right)
+                                top = minOf(top, bounds.top)
+                                bottom = maxOf(bottom, bounds.bottom)
                                 found = true
                             }
                         }
@@ -2128,10 +2106,10 @@ private fun WordLevelLyrics(
                         if (pOut > 0f) {
                             val baseAtEnd = groupWord.pos * baseScalePerSegment
                             val totalAtEnd = baseAtEnd + peakScale
-                            crescendoDeltaX = totalAtEnd * kotlin.math.exp(-decay * pOut) * kotlin.math.cos(freq * pOut * kotlin.math.PI.toFloat()) * (1f - pOut)
+                            crescendoDeltaX = totalAtEnd * exp(-decay * pOut) * cos(freq * pOut * Math.PI.toFloat()) * (1f - pOut)
                         } else if (groupWord.isLast) {
                             val base = groupWord.pos * baseScalePerSegment
-                            val springPart = peakScale * (1f - kotlin.math.exp(-decay * p) * kotlin.math.cos(freq * p * kotlin.math.PI.toFloat()) * (1f - p))
+                            val springPart = peakScale * (1f - exp(-decay * p) * cos(freq * p * Math.PI.toFloat()) * (1f - p))
                             crescendoDeltaX = base + springPart
                         } else {
                             val boost = if (p > 0f) 0.02f * (1f - p) else 0f
@@ -2149,10 +2127,10 @@ private fun WordLevelLyrics(
                     } else 0f
 
                     val nudgeScale = if (wordItem != null && !isWordSung && sungFactor > 0f) {
-                        0.038f * kotlin.math.sin(charLp * kotlin.math.PI.toFloat()) * kotlin.math.exp(-3f * charLp)
+                        0.038f * sin(charLp * Math.PI.toFloat()) * exp(-3f * charLp)
                     } else 0f
 
-                    val charScaleX = 1f + (wobble * 0.025f) + crescendoDeltaX + (nudgeScale * 0.3f)
+                    val charScaleX = if (animateLyrics) 1f + (wobble * 0.025f) + crescendoDeltaX + (nudgeScale * 0.3f) else 1f
                     val charBounds = layoutResult.getBoundingBox(charOffset)
                     lineTotalPushes[lineIdx] += charBounds.width * (charScaleX - 1f)
                 }
@@ -2172,8 +2150,8 @@ private fun WordLevelLyrics(
                     
                     val (sungFactor, wordItem, isWordSung) = if (wordIdx != -1) wordFactors[wordIdx] else Triple(0f, null, false)
                     val wobble = if (originalWordIdx != -1) wordWobbles[originalWordIdx] else 0f
-                    val wobbleX = wobble * 0.025f
-                    val wobbleY = wobble * 0.015f
+                    val wobbleX = if (animateLyrics) wobble * 0.025f else 0f
+                    val wobbleY = if (animateLyrics) wobble * 0.015f else 0f
                     
                     val charLp = if (wordItem != null) {
                         val sMs = wordItem.startTime * 1000
@@ -2184,7 +2162,7 @@ private fun WordLevelLyrics(
                         ((wProg - cInW / wLen) * wLen).coerceIn(0.0, 1.0).toFloat()
                     } else 0f
 
-                    val shouldGlow = wordItem != null && !isWordSung && sungFactor > 0.001f
+                    val shouldGlow = wordItem != null && !isWordSung && sungFactor > 0.001f && animateLyrics
 
                     var crescendoDeltaX = 0f
                     var crescendoDeltaY = 0f
@@ -2201,12 +2179,12 @@ private fun WordLevelLyrics(
                         if (pOut > 0f) {
                             val baseAtEnd = groupWord.pos * baseScalePerSegment
                             val totalAtEnd = baseAtEnd + peakScale
-                            val springOut = totalAtEnd * kotlin.math.exp(-decay * pOut) * kotlin.math.cos(freq * pOut * kotlin.math.PI.toFloat()) * (1f - pOut)
+                            val springOut = totalAtEnd * exp(-decay * pOut) * cos(freq * pOut * Math.PI.toFloat()) * (1f - pOut)
                             crescendoDeltaX = springOut
                             crescendoDeltaY = springOut
                         } else if (groupWord.isLast) {
                             val base = groupWord.pos * baseScalePerSegment
-                            val springPart = peakScale * (1f - kotlin.math.exp(-decay * p) * kotlin.math.cos(freq * p * kotlin.math.PI.toFloat()) * (1f - p))
+                            val springPart = peakScale * (1f - exp(-decay * p) * cos(freq * p * Math.PI.toFloat()) * (1f - p))
                             crescendoDeltaX = base + springPart
                             crescendoDeltaY = base + springPart
                         } else {
@@ -2218,16 +2196,16 @@ private fun WordLevelLyrics(
                     }
 
                     val nudgeStrength = 0.038f
-                    val nudgeScale = if (wordItem != null && !isWordSung && sungFactor > 0f) {
-                        nudgeStrength * kotlin.math.sin(charLp * kotlin.math.PI.toFloat()) * kotlin.math.exp(-3f * charLp)
+                    val nudgeScale = if (animateLyrics && wordItem != null && !isWordSung && sungFactor > 0f) {
+                        nudgeStrength * sin(charLp * Math.PI.toFloat()) * exp(-3f * charLp)
                     } else 0f
                     
-                    val charScaleX = 1f + wobbleX + crescendoDeltaX + nudgeScale * 0.3f
-                    val charScaleY = 1f + wobbleY + crescendoDeltaY + nudgeScale
+                    val charScaleX2 = if (animateLyrics) 1f + wobbleX + crescendoDeltaX + nudgeScale * 0.3f else 1f
+                    val charScaleY2 = if (animateLyrics) 1f + wobbleY + crescendoDeltaY + nudgeScale else 1f
 
                     withTransform({
                         var waveOffset = 0f
-                        if (groupWord != null) {
+                        if (groupWord != null && animateLyrics) {
                             val wallTime = System.currentTimeMillis()
                             val adjSmoothPos = smoothPosition
                             val timeInGroup = (adjSmoothPos - groupWord.groupStartMs).toFloat()
@@ -2237,20 +2215,20 @@ private fun WordLevelLyrics(
                                 val waveSpeed = 0.006f
                                 val waveHeight = 3.24f
                                 val phaseOffset = i * 0.4f
-                                waveOffset = kotlin.math.sin(wallTime * waveSpeed + phaseOffset) * waveHeight * waveFade
+                                waveOffset = sin(wallTime * waveSpeed + phaseOffset) * waveHeight * waveFade
                             }
                         }
 
                         translate(left = alignShift + lineCurrentPushes[lineIdx] + charBounds.left, top = charBounds.top + waveOffset)
                         if (wordIdx != -1) {
                             scale(
-                                charScaleX,
-                                charScaleY,
+                                charScaleX2,
+                                charScaleY2,
                                 pivot = Offset(charBounds.width / 2f, charBounds.height)
                             )
                         }
                     }) {
-                        if (shouldGlow) {
+                        if (shouldGlow && animateLyrics) {
                             val sMs = wordItem.startTime * 1000
                             val eMs = wordItem.endTime * 1000
                             val dur = eMs - sMs
@@ -2270,9 +2248,11 @@ private fun WordLevelLyrics(
                                 }
                             }
                         }
-                        val baseAlpha = if (isWordSung || charLp > 0.99f) 1f else (focusedAlpha + (1f - focusedAlpha) * sungFactor)
+                        val isWordActive = smoothPosition in (wordItem?.startTime?.times(1000)?.toLong() ?: 0L)..(wordItem?.endTime?.times(1000)?.toLong() ?: 0L)
+                        val baseAlpha = if (isWordSung || charLp > 0.99f || (!animateLyrics && isWordActive)) 1f else (focusedAlpha + (1f - focusedAlpha) * sungFactor)
                         drawText(letterLayouts[i], color = expressiveAccent.copy(alpha = if (wordIdx == -1) focusedAlpha else baseAlpha))
-                        if (!isWordSung && charLp > 0f && charLp < 1f) {
+                        
+                        if (animateLyrics && !isWordSung && charLp > 0f && charLp < 1f) {
                             val fXL = charBounds.width * charLp
                             val eW = (charBounds.width * 0.45f).coerceAtLeast(1f)
                             val sWL = (fXL - eW).coerceAtLeast(0f)
@@ -2288,9 +2268,43 @@ private fun WordLevelLyrics(
                             }
                         }
                     }
-                    lineCurrentPushes[lineIdx] += charBounds.width * (charScaleX - 1f)
+                    lineCurrentPushes[lineIdx] += charBounds.width * (charScaleX2 - 1f)
                 }
             }
         }
     }
+}
+private data class HyphenGroupWord(
+    val pos: Int,
+    val size: Int,
+    val isLast: Boolean,
+    val groupStartMs: Long,
+    val groupEndMs: Long
+)
+
+private fun String.containsRtl(): Boolean {
+    for (c in this) {
+        val directionality = Character.getDirectionality(c).toInt()
+        if (directionality == Character.DIRECTIONALITY_RIGHT_TO_LEFT.toInt() ||
+            directionality == Character.DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC.toInt()
+        ) {
+            return true
+        }
+    }
+    return false
+}
+
+private fun String.toGraphemeClusters(): List<String> {
+    if (isEmpty()) return emptyList()
+    val result = mutableListOf<String>()
+    val it = java.text.BreakIterator.getCharacterInstance()
+    it.setText(this)
+    var start = it.first()
+    var end = it.next()
+    while (end != java.text.BreakIterator.DONE) {
+        result.add(substring(start, end))
+        start = end
+        end = it.next()
+    }
+    return result
 }
