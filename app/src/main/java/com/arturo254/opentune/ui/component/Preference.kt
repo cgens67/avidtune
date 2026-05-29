@@ -34,7 +34,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
@@ -273,6 +272,14 @@ fun SliderPreference(
     icon: (@Composable () -> Unit)? = null,
     value: Float,
     onValueChange: (Float) -> Unit,
+    valueRange: ClosedFloatingPointRange<Float> = 15f..60f,
+    dialogTitle: String = "",
+    valueText: @Composable (Float) -> Unit = { 
+        Text(
+            text = it.roundToInt().toString(),
+            style = MaterialTheme.typography.bodyLarge,
+        ) 
+    },
     isEnabled: Boolean = true,
 ) {
     var showDialog by remember {
@@ -291,7 +298,7 @@ fun SliderPreference(
                     horizontalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        text = stringResource(R.string.history_duration),
+                        text = dialogTitle,
                         overflow = TextOverflow.Ellipsis,
                         maxLines = 1,
                         style = MaterialTheme.typography.headlineSmall,
@@ -308,25 +315,18 @@ fun SliderPreference(
                 showDialog = false
             },
             onReset = {
-                sliderValue = 30f
+                sliderValue = valueRange.start + (valueRange.endInclusive - valueRange.start) / 2
             },
             content = {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = pluralStringResource(
-                            R.plurals.seconds,
-                            sliderValue.roundToInt(),
-                            sliderValue.roundToInt()
-                        ),
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
+                    valueText(sliderValue)
 
                     Spacer(Modifier.height(16.dp))
 
                     Slider(
                         value = sliderValue,
                         onValueChange = { sliderValue = it },
-                        valueRange = 15f..60f,
+                        valueRange = valueRange,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
