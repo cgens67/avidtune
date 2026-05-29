@@ -90,9 +90,6 @@ import com.arturo254.opentune.models.MediaMetadata
 import com.arturo254.opentune.playback.ExoDownloadService
 import com.arturo254.opentune.playback.queues.YouTubeQueue
 import com.arturo254.opentune.ui.component.BottomSheetState
-import com.arturo254.opentune.ui.component.DownloadGridMenu
-import com.arturo254.opentune.ui.component.GridMenu
-import com.arturo254.opentune.ui.component.GridMenuItem
 import com.arturo254.opentune.ui.component.ListDialog
 import com.arturo254.opentune.ui.component.ListItem
 import com.arturo254.opentune.ui.component.MenuItemData
@@ -852,6 +849,7 @@ fun ColumnScope.PlayerMenu(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TempoPitchBottomSheet(onDismiss: () -> Unit) {
     val playerConnection = LocalPlayerConnection.current ?: return
@@ -959,6 +957,7 @@ fun TempoPitchBottomSheet(onDismiss: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ContinuousValueAdjuster(
     title: String,
