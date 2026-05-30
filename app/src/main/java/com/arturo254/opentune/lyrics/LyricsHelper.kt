@@ -2,10 +2,8 @@ package com.arturo254.opentune.lyrics
 
 import android.content.Context
 import android.util.LruCache
-import com.arturo254.opentune.constants.PreferredLyricsProvider
-import com.arturo254.opentune.constants.PreferredLyricsProviderKey
+import com.arturo254.opentune.constants.LyricsProviderOrderKey
 import com.arturo254.opentune.db.entities.LyricsEntity.Companion.LYRICS_NOT_FOUND
-import com.arturo254.opentune.extensions.toEnum
 import com.arturo254.opentune.models.MediaMetadata
 import com.arturo254.opentune.utils.dataStore
 import com.arturo254.opentune.utils.reportException
@@ -19,42 +17,33 @@ class LyricsHelper
 constructor(
     @ApplicationContext private val context: Context,
 ) {
-    private var lyricsProviders =
-        listOf(
-            BetterLyricsProvider,
-            PaxsenixLyricsProvider,
-            LrcLibLyricsProvider,
-            KuGouLyricsProvider,
-            YouTubeSubtitleLyricsProvider,
-            YouTubeLyricsProvider
-        )
+    private val allProviders = listOf(
+        LyricsPlusProvider,
+        BetterLyricsProvider,
+        PaxsenixLyricsProvider,
+        LrcLibLyricsProvider,
+        KuGouLyricsProvider,
+        YouTubeSubtitleLyricsProvider,
+        YouTubeLyricsProvider
+    )
+
+    private var lyricsProviders = allProviders
+
     val preferred =
         context.dataStore.data
-            .map {
-                it[PreferredLyricsProviderKey].toEnum(PreferredLyricsProvider.LRCLIB)
-            }.distinctUntilChanged()
-            .map {
-                lyricsProviders =
-                    if (it == PreferredLyricsProvider.LRCLIB) {
-                        listOf(
-                            BetterLyricsProvider,
-                            PaxsenixLyricsProvider,
-                            LrcLibLyricsProvider,
-                            KuGouLyricsProvider,
-                            YouTubeSubtitleLyricsProvider,
-                            YouTubeLyricsProvider
-                        )
-                    } else {
-                        listOf(
-                            BetterLyricsProvider,
-                            PaxsenixLyricsProvider,
-                            KuGouLyricsProvider,
-                            LrcLibLyricsProvider,
-                            YouTubeSubtitleLyricsProvider,
-                            YouTubeLyricsProvider
-                        )
-                    }
+            .map { it[LyricsProviderOrderKey] }
+            .distinctUntilChanged()
+            .map { orderStr ->
+                if (orderStr == null) {
+                    lyricsProviders = allProviders
+                } else {
+                    val orderNames = orderStr.split(",")
+                    val ordered = orderNames.mapNotNull { name -> allProviders.find { it.name == name } }
+                    val missing = allProviders.filter { it !in ordered }
+                    lyricsProviders = ordered + missing
+                }
             }
+
     private val cache = LruCache<String, List<LyricsResult>>(MAX_CACHE_SIZE)
 
     suspend fun getLyrics(mediaMetadata: MediaMetadata): String {
