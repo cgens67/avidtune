@@ -682,5 +682,11 @@
     <string name="provider_priority">Provider Priority</string>
     <string name="lyrics_provided_by">Lyrics provided by %1$s</string>
 
+    <string name="performance">Performance</string>
+    <string name="minimal_player_design">Minimal player design</string>
+    <string name="visual_effects">Visual effects</string>
+    <string name="background_blur_intensity">Background blur intensity</string>
+    <string name="network">Network</string>
+
 
 </resources>
