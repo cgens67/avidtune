@@ -672,6 +672,14 @@
     <string name="decrease">Decrease</string>
     <string name="increase">Increase</string>
     <string name="quick_presets">Quick presets</string>
+    
+    <!-- Lyrics Settings -->
+    <string name="enable_lyrics_plus">Enable LyricsPlus</string>
+    <string name="enable_better_lyrics">Enable BetterLyrics</string>
+    <string name="enable_paxsenix">Enable Paxsenix</string>
+    <string name="lyrics_provider_priority">Lyrics provider priority</string>
+    <string name="lyrics_provider_priority_desc">Reorder the priority of lyrics providers</string>
+    <string name="provider_priority">Provider Priority</string>
 
 
 </resources>
