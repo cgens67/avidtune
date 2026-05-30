@@ -125,6 +125,7 @@ import com.arturo254.opentune.LocalPlayerAwareWindowInsets
 import com.arturo254.opentune.LocalPlayerConnection
 import com.arturo254.opentune.R
 import com.arturo254.opentune.constants.DarkModeKey
+import com.arturo254.opentune.constants.MinimalPlayerDesignKey
 import com.arturo254.opentune.constants.PlayerBackgroundStyle
 import com.arturo254.opentune.constants.PlayerBackgroundStyleKey
 import com.arturo254.opentune.constants.PlayerButtonsStyle
@@ -179,6 +180,8 @@ fun BottomSheetPlayer(
         PlayerTextAlignmentKey,
         PlayerTextAlignment.CENTER
     )
+
+    val minimalPlayerDesign by rememberPreference(MinimalPlayerDesignKey, false)
 
     val playerBackground by rememberEnumPreference(
         key = PlayerBackgroundStyleKey,
@@ -502,34 +505,44 @@ fun BottomSheetPlayer(
                             )
                             Spacer(Modifier.height(12.dp))
                             
-                            PlayerTopActionsV4(
-                                mediaMetadata = it,
-                                textBackgroundColor = TextBackgroundColor,
-                                currentSongLiked = currentSongLiked,
-                                onShare = {
-                                    val intent = Intent().apply {
-                                        action = Intent.ACTION_SEND
-                                        type = "text/plain"
-                                        putExtra(
-                                            Intent.EXTRA_TEXT,
-                                            "https://music.youtube.com/watch?v=${it.id}"
-                                        )
+                            if (minimalPlayerDesign) {
+                                PlayerTopActionsV3(
+                                    mediaMetadata = it,
+                                    textBackgroundColor = TextBackgroundColor,
+                                    currentSongLiked = currentSongLiked,
+                                    context = context,
+                                    playerConnection = playerConnection
+                                )
+                            } else {
+                                PlayerTopActionsV4(
+                                    mediaMetadata = it,
+                                    textBackgroundColor = TextBackgroundColor,
+                                    currentSongLiked = currentSongLiked,
+                                    onShare = {
+                                        val intent = Intent().apply {
+                                            action = Intent.ACTION_SEND
+                                            type = "text/plain"
+                                            putExtra(
+                                                Intent.EXTRA_TEXT,
+                                                "https://music.youtube.com/watch?v=${it.id}"
+                                            )
+                                        }
+                                        context.startActivity(Intent.createChooser(intent, null))
+                                    },
+                                    onToggleLike = { playerConnection.toggleLike() },
+                                    onMoreOptions = {
+                                        menuState.show {
+                                            PlayerMenu(
+                                                mediaMetadata = it,
+                                                navController = navController,
+                                                playerBottomSheetState = state,
+                                                onShowDetailsDialog = { showDetailsDialog = true },
+                                                onDismiss = menuState::dismiss,
+                                            )
+                                        }
                                     }
-                                    context.startActivity(Intent.createChooser(intent, null))
-                                },
-                                onToggleLike = { playerConnection.toggleLike() },
-                                onMoreOptions = {
-                                    menuState.show {
-                                        PlayerMenu(
-                                            mediaMetadata = it,
-                                            navController = navController,
-                                            playerBottomSheetState = state,
-                                            onShowDetailsDialog = { showDetailsDialog = true },
-                                            onDismiss = menuState::dismiss,
-                                        )
-                                    }
-                                }
-                            )
+                                )
+                            }
 
                             Spacer(Modifier.height(12.dp))
 
@@ -561,20 +574,35 @@ fun BottomSheetPlayer(
                             
                             Spacer(Modifier.height(12.dp))
                             
-                            PlayerPlaybackControlsV4(
-                                playbackState = playbackState,
-                                isPlaying = isPlaying,
-                                isLoading = isLoading,
-                                repeatMode = repeatMode,
-                                canSkipPrevious = canSkipPrevious,
-                                canSkipNext = canSkipNext,
-                                textButtonColor = textButtonColor,
-                                iconButtonColor = iconButtonColor,
-                                textBackgroundColor = TextBackgroundColor,
-                                icBackgroundColor = icBackgroundColor,
-                                playerConnection = playerConnection,
-                                shuffleModeEnabled = playerConnection.player.shuffleModeEnabled
-                            )
+                            if (minimalPlayerDesign) {
+                                PlayerPlaybackControlsV3(
+                                    playbackState = playbackState,
+                                    isPlaying = isPlaying,
+                                    isLoading = isLoading,
+                                    repeatMode = repeatMode,
+                                    canSkipPrevious = canSkipPrevious,
+                                    canSkipNext = canSkipNext,
+                                    textBackgroundColor = TextBackgroundColor,
+                                    icBackgroundColor = icBackgroundColor,
+                                    playerConnection = playerConnection,
+                                    shuffleModeEnabled = playerConnection.player.shuffleModeEnabled
+                                )
+                            } else {
+                                PlayerPlaybackControlsV4(
+                                    playbackState = playbackState,
+                                    isPlaying = isPlaying,
+                                    isLoading = isLoading,
+                                    repeatMode = repeatMode,
+                                    canSkipPrevious = canSkipPrevious,
+                                    canSkipNext = canSkipNext,
+                                    textButtonColor = textButtonColor,
+                                    iconButtonColor = iconButtonColor,
+                                    textBackgroundColor = TextBackgroundColor,
+                                    icBackgroundColor = icBackgroundColor,
+                                    playerConnection = playerConnection,
+                                    shuffleModeEnabled = playerConnection.player.shuffleModeEnabled
+                                )
+                            }
                         }
 
                         Spacer(Modifier.weight(1f))
@@ -625,34 +653,44 @@ fun BottomSheetPlayer(
                             
                             Spacer(modifier = Modifier.width(12.dp))
                             
-                            PlayerTopActionsV4(
-                                mediaMetadata = it,
-                                textBackgroundColor = TextBackgroundColor,
-                                currentSongLiked = currentSongLiked,
-                                onShare = {
-                                    val intent = Intent().apply {
-                                        action = Intent.ACTION_SEND
-                                        type = "text/plain"
-                                        putExtra(
-                                            Intent.EXTRA_TEXT,
-                                            "https://music.youtube.com/watch?v=${it.id}"
-                                        )
+                            if (minimalPlayerDesign) {
+                                PlayerTopActionsV3(
+                                    mediaMetadata = it,
+                                    textBackgroundColor = TextBackgroundColor,
+                                    currentSongLiked = currentSongLiked,
+                                    context = context,
+                                    playerConnection = playerConnection
+                                )
+                            } else {
+                                PlayerTopActionsV4(
+                                    mediaMetadata = it,
+                                    textBackgroundColor = TextBackgroundColor,
+                                    currentSongLiked = currentSongLiked,
+                                    onShare = {
+                                        val intent = Intent().apply {
+                                            action = Intent.ACTION_SEND
+                                            type = "text/plain"
+                                            putExtra(
+                                                Intent.EXTRA_TEXT,
+                                                "https://music.youtube.com/watch?v=${it.id}"
+                                            )
+                                        }
+                                        context.startActivity(Intent.createChooser(intent, null))
+                                    },
+                                    onToggleLike = { playerConnection.toggleLike() },
+                                    onMoreOptions = {
+                                        menuState.show {
+                                            PlayerMenu(
+                                                mediaMetadata = it,
+                                                navController = navController,
+                                                playerBottomSheetState = state,
+                                                onShowDetailsDialog = { showDetailsDialog = true },
+                                                onDismiss = menuState::dismiss,
+                                            )
+                                        }
                                     }
-                                    context.startActivity(Intent.createChooser(intent, null))
-                                },
-                                onToggleLike = { playerConnection.toggleLike() },
-                                onMoreOptions = {
-                                    menuState.show {
-                                        PlayerMenu(
-                                            mediaMetadata = it,
-                                            navController = navController,
-                                            playerBottomSheetState = state,
-                                            onShowDetailsDialog = { showDetailsDialog = true },
-                                            onDismiss = menuState::dismiss,
-                                        )
-                                    }
-                                }
-                            )
+                                )
+                            }
                         }
 
                         Spacer(Modifier.height(12.dp))
@@ -685,20 +723,35 @@ fun BottomSheetPlayer(
 
                         Spacer(Modifier.height(12.dp))
 
-                        PlayerPlaybackControlsV4(
-                            playbackState = playbackState,
-                            isPlaying = isPlaying,
-                            isLoading = isLoading,
-                            repeatMode = repeatMode,
-                            canSkipPrevious = canSkipPrevious,
-                            canSkipNext = canSkipNext,
-                            textButtonColor = textButtonColor,
-                            iconButtonColor = iconButtonColor,
-                            textBackgroundColor = TextBackgroundColor,
-                            icBackgroundColor = icBackgroundColor,
-                            playerConnection = playerConnection,
-                            shuffleModeEnabled = playerConnection.player.shuffleModeEnabled
-                        )
+                        if (minimalPlayerDesign) {
+                            PlayerPlaybackControlsV3(
+                                playbackState = playbackState,
+                                isPlaying = isPlaying,
+                                isLoading = isLoading,
+                                repeatMode = repeatMode,
+                                canSkipPrevious = canSkipPrevious,
+                                canSkipNext = canSkipNext,
+                                textBackgroundColor = TextBackgroundColor,
+                                icBackgroundColor = icBackgroundColor,
+                                playerConnection = playerConnection,
+                                shuffleModeEnabled = playerConnection.player.shuffleModeEnabled
+                            )
+                        } else {
+                            PlayerPlaybackControlsV4(
+                                playbackState = playbackState,
+                                isPlaying = isPlaying,
+                                isLoading = isLoading,
+                                repeatMode = repeatMode,
+                                canSkipPrevious = canSkipPrevious,
+                                canSkipNext = canSkipNext,
+                                textButtonColor = textButtonColor,
+                                iconButtonColor = iconButtonColor,
+                                textBackgroundColor = TextBackgroundColor,
+                                icBackgroundColor = icBackgroundColor,
+                                playerConnection = playerConnection,
+                                shuffleModeEnabled = playerConnection.player.shuffleModeEnabled
+                            )
+                        }
                     }
 
                     Spacer(Modifier.height(30.dp))
@@ -1331,6 +1384,206 @@ fun PlayerPlaybackControlsV4(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun PlayerTopActionsV3(
+    mediaMetadata: MediaMetadata,
+    textBackgroundColor: Color,
+    currentSongLiked: Boolean,
+    context: Context,
+    playerConnection: PlayerConnection
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .clickable {
+                    val intent = Intent().apply {
+                        action = Intent.ACTION_SEND
+                        type = "text/plain"
+                        putExtra(
+                            Intent.EXTRA_TEXT,
+                            "https://music.youtube.com/watch?v=${mediaMetadata.id}"
+                        )
+                    }
+                    context.startActivity(Intent.createChooser(intent, null))
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.share),
+                contentDescription = null,
+                tint = textBackgroundColor.copy(alpha = 0.7f),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .clickable { playerConnection.toggleLike() },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(
+                    if (currentSongLiked) R.drawable.favorite
+                    else R.drawable.favorite_border
+                ),
+                contentDescription = null,
+                tint = if (currentSongLiked)
+                    MaterialTheme.colorScheme.error.copy(alpha = 0.9f)
+                else textBackgroundColor.copy(alpha = 0.7f),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun PlayerPlaybackControlsV3(
+    playbackState: Int,
+    isPlaying: Boolean,
+    isLoading: Boolean,
+    repeatMode: Int,
+    canSkipPrevious: Boolean,
+    canSkipNext: Boolean,
+    textBackgroundColor: Color,
+    icBackgroundColor: Color,
+    playerConnection: PlayerConnection,
+    shuffleModeEnabled: Boolean
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = PlayerHorizontalPadding)
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable {
+                        playerConnection.player.shuffleModeEnabled = !shuffleModeEnabled
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.shuffle),
+                    contentDescription = null,
+                    tint = textBackgroundColor.copy(
+                        alpha = if (shuffleModeEnabled) 1f else 0.4f
+                    ),
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(textBackgroundColor.copy(alpha = 0.08f))
+                    .clickable(enabled = canSkipPrevious) {
+                        playerConnection.seekToPrevious()
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.skip_previous),
+                    contentDescription = null,
+                    tint = textBackgroundColor.copy(alpha = if (canSkipPrevious) 0.9f else 0.4f),
+                    modifier = Modifier.size(26.dp)
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .size(70.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(textBackgroundColor)
+                    .clickable {
+                        if (playbackState == STATE_ENDED) {
+                            playerConnection.player.seekTo(0, 0)
+                            playerConnection.player.playWhenReady = true
+                        } else {
+                            playerConnection.player.togglePlayPause()
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                if (isLoading) {
+                    androidx.compose.material3.CircularProgressIndicator(
+                        modifier = Modifier.size(32.dp),
+                        color = icBackgroundColor,
+                        strokeWidth = 2.5.dp
+                    )
+                } else {
+                    Icon(
+                        painter = painterResource(
+                            when {
+                                playbackState == STATE_ENDED -> R.drawable.replay
+                                isPlaying -> R.drawable.pause
+                                else -> R.drawable.play
+                            }
+                        ),
+                        contentDescription = null,
+                        tint = icBackgroundColor,
+                        modifier = Modifier.size(34.dp)
+                    )
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(textBackgroundColor.copy(alpha = 0.08f))
+                    .clickable(enabled = canSkipNext) {
+                        playerConnection.seekToNext()
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.skip_next),
+                    contentDescription = null,
+                    tint = textBackgroundColor.copy(alpha = if (canSkipNext) 0.9f else 0.4f),
+                    modifier = Modifier.size(26.dp)
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable { playerConnection.player.toggleRepeatMode() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(
+                        when (repeatMode) {
+                            Player.REPEAT_MODE_OFF, Player.REPEAT_MODE_ALL -> R.drawable.repeat
+                            Player.REPEAT_MODE_ONE -> R.drawable.repeat_one
+                            else -> R.drawable.repeat
+                        }
+                    ),
+                    contentDescription = null,
+                    tint = textBackgroundColor.copy(
+                        alpha = if (repeatMode == Player.REPEAT_MODE_OFF) 0.4f else 1f
+                    ),
+                    modifier = Modifier.size(22.dp)
+                )
             }
         }
     }
