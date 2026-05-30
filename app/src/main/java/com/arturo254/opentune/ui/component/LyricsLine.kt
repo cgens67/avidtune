@@ -87,7 +87,6 @@ fun LyricsLine(
     isSelectionModeActive: Boolean,
     isAutoScrollActive: Boolean,
     animateLyrics: Boolean = true,
-    disableGlow: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val (appleMusicLyricsBlur) = rememberPreference(AppleMusicLyricsBlurKey, true)
@@ -240,8 +239,7 @@ fun LyricsLine(
                 focusedAlpha = focusedAlpha,
                 alignment = agentTextAlign,
                 entryTime = entry.time,
-                animateLyrics = animateLyrics,
-                disableGlow = disableGlow
+                animateLyrics = animateLyrics
             )
         } else {
             if (isActive && isSynced) {
@@ -288,29 +286,22 @@ fun LyricsLine(
                 ) {
                     val fill = fillProgress.value
                     val pulse = pulseProgress.value
-                    val pulseEffect = if (animateLyrics && !disableGlow) (sin(pulse * Math.PI.toFloat()) * 0.15f).coerceIn(0f, 0.15f) else 0f
-                    val glowIntensity = if (disableGlow) 0f else (fill + pulseEffect).coerceIn(0f, 1.2f)
+                    val pulseEffect = if (animateLyrics) (sin(pulse * Math.PI.toFloat()) * 0.15f).coerceIn(0f, 0.15f) else 0f
+                    val glowIntensity = (fill + pulseEffect).coerceIn(0f, 1.2f)
 
-                    val glowBrush = if (disableGlow) {
-                        Brush.horizontalGradient(
-                            0.0f to textColor,
-                            1.0f to textColor
-                        )
-                    } else {
-                        Brush.horizontalGradient(
-                            0.0f to textColor.copy(alpha = 0.3f),
-                            (fill * 0.7f).coerceIn(0f, 1f) to textColor.copy(alpha = 0.9f),
-                            fill to textColor,
-                            (fill + 0.1f).coerceIn(0f, 1f) to textColor.copy(alpha = 0.7f),
-                            1.0f to textColor.copy(alpha = if (fill >= 1f) 1f else 0.3f)
-                        )
-                    }
+                    val glowBrush = Brush.horizontalGradient(
+                        0.0f to textColor.copy(alpha = 0.3f),
+                        (fill * 0.7f).coerceIn(0f, 1f) to textColor.copy(alpha = 0.9f),
+                        fill to textColor,
+                        (fill + 0.1f).coerceIn(0f, 1f) to textColor.copy(alpha = 0.7f),
+                        1.0f to textColor.copy(alpha = if (fill >= 1f) 1f else 0.3f)
+                    )
 
                     Text(
                         text = buildAnnotatedString {
                             withStyle(
                                 style = SpanStyle(
-                                    shadow = if (disableGlow) null else androidx.compose.ui.graphics.Shadow(
+                                    shadow = androidx.compose.ui.graphics.Shadow(
                                         color = textColor.copy(alpha = 0.8f * glowIntensity),
                                         offset = Offset(0f, 0f),
                                         blurRadius = 28f * (1f + pulseEffect)
@@ -350,8 +341,7 @@ private fun WordLevelLyrics(
     focusedAlpha: Float,
     alignment: TextAlign,
     entryTime: Long,
-    animateLyrics: Boolean = true,
-    disableGlow: Boolean = false
+    animateLyrics: Boolean = true
 ) {
     val density = LocalDensity.current
     val textMeasurer = rememberTextMeasurer()
@@ -680,7 +670,7 @@ private fun WordLevelLyrics(
                         ((wProg - cInW / wLen) * wLen).coerceIn(0.0, 1.0).toFloat()
                     } else 0f
 
-                    val shouldGlow = !disableGlow && animateLyrics && wordItem != null && !isWordSung && sungFactor > 0.001f
+                    val shouldGlow = animateLyrics && wordItem != null && !isWordSung && sungFactor > 0.001f
 
                     var crescendoDeltaX = 0f
                     var crescendoDeltaY = 0f
@@ -746,7 +736,7 @@ private fun WordLevelLyrics(
                             )
                         }
                     }) {
-                        if (shouldGlow) {
+                        if (shouldGlow && animateLyrics) {
                             val sMs = wordItem.startTime * 1000
                             val eMs = wordItem.endTime * 1000
                             val dur = eMs - sMs
