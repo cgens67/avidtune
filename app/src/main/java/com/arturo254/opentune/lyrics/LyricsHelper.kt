@@ -8,7 +8,7 @@ import com.arturo254.opentune.models.MediaMetadata
 import com.arturo254.opentune.utils.dataStore
 import com.arturo254.opentune.utils.reportException
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
@@ -27,22 +27,17 @@ constructor(
         YouTubeLyricsProvider
     )
 
-    private var lyricsProviders = allProviders
-
-    val preferred =
-        context.dataStore.data
-            .map { it[LyricsProviderOrderKey] }
-            .distinctUntilChanged()
-            .map { orderStr ->
-                if (orderStr == null) {
-                    lyricsProviders = allProviders
-                } else {
-                    val orderNames = orderStr.split(",")
-                    val ordered = orderNames.mapNotNull { name -> allProviders.find { it.name == name } }
-                    val missing = allProviders.filter { it !in ordered }
-                    lyricsProviders = ordered + missing
-                }
-            }
+    private suspend fun getOrderedProviders(): List<LyricsProvider> {
+        val orderStr = context.dataStore.data.first()[LyricsProviderOrderKey]
+        return if (orderStr == null) {
+            allProviders
+        } else {
+            val orderNames = orderStr.split(",")
+            val ordered = orderNames.mapNotNull { name -> allProviders.find { it.name == name } }
+            val missing = allProviders.filter { it !in ordered }
+            ordered + missing
+        }
+    }
 
     private val cache = LruCache<String, List<LyricsResult>>(MAX_CACHE_SIZE)
 
@@ -51,6 +46,9 @@ constructor(
         if (cached != null) {
             return cached
         }
+        
+        val lyricsProviders = getOrderedProviders()
+        
         lyricsProviders.forEach { provider ->
             if (provider.isEnabled(context)) {
                 provider
@@ -60,11 +58,11 @@ constructor(
                         mediaMetadata.artists.joinToString { it.name },
                         mediaMetadata.duration,
                     ).onSuccess { lyrics ->
-                        val result = LyricsResult(provider.name, lyrics)
-                        // It's technically safe to cache here if desired, but typically we cache from getAllLyrics
-                        return result
+                        if (lyrics.isNotBlank() && lyrics != LYRICS_NOT_FOUND) {
+                            return LyricsResult(provider.name, lyrics)
+                        }
                     }.onFailure {
-                        reportException(it)
+                        // Suppress failure and continue to the next provider
                     }
             }
         }
@@ -85,7 +83,10 @@ constructor(
             }
             return
         }
+        
+        val lyricsProviders = getOrderedProviders()
         val allResult = mutableListOf<LyricsResult>()
+        
         lyricsProviders.forEach { provider ->
             if (provider.isEnabled(context)) {
                 provider.getAllLyrics(mediaId, songTitle, songArtists, duration) { lyrics ->
