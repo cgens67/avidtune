@@ -9,7 +9,7 @@ import java.time.LocalDateTime
 import java.time.ZoneOffset
 
 val MinimalPlayerDesignKey = booleanPreferencesKey("minimalPlayerDesign")
-val BlurIntensityKey = floatPreferencesKey("blurIntensity")
+val DisableBlurKey = booleanPreferencesKey("disableBlur")
 
 val DynamicThemeKey = booleanPreferencesKey("dynamicTheme")
 val CustomThemeColorKey = stringPreferencesKey("customThemeColor")
@@ -72,10 +72,6 @@ val PlayerTextAlignmentKey = stringPreferencesKey("playerTextAlignment")
 
 val SwipeToSongKey = booleanPreferencesKey("SwipeToSong")
 val SwipeToRemoveSongKey = booleanPreferencesKey("SwipeToRemoveSong")
-
-
-val RotateBackgroundKey = booleanPreferencesKey("rotate_background")
-
 
 val SmallButtonsShapeKey = stringPreferencesKey("small_buttons_shape")
 const val DefaultSmallButtonsShape = "Pill"
