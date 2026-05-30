@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -35,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
@@ -75,6 +77,7 @@ import com.arturo254.opentune.ui.component.SliderPreference
 import com.arturo254.opentune.ui.component.SwitchPreference
 import com.arturo254.opentune.utils.rememberEnumPreference
 import com.arturo254.opentune.utils.rememberPreference
+import kotlinx.coroutines.launch
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import java.net.Proxy
@@ -143,7 +146,7 @@ fun ContentSettings(
         defaultValue = false
     )
 
-    val defaultOrder = listOf("LyricsPlus", "BetterLyrics", "Paxsenix", "LrcLib", "Kugou", "YouTube Subtitle", "YouTube Music")
+    val defaultOrder = listOf("Paxsenix", "LyricsPlus", "BetterLyrics", "LrcLib", "Kugou", "YouTube Subtitle", "YouTube Music")
     val (providerOrderStr, onProviderOrderChange) = rememberPreference(LyricsProviderOrderKey, defaultOrder.joinToString(","))
     val currentOrder = remember(providerOrderStr) {
         providerOrderStr.split(",").filter { it.isNotBlank() }.let { saved ->
@@ -338,6 +341,7 @@ fun ReorderLyricsProvidersBottomSheet(
         list.add(to.index, item)
     }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val coroutineScope = rememberCoroutineScope()
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -358,7 +362,7 @@ fun ReorderLyricsProvidersBottomSheet(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
                     Text(
                         text = stringResource(R.string.provider_priority),
                         style = MaterialTheme.typography.titleLarge,
@@ -371,10 +375,24 @@ fun ReorderLyricsProvidersBottomSheet(
                     )
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick = onDismiss) {
+                    TextButton(
+                        onClick = { 
+                            coroutineScope.launch {
+                                sheetState.hide()
+                                onDismiss()
+                            }
+                        }
+                    ) {
                         Text(stringResource(android.R.string.cancel))
                     }
-                    Button(onClick = { onSave(list) }) {
+                    Button(
+                        onClick = { 
+                            coroutineScope.launch {
+                                sheetState.hide()
+                                onSave(list)
+                            }
+                        }
+                    ) {
                         Text(stringResource(R.string.save))
                     }
                 }
@@ -387,7 +405,7 @@ fun ReorderLyricsProvidersBottomSheet(
                 contentPadding = PaddingValues(bottom = 80.dp, top = 8.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f, fill = false)
+                    .heightIn(max = 400.dp)
             ) {
                 items(list, key = { it }) { item ->
                     ReorderableItem(reorderableState, key = item) { isDragging ->
