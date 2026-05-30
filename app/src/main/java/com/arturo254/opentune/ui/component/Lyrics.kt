@@ -147,7 +147,6 @@ import com.arturo254.opentune.constants.LyricsScrollKey
 import com.arturo254.opentune.constants.LyricsTextPositionKey
 import com.arturo254.opentune.constants.PlayerBackgroundStyle
 import com.arturo254.opentune.constants.PlayerBackgroundStyleKey
-import com.arturo254.opentune.constants.RotateBackgroundKey
 import com.arturo254.opentune.constants.SliderStyle
 import com.arturo254.opentune.constants.SliderStyleKey
 import com.arturo254.opentune.db.entities.LyricsEntity
@@ -206,8 +205,6 @@ fun Lyrics(
     val changeLyrics by rememberPreference(LyricsClickKey, true)
     val scrollLyrics by rememberPreference(LyricsScrollKey, true)
     val animateLyrics by rememberPreference(AnimateLyricsKey, true)
-
-    val rotateBackground by rememberPreference(RotateBackgroundKey, defaultValue = false)
 
     val currentMetadata = mediaMetadata ?: playerConnection.mediaMetadata.collectAsState().value
     val currentSongId = currentMetadata?.id
