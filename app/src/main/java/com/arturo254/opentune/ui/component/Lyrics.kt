@@ -251,8 +251,24 @@ fun Lyrics(
     }
     var isLoadingLyrics by remember(currentSongId) { mutableStateOf(false) }
 
-    val lyricsEntity by playerConnection.currentLyrics.collectAsState(initial = null)
-    val lyrics = remember(lyricsEntity) { lyricsEntity?.lyrics?.trim() }
+    val rawLyricsEntity by playerConnection.currentLyrics.collectAsState(initial = null)
+    
+    val lyrics = remember(rawLyricsEntity) { 
+        var text = rawLyricsEntity?.lyrics?.trim()
+        if (text != null && text.startsWith("[provider:")) {
+            text = text.substringAfter('\n').trim()
+        }
+        text
+    }
+    
+    LaunchedEffect(rawLyricsEntity) {
+        val text = rawLyricsEntity?.lyrics?.trim()
+        if (text != null && text.startsWith("[provider:")) {
+            lyricsProviderName = text.substringBefore('\n').removePrefix("[provider:").removeSuffix("]")
+        } else if (text != null) {
+            lyricsProviderName = null
+        }
+    }
 
     val playbackState by playerConnection.playbackState.collectAsState()
     val isPlaying by playerConnection.isPlaying.collectAsState()
@@ -330,9 +346,14 @@ fun Lyrics(
 
     LaunchedEffect(currentSongId) {
         currentSongId?.let { songId ->
-            lyricsProviderName = null
             if (lyricsCache.containsKey(songId)) {
-                currentLyricsEntity = lyricsCache[songId]
+                val cached = lyricsCache[songId]
+                currentLyricsEntity = cached
+                if (cached?.lyrics?.startsWith("[provider:") == true) {
+                    lyricsProviderName = cached.lyrics.substringBefore('\n').removePrefix("[provider:").removeSuffix("]")
+                } else {
+                    lyricsProviderName = null
+                }
                 return@LaunchedEffect
             }
 
@@ -346,12 +367,18 @@ fun Lyrics(
                         null
                     }
 
-                    if (existingLyrics != null) {
+                    if (existingLyrics != null && existingLyrics.lyrics != LYRICS_NOT_FOUND) {
                         val newCache = lyricsCache.toMutableMap().apply {
                             put(songId, existingLyrics)
                         }
                         lyricsCache = newCache
                         currentLyricsEntity = existingLyrics
+                        
+                        if (existingLyrics.lyrics.startsWith("[provider:")) {
+                            lyricsProviderName = existingLyrics.lyrics.substringBefore('\n').removePrefix("[provider:").removeSuffix("]")
+                        } else {
+                            lyricsProviderName = null
+                        }
                     } else {
                         try {
                             val entryPoint = EntryPointAccessors.fromApplication(
@@ -362,10 +389,11 @@ fun Lyrics(
                             val fetchedResult: LyricsResult? = currentMetadata.let { lyricsHelper.getLyrics(it) }
                             
                             val fetchedLyrics = fetchedResult?.lyrics
-                            lyricsProviderName = fetchedResult?.providerName
+                            val pName = fetchedResult?.providerName
 
-                            val entity = if (!fetchedLyrics.isNullOrBlank()) {
-                                LyricsEntity(songId, fetchedLyrics)
+                            val entity = if (!fetchedLyrics.isNullOrBlank() && fetchedLyrics != LYRICS_NOT_FOUND) {
+                                val textToSave = if (pName != null) "[provider:${pName}]\n$fetchedLyrics" else fetchedLyrics
+                                LyricsEntity(songId, textToSave)
                             } else {
                                 LyricsEntity(songId, LYRICS_NOT_FOUND)
                             }
@@ -381,6 +409,7 @@ fun Lyrics(
                             }
                             lyricsCache = newCache
                             currentLyricsEntity = entity
+                            lyricsProviderName = pName
                         } catch (e: Throwable) {
                             val errorEntity = LyricsEntity(songId, LYRICS_NOT_FOUND)
                             val newCache = lyricsCache.toMutableMap().apply {
@@ -388,6 +417,7 @@ fun Lyrics(
                             }
                             lyricsCache = newCache
                             currentLyricsEntity = errorEntity
+                            lyricsProviderName = null
                         }
                     }
                 } catch (e: Exception) {
@@ -397,6 +427,7 @@ fun Lyrics(
                     }
                     lyricsCache = newCache
                     currentLyricsEntity = errorEntity
+                    lyricsProviderName = null
                 } finally {
                     isLoadingLyrics = false
                 }
@@ -1187,8 +1218,8 @@ fun Lyrics(
                                     currentMetadata?.let { metadata ->
                                         menuState.show {
                                             LyricsMenu(
-                                                lyricsProvider = { currentLyricsEntity },
-                                                mediaMetadataProvider = { metadata },
+                                                lyricsEntity = currentLyricsEntity,
+                                                mediaMetadata = metadata,
                                                 onDismiss = menuState::dismiss
                                             )
                                         }
