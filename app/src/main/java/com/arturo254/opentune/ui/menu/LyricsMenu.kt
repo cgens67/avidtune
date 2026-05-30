@@ -65,8 +65,8 @@ import com.arturo254.opentune.viewmodels.LyricsMenuViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LyricsMenu(
-    lyricsProvider: () -> LyricsEntity?,
-    mediaMetadataProvider: () -> MediaMetadata,
+    lyricsEntity: LyricsEntity?,
+    mediaMetadata: MediaMetadata,
     onDismiss: () -> Unit,
     onLyricsUpdated: () -> Unit = {},
     viewModel: LyricsMenuViewModel = hiltViewModel(),
@@ -79,18 +79,30 @@ fun LyricsMenu(
     }
 
     if (showEditDialog) {
+        val rawText = lyricsEntity?.lyrics.orEmpty()
+        val cleanText = if (rawText.startsWith("[provider:")) {
+            rawText.substringAfter('\n')
+        } else {
+            rawText
+        }
+        
         TextFieldDialog(
             onDismiss = { showEditDialog = false },
-            icon = { Icon(painter = painterResource(R.drawable.edit), contentDescription = null) },
-            title = { Text(text = mediaMetadataProvider().title) },
-            initialTextFieldValue = TextFieldValue(lyricsProvider()?.lyrics.orEmpty()),
+            icon = { Icon(painterResource(R.drawable.edit), contentDescription = null) },
+            title = { Text(text = mediaMetadata.title) },
+            initialTextFieldValue = TextFieldValue(cleanText),
             singleLine = false,
-            onDone = {
+            onDone = { newLyrics ->
+                val oldTag = if (rawText.startsWith("[provider:")) {
+                    rawText.substringBefore('\n') + "\n"
+                } else {
+                    ""
+                }
                 database.query {
                     upsert(
                         LyricsEntity(
-                            id = mediaMetadataProvider().id,
-                            lyrics = it,
+                            id = mediaMetadata.id,
+                            lyrics = oldTag + newLyrics,
                         ),
                     )
                 }
@@ -107,15 +119,13 @@ fun LyricsMenu(
         mutableStateOf(false)
     }
 
-    val searchMediaMetadata =
-        remember(showSearchDialog) {
-            mediaMetadataProvider()
-        }
+    val searchMediaMetadata = remember(showSearchDialog) { mediaMetadata }
+    
     val (titleField, onTitleFieldChange) =
         rememberSaveable(showSearchDialog, stateSaver = TextFieldValue.Saver) {
             mutableStateOf(
                 TextFieldValue(
-                    text = mediaMetadataProvider().title,
+                    text = mediaMetadata.title,
                 ),
             )
         }
@@ -123,7 +133,7 @@ fun LyricsMenu(
         rememberSaveable(showSearchDialog, stateSaver = TextFieldValue.Saver) {
             mutableStateOf(
                 TextFieldValue(
-                    text = mediaMetadataProvider().artists.joinToString { it.name },
+                    text = mediaMetadata.artists.joinToString { it.name },
                 ),
             )
         }
@@ -222,10 +232,11 @@ fun LyricsMenu(
                             .clickable {
                                 viewModel.cancelSearch()
                                 database.query {
+                                    val newLyrics = "[provider:${result.providerName}]\n${result.lyrics}"
                                     upsert(
                                         LyricsEntity(
                                             id = searchMediaMetadata.id,
-                                            lyrics = result.lyrics,
+                                            lyrics = newLyrics,
                                         ),
                                     )
                                 }
@@ -315,14 +326,14 @@ fun LyricsMenu(
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         Text(
-            text = mediaMetadataProvider().title,
+            text = mediaMetadata.title,
             style = MaterialTheme.typography.titleLarge,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
 
         Text(
-            text = mediaMetadataProvider().artists.joinToString { it.name },
+            text = mediaMetadata.artists.joinToString { it.name },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
@@ -372,7 +383,7 @@ fun LyricsMenu(
                         },
                         text = stringResource(R.string.refetch),
                         onClick = {
-                            viewModel.refetchLyrics(mediaMetadataProvider(), lyricsProvider())
+                            viewModel.refetchLyrics(mediaMetadata, lyricsEntity)
                             onLyricsUpdated()
                             onDismiss()
                         }
