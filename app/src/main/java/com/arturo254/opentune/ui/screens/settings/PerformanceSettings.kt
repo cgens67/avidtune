@@ -13,16 +13,13 @@ import androidx.navigation.NavController
 import com.arturo254.opentune.R
 import com.arturo254.opentune.constants.AnimateLyricsKey
 import com.arturo254.opentune.constants.AutoLoadMoreKey
-import com.arturo254.opentune.constants.BlurIntensityKey
+import com.arturo254.opentune.constants.DisableBlurKey
 import com.arturo254.opentune.constants.MinimalPlayerDesignKey
-import com.arturo254.opentune.constants.RotateBackgroundKey
 import com.arturo254.opentune.constants.SimilarContent
 import com.arturo254.opentune.ui.component.SettingsGeneralCategory
 import com.arturo254.opentune.ui.component.SettingsPage
-import com.arturo254.opentune.ui.component.SliderPreference
 import com.arturo254.opentune.ui.component.SwitchPreference
 import com.arturo254.opentune.utils.rememberPreference
-import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,17 +31,13 @@ fun PerformanceSettings(
         key = MinimalPlayerDesignKey,
         defaultValue = false
     )
-    val (blurIntensity, onBlurIntensityChange) = rememberPreference(
-        key = BlurIntensityKey,
-        defaultValue = 100f
+    val (disableBlur, onDisableBlurChange) = rememberPreference(
+        key = DisableBlurKey,
+        defaultValue = false
     )
     val (animateLyrics, onAnimateLyricsChange) = rememberPreference(
         AnimateLyricsKey,
         defaultValue = true
-    )
-    val (rotateBackground, onRotateBackgroundChange) = rememberPreference(
-        key = RotateBackgroundKey,
-        defaultValue = false
     )
     val (autoLoadMore, onAutoLoadMoreChange) = rememberPreference(
         AutoLoadMoreKey,
@@ -78,19 +71,12 @@ fun PerformanceSettings(
             title = stringResource(R.string.visual_effects),
             items = listOf(
                 {
-                    SliderPreference(
-                        title = { Text(stringResource(R.string.background_blur_intensity)) },
+                    SwitchPreference(
+                        title = { Text("Disable blur effects") },
                         icon = { Icon(painterResource(R.drawable.image), null) },
-                        value = blurIntensity,
-                        onValueChange = onBlurIntensityChange,
-                        valueRange = 0f..150f,
-                        dialogTitle = stringResource(R.string.background_blur_intensity),
-                        valueText = { 
-                            Text(
-                                text = "${it.roundToInt()}",
-                                style = androidx.compose.material3.MaterialTheme.typography.bodyLarge
-                            ) 
-                        }
+                        description = "Disables background blur to improve performance",
+                        checked = disableBlur,
+                        onCheckedChange = onDisableBlurChange
                     )
                 },
                 {
@@ -100,14 +86,6 @@ fun PerformanceSettings(
                         description = stringResource(R.string.animate_lyrics_desc),
                         checked = animateLyrics,
                         onCheckedChange = onAnimateLyricsChange
-                    )
-                },
-                {
-                    SwitchPreference(
-                        title = { Text(stringResource(R.string.Rotatelyricsbackground)) },
-                        icon = { Icon(painterResource(R.drawable.album), null) },
-                        checked = rotateBackground,
-                        onCheckedChange = onRotateBackgroundChange
                     )
                 }
             )
