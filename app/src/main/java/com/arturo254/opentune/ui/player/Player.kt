@@ -125,6 +125,7 @@ import com.arturo254.opentune.LocalPlayerAwareWindowInsets
 import com.arturo254.opentune.LocalPlayerConnection
 import com.arturo254.opentune.R
 import com.arturo254.opentune.constants.DarkModeKey
+import com.arturo254.opentune.constants.DisableBlurKey
 import com.arturo254.opentune.constants.MinimalPlayerDesignKey
 import com.arturo254.opentune.constants.PlayerBackgroundStyle
 import com.arturo254.opentune.constants.PlayerBackgroundStyleKey
@@ -182,6 +183,7 @@ fun BottomSheetPlayer(
     )
 
     val minimalPlayerDesign by rememberPreference(MinimalPlayerDesignKey, false)
+    val disableBlur by rememberPreference(DisableBlurKey, false)
 
     val playerBackground by rememberEnumPreference(
         key = PlayerBackgroundStyleKey,
@@ -446,7 +448,8 @@ fun BottomSheetPlayer(
                     playerBackground = playerBackground,
                     mediaMetadata = mediaMetadata,
                     gradientColors = gradientColors,
-                    backgroundAlpha = backgroundAlpha
+                    backgroundAlpha = backgroundAlpha,
+                    disableBlur = disableBlur
                 )
             }
         },
@@ -780,7 +783,8 @@ fun PlayerBackground(
     playerBackground: PlayerBackgroundStyle,
     mediaMetadata: MediaMetadata?,
     gradientColors: List<Color>,
-    backgroundAlpha: Float
+    backgroundAlpha: Float,
+    disableBlur: Boolean
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         when (playerBackground) {
@@ -793,6 +797,7 @@ fun PlayerBackground(
                     label = "blurBackground"
                 ) { thumbnailUrl ->
                     if (thumbnailUrl != null) {
+                        val useDarkTheme = isSystemInDarkTheme()
                         Box(modifier = Modifier.alpha(backgroundAlpha)) {
                             AsyncImage(
                                 model = thumbnailUrl,
@@ -800,7 +805,7 @@ fun PlayerBackground(
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .blur(100.dp)
+                                    .let { if (!disableBlur) it.blur(if (useDarkTheme) 150.dp else 100.dp) else it }
                             )
                             Box(
                                 modifier = Modifier
@@ -865,7 +870,7 @@ fun PlayerBackground(
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
                                 .fillMaxSize()
-                                .blur(80.dp)
+                                .let { if (!disableBlur) it.blur(80.dp) else it }
                                 .graphicsLayer(alpha = 1f, clip = true)
                                 .drawWithContent {
                                     drawContent()
