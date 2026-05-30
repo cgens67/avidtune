@@ -15,6 +15,7 @@ import com.arturo254.opentune.constants.AnimateLyricsKey
 import com.arturo254.opentune.constants.AutoLoadMoreKey
 import com.arturo254.opentune.constants.DisableBlurKey
 import com.arturo254.opentune.constants.MinimalPlayerDesignKey
+import com.arturo254.opentune.constants.RotateBackgroundKey
 import com.arturo254.opentune.constants.SimilarContent
 import com.arturo254.opentune.ui.component.SettingsGeneralCategory
 import com.arturo254.opentune.ui.component.SettingsPage
@@ -38,6 +39,10 @@ fun PerformanceSettings(
     val (animateLyrics, onAnimateLyricsChange) = rememberPreference(
         AnimateLyricsKey,
         defaultValue = true
+    )
+    val (rotateBackground, onRotateBackgroundChange) = rememberPreference(
+        key = RotateBackgroundKey,
+        defaultValue = false
     )
     val (autoLoadMore, onAutoLoadMoreChange) = rememberPreference(
         AutoLoadMoreKey,
@@ -86,6 +91,14 @@ fun PerformanceSettings(
                         description = stringResource(R.string.animate_lyrics_desc),
                         checked = animateLyrics,
                         onCheckedChange = onAnimateLyricsChange
+                    )
+                },
+                {
+                    SwitchPreference(
+                        title = { Text(stringResource(R.string.Rotatelyricsbackground)) },
+                        icon = { Icon(painterResource(R.drawable.album), null) },
+                        checked = rotateBackground,
+                        onCheckedChange = onRotateBackgroundChange
                     )
                 }
             )
