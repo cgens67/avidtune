@@ -630,5 +630,12 @@
     <string name="sleep_timer_active">Temporizador activo:</string>
     <string name="sleep_timer_desc">Programar apagado automático</string>
 
-
+    <!-- Ajustes de Letras -->
+    <string name="enable_lyrics_plus">Habilitar LyricsPlus</string>
+    <string name="enable_better_lyrics">Habilitar BetterLyrics</string>
+    <string name="enable_paxsenix">Habilitar Paxsenix</string>
+    <string name="lyrics_provider_priority">Prioridad de proveedores de letras</string>
+    <string name="lyrics_provider_priority_desc">Reordena la prioridad de los proveedores de letras</string>
+    <string name="provider_priority">Prioridad de Proveedores</string>
+    
 </resources>
