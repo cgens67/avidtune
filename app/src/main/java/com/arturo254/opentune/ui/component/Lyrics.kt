@@ -150,7 +150,6 @@ import com.arturo254.opentune.constants.LyricsScrollKey
 import com.arturo254.opentune.constants.LyricsTextPositionKey
 import com.arturo254.opentune.constants.PlayerBackgroundStyle
 import com.arturo254.opentune.constants.PlayerBackgroundStyleKey
-import com.arturo254.opentune.constants.RotateBackgroundKey
 import com.arturo254.opentune.constants.SliderStyle
 import com.arturo254.opentune.constants.SliderStyleKey
 import com.arturo254.opentune.db.entities.LyricsEntity
@@ -210,7 +209,6 @@ fun Lyrics(
     val scrollLyrics by rememberPreference(LyricsScrollKey, true)
     val animateLyrics by rememberPreference(AnimateLyricsKey, true)
     val disableBlur by rememberPreference(DisableBlurKey, false)
-    val rotateBackground by rememberPreference(RotateBackgroundKey, false)
 
     val currentMetadata = mediaMetadata ?: playerConnection.mediaMetadata.collectAsState().value
     val currentSongId = currentMetadata?.id
@@ -283,19 +281,6 @@ fun Lyrics(
 
     var position by rememberSaveable(playbackState) { mutableLongStateOf(playerConnection.player.currentPosition) }
     var duration by rememberSaveable(playbackState) { mutableLongStateOf(playerConnection.player.duration) }
-
-    var bgRotation by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(rotateBackground, isPlaying) {
-        if (rotateBackground && isPlaying) {
-            var lastTime = withFrameNanos { it }
-            while (isActive) {
-                val currentTime = withFrameNanos { it }
-                val deltaMs = (currentTime - lastTime) / 1_000_000f
-                lastTime = currentTime
-                bgRotation = (bgRotation + (deltaMs * 360f / 40000f)) % 360f
-            }
-        }
-    }
 
     val expressiveAccent = when (playerBackground) {
         PlayerBackgroundStyle.DEFAULT -> MaterialTheme.colorScheme.primary
@@ -647,7 +632,6 @@ fun Lyrics(
                                 contentScale = ContentScale.FillBounds,
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .let { if (rotateBackground) it.graphicsLayer { rotationZ = bgRotation; scaleX = 1.5f; scaleY = 1.5f } else it }
                                     .let { if (!disableBlur) it.blur(if (useDarkTheme) 150.dp else 100.dp) else it }
                             )
                             Box(
@@ -689,7 +673,6 @@ fun Lyrics(
 
                                 Canvas(modifier = Modifier
                                     .fillMaxSize()
-                                    .let { if (rotateBackground) it.graphicsLayer { rotationZ = bgRotation; scaleX = 1.5f; scaleY = 1.5f } else it }
                                     .let { if (!disableBlur) it.blur(100.dp) else it }
                                 ) {
                                     drawRect(
