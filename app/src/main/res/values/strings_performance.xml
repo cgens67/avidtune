@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="performance">Performance</string>
-    <string name="minimal_player_design">Minimal player design</string>
-    <string name="visual_effects">Visual effects</string>
-    <string name="background_blur_intensity">Background blur intensity</string>
-    <string name="network">Network</string>
-</resources>
