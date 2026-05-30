@@ -85,7 +85,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -176,6 +175,9 @@ import me.saket.squiggles.SquigglySlider
 import kotlin.math.absoluteValue
 import kotlin.math.exp
 import kotlin.math.roundToInt
+import kotlin.math.sin
+import kotlin.math.cos
+import kotlin.math.PI
 import kotlin.time.Duration.Companion.seconds
 
 @RequiresApi(Build.VERSION_CODES.M)
