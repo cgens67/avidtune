@@ -155,6 +155,7 @@ import com.arturo254.opentune.constants.SliderStyleKey
 import com.arturo254.opentune.db.entities.LyricsEntity
 import com.arturo254.opentune.db.entities.LyricsEntity.Companion.LYRICS_NOT_FOUND
 import com.arturo254.opentune.lyrics.LyricsEntry
+import com.arturo254.opentune.lyrics.LyricsResult
 import com.arturo254.opentune.lyrics.LyricsUtils.findCurrentLineIndex
 import com.arturo254.opentune.lyrics.LyricsUtils.parseLyrics
 import com.arturo254.opentune.ui.component.shimmer.ShimmerHost
@@ -244,6 +245,7 @@ fun Lyrics(
     val canSkipNext by playerConnection.canSkipNext.collectAsState()
 
     var lyricsCache by remember { mutableStateOf<Map<String, LyricsEntity>>(emptyMap()) }
+    var lyricsProviderName by remember(currentSongId) { mutableStateOf<String?>(null) }
     var currentLyricsEntity by remember(currentSongId) {
         mutableStateOf<LyricsEntity?>(lyricsCache[currentSongId])
     }
@@ -328,6 +330,7 @@ fun Lyrics(
 
     LaunchedEffect(currentSongId) {
         currentSongId?.let { songId ->
+            lyricsProviderName = null
             if (lyricsCache.containsKey(songId)) {
                 currentLyricsEntity = lyricsCache[songId]
                 return@LaunchedEffect
@@ -356,7 +359,10 @@ fun Lyrics(
                                 com.arturo254.opentune.di.LyricsHelperEntryPoint::class.java
                             )
                             val lyricsHelper = entryPoint.lyricsHelper()
-                            val fetchedLyrics: String? = currentMetadata.let { lyricsHelper.getLyrics(it) }
+                            val fetchedResult: LyricsResult? = currentMetadata.let { lyricsHelper.getLyrics(it) }
+                            
+                            val fetchedLyrics = fetchedResult?.lyrics
+                            lyricsProviderName = fetchedResult?.providerName
 
                             val entity = if (!fetchedLyrics.isNullOrBlank()) {
                                 LyricsEntity(songId, fetchedLyrics)
@@ -863,6 +869,20 @@ fun Lyrics(
                                     animateLyrics = animateLyrics,
                                     modifier = Modifier
                                 )
+                            }
+                            
+                            if (lyrics != LYRICS_NOT_FOUND && !lyricsProviderName.isNullOrBlank()) {
+                                item(key = "provider_credit") {
+                                    Text(
+                                        text = stringResource(R.string.lyrics_provided_by, lyricsProviderName!!),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = textColor.copy(alpha = 0.5f),
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 24.dp, bottom = 16.dp)
+                                    )
+                                }
                             }
                         }
                     }
