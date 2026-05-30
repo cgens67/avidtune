@@ -1,13 +1,36 @@
 package com.arturo254.opentune.ui.screens.settings
 
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateList
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.arturo254.opentune.NotificationPermissionPreference
 import com.arturo254.opentune.R
@@ -17,12 +40,12 @@ import com.arturo254.opentune.constants.CountryCodeToName
 import com.arturo254.opentune.constants.EnableKugouKey
 import com.arturo254.opentune.constants.EnableLrcLibKey
 import com.arturo254.opentune.constants.EnableBetterLyricsKey
+import com.arturo254.opentune.constants.EnableLyricsPlusKey
 import com.arturo254.opentune.constants.EnablePaxsenixKey
 import com.arturo254.opentune.constants.HideExplicitKey
 import com.arturo254.opentune.constants.HistoryDuration
 import com.arturo254.opentune.constants.LanguageCodeToName
-import com.arturo254.opentune.constants.PreferredLyricsProvider
-import com.arturo254.opentune.constants.PreferredLyricsProviderKey
+import com.arturo254.opentune.constants.LyricsProviderOrderKey
 import com.arturo254.opentune.constants.ProxyEnabledKey
 import com.arturo254.opentune.constants.ProxyTypeKey
 import com.arturo254.opentune.constants.ProxyUrlKey
@@ -32,15 +55,17 @@ import com.arturo254.opentune.constants.SYSTEM_DEFAULT
 import com.arturo254.opentune.constants.TopSize
 import com.arturo254.opentune.ui.component.EditTextPreference
 import com.arturo254.opentune.ui.component.ListPreference
+import com.arturo254.opentune.ui.component.PreferenceEntry
 import com.arturo254.opentune.ui.component.SettingsGeneralCategory
 import com.arturo254.opentune.ui.component.SettingsPage
 import com.arturo254.opentune.ui.component.SliderPreference
 import com.arturo254.opentune.ui.component.SwitchPreference
 import com.arturo254.opentune.utils.rememberEnumPreference
 import com.arturo254.opentune.utils.rememberPreference
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 import java.net.Proxy
 import kotlin.math.roundToInt
-import androidx.compose.ui.res.pluralStringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -100,11 +125,31 @@ fun ContentSettings(
         key = EnablePaxsenixKey,
         defaultValue = true
     )
-    val (preferredProvider, onPreferredProviderChange) = rememberEnumPreference(
-        key = PreferredLyricsProviderKey,
-        defaultValue = PreferredLyricsProvider.LRCLIB
+    val (enableLyricsPlus, onEnableLyricsPlusChange) = rememberPreference(
+        key = EnableLyricsPlusKey,
+        defaultValue = false
     )
 
+    val defaultOrder = listOf("LyricsPlus", "BetterLyrics", "Paxsenix", "LrcLib", "Kugou", "YouTube Subtitle", "YouTube Music")
+    val (providerOrderStr, onProviderOrderChange) = rememberPreference(LyricsProviderOrderKey, defaultOrder.joinToString(","))
+    val currentOrder = remember(providerOrderStr) {
+        providerOrderStr.split(",").filter { it.isNotBlank() }.let { saved ->
+            val missing = defaultOrder.filter { it !in saved }
+            saved + missing
+        }
+    }
+    var showReorderDialog by remember { mutableStateOf(false) }
+
+    if (showReorderDialog) {
+        ReorderLyricsProvidersDialog(
+            currentOrder = currentOrder,
+            onDismiss = { showReorderDialog = false },
+            onSave = { newOrder ->
+                onProviderOrderChange(newOrder.joinToString(","))
+                showReorderDialog = false
+            }
+        )
+    }
 
     SettingsPage(
         title = stringResource(R.string.content),
@@ -182,16 +227,10 @@ fun ContentSettings(
             title = stringResource(R.string.lyrics),
             items = listOf(
                 {SwitchPreference(
-                    title = { Text(stringResource(R.string.enable_lrclib)) },
+                    title = { Text("Enable LyricsPlus") },
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
-                    checked = enableLrclib,
-                    onCheckedChange = onEnableLrclibChange,
-                )},
-                {SwitchPreference(
-                    title = { Text(stringResource(R.string.enable_kugou)) },
-                    icon = { Icon(painterResource(R.drawable.lyrics), null) },
-                    checked = enableKugou,
-                    onCheckedChange = onEnableKugouChange,
+                    checked = enableLyricsPlus,
+                    onCheckedChange = onEnableLyricsPlusChange,
                 )},
                 {SwitchPreference(
                     title = { Text("Enable BetterLyrics") },
@@ -205,6 +244,24 @@ fun ContentSettings(
                     checked = enablePaxsenix,
                     onCheckedChange = onEnablePaxsenixChange,
                 )},
+                {SwitchPreference(
+                    title = { Text(stringResource(R.string.enable_lrclib)) },
+                    icon = { Icon(painterResource(R.drawable.lyrics), null) },
+                    checked = enableLrclib,
+                    onCheckedChange = onEnableLrclibChange,
+                )},
+                {SwitchPreference(
+                    title = { Text(stringResource(R.string.enable_kugou)) },
+                    icon = { Icon(painterResource(R.drawable.lyrics), null) },
+                    checked = enableKugou,
+                    onCheckedChange = onEnableKugouChange,
+                )},
+                {PreferenceEntry(
+                    title = { Text("Lyrics provider priority") },
+                    description = "Reorder the priority of lyrics providers",
+                    icon = { Icon(painterResource(R.drawable.list), null) },
+                    onClick = { showReorderDialog = true }
+                )}
             )
         )
 
@@ -252,4 +309,66 @@ fun ContentSettings(
             )
         )
     }
+}
+
+@Composable
+fun ReorderLyricsProvidersDialog(
+    currentOrder: List<String>,
+    onDismiss: () -> Unit,
+    onSave: (List<String>) -> Unit
+) {
+    val list = remember { currentOrder.toMutableStateList() }
+    val lazyListState = rememberLazyListState()
+    val reorderableState = rememberReorderableLazyListState(lazyListState) { from, to ->
+        val item = list.removeAt(from.index)
+        list.add(to.index, item)
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Provider Priority") },
+        text = {
+            LazyColumn(
+                state = lazyListState,
+                modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp)
+            ) {
+                items(list, key = { it }) { item ->
+                    ReorderableItem(reorderableState, key = item) { isDragging ->
+                        val elevation by animateDpAsState(if (isDragging) 4.dp else 0.dp)
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            tonalElevation = elevation,
+                            shadowElevation = elevation,
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(16.dp)
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.drag_handle),
+                                    contentDescription = "Drag",
+                                    modifier = Modifier.draggableHandle()
+                                )
+                                Spacer(Modifier.width(16.dp))
+                                Text(item)
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(list) }) {
+                Text(stringResource(android.R.string.ok))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(android.R.string.cancel))
+            }
+        }
+    )
 }
