@@ -10,7 +10,6 @@ import java.time.ZoneOffset
 
 val MinimalPlayerDesignKey = booleanPreferencesKey("minimalPlayerDesign")
 val DisableBlurKey = booleanPreferencesKey("disableBlur")
-val RotateBackgroundKey = booleanPreferencesKey("rotateBackground")
 
 val DynamicThemeKey = booleanPreferencesKey("dynamicTheme")
 val CustomThemeColorKey = stringPreferencesKey("customThemeColor")
