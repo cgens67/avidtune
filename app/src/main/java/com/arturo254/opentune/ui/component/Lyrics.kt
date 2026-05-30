@@ -13,6 +13,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -84,6 +85,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -142,11 +144,13 @@ import com.arturo254.opentune.LocalPlayerConnection
 import com.arturo254.opentune.R
 import com.arturo254.opentune.constants.AnimateLyricsKey
 import com.arturo254.opentune.constants.DarkModeKey
+import com.arturo254.opentune.constants.DisableBlurKey
 import com.arturo254.opentune.constants.LyricsClickKey
 import com.arturo254.opentune.constants.LyricsScrollKey
 import com.arturo254.opentune.constants.LyricsTextPositionKey
 import com.arturo254.opentune.constants.PlayerBackgroundStyle
 import com.arturo254.opentune.constants.PlayerBackgroundStyleKey
+import com.arturo254.opentune.constants.RotateBackgroundKey
 import com.arturo254.opentune.constants.SliderStyle
 import com.arturo254.opentune.constants.SliderStyleKey
 import com.arturo254.opentune.db.entities.LyricsEntity
@@ -205,6 +209,8 @@ fun Lyrics(
     val changeLyrics by rememberPreference(LyricsClickKey, true)
     val scrollLyrics by rememberPreference(LyricsScrollKey, true)
     val animateLyrics by rememberPreference(AnimateLyricsKey, true)
+    val disableBlur by rememberPreference(DisableBlurKey, false)
+    val rotateBackground by rememberPreference(RotateBackgroundKey, false)
 
     val currentMetadata = mediaMetadata ?: playerConnection.mediaMetadata.collectAsState().value
     val currentSongId = currentMetadata?.id
@@ -277,6 +283,19 @@ fun Lyrics(
 
     var position by rememberSaveable(playbackState) { mutableLongStateOf(playerConnection.player.currentPosition) }
     var duration by rememberSaveable(playbackState) { mutableLongStateOf(playerConnection.player.duration) }
+
+    var bgRotation by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(rotateBackground, isPlaying) {
+        if (rotateBackground && isPlaying) {
+            var lastTime = withFrameNanos { it }
+            while (isActive) {
+                val currentTime = withFrameNanos { it }
+                val deltaMs = (currentTime - lastTime) / 1_000_000f
+                lastTime = currentTime
+                bgRotation = (bgRotation + (deltaMs * 360f / 40000f)) % 360f
+            }
+        }
+    }
 
     val expressiveAccent = when (playerBackground) {
         PlayerBackgroundStyle.DEFAULT -> MaterialTheme.colorScheme.primary
@@ -628,7 +647,8 @@ fun Lyrics(
                                 contentScale = ContentScale.FillBounds,
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .blur(if (useDarkTheme) 150.dp else 100.dp)
+                                    .let { if (rotateBackground) it.graphicsLayer { rotationZ = bgRotation; scaleX = 1.5f; scaleY = 1.5f } else it }
+                                    .let { if (!disableBlur) it.blur(if (useDarkTheme) 150.dp else 100.dp) else it }
                             )
                             Box(
                                 modifier = Modifier
@@ -667,7 +687,11 @@ fun Lyrics(
                                 val color2 = gradientColors.getOrElse(1) { gradientColors[0].copy(alpha = 0.8f) }
                                 val color3 = gradientColors.getOrElse(2) { gradientColors[0].copy(alpha = 0.6f) }
 
-                                Canvas(modifier = Modifier.fillMaxSize().blur(100.dp)) {
+                                Canvas(modifier = Modifier
+                                    .fillMaxSize()
+                                    .let { if (rotateBackground) it.graphicsLayer { rotationZ = bgRotation; scaleX = 1.5f; scaleY = 1.5f } else it }
+                                    .let { if (!disableBlur) it.blur(100.dp) else it }
+                                ) {
                                     drawRect(
                                         brush = Brush.verticalGradient(
                                             listOf(color1, color2, color3)
