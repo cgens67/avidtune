@@ -1,24 +1,32 @@
 package com.arturo254.opentune.ui.screens.settings
 
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.arturo254.opentune.NotificationPermissionPreference
@@ -141,7 +150,7 @@ fun ContentSettings(
     var showReorderDialog by remember { mutableStateOf(false) }
 
     if (showReorderDialog) {
-        ReorderLyricsProvidersDialog(
+        ReorderLyricsProvidersBottomSheet(
             currentOrder = currentOrder,
             onDismiss = { showReorderDialog = false },
             onSave = { newOrder ->
@@ -227,19 +236,19 @@ fun ContentSettings(
             title = stringResource(R.string.lyrics),
             items = listOf(
                 {SwitchPreference(
-                    title = { Text("Enable LyricsPlus") },
+                    title = { Text(stringResource(R.string.enable_lyrics_plus)) },
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = enableLyricsPlus,
                     onCheckedChange = onEnableLyricsPlusChange,
                 )},
                 {SwitchPreference(
-                    title = { Text("Enable BetterLyrics") },
+                    title = { Text(stringResource(R.string.enable_better_lyrics)) },
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = enableBetterLyrics,
                     onCheckedChange = onEnableBetterLyricsChange,
                 )},
                 {SwitchPreference(
-                    title = { Text("Enable Paxsenix") },
+                    title = { Text(stringResource(R.string.enable_paxsenix)) },
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = enablePaxsenix,
                     onCheckedChange = onEnablePaxsenixChange,
@@ -257,8 +266,8 @@ fun ContentSettings(
                     onCheckedChange = onEnableKugouChange,
                 )},
                 {PreferenceEntry(
-                    title = { Text("Lyrics provider priority") },
-                    description = "Reorder the priority of lyrics providers",
+                    title = { Text(stringResource(R.string.lyrics_provider_priority)) },
+                    description = stringResource(R.string.lyrics_provider_priority_desc),
                     icon = { Icon(painterResource(R.drawable.list), null) },
                     onClick = { showReorderDialog = true }
                 )}
@@ -311,8 +320,9 @@ fun ContentSettings(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ReorderLyricsProvidersDialog(
+fun ReorderLyricsProvidersBottomSheet(
     currentOrder: List<String>,
     onDismiss: () -> Unit,
     onSave: (List<String>) -> Unit
@@ -323,25 +333,62 @@ fun ReorderLyricsProvidersDialog(
         val item = list.removeAt(from.index)
         list.add(to.index, item)
     }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text("Provider Priority") },
-        text = {
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .padding(bottom = 16.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.provider_priority),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = onDismiss) {
+                        Text(stringResource(android.R.string.cancel))
+                    }
+                    Button(onClick = { onSave(list) }) {
+                        Text(stringResource(R.string.save))
+                    }
+                }
+            }
+
+            HorizontalDivider()
+
             LazyColumn(
                 state = lazyListState,
-                modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 400.dp)
+                    .padding(vertical = 8.dp)
             ) {
                 items(list, key = { it }) { item ->
                     ReorderableItem(reorderableState, key = item) { isDragging ->
-                        val elevation by animateDpAsState(if (isDragging) 4.dp else 0.dp)
+                        val elevation by animateDpAsState(if (isDragging) 8.dp else 0.dp, label = "elevation")
                         Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 4.dp),
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
                             tonalElevation = elevation,
                             shadowElevation = elevation,
-                            shape = RoundedCornerShape(8.dp)
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isDragging) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surfaceContainer
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -353,22 +400,15 @@ fun ReorderLyricsProvidersDialog(
                                     modifier = Modifier.draggableHandle()
                                 )
                                 Spacer(Modifier.width(16.dp))
-                                Text(item)
+                                Text(
+                                    text = item,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
                             }
                         }
                     }
                 }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = { onSave(list) }) {
-                Text(stringResource(android.R.string.ok))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(android.R.string.cancel))
-            }
         }
-    )
+    }
 }
