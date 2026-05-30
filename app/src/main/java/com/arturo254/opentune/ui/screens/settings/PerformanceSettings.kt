@@ -14,8 +14,8 @@ import com.arturo254.opentune.R
 import com.arturo254.opentune.constants.AnimateLyricsKey
 import com.arturo254.opentune.constants.AutoLoadMoreKey
 import com.arturo254.opentune.constants.DisableBlurKey
+import com.arturo254.opentune.constants.DisableLyricsGlowKey
 import com.arturo254.opentune.constants.MinimalPlayerDesignKey
-import com.arturo254.opentune.constants.RotateBackgroundKey
 import com.arturo254.opentune.constants.SimilarContent
 import com.arturo254.opentune.ui.component.SettingsGeneralCategory
 import com.arturo254.opentune.ui.component.SettingsPage
@@ -40,8 +40,8 @@ fun PerformanceSettings(
         AnimateLyricsKey,
         defaultValue = true
     )
-    val (rotateBackground, onRotateBackgroundChange) = rememberPreference(
-        key = RotateBackgroundKey,
+    val (disableLyricsGlow, onDisableLyricsGlowChange) = rememberPreference(
+        key = DisableLyricsGlowKey,
         defaultValue = false
     )
     val (autoLoadMore, onAutoLoadMoreChange) = rememberPreference(
@@ -95,10 +95,11 @@ fun PerformanceSettings(
                 },
                 {
                     SwitchPreference(
-                        title = { Text(stringResource(R.string.Rotatelyricsbackground)) },
-                        icon = { Icon(painterResource(R.drawable.album), null) },
-                        checked = rotateBackground,
-                        onCheckedChange = onRotateBackgroundChange
+                        title = { Text("Disable lyrics glow") },
+                        icon = { Icon(painterResource(R.drawable.lyrics), null) },
+                        description = "Improves performance by disabling the glowing effect on synced lyrics",
+                        checked = disableLyricsGlow,
+                        onCheckedChange = onDisableLyricsGlowChange
                     )
                 }
             )
