@@ -339,12 +339,12 @@ class MusicService :
             if (showLyrics && mediaMetadata != null && database.lyrics(mediaMetadata.id)
                     .first() == null
             ) {
-                val lyrics = lyricsHelper.getLyrics(mediaMetadata)
+                val lyricsResult = lyricsHelper.getLyrics(mediaMetadata)
                 database.query {
                     upsert(
                         LyricsEntity(
                             id = mediaMetadata.id,
-                            lyrics = lyrics,
+                            lyrics = lyricsResult.lyrics,
                         ),
                     )
                 }
