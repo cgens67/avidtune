@@ -680,6 +680,7 @@
     <string name="lyrics_provider_priority">Lyrics provider priority</string>
     <string name="lyrics_provider_priority_desc">Reorder the priority of lyrics providers</string>
     <string name="provider_priority">Provider Priority</string>
+    <string name="lyrics_provided_by">Lyrics provided by %1$s</string>
 
 
 </resources>
