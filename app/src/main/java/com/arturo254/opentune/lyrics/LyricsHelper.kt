@@ -18,9 +18,9 @@ constructor(
     @ApplicationContext private val context: Context,
 ) {
     private val allProviders = listOf(
+        PaxsenixLyricsProvider,
         LyricsPlusProvider,
         BetterLyricsProvider,
-        PaxsenixLyricsProvider,
         LrcLibLyricsProvider,
         KuGouLyricsProvider,
         YouTubeSubtitleLyricsProvider,
@@ -46,10 +46,10 @@ constructor(
 
     private val cache = LruCache<String, List<LyricsResult>>(MAX_CACHE_SIZE)
 
-    suspend fun getLyrics(mediaMetadata: MediaMetadata): String {
+    suspend fun getLyrics(mediaMetadata: MediaMetadata): LyricsResult {
         val cached = cache.get(mediaMetadata.id)?.firstOrNull()
         if (cached != null) {
-            return cached.lyrics
+            return cached
         }
         lyricsProviders.forEach { provider ->
             if (provider.isEnabled(context)) {
@@ -60,13 +60,15 @@ constructor(
                         mediaMetadata.artists.joinToString { it.name },
                         mediaMetadata.duration,
                     ).onSuccess { lyrics ->
-                        return lyrics
+                        val result = LyricsResult(provider.name, lyrics)
+                        // It's technically safe to cache here if desired, but typically we cache from getAllLyrics
+                        return result
                     }.onFailure {
                         reportException(it)
                     }
             }
         }
-        return LYRICS_NOT_FOUND
+        return LyricsResult("Unknown", LYRICS_NOT_FOUND)
     }
 
     suspend fun getAllLyrics(
