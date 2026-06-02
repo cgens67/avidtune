@@ -128,6 +128,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAny
 import androidx.compose.ui.util.fastFirstOrNull
 import androidx.compose.ui.util.fastForEach
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
@@ -798,7 +800,7 @@ class MainActivity : ComponentActivity() {
                                                         painter = painterResource(R.drawable.avidtune),
                                                         contentDescription = null,
                                                         tint = MaterialTheme.colorScheme.onSurface,
-                                                        modifier = Modifier.size(42.dp)
+                                                        modifier = Modifier.size(28.dp)
                                                     )
                                                     Spacer(modifier = Modifier.width(8.dp))
                                                     Text(
