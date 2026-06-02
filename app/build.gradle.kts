@@ -19,8 +19,8 @@ android {
         applicationId = "com.cgens67.avidtune"
         minSdk = 24
         targetSdk = 35
-        versionCode = 126
-        versionName = "2.0.12"
+        versionCode = 1
+        versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
