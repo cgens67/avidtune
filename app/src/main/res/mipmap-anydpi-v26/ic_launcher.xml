@@ -1,12 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Background layer -->
-    <background android:drawable="@color/ic_launcher_background" />
+    <!-- Points to your 162x162 white background image -->
+    <background android:drawable="@mipmap/ic_launcher_background" />
     
-    <!-- Foreground layer with inset to shrink the logo -->
+    <!-- Shrinks the 1080x1080 logo by 20% on all sides so it fits the safe zone -->
     <foreground>
         <inset
             android:drawable="@mipmap/ic_launcher_foreground"
-            android:inset="20dp" />
+            android:inset="20%" />
     </foreground>
+
+    <!-- Includes the monochrome icon for Android 13+ themed icons -->
+    <monochrome>
+        <inset
+            android:drawable="@mipmap/ic_launcher_monochrome"
+            android:inset="20%" />
+    </monochrome>
 </adaptive-icon>
