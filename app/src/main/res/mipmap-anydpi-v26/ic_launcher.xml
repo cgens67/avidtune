@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    
+    <!-- Background layer -->
     <background android:drawable="@color/ic_launcher_background" />
     
-    
+    <!-- Foreground layer with inset to shrink the logo -->
     <foreground>
         <inset
-            android:drawable="@drawable/ic_launcher_foreground"
+            android:drawable="@mipmap/ic_launcher_foreground"
             android:inset="20dp" />
     </foreground>
 </adaptive-icon>
