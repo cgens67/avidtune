@@ -219,10 +219,8 @@ fun AlbumScreen(
                                 .padding(horizontal = 48.dp)
                         ) {
                             AsyncImage(
-                                model = albumWithSongs.album.thumbnailUrl?.resize(1080, 1080),
+                                model = albumWithSongs.album.thumbnailUrl?.resize(1200, 1200),
                                 contentDescription = null,
-                                placeholder = painterResource(R.drawable.album),
-                                error = painterResource(R.drawable.album),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .aspectRatio(1f)
@@ -230,7 +228,7 @@ fun AlbumScreen(
                                 contentScale = ContentScale.Crop
                             )
 
-                            // Botón de descarga superpuesto
+                            // Botón de descarga superpuesto (manteniendo tu función original)
                             androidx.compose.material3.IconButton(
                                 onClick = {
                                     // Lanza una coroutine para guardar la imagen
@@ -238,7 +236,7 @@ fun AlbumScreen(
                                         albumWithSongs.album.thumbnailUrl?.let {
                                             saveAlbumImageToGallery(
                                                 context,
-                                                it.resize(1080, 1080),
+                                                it.resize(1200, 1200),
                                                 albumWithSongs.album.title
                                             )
                                         }
