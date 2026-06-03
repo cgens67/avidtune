@@ -165,6 +165,7 @@ import com.cgens67.avidtune.constants.PauseSearchHistoryKey
 import com.cgens67.avidtune.constants.PlayerBackgroundStyle
 import com.cgens67.avidtune.constants.PlayerBackgroundStyleKey
 import com.cgens67.avidtune.constants.PureBlackKey
+import com.cgens67.avidtune.constants.UseSystemFontKey
 import com.cgens67.avidtune.constants.SearchSource
 import com.cgens67.avidtune.constants.SearchSourceKey
 import com.cgens67.avidtune.constants.SlimNavBarKey
@@ -354,6 +355,8 @@ class MainActivity : ComponentActivity() {
             var themeColor by rememberSaveable(stateSaver = ColorSaver) {
                 mutableStateOf(DefaultThemeColor)
             }
+            
+            val useSystemFont by rememberPreference(UseSystemFontKey, defaultValue = false)
 
             LaunchedEffect(playerConnection, enableDynamicTheme, isSystemInDarkTheme, customThemeColor) {
                 val playerConnection = playerConnection
@@ -400,6 +403,7 @@ class MainActivity : ComponentActivity() {
                 darkTheme = useDarkTheme,
                 pureBlack = pureBlack,
                 themeColor = themeColor,
+                useSystemFont = useSystemFont,
             ) {
                 BoxWithConstraints(
                     modifier =

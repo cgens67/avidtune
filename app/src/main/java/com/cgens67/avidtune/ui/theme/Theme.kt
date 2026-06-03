@@ -11,6 +11,7 @@ import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.Saver
@@ -19,7 +20,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.palette.graphics.Palette
+import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.PlayerBackgroundStyle
 import com.google.material.color.dynamiccolor.DynamicScheme
 import com.google.material.color.hct.Hct
@@ -28,6 +32,10 @@ import com.google.material.color.score.Score
 
 val DefaultThemeColor = Color(0xFF4285F4)
 
+val sfProDisplayBold = FontFamily(
+    Font(R.font.sfprodisplaybold)
+)
+
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AvidTuneTheme(
@@ -35,6 +43,7 @@ fun AvidTuneTheme(
     pureBlack: Boolean = false,
     expressive: Boolean = true,
     themeColor: Color = DefaultThemeColor,
+    useSystemFont: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
@@ -59,9 +68,34 @@ fun AvidTuneTheme(
         MotionScheme.standard()
     }
 
+    val typography = remember(useSystemFont) {
+        val default = Typography()
+        if (useSystemFont) {
+            default
+        } else {
+            Typography(
+                displayLarge = default.displayLarge.copy(fontFamily = sfProDisplayBold),
+                displayMedium = default.displayMedium.copy(fontFamily = sfProDisplayBold),
+                displaySmall = default.displaySmall.copy(fontFamily = sfProDisplayBold),
+                headlineLarge = default.headlineLarge.copy(fontFamily = sfProDisplayBold),
+                headlineMedium = default.headlineMedium.copy(fontFamily = sfProDisplayBold),
+                headlineSmall = default.headlineSmall.copy(fontFamily = sfProDisplayBold),
+                titleLarge = default.titleLarge.copy(fontFamily = sfProDisplayBold),
+                titleMedium = default.titleMedium.copy(fontFamily = sfProDisplayBold),
+                titleSmall = default.titleSmall.copy(fontFamily = sfProDisplayBold),
+                bodyLarge = default.bodyLarge.copy(fontFamily = sfProDisplayBold),
+                bodyMedium = default.bodyMedium.copy(fontFamily = sfProDisplayBold),
+                bodySmall = default.bodySmall.copy(fontFamily = sfProDisplayBold),
+                labelLarge = default.labelLarge.copy(fontFamily = sfProDisplayBold),
+                labelMedium = default.labelMedium.copy(fontFamily = sfProDisplayBold),
+                labelSmall = default.labelSmall.copy(fontFamily = sfProDisplayBold)
+            )
+        }
+    }
+
     MaterialExpressiveTheme(
         colorScheme = colorScheme,
-        typography = MaterialTheme.typography,
+        typography = typography,
         shapes = MaterialTheme.shapes,
         motionScheme = motionScheme,
         content = content

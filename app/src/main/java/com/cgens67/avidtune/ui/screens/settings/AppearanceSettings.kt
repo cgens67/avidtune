@@ -59,6 +59,7 @@ import com.cgens67.avidtune.constants.PlayerButtonsStyle
 import com.cgens67.avidtune.constants.PlayerButtonsStyleKey
 import com.cgens67.avidtune.constants.PlayerTextAlignmentKey
 import com.cgens67.avidtune.constants.PureBlackKey
+import com.cgens67.avidtune.constants.UseSystemFontKey
 import com.cgens67.avidtune.constants.SliderStyle
 import com.cgens67.avidtune.constants.SliderStyleKey
 import com.cgens67.avidtune.constants.SlimNavBarKey
@@ -112,6 +113,7 @@ fun AppearanceSettings(
             defaultValue = PlayerBackgroundStyle.DEFAULT,
         )
     val (pureBlack, onPureBlackChange) = rememberPreference(PureBlackKey, defaultValue = false)
+    val (useSystemFont, onUseSystemFontChange) = rememberPreference(UseSystemFontKey, defaultValue = false)
     val (defaultOpenTab, onDefaultOpenTabChange) = rememberEnumPreference(
         DefaultOpenTabKey,
         defaultValue = NavigationTab.HOME
@@ -356,7 +358,14 @@ fun AppearanceSettings(
                         },
                         isEnabled = useDarkTheme
                     )
-                }}
+                }},
+                {SwitchPreference(
+                    title = { Text(stringResource(R.string.use_system_font)) },
+                    description = stringResource(R.string.use_system_font_desc),
+                    icon = { Icon(painterResource(R.drawable.format_align_left), null) },
+                    checked = useSystemFont,
+                    onCheckedChange = onUseSystemFontChange,
+                )}
             )
         )
 
