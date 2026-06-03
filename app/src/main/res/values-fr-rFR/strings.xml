@@ -816,4 +816,9 @@
 
     <string name="use_system_font">Utiliser la police du système</string>
     <string name="use_system_font_desc">Utiliser la police de l\'appareil au lieu de la police de l\'application</string>
+
+    <string name="permissions_title">Autorisations</string>
+    <string name="permissions_desc">Autoriser l\'accès au stockage et aux notifications</string>
+    <string name="allow">Autoriser</string>
+    <string name="try_different_search_term">Essayez un autre terme de recherche</string>
 </resources>

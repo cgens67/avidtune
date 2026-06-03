@@ -408,7 +408,7 @@
     <string name="NewVersion">New Version</string>
     <string name="Changelog">Changelog</string>
     <string name="changelogs">Changelogs</string>
-    <string name="no_changes">no changes</string>
+    <string name="no_changes">No changes</string>
     <string name="Translate">Translate</string>
     <string name="Redirección">Redirección</string>
     <string name="poeditor_redirect">You are about to be redirected to poeditor.com</string>
@@ -815,4 +815,9 @@
 
     <string name="use_system_font">Use system font</string>
     <string name="use_system_font_desc">Use the device font instead of the app font</string>
+
+    <string name="permissions_title">Permissions</string>
+    <string name="permissions_desc">Allow access to storage and notifications</string>
+    <string name="allow">Allow</string>
+    <string name="try_different_search_term">Try a different search term</string>
 </resources>

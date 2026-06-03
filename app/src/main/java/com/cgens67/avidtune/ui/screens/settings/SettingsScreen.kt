@@ -706,7 +706,7 @@ private fun buildQuickActions(navController: NavController, resetSearch: () -> U
             icon = painterResource(R.drawable.storage),
             label = stringResource(R.string.storage),
             onClick = { resetSearch(); navController.navigate("settings/storage") },
-            accentColor = MaterialTheme.colorScheme.primaryContainer
+            accentColor = MaterialTheme.colorScheme.onSurface
         )
     )
 }
@@ -1599,7 +1599,7 @@ fun SettingsPermissionBanner(
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
-                    text = "Permissions",
+                    text = stringResource(R.string.permissions_title),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -1607,7 +1607,7 @@ fun SettingsPermissionBanner(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = "Allow access to storage and notifications",
+                    text = stringResource(R.string.permissions_desc),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
@@ -1626,7 +1626,7 @@ fun SettingsPermissionBanner(
                 shapes = ButtonDefaults.shapes(),
             ) {
                 Text(
-                    text = "Allow",
+                    text = stringResource(R.string.allow),
                     fontWeight = FontWeight.SemiBold,
                     style = MaterialTheme.typography.labelMedium,
                 )
@@ -1783,7 +1783,7 @@ fun SettingsSearchEmpty(
             )
 
             Text(
-                text = "Try a different search term",
+                text = stringResource(R.string.try_different_search_term),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

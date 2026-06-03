@@ -800,4 +800,9 @@
 
     <string name="use_system_font">使用系统字体</string>
     <string name="use_system_font_desc">使用设备自带字体，而不是应用默认字体</string>
+
+    <string name="permissions_title">权限</string>
+    <string name="permissions_desc">允许访问存储和通知</string>
+    <string name="allow">允许</string>
+    <string name="try_different_search_term">尝试其他搜索词</string>
 </resources>
