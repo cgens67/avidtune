@@ -266,6 +266,11 @@ fun Lyrics(
         }
         text
     }
+
+    val lyricsOffsetMs = remember(activeLyricsEntity) {
+        val raw = activeLyricsEntity?.lyrics.orEmpty()
+        Regex("\\[offset:(-?\\d+)\\]").find(raw)?.groupValues?.get(1)?.toLongOrNull() ?: 0L
+    }
     
     val lyricsProviderName = remember(activeLyricsEntity) {
         val text = activeLyricsEntity?.lyrics?.trim()
@@ -674,7 +679,7 @@ fun Lyrics(
         }
     }
 
-    LaunchedEffect(originalLyrics) {
+    LaunchedEffect(originalLyrics, lyricsOffsetMs) {
         if (originalLyrics.isNullOrEmpty() || !originalLyrics.startsWith("[")) {
             currentLineIndex = -1
             currentMainLineIndex = -1
@@ -686,7 +691,7 @@ fun Lyrics(
             isSeeking = sliderPos != null
             val rawIndex = findCurrentLineIndex(
                 lines,
-                sliderPos ?: playerConnection.player.currentPosition
+                (sliderPos ?: playerConnection.player.currentPosition) + lyricsOffsetMs
             )
             currentLineIndex = rawIndex
 
@@ -1102,6 +1107,7 @@ fun Lyrics(
                                     isSelectionModeActive = isSelectionModeActive,
                                     isAutoScrollActive = isAutoScrollEnabled,
                                     animateLyrics = animateLyrics,
+                                    lyricsOffset = lyricsOffsetMs,
                                     modifier = Modifier
                                 )
                             }

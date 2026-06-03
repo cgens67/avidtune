@@ -828,4 +828,9 @@
     <string name="text_size_large">Grand</string>
     <string name="text_size_extra_large">Très grand</string>
 
+    <string name="sync_offset">Décalage Sync</string>
+    <string name="lyrics_sync_offset">Décalage de synchronisation des paroles</string>
+    <string name="sync_offset_description">Ajustez le timing si les paroles sont désynchronisées.\nPositif (+ms) affiche les paroles plus tôt.\nNégatif (-ms) affiche les paroles plus tard.</string>
+
+
 </resources>

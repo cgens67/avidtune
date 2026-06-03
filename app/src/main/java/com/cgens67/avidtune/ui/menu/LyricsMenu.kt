@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -29,11 +30,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -78,6 +82,93 @@ fun LyricsMenu(
 
     var showEditDialog by rememberSaveable {
         mutableStateOf(false)
+    }
+    
+    var showOffsetDialog by rememberSaveable {
+        mutableStateOf(false)
+    }
+    var syncOffsetValue by remember { 
+        mutableFloatStateOf(0f) 
+    }
+
+    LaunchedEffect(showOffsetDialog) {
+        if (showOffsetDialog) {
+            val rawText = lyricsEntity?.lyrics.orEmpty()
+            syncOffsetValue = Regex("\\[offset:(-?\\d+)\\]").find(rawText)?.groupValues?.get(1)?.toFloatOrNull() ?: 0f
+        }
+    }
+
+    if (showOffsetDialog) {
+        AlertDialog(
+            onDismissRequest = { showOffsetDialog = false },
+            title = { Text(stringResource(R.string.lyrics_sync_offset)) },
+            text = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "${if (syncOffsetValue > 0) "+" else ""}${syncOffsetValue.toLong()} ms",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        IconButton(onClick = { syncOffsetValue = (syncOffsetValue - 50f).coerceAtLeast(-5000f) }) {
+                            Icon(painterResource(R.drawable.remove), contentDescription = "-")
+                        }
+                        Slider(
+                            value = syncOffsetValue,
+                            onValueChange = { syncOffsetValue = it },
+                            valueRange = -5000f..5000f,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(onClick = { syncOffsetValue = (syncOffsetValue + 50f).coerceAtMost(5000f) }) {
+                            Icon(painterResource(R.drawable.add), contentDescription = "+")
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(R.string.sync_offset_description),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showOffsetDialog = false
+                        val rawText = lyricsEntity?.lyrics.orEmpty()
+                        val textWithoutOffset = rawText.replace(Regex("\\[offset:-?\\d+\\]\\n?"), "")
+                        
+                        val newOffsetTag = if (syncOffsetValue == 0f) "" else "[offset:${syncOffsetValue.toLong()}]\n"
+                        val finalLyrics = if (textWithoutOffset.startsWith("[provider:")) {
+                            val lines = textWithoutOffset.lines()
+                            val providerLine = lines.first()
+                            val rest = lines.drop(1).joinToString("\n")
+                            "$providerLine\n$newOffsetTag$rest"
+                        } else {
+                            "$newOffsetTag$textWithoutOffset"
+                        }
+                        
+                        database.query {
+                            upsert(LyricsEntity(id = mediaMetadata.id, lyrics = finalLyrics.trimStart('\n')))
+                        }
+                        onLyricsUpdated()
+                        onDismiss()
+                    }
+                ) {
+                    Text(stringResource(android.R.string.ok))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showOffsetDialog = false }) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+            }
+        )
     }
 
     if (showEditDialog) {
@@ -362,6 +453,18 @@ fun LyricsMenu(
         item {
             NewActionGrid(
                 actions = listOf(
+                    NewAction(
+                        icon = {
+                            Icon(
+                                painter = painterResource(R.drawable.tune),
+                                contentDescription = null,
+                                modifier = Modifier.size(28.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        text = stringResource(R.string.sync_offset),
+                        onClick = { showOffsetDialog = true }
+                    ),
                     NewAction(
                         icon = {
                             Icon(

@@ -88,6 +88,7 @@ fun LyricsLine(
     isSelectionModeActive: Boolean,
     isAutoScrollActive: Boolean,
     animateLyrics: Boolean = true,
+    lyricsOffset: Long = 0L,
     modifier: Modifier = Modifier
 ) {
     val (appleMusicLyricsBlur) = rememberPreference(AppleMusicLyricsBlurKey, true)
@@ -232,7 +233,7 @@ fun LyricsLine(
                 mainText = mainText,
                 words = effectiveWords,
                 isTracking = isTracking,
-                lyricsOffset = 0L,
+                lyricsOffset = lyricsOffset,
                 playerConnection = playerConnection,
                 lyricStyle = lyricStyle,
                 lineColor = lineColor,
