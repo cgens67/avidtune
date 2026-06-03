@@ -182,21 +182,6 @@ For detailed information about configuration, advanced features, and usage guide
 2. Select the download option for Android
 3. Follow the provided installation instructions
 
-#### Option 3: F-Droid
-
-<div align="center">
-  
-[![F-Droid](https://img.shields.io/badge/F--Droid-1976D2?style=for-the-badge&logo=f-droid&logoColor=white)](https://f-droid.org/es/packages/com.cgens67.avidtune/)
-
-</div>
-
-#### Option 4: OpenApk
-
-<div align="center">
-  
-[![OpenApk](https://img.shields.io/badge/OpenApk-FF6B35?style=for-the-badge&logo=android&logoColor=white)](https://www.openapk.net/avidtune/com.cgens67.avidtune/)
-
-</div>
 
 > **Security Notice**: For security reasons, it is recommended to obtain the application exclusively through the official channels mentioned above. Avoid downloading APKs from unverified sources.
 
