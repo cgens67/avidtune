@@ -820,4 +820,11 @@
     <string name="permissions_desc">Allow access to storage and notifications</string>
     <string name="allow">Allow</string>
     <string name="try_different_search_term">Try a different search term</string>
+
+    <string name="app_text_size">App text size</string>
+    <string name="text_size_small">Small</string>
+    <string name="text_size_system">Follow system</string>
+    <string name="text_size_large">Large</string>
+    <string name="text_size_extra_large">Extra large</string>
+
 </resources>

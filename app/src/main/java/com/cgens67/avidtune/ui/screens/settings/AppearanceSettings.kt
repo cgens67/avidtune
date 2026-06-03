@@ -39,6 +39,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.cgens67.avidtune.R
+import com.cgens67.avidtune.constants.AppTextSize
+import com.cgens67.avidtune.constants.AppTextSizeKey
 import com.cgens67.avidtune.constants.ChipSortTypeKey
 import com.cgens67.avidtune.constants.DarkModeKey
 import com.cgens67.avidtune.constants.DefaultMiniPlayerThumbnailShape
@@ -114,6 +116,12 @@ fun AppearanceSettings(
         )
     val (pureBlack, onPureBlackChange) = rememberPreference(PureBlackKey, defaultValue = false)
     val (useSystemFont, onUseSystemFontChange) = rememberPreference(UseSystemFontKey, defaultValue = false)
+    
+    val (appTextSize, onAppTextSizeChange) = rememberEnumPreference(
+        AppTextSizeKey,
+        defaultValue = AppTextSize.SYSTEM
+    )
+
     val (defaultOpenTab, onDefaultOpenTabChange) = rememberEnumPreference(
         DefaultOpenTabKey,
         defaultValue = NavigationTab.HOME
@@ -365,6 +373,20 @@ fun AppearanceSettings(
                     icon = { Icon(painterResource(R.drawable.format_align_left), null) },
                     checked = useSystemFont,
                     onCheckedChange = onUseSystemFontChange,
+                )},
+                {EnumListPreference(
+                    title = { Text(stringResource(R.string.app_text_size)) },
+                    icon = { Icon(painterResource(R.drawable.format_align_left), null) },
+                    selectedValue = appTextSize,
+                    onValueSelected = onAppTextSizeChange,
+                    valueText = {
+                        when (it) {
+                            AppTextSize.SMALL -> stringResource(R.string.text_size_small)
+                            AppTextSize.SYSTEM -> stringResource(R.string.text_size_system)
+                            AppTextSize.LARGE -> stringResource(R.string.text_size_large)
+                            AppTextSize.EXTRA_LARGE -> stringResource(R.string.text_size_extra_large)
+                        }
+                    },
                 )}
             )
         )

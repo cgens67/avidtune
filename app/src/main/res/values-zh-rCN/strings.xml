@@ -805,4 +805,11 @@
     <string name="permissions_desc">允许访问存储和通知</string>
     <string name="allow">允许</string>
     <string name="try_different_search_term">尝试其他搜索词</string>
+
+    <string name="app_text_size">应用字体大小</string>
+    <string name="text_size_small">小</string>
+    <string name="text_size_system">跟随系统</string>
+    <string name="text_size_large">大</string>
+    <string name="text_size_extra_large">超大</string>
+
 </resources>
