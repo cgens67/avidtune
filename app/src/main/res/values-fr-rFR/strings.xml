@@ -832,5 +832,8 @@
     <string name="lyrics_sync_offset">Décalage de synchronisation des paroles</string>
     <string name="sync_offset_description">Ajustez le timing si les paroles sont désynchronisées.\nPositif (+ms) affiche les paroles plus tôt.\nNégatif (-ms) affiche les paroles plus tard.</string>
 
+    <string name="romanize">Romaniser</string>
+    <string name="hide_romanized">Masquer la romanisation</string>
+
 
 </resources>

@@ -816,5 +816,8 @@
     <string name="lyrics_sync_offset">歌词同步偏移</string>
     <string name="sync_offset_description">如果歌词不同步，请调整时间。\n正值 (+ms) 会让歌词更早显示。\n负值 (-ms) 会让歌词更晚显示。</string>
 
+    <string name="romanize">罗马音</string>
+    <string name="hide_romanized">隐藏罗马音</string>
+
 
 </resources>

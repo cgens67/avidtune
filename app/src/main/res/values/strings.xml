@@ -831,4 +831,7 @@
     <string name="lyrics_sync_offset">Lyrics sync offset</string>
     <string name="sync_offset_description">Adjust timing if lyrics are out of sync.\nPositive (+ms) makes lyrics appear earlier.\nNegative (-ms) makes lyrics appear later.</string>
 
+    <string name="romanize">Romanize</string>
+    <string name="hide_romanized">Hide Romanized</string>
+
 </resources>
