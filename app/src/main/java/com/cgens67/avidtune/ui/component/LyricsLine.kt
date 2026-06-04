@@ -13,6 +13,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -122,6 +123,27 @@ fun LyricsLine(
         }
     }
 
+    if (entry.agent == "instrumental_gap") {
+        val totalDur = (nextLineTime - entry.time).coerceAtLeast(1L).toFloat()
+        val elapsed = (smoothPosition - entry.time).coerceAtLeast(0L).toFloat()
+        val gapProgress = (elapsed / totalDur).coerceIn(0f, 1f)
+
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(vertical = 32.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularWavyProgressIndicator(
+                progress = { gapProgress },
+                modifier = Modifier.size(48.dp),
+                color = textColor,
+                trackColor = textColor.copy(alpha = 0.2f),
+            )
+        }
+        return
+    }
+
     val blurRadius by animateFloatAsState(
         targetValue = if (disableBlur || !appleMusicLyricsBlur || !isAutoScrollActive || isActive || !isSynced || isSelectionModeActive)
             0f
@@ -202,27 +224,6 @@ fun LyricsLine(
         modifier = itemModifier,
         horizontalAlignment = agentAlignment
     ) {
-        if (entry.agent == "instrumental_gap") {
-            val totalDur = (nextLineTime - entry.time).coerceAtLeast(1L).toFloat()
-            val elapsed = (smoothPosition - entry.time).coerceAtLeast(0L).toFloat()
-            val gapProgress = (elapsed / totalDur).coerceIn(0f, 1f)
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularWavyProgressIndicator(
-                    progress = { gapProgress },
-                    modifier = Modifier.size(48.dp),
-                    color = textColor,
-                    trackColor = textColor.copy(alpha = 0.2f),
-                )
-            }
-            return@Column
-        }
-
         val inactiveAlpha = if (entry.isBackground) 0.08f else 0.2f
         val activeAlpha = 1f
         val focusedAlpha = if (entry.isBackground) 0.5f else 0.3f
