@@ -119,7 +119,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -139,6 +139,7 @@ import com.cgens67.avidtune.ui.component.TopSearch
 import com.cgens67.avidtune.ui.utils.backToMain
 import com.cgens67.avidtune.utils.rememberPreference
 import com.cgens67.avidtune.viewmodels.HomeViewModel
+import com.cgens67.avidtune.viewmodels.NewsViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -282,6 +283,9 @@ fun SettingsScreen(
     val listState = rememberLazyListState()
     val viewModel: HomeViewModel = hiltViewModel()
     
+    val newsViewModel: NewsViewModel = hiltViewModel()
+    val hasUnreadNews by newsViewModel.hasUnreadNews.collectAsState()
+    
     val innerTubeCookie by rememberPreference(InnerTubeCookieKey, "")
     val isLoggedIn = remember(innerTubeCookie) { "SAPISID" in parseCookieString(innerTubeCookie) }
     val isLoading = false 
@@ -371,7 +375,7 @@ fun SettingsScreen(
         !isStorageGranted
     }
 
-    val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+    val prefs = context.getSharedPreferences("settings", Context.MODEPRIVATE)
     var hasRequestedPermissions by remember { 
         mutableStateOf(prefs.getBoolean("has_requested_permissions", false)) 
     }
@@ -384,7 +388,7 @@ fun SettingsScreen(
 
     val quickActions = buildQuickActions(navController, resetSearch)
     val integrationActions = buildIntegrationActions(navController, resetSearch)
-    val settingsGroups = buildSettingsGroups(navController, resetSearch, onChangelogClick = { showChangelogSheet = true })
+    val settingsGroups = buildSettingsGroups(navController, resetSearch, onChangelogClick = { showChangelogSheet = true }, hasUnreadNews)
     val internalItems = buildInternalItems(navController, resetSearch)
 
     val queryText = query.text.trim()
@@ -734,7 +738,8 @@ private fun buildIntegrationActions(navController: NavController, resetSearch: (
 private fun buildSettingsGroups(
     navController: NavController,
     resetSearch: () -> Unit,
-    onChangelogClick: () -> Unit
+    onChangelogClick: () -> Unit,
+    hasUnreadNews: Boolean
 ): List<SettingsGroup> {
     val uriHandler = LocalUriHandler.current
     return listOf(
@@ -776,6 +781,14 @@ private fun buildSettingsGroups(
         SettingsGroup(
             title = stringResource(R.string.community),
             items = listOf(
+                SettingsItem(
+                    icon = painterResource(R.drawable.info), // using info as newspaper icon fallback
+                    title = "News",
+                    badge = if (hasUnreadNews) "New" else null,
+                    showUpdateIndicator = hasUnreadNews,
+                    keywords = listOf("news", "updates", "announcements"),
+                    onClick = { resetSearch(); navController.navigate("news") }
+                ),
                 SettingsItem(
                     icon = painterResource(R.drawable.schedule),
                     title = stringResource(R.string.Changelog),
