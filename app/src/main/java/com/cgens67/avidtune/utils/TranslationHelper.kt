@@ -5,7 +5,14 @@ import io.ktor.client.engine.cio.CIO
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import timber.log.Timber
@@ -52,47 +59,40 @@ object TranslationHelper {
         resultBuilder.toString().trimEnd()
     }.onFailure { Timber.e(it, "Failed to translate text") }.getOrNull()
 
-    suspend fun romanize(text: String): String? = runCatching {
-        if (text.isBlank()) return null
+    suspend fun romanize(lines: List<String>): List<String> = coroutineScope {
+        val semaphore = Semaphore(5) // Limit concurrent requests to prevent rate limiting
+        lines.map { line ->
+            async {
+                if (line.isBlank()) return@async ""
+                semaphore.withPermit {
+                    runCatching {
+                        val response = client.get("https://translate.googleapis.com/translate_a/single") {
+                            parameter("client", "gtx")
+                            parameter("sl", "auto")
+                            parameter("tl", "en")
+                            parameter("dt", "rm") // rm requests transliteration/romanization
+                            parameter("q", line)
+                        }.bodyAsText()
 
-        val lines = text.split("\n")
-        val chunks = mutableListOf<String>()
-        var currentChunk = java.lang.StringBuilder()
-
-        for (line in lines) {
-            if (currentChunk.length + line.length > 1500) {
-                chunks.add(currentChunk.toString())
-                currentChunk = java.lang.StringBuilder()
-            }
-            currentChunk.append(line).append("\n")
-        }
-        if (currentChunk.isNotEmpty()) {
-            chunks.add(currentChunk.toString())
-        }
-
-        val resultBuilder = java.lang.StringBuilder()
-        for (chunk in chunks) {
-            val response = client.get("https://translate.googleapis.com/translate_a/single") {
-                parameter("client", "gtx")
-                parameter("sl", "auto")
-                parameter("tl", "en")
-                parameter("dt", "rm") // rm requests transliteration/romanization
-                parameter("q", chunk)
-            }.bodyAsText()
-
-            val jsonArray = Json.parseToJsonElement(response).jsonArray
-            val rmSegments = jsonArray[0].jsonArray
-            for (segment in rmSegments) {
-                // Index 2 or 3 usually contains the romanization in dt=rm requests
-                val rmText = segment.jsonArray.getOrNull(2)?.jsonPrimitive?.content
-                    ?: segment.jsonArray.getOrNull(3)?.jsonPrimitive?.content
-                if (rmText != null) {
-                    resultBuilder.append(rmText)
+                        val jsonArray = Json.parseToJsonElement(response).jsonArray
+                        val rmSegments = jsonArray.getOrNull(0)?.jsonArray
+                        var rmText = ""
+                        if (rmSegments != null && rmSegments !is JsonNull) {
+                            for (segment in rmSegments) {
+                                val text = segment.jsonArray.getOrNull(2)?.let { if (it is JsonNull) null else it.jsonPrimitive.contentOrNull }
+                                    ?: segment.jsonArray.getOrNull(3)?.let { if (it is JsonNull) null else it.jsonPrimitive.contentOrNull }
+                                
+                                if (text != null && text != "null") {
+                                    rmText += text
+                                }
+                            }
+                        }
+                        if (rmText.isNotBlank() && rmText != "null") rmText.trim() else line
+                    }.getOrDefault(line)
                 }
             }
-        }
-        resultBuilder.toString().trimEnd()
-    }.onFailure { Timber.e(it, "Failed to romanize text") }.getOrNull()
+        }.awaitAll()
+    }
 
     suspend fun detectLanguage(text: String): String? = runCatching {
         if (text.isBlank()) return null

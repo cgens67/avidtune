@@ -417,32 +417,20 @@ fun Lyrics(
             showRomanized = true
         } else {
             scope.launch {
-                val itemsToRomanize = mutableListOf<String>()
-                lines.forEach { entry ->
-                    if (entry.text.isNotBlank()) {
-                        itemsToRomanize.add(entry.text)
+                val linesToRomanize = lines.map { it.text }
+                val romanizedResult = com.cgens67.avidtune.utils.TranslationHelper.romanize(linesToRomanize)
+
+                // romanizedResult is a List<String> aligned with 'lines'
+                val finalRomanizedLines = mutableListOf<String>()
+                for (i in lines.indices) {
+                    if (lines[i].text.isNotBlank()) {
+                        finalRomanizedLines.add(romanizedResult.getOrElse(i) { "" })
+                    } else {
+                        finalRomanizedLines.add("")
                     }
                 }
-
-                val textToRomanize = itemsToRomanize.joinToString("\n")
-                val romanizedText = com.cgens67.avidtune.utils.TranslationHelper.romanize(textToRomanize)
-
-                if (romanizedText != null) {
-                    val romanizedSplit = romanizedText.split("\n")
-                    val finalRomanizedLines = mutableListOf<String>()
-                    var romIdx = 0
-                    for (entry in lines) {
-                        if (entry.text.isNotBlank()) {
-                            finalRomanizedLines.add(romanizedSplit.getOrElse(romIdx++) { "" })
-                        } else {
-                            finalRomanizedLines.add("")
-                        }
-                    }
-                    romanizedLines = finalRomanizedLines
-                    showRomanized = true
-                } else {
-                    Toast.makeText(context, R.string.translation_failed, Toast.LENGTH_SHORT).show()
-                }
+                romanizedLines = finalRomanizedLines
+                showRomanized = true
             }
         }
     }
@@ -1037,7 +1025,7 @@ fun Lyrics(
                                         horizontalAlignment = Alignment.CenterHorizontally,
                                         verticalArrangement = Arrangement.spacedBy(16.dp)
                                     ) {
-                                        androidx.compose.material3.CircularProgressIndicator(
+                                        androidx.compose.material3.LoadingIndicator(
                                             color = expressiveAccent
                                         )
                                         Text(
@@ -1122,7 +1110,7 @@ fun Lyrics(
                                         modifier = Modifier.fillMaxWidth().padding(32.dp),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        androidx.compose.material3.CircularProgressIndicator(
+                                        androidx.compose.material3.LoadingIndicator(
                                             color = expressiveAccent
                                         )
                                     }
@@ -1835,8 +1823,8 @@ fun GapIndicator(
 
     AnimatedVisibility(
         visible = isVisible,
-        enter = fadeIn(tween(500)),
-        exit = fadeOut(tween(500))
+        enter = fadeIn(tween(1000)) + expandVertically(tween(1000)),
+        exit = fadeOut(tween(1000)) + shrinkVertically(tween(1000))
     ) {
         Box(
             modifier = Modifier

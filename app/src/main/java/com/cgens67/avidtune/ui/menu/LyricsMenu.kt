@@ -24,7 +24,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -401,7 +400,7 @@ fun LyricsMenu(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        CircularProgressIndicator()
+                        androidx.compose.material3.LoadingIndicator()
                     }
                 }
             }
@@ -531,7 +530,7 @@ fun LyricsMenu(
                     NewAction(
                         icon = {
                             Icon(
-                                painter = painterResource(R.drawable.translate), // Or text format icon if available
+                                painter = painterResource(R.drawable.translate), // Text format icon
                                 contentDescription = null,
                                 modifier = Modifier.size(28.dp),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
