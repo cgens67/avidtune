@@ -468,11 +468,16 @@ fun StatsScreen(
 
     // BottomSheet de Insight
     if (showInsightBottomSheet) {
+        val totalMinutes = mostPlayedSongsStats.sumOf { it.timeListened ?: 0L } / 60000L
+        val topArtist = mostPlayedArtists.firstOrNull()?.artist?.name ?: "Unknown"
+
         ModalBottomSheet(
             onDismissRequest = { showInsightBottomSheet = false },
             sheetState = sheetState
         ) {
             InsightBottomSheetContent(
+                totalMinutes = totalMinutes,
+                topArtist = topArtist,
                 onNavigateToFullInsight = {
                     coroutineScope.launch {
                         sheetState.hide()
@@ -493,14 +498,15 @@ fun StatsScreen(
 
 @Composable
 fun InsightBottomSheetContent(
+    totalMinutes: Long,
+    topArtist: String,
     onNavigateToFullInsight: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val currentYear = LocalDateTime.now().year
     val gradientColors = listOf(
-        Color(0xFF1DB954),
-        Color(0xFF1ED760),
-        Color(0xFF191414)
+        Color(0xFF8E2DE2),
+        Color(0xFF4A00E0)
     )
 
     Column(
@@ -519,7 +525,7 @@ fun InsightBottomSheetContent(
                 painter = painterResource(R.drawable.auto_awesome),
                 contentDescription = null,
                 modifier = Modifier.size(32.dp),
-                tint = Color(0xFF1DB954)
+                tint = Color(0xFF8E2DE2)
             )
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -540,7 +546,7 @@ fun InsightBottomSheetContent(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(200.dp),
+                .height(220.dp),
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(
                 containerColor = Color.Transparent
@@ -559,30 +565,50 @@ fun InsightBottomSheetContent(
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = stringResource(R.string.insight_your_musical_year),
-                        fontSize = 28.sp,
+                        text = stringResource(R.string.insight_your_musical_year) + " $currentYear",
+                        fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
                     )
 
-                    Column {
-                        Text(
-                            text = "$currentYear",
-                            fontSize = 48.sp,
-                            fontWeight = FontWeight.Black,
-                            color = Color.White
-                        )
-                        Text(
-                            text = stringResource(R.string.insight_tap_to_view),
-                            fontSize = 14.sp,
-                            color = Color.White.copy(alpha = 0.9f)
-                        )
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Column {
+                            Text(
+                                text = "$totalMinutes",
+                                fontSize = 42.sp,
+                                fontWeight = FontWeight.Black,
+                                color = Color.White
+                            )
+                            Text(
+                                text = stringResource(R.string.insight_minutes),
+                                fontSize = 14.sp,
+                                color = Color.White.copy(alpha = 0.9f)
+                            )
+                        }
+
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(
+                                text = topArtist,
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.Black,
+                                color = Color.White,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.width(150.dp),
+                                textAlign = TextAlign.End
+                            )
+                            Text(
+                                text = stringResource(R.string.insight_top_artists).replace("\n", " "),
+                                fontSize = 14.sp,
+                                color = Color.White.copy(alpha = 0.9f)
+                            )
+                        }
                     }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         // Características
         Row(

@@ -1,15 +1,32 @@
 package com.cgens67.avidtune.ui.screens
 
+import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Paint
+import android.graphics.PathEffect
+import android.graphics.Shader
+import android.graphics.LinearGradient
+import android.graphics.Typeface
+import android.os.Handler
+import android.os.Looper
+import android.text.TextPaint
 import android.widget.Toast
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -24,8 +41,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -41,6 +56,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -54,8 +70,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -66,18 +82,22 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.lerp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
+import com.cgens67.avidtune.db.entities.Song
 import com.cgens67.avidtune.extensions.toMediaItem
+import com.cgens67.avidtune.playback.PlayerConnection
 import com.cgens67.avidtune.playback.queues.ListQueue
+import com.cgens67.avidtune.utils.ComposeToImage
 import com.cgens67.avidtune.viewmodels.InsightViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun InsightScreen(
     navController: NavController,
@@ -113,16 +133,16 @@ fun InsightScreen(
     }
 
     val pageCount = 5
-    val pagerState = rememberPagerState(pageCount = { pageCount })
+    var currentPage by remember { mutableIntStateOf(0) }
     var isPaused by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
     // Control auto-advance
     var currentProgress by remember { mutableFloatStateOf(0f) }
 
-    LaunchedEffect(pagerState.currentPage, isPaused) {
+    LaunchedEffect(currentPage, isPaused) {
         currentProgress = 0f
-        if (!isPaused && pagerState.currentPage < pageCount - 1) {
+        if (!isPaused && currentPage < pageCount - 1) {
             val duration = 5000f
             val startTime = withFrameMillis { it }
             while (currentProgress < 1f) {
@@ -130,13 +150,13 @@ fun InsightScreen(
                     currentProgress = (time - startTime) / duration
                 }
             }
-            pagerState.animateScrollToPage(pagerState.currentPage + 1)
-        } else if (pagerState.currentPage == pageCount - 1) {
+            currentPage++
+        } else if (currentPage == pageCount - 1) {
             currentProgress = 1f // Stay filled on last page
         }
     }
 
-    // Gradient transition logic
+    // Dynamic gradient transitions
     val pageColors = listOf(
         Color(0xFF8E2DE2) to Color(0xFF4A00E0), // Intro: Purple
         Color(0xFF00b09b) to Color(0xFF96c93d), // Time: Green
@@ -145,57 +165,56 @@ fun InsightScreen(
         Color(0xFF141E30) to Color(0xFF243B55)  // Summary: Dark Blue
     )
 
-    val pageOffset = pagerState.currentPageOffsetFraction
-    val currentPage = pagerState.currentPage
-    val nextPageIndex = (currentPage + if (pageOffset > 0) 1 else -1).coerceIn(0, pageColors.lastIndex)
-    val fraction = abs(pageOffset)
+    val currentColors = pageColors[currentPage.coerceIn(0, pageColors.lastIndex)]
 
-    val colorTop = lerp(pageColors[currentPage].first, pageColors[nextPageIndex].first, fraction)
-    val colorBottom = lerp(pageColors[currentPage].second, pageColors[nextPageIndex].second, fraction)
-
-    Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(colorTop, colorBottom)))) {
-        HorizontalPager(
-            state = pagerState,
-            userScrollEnabled = false,
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onPress = {
-                            isPaused = true
-                            tryAwaitRelease()
-                            isPaused = false
-                        },
-                        onTap = { offset ->
-                            val isRight = offset.x > size.width / 2
-                            coroutineScope.launch {
-                                if (isRight) {
-                                    if (pagerState.currentPage < pageCount - 1) {
-                                        currentProgress = 0f
-                                        pagerState.animateScrollToPage(pagerState.currentPage + 1)
-                                    } else {
-                                        currentProgress = 1f
-                                    }
-                                } else {
-                                    if (pagerState.currentPage > 0) {
-                                        currentProgress = 0f
-                                        pagerState.animateScrollToPage(pagerState.currentPage - 1)
-                                    } else {
-                                        currentProgress = 0f
-                                    }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Brush.verticalGradient(listOf(currentColors.first, currentColors.second)))
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = {
+                        isPaused = true
+                        tryAwaitRelease()
+                        isPaused = false
+                    },
+                    onTap = { offset ->
+                        val isRight = offset.x > size.width / 2
+                        coroutineScope.launch {
+                            if (isRight) {
+                                if (currentPage < pageCount - 1) {
+                                    currentPage++
+                                }
+                            } else {
+                                if (currentPage > 0) {
+                                    currentPage--
                                 }
                             }
                         }
-                    )
+                    }
+                )
+            }
+    ) {
+        AnimatedContent(
+            targetState = currentPage,
+            transitionSpec = {
+                if (targetState > initialState) {
+                    slideInHorizontally(tween(400, easing = FastOutSlowInEasing)) { width -> width } + fadeIn(tween(400)) togetherWith
+                            slideOutHorizontally(tween(400, easing = FastOutSlowInEasing)) { width -> -width } + fadeOut(tween(400))
+                } else {
+                    slideInHorizontally(tween(400, easing = FastOutSlowInEasing)) { width -> -width } + fadeIn(tween(400)) togetherWith
+                            slideOutHorizontally(tween(400, easing = FastOutSlowInEasing)) { width -> width } + fadeOut(tween(400))
                 }
+            },
+            label = "InsightPages",
+            modifier = Modifier.fillMaxSize()
         ) { page ->
-            val isActive = page == pagerState.currentPage
             when (page) {
-                0 -> IntroPage(isActive)
-                1 -> TotalTimePage(totalMinutes, isActive)
-                2 -> TopSongPage(topSongs.firstOrNull(), topSongStats?.songCountListened ?: 0, isActive)
-                3 -> TopArtistsPage(topArtists, isActive)
-                4 -> SummaryPage(topSongs, totalMinutes, topArtists.firstOrNull()?.artist?.name, isActive)
+                0 -> IntroPage(topArtists.firstOrNull()?.artist?.name, isActive = true)
+                1 -> TotalTimePage(totalMinutes, isActive = true)
+                2 -> TopSongPage(topSongs.firstOrNull(), topSongStats?.songCountListened ?: 0, isActive = true)
+                3 -> TopArtistsPage(topArtists, isActive = true)
+                4 -> SummaryPage(topSongs, totalMinutes, topArtists.firstOrNull()?.artist?.name, isActive = true, playerConnection)
             }
         }
 
@@ -209,8 +228,8 @@ fun InsightScreen(
         ) {
             for (i in 0 until pageCount) {
                 val progress = when {
-                    i < pagerState.currentPage -> 1f
-                    i == pagerState.currentPage -> currentProgress
+                    i < currentPage -> 1f
+                    i == currentPage -> currentProgress
                     else -> 0f
                 }
                 Box(
@@ -244,59 +263,75 @@ fun InsightScreen(
                 tint = Color.White
             )
         }
-        
-        // Play button bottom for music integration
-        if (pagerState.currentPage > 1) {
-            Button(
-                onClick = { 
-                    playerConnection?.playQueue(
-                        ListQueue(
-                            title = "AvidTune Insight",
-                            items = topSongs.map { it.toMediaItem() }
-                        )
-                    )
-                },
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 32.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black)
-            ) {
-                Icon(painter = painterResource(R.drawable.play), contentDescription = null, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.insight_play), fontWeight = FontWeight.Bold)
-            }
-        }
     }
 }
 
 @Composable
-fun IntroPage(isActive: Boolean) {
-    val scale by animateFloatAsState(
-        targetValue = if (isActive) 1f else 0.8f,
-        animationSpec = spring(dampingRatio = 0.5f, stiffness = 100f),
-        label = "scale"
-    )
+fun IntroPage(topArtistName: String?, isActive: Boolean) {
+    var phase by remember { mutableIntStateOf(0) }
+    
+    LaunchedEffect(isActive) {
+        if (isActive) {
+            phase = 0
+            kotlinx.coroutines.delay(1500)
+            phase = 1
+            kotlinx.coroutines.delay(800)
+            phase = 2
+        } else {
+            phase = 0
+        }
+    }
 
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.scale(scale)
+    // Meteor animations
+    val meteorProgress by animateFloatAsState(
+        targetValue = if (phase >= 1) 1f else 0f,
+        animationSpec = tween(800, easing = LinearEasing),
+        label = "meteor"
+    )
+    
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        AnimatedVisibility(visible = phase == 0, enter = fadeIn(), exit = fadeOut()) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(stringResource(R.string.insight_intro_ready), fontSize = 32.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.insight_intro_ready_2), fontSize = 32.sp, color = Color.White, fontWeight = FontWeight.Bold)
+            }
+        }
+        
+        if (phase >= 1 && phase < 2) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val startX = size.width + 200f
+                val startY = -200f
+                val endX = -200f
+                val endY = size.height + 200f
+                
+                val currentX = lerp(startX, endX, meteorProgress)
+                val currentY = lerp(startY, endY, meteorProgress)
+                
+                drawLine(
+                    color = Color.White,
+                    start = Offset(currentX + 150f, currentY - 150f),
+                    end = Offset(currentX, currentY),
+                    strokeWidth = 12f,
+                    cap = StrokeCap.Round
+                )
+                drawCircle(
+                    color = Color.Yellow,
+                    radius = 20f,
+                    center = Offset(currentX, currentY)
+                )
+            }
+        }
+        
+        AnimatedVisibility(
+            visible = phase == 2, 
+            enter = fadeIn(tween(500)) + scaleIn(initialScale = 0.5f, animationSpec = spring(dampingRatio = 0.6f)), 
+            exit = fadeOut()
         ) {
-            Text(
-                text = stringResource(R.string.insight_intro_ready),
-                fontSize = 32.sp,
-                color = Color.White,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = stringResource(R.string.insight_intro_ready_2),
-                fontSize = 32.sp,
-                color = Color.White,
-                fontWeight = FontWeight.Bold
-            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(stringResource(R.string.insight_top_artist_reveal), fontSize = 24.sp, color = Color.White.copy(alpha = 0.8f))
+                Spacer(Modifier.height(16.dp))
+                Text(topArtistName ?: "N/A", fontSize = 48.sp, color = Color.White, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
+            }
         }
     }
 }
@@ -309,13 +344,8 @@ fun TotalTimePage(minutes: Long, isActive: Boolean) {
         label = "scale"
     )
 
-    val trips = maxOf(1L, minutes / 270L)
-    val comparison = if (minutes > 600) {
-        stringResource(R.string.insight_time_comparison, trips)
-    } else {
-        val movies = maxOf(1L, minutes / 180L)
-        stringResource(R.string.insight_time_comparison_alt, movies)
-    }
+    val trips = maxOf(1L, minutes / 280L)
+    val comparison = stringResource(R.string.insight_time_comparison, trips)
 
     Box(
         modifier = Modifier.fillMaxSize(),
@@ -484,8 +514,9 @@ fun TopArtistsPage(artists: List<com.cgens67.avidtune.db.entities.Artist>, isAct
 }
 
 @Composable
-fun SummaryPage(topSongs: List<com.cgens67.avidtune.db.entities.Song>, totalMinutes: Long, topArtistName: String?, isActive: Boolean) {
+fun SummaryPage(topSongs: List<com.cgens67.avidtune.db.entities.Song>, totalMinutes: Long, topArtistName: String?, isActive: Boolean, playerConnection: PlayerConnection?) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
     Box(
         modifier = Modifier.fillMaxSize(),
@@ -604,7 +635,9 @@ fun SummaryPage(topSongs: List<com.cgens67.avidtune.db.entities.Song>, totalMinu
 
                     Button(
                         onClick = {
-                            Toast.makeText(context, context.getString(R.string.insight_downloaded_toast), Toast.LENGTH_SHORT).show()
+                            coroutineScope.launch(Dispatchers.IO) {
+                                downloadInsightReport(context, topSongs, totalMinutes, topArtistName)
+                            }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black)
                     ) {
@@ -613,7 +646,91 @@ fun SummaryPage(topSongs: List<com.cgens67.avidtune.db.entities.Song>, totalMinu
                         Text(stringResource(R.string.insight_download), fontWeight = FontWeight.Bold)
                     }
                 }
+
+                Button(
+                    onClick = { 
+                        playerConnection?.playQueue(
+                            ListQueue(
+                                title = "AvidTune Insight",
+                                items = topSongs.map { it.toMediaItem() }
+                            )
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black)
+                ) {
+                    Icon(painter = painterResource(R.drawable.play), contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.insight_play), fontWeight = FontWeight.Bold)
+                }
             }
         }
+    }
+}
+
+private fun downloadInsightReport(context: android.content.Context, topSongs: List<com.cgens67.avidtune.db.entities.Song>, totalMinutes: Long, topArtist: String?) {
+    try {
+        val width = 1080
+        val height = 1920
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bitmap)
+        
+        val bgPaint = Paint().apply {
+            shader = LinearGradient(0f, 0f, 0f, height.toFloat(), Color(0xFF141E30).toArgb(), Color(0xFF243B55).toArgb(), Shader.TileMode.CLAMP)
+        }
+        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
+        
+        val textPaint = TextPaint().apply {
+            color = android.graphics.Color.WHITE
+            textSize = 80f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            textAlign = Paint.Align.CENTER
+            isAntiAlias = true
+        }
+        
+        canvas.drawText("AvidTune Insight 2026", width / 2f, 250f, textPaint)
+        
+        textPaint.textSize = 45f
+        textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        textPaint.color = android.graphics.Color.LTGRAY
+        canvas.drawText("Total Listening Time", width / 2f, 450f, textPaint)
+        
+        textPaint.textSize = 100f
+        textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        textPaint.color = android.graphics.Color.WHITE
+        canvas.drawText("$totalMinutes Minutes", width / 2f, 570f, textPaint)
+        
+        textPaint.textSize = 45f
+        textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        textPaint.color = android.graphics.Color.LTGRAY
+        canvas.drawText("Top Artist", width / 2f, 750f, textPaint)
+        
+        textPaint.textSize = 90f
+        textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        textPaint.color = android.graphics.Color.WHITE
+        canvas.drawText(topArtist ?: "N/A", width / 2f, 870f, textPaint)
+        
+        textPaint.textSize = 45f
+        textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        textPaint.color = android.graphics.Color.LTGRAY
+        canvas.drawText("Top Songs", width / 2f, 1050f, textPaint)
+        
+        textPaint.textAlign = Paint.Align.LEFT
+        textPaint.textSize = 55f
+        textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        textPaint.color = android.graphics.Color.WHITE
+        var y = 1180f
+        topSongs.take(5).forEachIndexed { index, song ->
+            canvas.drawText("${index + 1}. ${song.song.title}", 150f, y, textPaint)
+            y += 100f
+        }
+        
+        ComposeToImage.saveBitmapAsFile(context, bitmap, "AvidTune_Insight_${System.currentTimeMillis()}")
+        
+        Handler(Looper.getMainLooper()).post {
+            Toast.makeText(context, context.getString(R.string.insight_downloaded_toast), Toast.LENGTH_SHORT).show()
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
     }
 }

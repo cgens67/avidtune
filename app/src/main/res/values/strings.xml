@@ -847,11 +847,11 @@
     <string name="insight_no_data">No data available for the year yet.</string>
     <string name="insight_intro_ready">Ready for your</string>
     <string name="insight_intro_ready_2">year in music?</string>
+    <string name="insight_top_artist_reveal">Your #1 Artist was...</string>
     <string name="insight_minutes_spent">You spent</string>
     <string name="insight_minutes">Minutes</string>
     <string name="insight_minutes_listening">listening to your favorite tracks.</string>
     <string name="insight_time_comparison">That\'s as long as taking the bullet train from Tokyo to Kyoto and back %1$d times!</string>
-    <string name="insight_time_comparison_alt">That\'s enough time to watch the extended edition of your favorite fantasy trilogy %1$d times!</string>
     <string name="insight_top_song_was">Your top song was</string>
     <string name="insight_with">with</string>
     <string name="insight_plays">plays</string>
@@ -863,5 +863,4 @@
     <string name="insight_close">Close</string>
     <string name="insight_play">Play Top Songs</string>
     <string name="insight_share_text">Check out my AvidTune Insight!\n\nTop Artist: %1$s\nTotal Time: %2$d mins\nTop Song: %3$s</string>
-
 </resources>
