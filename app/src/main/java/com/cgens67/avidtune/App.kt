@@ -8,6 +8,8 @@ import android.widget.Toast.LENGTH_SHORT
 import androidx.datastore.preferences.core.edit
 import coil.ImageLoader
 import coil.ImageLoaderFactory
+import coil.decode.GifDecoder
+import coil.decode.ImageDecoderDecoder
 import coil.disk.DiskCache
 import coil.request.CachePolicy
 import com.cgens67.innertube.YouTube
@@ -156,6 +158,13 @@ class App : Application(), ImageLoaderFactory {
                 .respectCacheHeaders(false)
                 .allowHardware(Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
                 .diskCachePolicy(CachePolicy.DISABLED)
+                .components {
+                    if (Build.VERSION.SDK_INT >= 28) {
+                        add(ImageDecoderDecoder.Factory())
+                    } else {
+                        add(GifDecoder.Factory())
+                    }
+                }
                 .build()
         }
 
@@ -163,6 +172,13 @@ class App : Application(), ImageLoaderFactory {
             .crossfade(true)
             .respectCacheHeaders(false)
             .allowHardware(Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+            .components {
+                if (Build.VERSION.SDK_INT >= 28) {
+                    add(ImageDecoderDecoder.Factory())
+                } else {
+                    add(GifDecoder.Factory())
+                }
+            }
             .diskCache(
                 DiskCache.Builder()
                     .directory(cacheDir.resolve("coil"))
