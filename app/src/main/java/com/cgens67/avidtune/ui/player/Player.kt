@@ -514,7 +514,18 @@ fun BottomSheetPlayer(
                                     textBackgroundColor = TextBackgroundColor,
                                     currentSongLiked = currentSongLiked,
                                     context = context,
-                                    playerConnection = playerConnection
+                                    playerConnection = playerConnection,
+                                    onMoreOptions = {
+                                        menuState.show {
+                                            PlayerMenu(
+                                                mediaMetadata = it,
+                                                navController = navController,
+                                                playerBottomSheetState = state,
+                                                onShowDetailsDialog = { showDetailsDialog = true },
+                                                onDismiss = menuState::dismiss,
+                                            )
+                                        }
+                                    }
                                 )
                             } else {
                                 PlayerTopActionsV4(
@@ -662,7 +673,18 @@ fun BottomSheetPlayer(
                                     textBackgroundColor = TextBackgroundColor,
                                     currentSongLiked = currentSongLiked,
                                     context = context,
-                                    playerConnection = playerConnection
+                                    playerConnection = playerConnection,
+                                    onMoreOptions = {
+                                        menuState.show {
+                                            PlayerMenu(
+                                                mediaMetadata = it,
+                                                navController = navController,
+                                                playerBottomSheetState = state,
+                                                onShowDetailsDialog = { showDetailsDialog = true },
+                                                onDismiss = menuState::dismiss,
+                                            )
+                                        }
+                                    }
                                 )
                             } else {
                                 PlayerTopActionsV4(
@@ -1400,7 +1422,8 @@ fun PlayerTopActionsV3(
     textBackgroundColor: Color,
     currentSongLiked: Boolean,
     context: Context,
-    playerConnection: PlayerConnection
+    playerConnection: PlayerConnection,
+    onMoreOptions: () -> Unit
 ) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -1446,6 +1469,20 @@ fun PlayerTopActionsV3(
                 tint = if (currentSongLiked)
                     MaterialTheme.colorScheme.error.copy(alpha = 0.9f)
                 else textBackgroundColor.copy(alpha = 0.7f),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .clickable { onMoreOptions() },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.more_horiz),
+                contentDescription = null,
+                tint = textBackgroundColor.copy(alpha = 0.7f),
                 modifier = Modifier.size(20.dp)
             )
         }
