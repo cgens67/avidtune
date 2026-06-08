@@ -101,65 +101,7 @@ fun OnlineSearchResult(
 
     val searchFilter by viewModel.filter.collectAsState()
     val searchSummary = viewModel.summaryPage
-
-    // Localization strings
-    val topResultStr = stringResource(R.string.SearchResutls)
-    val songsStr = stringResource(R.string.filter_songs)
-    val videosStr = stringResource(R.string.filter_videos)
-    val albumsStr = stringResource(R.string.filter_albums)
-    val artistsStr = stringResource(R.string.filter_artists)
-    val playlistsStr = stringResource(R.string.filter_community_playlists)
-
-    // Aggregate, unify, and correctly sort the "All" section strictly into the 6 requested categories
-    val allModeSections = remember(
-        searchSummary, topResultStr, songsStr, videosStr, albumsStr, artistsStr, playlistsStr
-    ) {
-        buildList<SearchSummary> {
-            val summaries = searchSummary?.summaries ?: return@buildList
-
-            if (summaries.isEmpty()) return@buildList
-
-            // 1. Top Result
-            val topResult = summaries.first()
-            if (topResult.items.isNotEmpty()) {
-                add(SearchSummary(title = topResultStr, items = topResult.items))
-            }
-
-            // 2. Aggregate all remaining items into unified categorised lists (preventing duplicates)
-            val songs = mutableListOf<YTItem>()
-            val videos = mutableListOf<YTItem>()
-            val albums = mutableListOf<YTItem>()
-            val artists = mutableListOf<YTItem>()
-            val playlists = mutableListOf<YTItem>()
-
-            summaries.drop(1).forEach { summary ->
-                val titleLower = summary.title.lowercase()
-                val isVideoSection = titleLower.contains("video")
-
-                summary.items.forEach { item ->
-                    when (item) {
-                        is SongItem -> {
-                            if (isVideoSection) videos.add(item)
-                            else songs.add(item)
-                        }
-                        is AlbumItem -> albums.add(item)
-                        is ArtistItem -> artists.add(item)
-                        is PlaylistItem -> playlists.add(item)
-                    }
-                }
-            }
-
-            // 3. Add to the list in the exact requested order
-            if (songs.isNotEmpty()) add(SearchSummary(title = songsStr, items = songs.distinctBy { it.id }))
-            if (videos.isNotEmpty()) add(SearchSummary(title = videosStr, items = videos.distinctBy { it.id }))
-            if (albums.isNotEmpty()) add(SearchSummary(title = albumsStr, items = albums.distinctBy { it.id }))
-            if (artists.isNotEmpty()) add(SearchSummary(title = artistsStr, items = artists.distinctBy { it.id }))
-            if (playlists.isNotEmpty()) add(SearchSummary(title = playlistsStr, items = playlists.distinctBy { it.id }))
-        }
-    }
-
-    val isAllModeLoaded = searchSummary != null
-
+    
     val itemsPage by remember(searchFilter) {
         derivedStateOf {
             searchFilter?.value?.let {
@@ -167,6 +109,80 @@ fun OnlineSearchResult(
             }
         }
     }
+
+    val filterSongsTitle = stringResource(R.string.filter_songs)
+    val filterVideosTitle = stringResource(R.string.filter_videos)
+    val filterAlbumsTitle = stringResource(R.string.filter_albums)
+    val filterArtistsTitle = stringResource(R.string.filter_artists)
+    val filterPlaylistsTitle = stringResource(R.string.filter_playlists)
+
+    // Reconstruct sections extracting actual contents and keeping strict priority
+    val allModeSections = remember(searchSummary, itemsPage) {
+        if (searchSummary == null) return@remember emptyList<SearchSummary>()
+
+        val allItems = searchSummary.summaries.flatMap { it.items }.distinctBy { it.id }
+        
+        // Ensure the absolute first item returned retains its "Top result" priority
+        val firstSummaryTitle = searchSummary.summaries.firstOrNull()?.title ?: ""
+        val topResultItems = searchSummary.summaries.firstOrNull()?.items ?: emptyList()
+
+        val remainingFromSummary = allItems.filterNot { it.id in topResultItems.map { t -> t.id } }
+
+        // Analyze specific YouTube music video types to separate regular songs from videos
+        val songs = remainingFromSummary.filterIsInstance<SongItem>().filter {
+            val type = it.endpoint?.watchEndpointMusicSupportedConfigs?.watchEndpointMusicConfig?.musicVideoType
+            type != "MUSIC_VIDEO_TYPE_OMV" && type != "MUSIC_VIDEO_TYPE_UGC"
+        }.toMutableList()
+        
+        val videos = remainingFromSummary.filterIsInstance<SongItem>().filter {
+            val type = it.endpoint?.watchEndpointMusicSupportedConfigs?.watchEndpointMusicConfig?.musicVideoType
+            type == "MUSIC_VIDEO_TYPE_OMV" || type == "MUSIC_VIDEO_TYPE_UGC"
+        }.toMutableList()
+
+        val albums = remainingFromSummary.filterIsInstance<AlbumItem>().toMutableList()
+        val artists = remainingFromSummary.filterIsInstance<ArtistItem>().toMutableList()
+        val playlists = remainingFromSummary.filterIsInstance<PlaylistItem>().toMutableList()
+
+        // Append any cached items loaded directly from the specific tabs ("Original logic")
+        viewModel.viewStateMap[FILTER_SONG.value]?.items?.filterIsInstance<SongItem>()?.let { songs.addAll(it) }
+        viewModel.viewStateMap[FILTER_VIDEO.value]?.items?.filterIsInstance<SongItem>()?.let { videos.addAll(it) }
+        viewModel.viewStateMap[FILTER_ALBUM.value]?.items?.filterIsInstance<AlbumItem>()?.let { albums.addAll(it) }
+        viewModel.viewStateMap[FILTER_ARTIST.value]?.items?.filterIsInstance<ArtistItem>()?.let { artists.addAll(it) }
+        viewModel.viewStateMap[FILTER_COMMUNITY_PLAYLIST.value]?.items?.filterIsInstance<PlaylistItem>()?.let { playlists.addAll(it) }
+        viewModel.viewStateMap[FILTER_FEATURED_PLAYLIST.value]?.items?.filterIsInstance<PlaylistItem>()?.let { playlists.addAll(it) }
+
+        buildList {
+            if (topResultItems.isNotEmpty()) {
+                add(SearchSummary(title = firstSummaryTitle, items = topResultItems.distinctBy { it.id }))
+            }
+            if (songs.isNotEmpty()) {
+                add(SearchSummary(title = filterSongsTitle, items = songs.distinctBy { it.id }))
+            }
+            if (videos.isNotEmpty()) {
+                add(SearchSummary(title = filterVideosTitle, items = videos.distinctBy { it.id }))
+            }
+            if (albums.isNotEmpty()) {
+                add(SearchSummary(title = filterAlbumsTitle, items = albums.distinctBy { it.id }))
+            }
+            if (artists.isNotEmpty()) {
+                add(SearchSummary(title = filterArtistsTitle, items = artists.distinctBy { it.id }))
+            }
+            if (playlists.isNotEmpty()) {
+                add(SearchSummary(title = filterPlaylistsTitle, items = playlists.distinctBy { it.id }))
+            }
+        }
+    }
+
+    val isAllModeLoaded =
+        searchSummary != null ||
+            listOf(
+                FILTER_SONG,
+                FILTER_VIDEO,
+                FILTER_ALBUM,
+                FILTER_ARTIST,
+                FILTER_COMMUNITY_PLAYLIST,
+                FILTER_FEATURED_PLAYLIST,
+            ).all { viewModel.viewStateMap.containsKey(it.value) }
 
     LaunchedEffect(lazyListState) {
         snapshotFlow {
@@ -302,7 +318,7 @@ fun OnlineSearchResult(
 
                 itemsIndexed(
                     items = summary.items,
-                    key = { itemIndex, item -> "all_${summary.title}_${item.id}_$itemIndex" },
+                    key = { itemIndex, item -> "${summary.title}/${item.id}/$itemIndex" },
                 ) { _, item ->
                     ytItemContent(item)
                 }
@@ -347,7 +363,7 @@ fun OnlineSearchResult(
             }
         }
 
-        if (searchFilter == null && !isAllModeLoaded || searchFilter != null && itemsPage == null) {
+        if (searchFilter == null && allModeSections.isEmpty() && !isAllModeLoaded || searchFilter != null && itemsPage == null) {
             item {
                 ShimmerHost {
                     repeat(8) {
@@ -385,7 +401,7 @@ fun OnlineSearchResult(
                 coroutineScope.launch {
                     lazyListState.animateScrollToItem(0)
                 }
-            }
+            },
         )
     }
 }
