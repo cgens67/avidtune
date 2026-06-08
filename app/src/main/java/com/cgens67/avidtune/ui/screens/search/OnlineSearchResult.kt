@@ -100,10 +100,40 @@ fun OnlineSearchResult(
 
     val searchFilter by viewModel.filter.collectAsState()
     val searchSummary = viewModel.summaryPage
-    
-    // Group identical categories together and sort them according to the requested order
-    val mergedSummaries = remember(searchSummary) {
+
+    val strSongs = stringResource(R.string.filter_songs)
+    val strVideos = stringResource(R.string.filter_videos)
+    val strAlbums = stringResource(R.string.filter_albums)
+    val strArtists = stringResource(R.string.filter_artists)
+    val strPlaylists = stringResource(R.string.filter_playlists)
+
+    // Group identical categories together, separate videos from songs, and sort them
+    val mergedSummaries = remember(searchSummary, strSongs, strVideos, strAlbums, strArtists, strPlaylists) {
+        val originalFirstTitle = searchSummary?.summaries?.firstOrNull()?.title ?: ""
+
         searchSummary?.summaries
+            ?.flatMap { summary ->
+                // YouTube Music API might group songs and videos together under "Songs"
+                if (summary.title == "Songs") {
+                    val actualSongs = summary.items.filter { it !is SongItem || !isActuallyVideo(it) }
+                    val actualVideos = summary.items.filter { it is SongItem && isActuallyVideo(it) }
+
+                    listOfNotNull(
+                        if (actualSongs.isNotEmpty()) SearchSummary(strSongs, actualSongs) else null,
+                        if (actualVideos.isNotEmpty()) SearchSummary(strVideos, actualVideos) else null
+                    )
+                } else {
+                    // Translate other hardcoded categories
+                    val newTitle = when (summary.title) {
+                        "Albums" -> strAlbums
+                        "Artists" -> strArtists
+                        "Playlists" -> strPlaylists
+                        "Videos" -> strVideos
+                        else -> summary.title
+                    }
+                    listOf(SearchSummary(newTitle, summary.items))
+                }
+            }
             ?.groupBy { it.title }
             ?.map { (title, summaries) ->
                 SearchSummary(
@@ -113,26 +143,25 @@ fun OnlineSearchResult(
             }
             ?.sortedBy { summary ->
                 val title = summary.title.lowercase()
-                val isFirstFromApi = searchSummary.summaries.firstOrNull()?.title == summary.title
-                
-                // Priority Mapping: 1=Top Result, 2=Songs, 3=Videos, 4=Albums, 5=Artists, 6=Playlists, 7=Other
                 when {
-                    title.contains("top") || title.contains("principal") || title.contains("result") || title.contains("resultado") -> 1
-                    title.contains("song") || title.contains("cancion") || title.contains("canción") -> 2
-                    title.contains("video") -> 3
-                    title.contains("album") || title.contains("álbum") -> 4
-                    title.contains("artist") || title.contains("artista") -> 5
-                    title.contains("playlist") || title.contains("lista") -> 6
-                    isFirstFromApi -> 1 // Fallback if API returned it first but it's localized differently
-                    summary.items.firstOrNull() is SongItem -> 2
-                    summary.items.firstOrNull() is AlbumItem -> 4
-                    summary.items.firstOrNull() is ArtistItem -> 5
-                    summary.items.firstOrNull() is PlaylistItem -> 6
+                    // 1. Top Result
+                    summary.title == originalFirstTitle && originalFirstTitle !in listOf(strSongs, strVideos, strAlbums, strArtists, strPlaylists, "Songs", "Videos", "Albums", "Artists", "Playlists") -> 1
+                    // 2. Songs
+                    title == strSongs.lowercase() || title.contains("song") || title.contains("cancion") || title.contains("canción") -> 2
+                    // 3. Videos
+                    title == strVideos.lowercase() || title.contains("video") -> 3
+                    // 4. Albums
+                    title == strAlbums.lowercase() || title.contains("album") || title.contains("álbum") -> 4
+                    // 5. Artists
+                    title == strArtists.lowercase() || title.contains("artist") || title.contains("artista") -> 5
+                    // 6. Playlists
+                    title == strPlaylists.lowercase() || title.contains("playlist") || title.contains("lista") -> 6
+                    // 7. Others
                     else -> 7
                 }
             }
     }
-    
+
     val itemsPage by remember(searchFilter) {
         derivedStateOf {
             searchFilter?.value?.let {
@@ -361,4 +390,10 @@ fun OnlineSearchResult(
             }
         )
     }
+}
+
+private fun isActuallyVideo(item: YTItem): Boolean {
+    if (item !is SongItem) return false
+    val type = item.endpoint?.watchEndpointMusicSupportedConfigs?.watchEndpointMusicConfig?.musicVideoType
+    return type == "MUSIC_VIDEO_TYPE_OMV" || type == "MUSIC_VIDEO_TYPE_UGC"
 }
