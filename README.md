@@ -323,7 +323,6 @@ If you find value in **AvidTune** and want to contribute to its ongoing developm
 <div align="center">
   
 [![GitHub Sponsors](https://img.shields.io/badge/GitHub_Sponsors-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/sponsors/cgens67)
-[![PayPal](https://img.shields.io/badge/PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white)](mailto:cervantescgens67@gmail.com)
 
 </div>
 
@@ -335,10 +334,8 @@ If you find value in **AvidTune** and want to contribute to its ongoing developm
 
 Special thanks to the following contributors and collaborators:
 
-- **mostafaalagamy** - MetroList implementation
-- **Vivi Music** - Design inspiration
-- **Fabito02** - Unconditional support from the beginning
-- **Community translators** - Making AvidTune accessible worldwide
+- **Metrolist by mostafaalagamy** - Paxsenix and BetterLyrics implementation
+- **ArchiveTune by koiverse** - Design inspiration
 - **Beta testers** - Helping to improve stability and usability
 
 ---
