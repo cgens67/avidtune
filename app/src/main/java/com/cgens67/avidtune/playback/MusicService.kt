@@ -205,6 +205,9 @@ class MusicService :
         }
 
     val playerVolume = MutableStateFlow(dataStore.get(PlayerVolumeKey, 1f).coerceIn(0f, 1f))
+    
+    val sponsorBlockEnabled = MutableStateFlow(true)
+    val currentSkipSegments = MutableStateFlow<List<Pair<Long, Long>>>(emptyList())
 
     lateinit var sleepTimer: SleepTimer
 
@@ -359,26 +362,24 @@ class MusicService :
                 player.skipSilenceEnabled = it
             }
 
-        var sponsorBlockEnabled = true
-        var currentSkipSegments = emptyList<Pair<Long, Long>>()
         var lastSkippedSegment: Pair<Long, Long>? = null
 
         dataStore.data
             .map { it[SponsorBlockEnabledKey] ?: true }
             .distinctUntilChanged()
             .collectLatest(scope) {
-                sponsorBlockEnabled = it
+                sponsorBlockEnabled.value = it
             }
 
         currentMediaMetadata.distinctUntilChangedBy { it?.id }.collectLatest(scope) { metadata ->
-            currentSkipSegments = emptyList()
+            currentSkipSegments.value = emptyList()
             lastSkippedSegment = null
-            if (metadata != null && sponsorBlockEnabled) {
+            if (metadata != null && sponsorBlockEnabled.value) {
                 val segments = withContext(Dispatchers.IO) {
                     com.cgens67.avidtune.models.SponsorBlock.getSkipSegments(metadata.id)
                 }
                 if (segments != null) {
-                    currentSkipSegments = segments.filter { it.actionType == "skip" }.map {
+                    currentSkipSegments.value = segments.filter { it.actionType == "skip" }.map {
                         (it.segment[0] * 1000).toLong() to (it.segment[1] * 1000).toLong()
                     }
                 }
@@ -388,9 +389,9 @@ class MusicService :
         scope.launch(Dispatchers.Main) {
             while (isActive) {
                 delay(200)
-                if (sponsorBlockEnabled && player.isPlaying && currentSkipSegments.isNotEmpty()) {
+                if (sponsorBlockEnabled.value && player.isPlaying && currentSkipSegments.value.isNotEmpty()) {
                     val currentPos = player.currentPosition
-                    val segmentToSkip = currentSkipSegments.find { (start, end) ->
+                    val segmentToSkip = currentSkipSegments.value.find { (start, end) ->
                         currentPos in start..(end - 100)
                     }
                     if (segmentToSkip != null && segmentToSkip != lastSkippedSegment) {
@@ -538,7 +539,7 @@ class MusicService :
             .build()
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    @RequiresApi(Build.VERSION.CODES.O)
     private fun handleAudioFocusChange(focusChange: Int) {
         when (focusChange) {
             AudioManager.AUDIOFOCUS_GAIN -> {
