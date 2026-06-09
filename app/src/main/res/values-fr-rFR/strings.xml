@@ -839,6 +839,8 @@
     <string name="enable_sponsorblock">Activer SponsorBlock</string>
     <string name="enable_sponsorblock_desc">Ignorer automatiquement les parties non musicales, les intros et les passages sponsorisés dans les clips musicaux</string>
     <string name="skipped_sponsor">Segment ignoré (SponsorBlock)</string>
+    
+    <string name="fallback_artist_desc">%1$s est un artiste musical.</string>
 
 
 </resources>
