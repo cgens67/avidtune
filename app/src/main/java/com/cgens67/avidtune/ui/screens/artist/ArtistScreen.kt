@@ -6,6 +6,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.util.Log
 import android.widget.Toast
+import androidx.compose.animation.animateContentSize
 import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.material3.LocalContentColor
@@ -14,7 +15,9 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -54,8 +57,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -113,7 +119,6 @@ import com.valentinilk.shimmer.shimmer
 import androidx.compose.foundation.layout.offset
 import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.ToggleButton
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
@@ -282,18 +287,25 @@ fun ArtistScreen(
                         }
 
                         // Description
-                        val description = artistPage.description ?: buildString {
-                            append(artistName)
-                            append(" is a music artist.")
-                        }
+                        var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
+                        val fallbackDesc = stringResource(R.string.fallback_artist_desc, artistName)
+                        val description = artistPage.description ?: fallbackDesc
 
                         Text(
                             text = description,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Start,
-                            modifier = Modifier.padding(bottom = 16.dp),
-                            maxLines = 3,
+                            modifier = Modifier
+                                .padding(bottom = 16.dp)
+                                .fillMaxWidth()
+                                .animateContentSize()
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = { isDescriptionExpanded = !isDescriptionExpanded }
+                                ),
+                            maxLines = if (isDescriptionExpanded) Int.MAX_VALUE else 3,
                             overflow = TextOverflow.Ellipsis
                         )
 
@@ -429,7 +441,7 @@ fun ArtistScreen(
                 }
             }
 
-            // Canciones de la biblioteca - Manteniendo tu lógica original
+            // Canciones de la biblioteca
             if (librarySongs.isNotEmpty()) {
                 item {
                     NavigationTitle(
@@ -498,7 +510,7 @@ fun ArtistScreen(
                 }
             }
 
-            // Secciones del artista - Manteniendo tu lógica original
+            // Secciones del artista
             artistPage.sections.fastForEach { section ->
                 if (section.items.isNotEmpty()) {
                     item {
