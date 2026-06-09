@@ -881,4 +881,9 @@
     <string name="loading">正在加载...</string>
     <string name="error">错误</string>
     <string name="could_not_load_article">无法加载文章</string>
+    
+    <!-- SponsorBlock setting -->
+    <string name="enable_sponsorblock">启用 SponsorBlock</string>
+    <string name="enable_sponsorblock_desc">自动跳过音乐视频中的非音乐片段、前奏和赞助内容</string>
+    <string name="skipped_sponsor">已跳过片段 (SponsorBlock)</string>
 </resources>
