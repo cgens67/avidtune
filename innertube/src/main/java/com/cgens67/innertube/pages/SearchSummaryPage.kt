@@ -46,6 +46,10 @@ data class SearchSummaryPage(
     companion object {
         fun fromMusicCardShelfRenderer(renderer: MusicCardShelfRenderer): YTItem? {
             val subtitle = renderer.subtitle.runs?.splitBySeparator()
+            val firstRunText = subtitle?.firstOrNull()?.firstOrNull()?.text
+            val isVideoOrEpisode = firstRunText in listOf("Episode", "Episodio", "Video", "Vídeo")
+            val fallbackIndex = if (isVideoOrEpisode && (subtitle?.size ?: 0) > 1) 1 else 0
+
             return when {
                 renderer.onTap.watchEndpoint != null -> {
                     SongItem(
@@ -55,14 +59,14 @@ data class SearchSummaryPage(
                                 ?.firstOrNull()
                                 ?.text ?: return null,
                         artists =
-                            subtitle?.getOrNull(1)?.oddElements()?.map {
+                            subtitle?.getOrNull(fallbackIndex)?.oddElements()?.map {
                                 Artist(
                                     name = it.text,
                                     id = it.navigationEndpoint?.browseEndpoint?.browseId,
                                 )
                             } ?: return null,
                         album =
-                            subtitle.getOrNull(2)?.firstOrNull()?.takeIf { it.navigationEndpoint?.browseEndpoint != null }?.let {
+                            subtitle.getOrNull(fallbackIndex + 1)?.firstOrNull()?.takeIf { it.navigationEndpoint?.browseEndpoint != null }?.let {
                                 Album(
                                     name = it.text,
                                     id = it.navigationEndpoint?.browseEndpoint?.browseId!!,
@@ -204,7 +208,7 @@ data class SearchSummaryPage(
                     if (pageType == MUSIC_PAGE_TYPE_ALBUM
                     ) {
                         album = Album(name = it.text, id = it.navigationEndpoint.browseEndpoint.browseId)
-                    } else if (pageType == MUSIC_PAGE_TYPE_ARTIST || pageType == MUSIC_PAGE_TYPE_USER_CHANNEL) {
+                    } else if (pageType == MUSIC_PAGE_TYPE_ARTIST || pageType == MUSIC_PAGE_TYPE_USER_CHANNEL || pageType == "MUSIC_PAGE_TYPE_PODCAST_SHOW") {
                         artist.add(
                             Artist(
                                 name = it.text,
@@ -342,6 +346,10 @@ data class SearchSummaryPage(
                 }
 
                 renderer.isSong -> {
+                    val firstRunText = secondaryLine.firstOrNull()?.firstOrNull()?.text
+                    val isVideoOrEpisode = firstRunText in listOf("Episode", "Episodio", "Video", "Vídeo")
+                    val fallbackIndex = if (isVideoOrEpisode && secondaryLine.size > 1) 1 else 0
+
                     SongItem(
                         id = renderer.videoId ?: return null,
                         title =
@@ -354,13 +362,15 @@ data class SearchSummaryPage(
                                 ?.text ?: return null,
                         artists =
                             if (artist.isEmpty()) {
-                                secondaryLine.getOrNull(0)?.oddElements()?.map {
+                                secondaryLine.getOrNull(fallbackIndex)?.oddElements()?.map {
                                     Artist(name = it.text, id = it.navigationEndpoint?.browseEndpoint?.browseId)
                                 } ?: return null
                             } else {
                                 artist
                             },
-                        album = album,
+                        album = album ?: secondaryLine.getOrNull(fallbackIndex + 1)?.firstOrNull()?.takeIf { it.navigationEndpoint?.browseEndpoint != null }?.let {
+                            Album(name = it.text, id = it.navigationEndpoint?.browseEndpoint?.browseId!!)
+                        },
                         duration =
                             secondaryLine
                                 .lastOrNull()
