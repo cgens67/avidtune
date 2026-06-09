@@ -28,44 +28,6 @@ object SearchPage {
                 ?.splitBySeparator()
                 ?: return null
         return when {
-            renderer.isSong -> {
-                SongItem(
-                    id = renderer.videoId ?: return null,
-                    title =
-                        renderer.flexColumns
-                            .firstOrNull()
-                            ?.musicResponsiveListItemFlexColumnRenderer
-                            ?.text
-                            ?.runs
-                            ?.firstOrNull()
-                            ?.text ?: return null,
-                    artists =
-                        secondaryLine.firstOrNull()?.oddElements()?.map {
-                            Artist(
-                                name = it.text,
-                                id = it.navigationEndpoint?.browseEndpoint?.browseId,
-                            )
-                        } ?: return null,
-                    album =
-                        secondaryLine.getOrNull(1)?.firstOrNull()?.takeIf { it.navigationEndpoint?.browseEndpoint != null }?.let {
-                            Album(
-                                name = it.text,
-                                id = it.navigationEndpoint?.browseEndpoint?.browseId!!,
-                            )
-                        },
-                    duration =
-                        secondaryLine
-                            .lastOrNull()
-                            ?.firstOrNull()
-                            ?.text
-                            ?.parseTime(),
-                    thumbnail = renderer.thumbnail?.musicThumbnailRenderer?.getThumbnailUrl() ?: return null,
-                    explicit =
-                        renderer.badges?.find {
-                            it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
-                        } != null,
-                )
-            }
             renderer.isArtist -> {
                 ArtistItem(
                     id = renderer.navigationEndpoint?.browseEndpoint?.browseId ?: return null,
@@ -187,6 +149,44 @@ object SearchPage {
                             ?.menuNavigationItemRenderer
                             ?.navigationEndpoint
                             ?.watchPlaylistEndpoint ?: return null,
+                )
+            }
+            renderer.isSong -> {
+                SongItem(
+                    id = renderer.videoId ?: return null,
+                    title =
+                        renderer.flexColumns
+                            .firstOrNull()
+                            ?.musicResponsiveListItemFlexColumnRenderer
+                            ?.text
+                            ?.runs
+                            ?.firstOrNull()
+                            ?.text ?: return null,
+                    artists =
+                        secondaryLine.firstOrNull()?.oddElements()?.map {
+                            Artist(
+                                name = it.text,
+                                id = it.navigationEndpoint?.browseEndpoint?.browseId,
+                            )
+                        } ?: return null,
+                    album =
+                        secondaryLine.getOrNull(1)?.firstOrNull()?.takeIf { it.navigationEndpoint?.browseEndpoint != null }?.let {
+                            Album(
+                                name = it.text,
+                                id = it.navigationEndpoint?.browseEndpoint?.browseId!!,
+                            )
+                        },
+                    duration =
+                        secondaryLine
+                            .lastOrNull()
+                            ?.firstOrNull()
+                            ?.text
+                            ?.parseTime(),
+                    thumbnail = renderer.thumbnail?.musicThumbnailRenderer?.getThumbnailUrl() ?: return null,
+                    explicit =
+                        renderer.badges?.find {
+                            it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
+                        } != null,
                 )
             }
             else -> null
