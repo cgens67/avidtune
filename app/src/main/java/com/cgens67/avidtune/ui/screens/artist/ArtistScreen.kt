@@ -289,7 +289,7 @@ fun ArtistScreen(
                         // Description
                         var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
                         val fallbackDesc = stringResource(R.string.fallback_artist_desc, artistName)
-                        val description = artistPage.description ?: fallbackDesc
+                        val description = artistPage.description?.substringBefore("From Wikipedia")?.trim() ?: fallbackDesc
 
                         Text(
                             text = description,
