@@ -440,8 +440,9 @@ class LocaleManager private constructor(private val context: Context) {
             var currentContext = context
             while (currentContext is android.content.ContextWrapper) {
                 if (currentContext is Activity) {
+                    val activity = currentContext
                     Handler(Looper.getMainLooper()).post {
-                        currentContext.recreate()
+                        activity.recreate()
                     }
                     return
                 }
