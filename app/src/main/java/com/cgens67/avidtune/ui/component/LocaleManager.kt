@@ -136,7 +136,6 @@ class LocaleManager private constructor(private val context: Context) {
         private const val PREF_NAME = "locale_preferences"
         private const val PREF_LANGUAGE_KEY = "selected_language"
         private const val SYSTEM_DEFAULT = "system_default"
-        private const val RESTART_DELAY = 800L
         private const val ANIMATION_DELAY = 200L
 
         @Volatile
@@ -368,6 +367,10 @@ class LocaleManager private constructor(private val context: Context) {
 
             Timber.tag(TAG)
                 .d("Language updated: $languageCode (effective: $effectiveLanguageCode)")
+                
+            // Give UI time to show success state (Check mark)
+            delay(400)
+            
             true
         } catch (e: Exception) {
             Timber.tag(TAG).e(e, "Error updating language to $languageCode")
@@ -434,20 +437,22 @@ class LocaleManager private constructor(private val context: Context) {
     fun restartApp(context: Context) {
         try {
             // Gracefully restart the UI activity without stopping the MusicService so audio doesn't pause or crash.
+            var currentContext = context
+            while (currentContext is android.content.ContextWrapper) {
+                if (currentContext is Activity) {
+                    Handler(Looper.getMainLooper()).post {
+                        currentContext.recreate()
+                    }
+                    return
+                }
+                currentContext = currentContext.baseContext
+            }
+
+            // Fallback if context is not an Activity
             val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
             intent?.let {
-                it.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)
-                
-                Handler(Looper.getMainLooper()).postDelayed({
-                    context.startActivity(it)
-                    if (context is Activity) {
-                        context.finish()
-                        context.overridePendingTransition(
-                            android.R.anim.fade_in,
-                            android.R.anim.fade_out
-                        )
-                    }
-                }, RESTART_DELAY)
+                it.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(it)
             }
         } catch (e: Exception) {
             Timber.tag(TAG).e(e, "Error restarting application")
