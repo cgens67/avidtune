@@ -85,6 +85,7 @@ import com.cgens67.avidtune.constants.ShowLyricsKey
 import com.cgens67.avidtune.constants.SimilarContent
 import com.cgens67.avidtune.constants.SkipSilenceKey
 import com.cgens67.avidtune.constants.SponsorBlockEnabledKey
+import com.cgens67.avidtune.constants.StopMusicOnTaskClearKey
 import com.cgens67.avidtune.db.MusicDatabase
 import com.cgens67.avidtune.db.entities.Event
 import com.cgens67.avidtune.db.entities.FormatEntity
@@ -1605,6 +1606,14 @@ class MusicService :
         }
     }
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        val stopOnTaskClear = dataStore.get(StopMusicOnTaskClearKey, false)
+        if (stopOnTaskClear) {
+            stopSelf()
+        }
+        super.onTaskRemoved(rootIntent)
+    }
+
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onDestroy() {
         if (dataStore.get(PersistentQueueKey, true)) {
@@ -1625,10 +1634,6 @@ class MusicService :
 
     override fun onBind(intent: Intent?) = super.onBind(intent) ?: binder
 
-    override fun onTaskRemoved(rootIntent: Intent?) {
-        super.onTaskRemoved(rootIntent)
-        stopSelf()
-    }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo) = mediaSession
 
