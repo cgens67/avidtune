@@ -96,7 +96,6 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.LanguageCodeToName
-import com.cgens67.avidtune.playback.MusicService
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -434,18 +433,20 @@ class LocaleManager private constructor(private val context: Context) {
 
     fun restartApp(context: Context) {
         try {
-            // Stop the music service to prevent crashes when the app is killed while playing
-            context.stopService(Intent(context, MusicService::class.java))
-
+            // Gracefully restart the UI activity without stopping the MusicService so audio doesn't pause or crash.
             val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
             intent?.let {
-                val componentName = it.component
-                val mainIntent = Intent.makeRestartActivityTask(componentName)
-                mainIntent.setPackage(context.packageName)
-
+                it.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)
+                
                 Handler(Looper.getMainLooper()).postDelayed({
-                    context.startActivity(mainIntent)
-                    Runtime.getRuntime().exit(0)
+                    context.startActivity(it)
+                    if (context is Activity) {
+                        context.finish()
+                        context.overridePendingTransition(
+                            android.R.anim.fade_in,
+                            android.R.anim.fade_out
+                        )
+                    }
                 }, RESTART_DELAY)
             }
         } catch (e: Exception) {
