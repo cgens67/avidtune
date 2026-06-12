@@ -436,23 +436,43 @@ class LocaleManager private constructor(private val context: Context) {
 
     fun restartApp(context: Context) {
         try {
-            // Gracefully restart the UI activity without stopping the MusicService so audio doesn't pause or crash.
+            // Gracefully restart the UI activity with crossfade animation to apply language smoothly.
             var currentContext = context
             while (currentContext is android.content.ContextWrapper) {
                 if (currentContext is Activity) {
                     val activity = currentContext
                     Handler(Looper.getMainLooper()).post {
-                        activity.recreate()
+                        val intent = Intent(activity, activity.javaClass).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                        }
+                        activity.startActivity(intent)
+
+                        // Apply a seamless crossfade transition
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) { // API 34
+                            activity.overrideActivityTransition(
+                                Activity.OVERRIDE_TRANSITION_OPEN,
+                                android.R.anim.fade_in,
+                                android.R.anim.fade_out
+                            )
+                        } else {
+                            @Suppress("DEPRECATION")
+                            activity.overridePendingTransition(
+                                android.R.anim.fade_in,
+                                android.R.anim.fade_out
+                            )
+                        }
+
+                        activity.finish()
                     }
                     return
                 }
                 currentContext = currentContext.baseContext
             }
 
-            // Fallback if context is not an Activity
+            // Fallback if context is not an Activity (e.g. Service)
             val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
             intent?.let {
-                it.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
+                it.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
                 context.startActivity(it)
             }
         } catch (e: Exception) {
