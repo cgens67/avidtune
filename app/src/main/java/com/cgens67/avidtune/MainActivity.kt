@@ -128,8 +128,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAny
 import androidx.compose.ui.util.fastFirstOrNull
 import androidx.compose.ui.util.fastForEach
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
@@ -366,6 +364,7 @@ class MainActivity : ComponentActivity() {
                 val fontScale = when (appTextSize) {
                     AppTextSize.SMALL -> 0.85f
                     AppTextSize.SYSTEM -> density.fontScale
+                    AppTextSize.MEDIUM -> 1.0f
                     AppTextSize.LARGE -> 1.15f
                     AppTextSize.EXTRA_LARGE -> 1.3f
                 }
@@ -785,6 +784,9 @@ class MainActivity : ComponentActivity() {
                                                                 .matchParentSize()
                                                                 .blur(35.dp)
                                                                 .alpha(0.6f)
+                                                                .graphicsLayer {
+                                                                    compositingStrategy = CompositingStrategy.Offscreen
+                                                                }
                                                                 .drawWithContent {
                                                                     drawContent()
                                                                     drawRect(
