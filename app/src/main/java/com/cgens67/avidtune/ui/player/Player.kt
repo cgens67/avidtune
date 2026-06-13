@@ -994,8 +994,7 @@ fun PlayerSliderV4(
                             activeTrackColor = textBackgroundColor,
                             inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
                             thumbColor = textBackgroundColor
-                        ),
-                        trackHeight = 2.dp
+                        )
                     )
                 },
                 colors = SliderDefaults.colors(
