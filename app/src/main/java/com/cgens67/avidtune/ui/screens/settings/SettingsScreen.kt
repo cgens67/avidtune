@@ -282,14 +282,14 @@ fun SettingsScreen(
     val isAndroid12OrLater = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     val listState = rememberLazyListState()
     val viewModel: HomeViewModel = hiltViewModel()
-    
+
     val newsViewModel: NewsViewModel = hiltViewModel()
     val hasUnreadNews by newsViewModel.hasUnreadNews.collectAsState()
-    
+
     val innerTubeCookie by rememberPreference(InnerTubeCookieKey, "")
     val isLoggedIn = remember(innerTubeCookie) { "SAPISID" in parseCookieString(innerTubeCookie) }
-    val isLoading = false 
-    
+    val isLoading = false
+
     val accountName by rememberPreference(AccountNameKey, "")
     val accountImageUrl by viewModel.accountImageUrl.collectAsState()
     val (accountEmail, _) = rememberPreference(AccountEmailKey, "")
@@ -376,8 +376,8 @@ fun SettingsScreen(
     }
 
     val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
-    var hasRequestedPermissions by remember { 
-        mutableStateOf(prefs.getBoolean("has_requested_permissions", false)) 
+    var hasRequestedPermissions by remember {
+        mutableStateOf(prefs.getBoolean("has_requested_permissions", false))
     }
 
     val resetSearch: () -> Unit = {
@@ -609,15 +609,7 @@ fun SettingsScreen(
                 ) {}
             }
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .verticalScroll(rememberScrollState())
-            ) {
-                ChangelogScreen()
-                Spacer(Modifier.height(32.dp))
-            }
+            ChangelogScreen(onDismiss = { showChangelogSheet = false })
         }
     }
 
