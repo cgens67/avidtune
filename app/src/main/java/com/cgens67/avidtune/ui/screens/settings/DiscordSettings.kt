@@ -16,34 +16,24 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -58,7 +48,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -75,7 +64,6 @@ import androidx.core.net.toUri
 import androidx.media3.common.Player.STATE_READY
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
-import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
 import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.DiscordInfoDismissedKey
@@ -87,13 +75,13 @@ import com.cgens67.avidtune.constants.EnableDiscordRPCKey
 import com.cgens67.avidtune.constants.SliderStyle
 import com.cgens67.avidtune.constants.SliderStyleKey
 import com.cgens67.avidtune.db.entities.Song
-import com.cgens67.avidtune.ui.component.IconButton
 import com.cgens67.avidtune.ui.component.InfoLabel
 import com.cgens67.avidtune.ui.component.PreferenceEntry
 import com.cgens67.avidtune.ui.component.PreferenceGroupTitle
+import com.cgens67.avidtune.ui.component.SettingsGeneralCategory
+import com.cgens67.avidtune.ui.component.SettingsPage
 import com.cgens67.avidtune.ui.component.SwitchPreference
 import com.cgens67.avidtune.ui.component.TextFieldDialog
-import com.cgens67.avidtune.ui.utils.backToMain
 import com.cgens67.avidtune.utils.makeTimeString
 import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
@@ -181,21 +169,11 @@ fun DiscordSettings(
         )
     }
 
-    Column(
-        Modifier
-            .windowInsetsPadding(
-                LocalPlayerAwareWindowInsets.current.only(
-                    WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom
-                )
-            )
-            .verticalScroll(rememberScrollState())
+    SettingsPage(
+        title = stringResource(R.string.discord_integration),
+        navController = navController,
+        scrollBehavior = scrollBehavior
     ) {
-        Spacer(
-            Modifier.windowInsetsPadding(
-                LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Top)
-            )
-        )
-
         // Banner informativo mejorado
         AnimatedVisibility(
             visible = !infoDismissed,
@@ -208,7 +186,7 @@ fun DiscordSettings(
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
             ) {
                 Row(
                     modifier = Modifier.padding(16.dp),
@@ -249,105 +227,77 @@ fun DiscordSettings(
         }
 
         // Sección de cuenta mejorada
-        PreferenceGroupTitle(title = stringResource(R.string.account))
-
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant
-            )
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = if (isLoggedIn) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.outline
-                    },
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.discord),
-                        contentDescription = null,
-                        tint = if (isLoggedIn) {
-                            MaterialTheme.colorScheme.onPrimary
-                        } else {
-                            MaterialTheme.colorScheme.onSurface
+        SettingsGeneralCategory(
+            title = stringResource(R.string.account),
+            items = buildList {
+                add {
+                    PreferenceEntry(
+                        title = {
+                            Text(if (isLoggedIn) discordName else stringResource(R.string.not_logged_in))
                         },
-                        modifier = Modifier.padding(12.dp)
+                        description = if (isLoggedIn && discordUsername.isNotEmpty()) "@$discordUsername" else null,
+                        icon = { Icon(painterResource(R.drawable.discord), null) },
+                        trailingContent = {
+                            if (isLoggedIn) {
+                                OutlinedButton(
+                                    onClick = {
+                                        discordName = ""
+                                        discordToken = ""
+                                        discordUsername = ""
+                                    }
+                                ) {
+                                    Text(stringResource(R.string.logout))
+                                }
+                            } else {
+                                FilledTonalButton(
+                                    onClick = { navController.navigate("settings/discord/login") }
+                                ) {
+                                    Text(stringResource(R.string.action_login))
+                                }
+                            }
+                        },
+                        onClick = {
+                            if (!isLoggedIn) navController.navigate("settings/discord/login")
+                        }
                     )
                 }
 
-                Spacer(Modifier.width(16.dp))
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = if (isLoggedIn) discordName else stringResource(R.string.not_logged_in),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.alpha(if (isLoggedIn) 1f else 0.7f)
-                    )
-                    if (discordUsername.isNotEmpty()) {
-                        Text(
-                            text = "@$discordUsername",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                if (!isLoggedIn) {
+                    add {
+                        PreferenceEntry(
+                            title = { Text(stringResource(R.string.advanced_login)) },
+                            icon = { Icon(painterResource(R.drawable.token), null) },
+                            onClick = { showTokenDialog = true }
                         )
                     }
                 }
-
-                if (isLoggedIn) {
-                    OutlinedButton(
-                        onClick = {
-                            discordName = ""
-                            discordToken = ""
-                            discordUsername = ""
-                        }
-                    ) {
-                        Text(stringResource(R.string.logout))
-                    }
-                } else {
-                    FilledTonalButton(
-                        onClick = { navController.navigate("settings/discord/login") }
-                    ) {
-                        Text(stringResource(R.string.action_login))
-                    }
-                }
             }
-        }
-
-        if (!isLoggedIn) {
-            PreferenceEntry(
-                title = { Text(stringResource(R.string.advanced_login)) },
-                icon = { Icon(painterResource(R.drawable.token), null) },
-                onClick = { showTokenDialog = true }
-            )
-        }
-
-        // Opciones
-        PreferenceGroupTitle(title = stringResource(R.string.options))
-
-        SwitchPreference(
-            title = { Text(stringResource(R.string.enable_discord_rpc)) },
-            checked = discordRPC,
-            onCheckedChange = onDiscordRPCChange,
-            isEnabled = isLoggedIn,
         )
 
-        SwitchPreference(
-            title = { Text(stringResource(R.string.discord_use_details)) },
-            description = stringResource(R.string.discord_use_details_description),
-            checked = useDetails,
-            onCheckedChange = onUseDetailsChange,
-            isEnabled = isLoggedIn && discordRPC,
+        // Opciones
+        SettingsGeneralCategory(
+            title = stringResource(R.string.options),
+            items = buildList {
+                add {
+                    SwitchPreference(
+                        title = { Text(stringResource(R.string.enable_discord_rpc)) },
+                        icon = { Icon(painterResource(R.drawable.discord), null) },
+                        checked = discordRPC,
+                        onCheckedChange = onDiscordRPCChange,
+                        isEnabled = isLoggedIn,
+                    )
+                }
+                add {
+                    SwitchPreference(
+                        title = { Text(stringResource(R.string.discord_use_details)) },
+                        description = stringResource(R.string.discord_use_details_description),
+                        icon = { Icon(painterResource(R.drawable.info), null) },
+                        checked = useDetails,
+                        onCheckedChange = onUseDetailsChange,
+                        isEnabled = isLoggedIn && discordRPC,
+                    )
+                }
+            }
         )
 
         // Preview mejorado
@@ -363,22 +313,6 @@ fun DiscordSettings(
 
         Spacer(Modifier.height(16.dp))
     }
-
-    TopAppBar(
-        title = { Text(stringResource(R.string.discord_integration)) },
-        navigationIcon = {
-            IconButton(
-                onClick = navController::navigateUp,
-                onLongClick = navController::backToMain,
-            ) {
-                Icon(
-                    painterResource(R.drawable.arrow_back),
-                    contentDescription = null,
-                )
-            }
-        },
-        scrollBehavior = scrollBehavior
-    )
 }
 
 @Composable
@@ -690,7 +624,7 @@ fun EnhancedRichPresence(
                             context.startActivity(intent)
                         },
                         modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.filledTonalButtonColors(
+                        colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer
                         )
                     ) {
@@ -759,12 +693,12 @@ fun EnhancedProgressBar(
     Column(modifier = Modifier.fillMaxWidth()) {
         when (sliderStyle) {
             SliderStyle.DEFAULT -> {
-                Slider(
+                androidx.compose.material3.Slider(
                     value = position.toFloat(),
                     valueRange = 0f..duration.toFloat().coerceAtLeast(1f),
                     onValueChange = {},
                     enabled = false,
-                    colors = SliderDefaults.colors(
+                    colors = androidx.compose.material3.SliderDefaults.colors(
                         activeTrackColor = MaterialTheme.colorScheme.primary,
                         inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant,
                         disabledActiveTrackColor = MaterialTheme.colorScheme.primary,
@@ -780,7 +714,7 @@ fun EnhancedProgressBar(
                     valueRange = 0f..duration.toFloat().coerceAtLeast(1f),
                     onValueChange = {},
                     enabled = false,
-                    colors = SliderDefaults.colors(
+                    colors = androidx.compose.material3.SliderDefaults.colors(
                         activeTrackColor = MaterialTheme.colorScheme.primary,
                         inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant,
                         disabledActiveTrackColor = MaterialTheme.colorScheme.primary,
