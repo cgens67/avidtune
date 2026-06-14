@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+
 package com.cgens67.avidtune.ui.screens.settings
 
 import android.content.Context
@@ -112,7 +114,6 @@ data class CachedChangelogData(val sections: List<ChangelogSection>, val image: 
 
 // --- Main Screen ---
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChangelogScreen(
     onDismiss: () -> Unit = {},
@@ -180,7 +181,6 @@ fun ChangelogScreen(
 
 // --- Releases (News-style) Content ---
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ReleasesContent(versionTag: String) {
     val context = LocalContext.current
@@ -638,7 +638,6 @@ fun ReleasesContent(versionTag: String) {
 
 // --- Commits Content ---
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CommitsContent() {
     val context = LocalContext.current
@@ -659,7 +658,7 @@ fun CommitsContent() {
         hasError = false
         coroutineScope.launch(Dispatchers.IO) {
             try {
-                // Modified to point to the correct AvidTune repo and main branch.
+                // Pointing to AvidTune repo and main branch.
                 val url = URL("https://api.github.com/repos/cgens67/AvidTune/commits?branch=main&per_page=50")
                 val json = url.openStream().bufferedReader().use { it.readText() }
                 val array = JSONArray(json)
@@ -733,7 +732,7 @@ fun CommitsContent() {
                         )
                         Spacer(Modifier.height(16.dp))
                         Text(
-                            text = stringResource(R.string.error_loading_commits),
+                            text = "Error loading commits",
                             color = MaterialTheme.colorScheme.error
                         )
                     }
