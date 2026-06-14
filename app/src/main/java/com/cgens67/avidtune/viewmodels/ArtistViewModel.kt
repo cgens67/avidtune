@@ -14,6 +14,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.LocalDateTime
+import java.time.ZoneOffset
 import javax.inject.Inject
 
 @HiltViewModel
@@ -27,6 +29,14 @@ class ArtistViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.Lazily, null)
     val librarySongs = database.artistSongsPreview(artistId)
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    private val thirtyDaysAgo = LocalDateTime.now().minusDays(30).toInstant(ZoneOffset.UTC).toEpochMilli()
+    
+    val monthlyPlayCount = database.artistPlayCountSince(artistId, thirtyDaysAgo)
+        .stateIn(viewModelScope, SharingStarted.Lazily, 0)
+        
+    val totalPlayCount = database.artistTotalPlayCount(artistId)
+        .stateIn(viewModelScope, SharingStarted.Lazily, 0)
 
     init {
         fetchArtistsFromYTM()
