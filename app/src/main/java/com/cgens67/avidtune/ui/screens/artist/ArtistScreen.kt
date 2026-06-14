@@ -6,7 +6,15 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.util.Log
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.material3.LocalContentColor
@@ -146,8 +154,6 @@ fun ArtistScreen(
     val artistPage = viewModel.artistPage
     val libraryArtist by viewModel.libraryArtist.collectAsState()
     val librarySongs by viewModel.librarySongs.collectAsState()
-    val monthlyPlayCount by viewModel.monthlyPlayCount.collectAsState()
-    val totalPlayCount by viewModel.totalPlayCount.collectAsState()
     val globalMonthlyListeners by viewModel.globalMonthlyListeners.collectAsState()
 
     val lazyListState = rememberLazyListState()
@@ -297,7 +303,11 @@ fun ArtistScreen(
                                 }
                             }
 
-                            if (globalMonthlyListeners != null) {
+                            AnimatedVisibility(
+                                visible = globalMonthlyListeners != null,
+                                enter = fadeIn(tween(500)) + slideInVertically(tween(500)) { it / 2 } + expandHorizontally(tween(500)),
+                                exit = fadeOut(tween(300)) + slideOutVertically(tween(300)) { it / 2 } + shrinkHorizontally(tween(300))
+                            ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier
@@ -316,53 +326,6 @@ fun ArtistScreen(
                                         text = "$globalMonthlyListeners monthly listeners",
                                         style = MaterialTheme.typography.labelLarge,
                                         color = MaterialTheme.colorScheme.onTertiaryContainer,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                            } else if (monthlyPlayCount > 0) {
-                                // Fallback a streams locales del usuario si no se logró cargar el global
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(MaterialTheme.colorScheme.tertiaryContainer)
-                                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                                ) {
-                                    Icon(
-                                        painter = painterResource(R.drawable.play),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp),
-                                        tint = MaterialTheme.colorScheme.onTertiaryContainer
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "$monthlyPlayCount your monthly streams",
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = MaterialTheme.colorScheme.onTertiaryContainer,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                            }
-
-                            if (totalPlayCount > 0 && totalPlayCount != monthlyPlayCount) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                                ) {
-                                    Icon(
-                                        painter = painterResource(R.drawable.history),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "$totalPlayCount your total streams",
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         fontWeight = FontWeight.Medium
                                     )
                                 }
@@ -776,7 +739,7 @@ fun ArtistScreen(
         }
     }
 
-    // TopAppBar con la UI exacta
+    // TopAppBar con la UI exacta de Vivi
     TopAppBar(
         title = {
             if (!transparentAppBar)
