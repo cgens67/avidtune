@@ -686,7 +686,13 @@ fun WrappedBackground(
 }
 
 @Composable
-fun AutoResizingText(text: String, modifier: Modifier = Modifier, style: TextStyle, maxLines: Int = 1) {
+fun AutoResizingText(
+    text: String, 
+    modifier: Modifier = Modifier, 
+    style: TextStyle, 
+    maxLines: Int = 1,
+    textAlign: TextAlign? = null
+) {
     var scaledTextStyle by remember(style) { mutableStateOf(style) }
     var readyToDraw by remember(style) { mutableStateOf(false) }
 
@@ -695,6 +701,7 @@ fun AutoResizingText(text: String, modifier: Modifier = Modifier, style: TextSty
         modifier = modifier.drawWithContent { if (readyToDraw) drawContent() },
         style = scaledTextStyle,
         maxLines = maxLines,
+        textAlign = textAlign,
         softWrap = true,
         onTextLayout = { textLayoutResult ->
             if (textLayoutResult.hasVisualOverflow || textLayoutResult.lineCount > maxLines || textLayoutResult.didOverflowWidth || textLayoutResult.didOverflowHeight) {
@@ -1439,7 +1446,8 @@ fun PlaylistPage(state: WrappedState, onCreatePlaylist: () -> Unit, textColor: C
                 text = stringResource(R.string.insight_playlist_ready),
                 maxLines = 2,
                 modifier = Modifier.padding(horizontal = 12.dp),
-                style = TextStyle(fontFamily = bbh_bartle, fontSize = 40.sp, color = textColor, textAlign = TextAlign.Center, lineHeight = 48.sp)
+                style = TextStyle(fontFamily = bbh_bartle, fontSize = 40.sp, color = textColor, textAlign = TextAlign.Center, lineHeight = 48.sp),
+                textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(32.dp))
             Image(
