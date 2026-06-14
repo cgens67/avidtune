@@ -835,6 +835,55 @@
     <string name="romanize">Romaniser</string>
     <string name="hide_romanized">Masquer la romanisation</string>
     
+    <!-- Insight Strings -->
+    <string name="avidtune_insight">AvidTune Insight</string>
+    <string name="insight_discover_year">Découvrez votre année en musique</string>
+    <string name="insight_your_musical_year">Votre année en musique</string>
+    <string name="insight_tap_to_view">Appuyez pour voir vos statistiques complètes</string>
+    <string name="insight_top_songs">Top\nchansons</string>
+    <string name="insight_top_artists">Top\nartistes</string>
+    <string name="insight_full_stats">Stats\ncomplètes</string>
+    <string name="insight_download_report">Télécharger\nle rapport</string>
+    <string name="insight_view_full">Voir tout AvidTune Insight</string>
+    <string name="insight_minutes">Minutes</string>
+    <string name="insight_playlist_name">AvidTune Insight %1$d</string>
+    <string name="insight_msg_tease_0">J\'espère vraiment que vous n\'êtes pas déçu...</string>
+    <string name="insight_msg_reveal_0">Ça fait **%1$d minutes**. Un simple échauffement ?</string>
+    <string name="insight_msg_tease_1000">On dirait que vous nous avez découverts récemment...</string>
+    <string name="insight_msg_reveal_1000">Et vous avez consacré **%1$d minutes** à la musique.</string>
+    <string name="insight_msg_tease_5000">La musique, c\'est définitivement votre truc.</string>
+    <string name="insight_msg_reveal_5000">**%1$d minutes** font une excellente bande-son pour votre année.</string>
+    <string name="insight_msg_tease_15000">Vous enlevez vos écouteurs de temps en temps ?</string>
+    <string name="insight_msg_reveal_15000">**%1$d minutes** suggèrent que la musique est votre oxygène.</string>
+    <string name="insight_msg_tease_40000">Vous allez... bien ?</string>
+    <string name="insight_msg_reveal_40000">Vous avez littéralement vécu ici pendant **%1$d minutes**.</string>
+    <string name="insight_msg_tease_default">On dirait qu\'on a perdu le fil !</string>
+    <string name="insight_msg_reveal_default">Mais vous avez définitivement écouté **%1$d minutes** de musique.</string>
+    <string name="insight_title">AvidTune Insight</string>
+    <string name="insight_intro_subtitle">Un regard sur votre année en musique.</string>
+    <string name="insight_lets_go">C\'est parti !</string>
+    <string name="insight_total_songs_title">Chansons que\nvous avez écoutées</string>
+    <string name="insight_total_songs_subtitle">Ça fait beaucoup de mélodies.</string>
+    <string name="insight_top_song_title">Mais votre préférée\nabsolue était...</string>
+    <string name="insight_no_data">Aucune donnée</string>
+    <string name="insight_listened_for_minutes">Écouté pendant %1$d minutes</string>
+    <string name="insight_minutes_short">%1$d min</string>
+    <string name="insight_top_5_songs">Vos 5 chansons préférées</string>
+    <string name="insight_total_albums_title">Albums que vous\navez découverts</string>
+    <string name="insight_total_albums_subtitle">Ça fait beaucoup de sauts et de répétitions.</string>
+    <string name="insight_top_album_title">Mais il y a un album\nqui a tout dominé.</string>
+    <string name="insight_top_5_albums">Vos 5 albums\npréférés</string>
+    <string name="insight_total_artists_title">Artistes que vous\navez écoutés</string>
+    <string name="insight_total_artists_subtitle">Vos goûts musicaux sont très variés.</string>
+    <string name="insight_top_artist_title">Votre artiste préféré</string>
+    <string name="insight_top_5_artists">Top 5 des artistes</string>
+    <string name="insight_playlist_ready">Votre playlist Insight\nest prête.</string>
+    <string name="insight_add_to_library">Ajouter à la bibliothèque</string>
+    <string name="insight_saved">Enregistré !</string>
+    <string name="insight_thank_you">Merci pour votre écoute</string>
+    <string name="insight_see_you">À la prochaine !</string>
+    <string name="insight_close">Fermer Insight</string>
+    
     <!-- SponsorBlock setting -->
     <string name="enable_sponsorblock">Activer SponsorBlock</string>
     <string name="enable_sponsorblock_desc">Ignorer automatiquement les parties non musicales, les intros et les passages sponsorisés dans les clips musicaux</string>
