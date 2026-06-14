@@ -795,7 +795,7 @@ private fun buildSettingsGroups(
                 SettingsItem(
                     icon = painterResource(R.drawable.newspaper),
                     title = stringResource(R.string.news),
-                    badge = if (hasUnreadNews) "New" else null,
+                    badge = if (hasUnreadNews) stringResource(R.string.new_badge) else null,
                     showUpdateIndicator = hasUnreadNews,
                     keywords = listOf("news", "updates", "announcements"),
                     onClick = { resetSearch(); navController.navigate("news") }
@@ -870,7 +870,6 @@ data class SettingsContentState(
     val onClearSearchHistory: () -> Unit,
 )
 
-@Composable
 private fun LazyListScope.SearchHistorySection(state: SettingsContentState, pad: Dp) {
     if (state.searchHistory.isNotEmpty()) {
         item(key = "search_history_header") {
@@ -912,11 +911,12 @@ private fun LazyListScope.SearchHistorySection(state: SettingsContentState, pad:
                 )
                 IconButton(
                     onClick = { state.onRemoveSearchHistoryItem(historyItem) },
+                    onLongClick = {},
                     modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.close),
-                        contentDescription = stringResource(R.string.delete),
+                        contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp)
                     )
