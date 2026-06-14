@@ -893,4 +893,9 @@
     <string name="error_loading_changelog">加载更新日志时出错</string>
     <string name="error_loading_commits">加载提交记录时出错</string>
     <string name="cached">已缓存</string>
+    
+    <!-- Settings Search & Layout -->
+    <string name="internal_settings">内部设置</string>
+    <string name="github">GitHub</string>
+    <string name="new_badge">最新</string>
 </resources>
