@@ -57,24 +57,47 @@ class ArtistViewModel @Inject constructor(
     private fun fetchGlobalStats(artistName: String) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                // Scrape Spotify's public meta description safely via DuckDuckGo Lite to avoid API keys or CAPTCHAs
-                val query = "site:open.spotify.com/artist \"$artistName\""
-                val encodedQuery = URLEncoder.encode(query, "UTF-8")
-                val url = "https://html.duckduckgo.com/html/?q=$encodedQuery&kl=us-en"
+                // Try multiple highly-targeted search queries
+                val queries = listOf(
+                    "site:open.spotify.com \"$artistName\" \"monthly listeners\"",
+                    "\"monthly listeners\" \"$artistName\" spotify"
+                )
                 
-                val doc = Jsoup.connect(url)
-                    .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-                    .header("Accept-Language", "en-US,en;q=0.9")
-                    .get()
+                var match: MatchResult? = null
+                val regex = Regex("([\\d.,]+[KMBkmb]?)\\s+monthly listeners", RegexOption.IGNORE_CASE)
+
+                for (query in queries) {
+                    if (match != null) break
                     
-                val snippet = doc.select(".result__snippet").firstOrNull()?.text()
-                
-                // Extract metrics like "104.3M monthly listeners" or "14,500 monthly listeners"
-                val regex = Regex("([0-9.,]+[KMBkmb]?)\\s+monthly listeners", RegexOption.IGNORE_CASE)
-                val match = snippet?.let { regex.find(it) }
+                    try {
+                        // First attempt: DuckDuckGo Lite (POST request, very bot-friendly)
+                        val doc = Jsoup.connect("https://lite.duckduckgo.com/lite/")
+                            .data("q", query)
+                            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                            .post()
+                        match = regex.find(doc.text())
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+
+                    if (match == null) {
+                        try {
+                            // Fallback attempt: DuckDuckGo HTML
+                            val encodedQuery = URLEncoder.encode(query, "UTF-8")
+                            val doc2 = Jsoup.connect("https://html.duckduckgo.com/html/?q=$encodedQuery")
+                                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                                .get()
+                            match = regex.find(doc2.text())
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+                }
                 
                 if (match != null) {
-                    _globalMonthlyListeners.value = match.groupValues[1]
+                    // Extract and format, e.g., "1.2M" or "14,500"
+                    val listeners = match.groupValues[1].uppercase()
+                    _globalMonthlyListeners.value = listeners
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
