@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -205,6 +206,7 @@ class WrappedAudioService(private val context: Context) {
     private val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
     private var player: ExoPlayer? = null
     private var playbackJob: Job? = null
+    private var fadeJob: Job? = null
 
     private val _isMuted = MutableStateFlow(false)
     val isMuted = _isMuted.asStateFlow()
@@ -228,6 +230,31 @@ class WrappedAudioService(private val context: Context) {
         player?.volume = if (_isMuted.value) 0f else 1f
     }
 
+    private fun startFadeIn() {
+        fadeJob?.cancel()
+        if (_isMuted.value) return
+        fadeJob = scope.launch {
+            player?.volume = 0f
+            for (i in 1..20) {
+                delay(25)
+                player?.volume = i / 20f
+            }
+            player?.volume = 1f
+        }
+    }
+
+    private suspend fun fadeOutSync() {
+        fadeJob?.cancel()
+        if (_isMuted.value || player?.isPlaying != true) return
+        
+        val startVol = player?.volume ?: 1f
+        for (i in 20 downTo 1) {
+            delay(25)
+            player?.volume = startVol * (i / 20f)
+        }
+        player?.pause()
+    }
+
     private suspend fun prepareTrack(songId: String?) {
         initPlayer()
         val songUri = getSongUri(songId)
@@ -245,22 +272,31 @@ class WrappedAudioService(private val context: Context) {
 
     fun playTrack(songId: String?) {
         if (player?.currentMediaItem?.mediaId == songId) {
-            if (player?.isPlaying == false) player?.play()
+            if (player?.isPlaying == false) {
+                player?.play()
+                startFadeIn()
+            }
             return
         }
         playbackJob?.cancel()
         playbackJob = scope.launch {
             try {
+                if (player?.isPlaying == true) {
+                    fadeOutSync()
+                }
+
                 prepareTrack(songId)
+                
                 withContext(Dispatchers.Main) {
                     if (songId != null && songId != "2-p9DM2Xvsc") {
                         player?.seekTo(30_000)
                     } else {
                         player?.seekTo(0)
                     }
+                    player?.volume = 0f
                     player?.play()
-                    player?.volume = if (_isMuted.value) 0f else 1f
                 }
+                startFadeIn()
             } catch (e: Exception) {
                 Timber.tag("WrappedAudioService").e(e, "Error during playback preparation")
             }
@@ -286,10 +322,20 @@ class WrappedAudioService(private val context: Context) {
         }
     }
 
-    fun pause() = player?.pause()
-    fun resume() = player?.play()
+    fun pause() {
+        scope.launch { fadeOutSync() }
+    }
+    
+    fun resume() {
+        if (player?.isPlaying == false) {
+            player?.play()
+            startFadeIn()
+        }
+    }
+    
     fun release() {
         playbackJob?.cancel()
+        fadeJob?.cancel()
         player?.release()
         player = null
     }
@@ -609,17 +655,17 @@ fun AnimatedDecorativeElement(modifier: Modifier = Modifier, isVisible: Boolean)
 
 @Composable
 fun AutoResizingText(text: String, modifier: Modifier = Modifier, style: TextStyle, maxLines: Int = 1) {
-    var scaledTextStyle by remember { mutableStateOf(style) }
-    var readyToDraw by remember { mutableStateOf(false) }
+    var scaledTextStyle by remember(text, style) { mutableStateOf(style) }
+    var readyToDraw by remember(text, style) { mutableStateOf(false) }
 
     Text(
         text = text,
         modifier = modifier.drawWithContent { if (readyToDraw) drawContent() },
         style = scaledTextStyle,
         maxLines = maxLines,
-        softWrap = maxLines > 1,
+        softWrap = true,
         onTextLayout = { textLayoutResult ->
-            if (textLayoutResult.hasVisualOverflow || textLayoutResult.didOverflowWidth || textLayoutResult.didOverflowHeight) {
+            if (textLayoutResult.hasVisualOverflow || textLayoutResult.lineCount > maxLines || textLayoutResult.didOverflowWidth || textLayoutResult.didOverflowHeight) {
                 scaledTextStyle = scaledTextStyle.copy(fontSize = scaledTextStyle.fontSize * 0.95)
             } else {
                 readyToDraw = true
@@ -726,14 +772,17 @@ fun WrappedMinutesTease(messagePair: MessagePair?, onNavigateForward: () -> Unit
             visible = messagePair != null && isDataReady,
             enter = fadeIn(tween(1000)) + scaleIn(initialScale = 0.9f, animationSpec = tween(1000))
         ) {
-            Text(
+            AutoResizingText(
                 text = messagePair?.teaseRes?.let { stringResource(it) } ?: "",
-                modifier = Modifier.padding(horizontal = 8.dp),
-                color = Color.White,
-                fontSize = 28.sp,
-                lineHeight = 34.sp,
-                textAlign = TextAlign.Center,
-                fontFamily = bbh_bartle
+                modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+                style = TextStyle(
+                    color = Color.White,
+                    fontSize = 28.sp,
+                    lineHeight = 34.sp,
+                    textAlign = TextAlign.Center,
+                    fontFamily = bbh_bartle
+                ),
+                maxLines = 3
             )
         }
     }
@@ -753,10 +802,11 @@ fun WrappedMinutesScreen(messagePair: MessagePair?, totalMinutes: Long, isVisibl
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            FormattedText(
+            AutoResizingText(
                 text = messagePair?.teaseRes?.let { stringResource(it) } ?: "",
-                modifier = Modifier.padding(horizontal = 8.dp),
-                style = MaterialTheme.typography.headlineSmall.copy(color = Color.White, textAlign = TextAlign.Center, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 34.sp)
+                modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+                style = MaterialTheme.typography.headlineSmall.copy(color = Color.White, textAlign = TextAlign.Center, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 34.sp),
+                maxLines = 3
             )
             Spacer(modifier = Modifier.height(32.dp))
             BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
@@ -800,10 +850,11 @@ fun WrappedTotalSongsScreen(uniqueSongCount: Int, isVisible: Boolean) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(
+            AutoResizingText(
                 text = stringResource(R.string.insight_total_songs_title),
-                modifier = Modifier.padding(horizontal = 8.dp),
-                style = MaterialTheme.typography.headlineSmall.copy(color = Color.White, textAlign = TextAlign.Center, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 34.sp)
+                modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+                style = MaterialTheme.typography.headlineSmall.copy(color = Color.White, textAlign = TextAlign.Center, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 34.sp),
+                maxLines = 3
             )
             Spacer(modifier = Modifier.height(32.dp))
             BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
@@ -847,10 +898,11 @@ fun WrappedTopSongScreen(topSong: SongWithStats?, isVisible: Boolean) {
                 visible = visible,
                 enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
             ) {
-                Text(
+                AutoResizingText(
                     text = stringResource(R.string.insight_top_song_title),
                     style = MaterialTheme.typography.headlineSmall.copy(color = Color.White, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 34.sp),
-                    textAlign = TextAlign.Center
+                    modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+                    maxLines = 3
                 )
             }
             Spacer(modifier = Modifier.height(32.dp))
@@ -907,13 +959,11 @@ fun WrappedTop5SongsScreen(topSongs: List<SongWithStats>, isVisible: Boolean) {
                 visible = visible,
                 enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
             ) {
-                Text(
+                AutoResizingText(
                     text = stringResource(R.string.insight_top_5_songs),
-                    fontSize = 34.sp,
-                    fontFamily = bbh_bartle,
-                    color = Color.White,
-                    textAlign = TextAlign.Center,
-                    lineHeight = 38.sp
+                    style = TextStyle(fontFamily = bbh_bartle, fontSize = 34.sp, color = Color.White, textAlign = TextAlign.Center, lineHeight = 38.sp),
+                    modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+                    maxLines = 2
                 )
             }
             Spacer(modifier = Modifier.height(32.dp))
@@ -977,10 +1027,11 @@ fun WrappedTotalAlbumsScreen(uniqueAlbumCount: Int, isVisible: Boolean) {
                 visible = visible,
                 enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
             ) {
-                Text(
+                AutoResizingText(
                     text = stringResource(R.string.insight_total_albums_title),
-                    modifier = Modifier.padding(horizontal = 8.dp),
-                    style = MaterialTheme.typography.headlineSmall.copy(color = Color.White, textAlign = TextAlign.Center, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 34.sp)
+                    modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+                    style = MaterialTheme.typography.headlineSmall.copy(color = Color.White, textAlign = TextAlign.Center, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 34.sp),
+                    maxLines = 3
                 )
             }
             Spacer(modifier = Modifier.height(32.dp))
@@ -1031,9 +1082,11 @@ fun WrappedTopAlbumScreen(topAlbum: Album?, isVisible: Boolean) {
                 visible = visible,
                 enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
             ) {
-                Text(
+                AutoResizingText(
                     text = stringResource(R.string.insight_top_album_title),
-                    style = TextStyle(fontFamily = bbh_bartle, fontSize = 28.sp, color = Color.White, textAlign = TextAlign.Center, lineHeight = 34.sp)
+                    style = TextStyle(fontFamily = bbh_bartle, fontSize = 28.sp, color = Color.White, textAlign = TextAlign.Center, lineHeight = 34.sp),
+                    modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+                    maxLines = 3
                 )
             }
             Spacer(modifier = Modifier.height(32.dp))
@@ -1092,9 +1145,11 @@ fun WrappedTop5AlbumsScreen(topAlbums: List<Album>, isVisible: Boolean) {
                 visible = visible,
                 enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
             ) {
-                Text(
+                AutoResizingText(
                     text = stringResource(R.string.insight_top_5_albums),
-                    style = TextStyle(fontFamily = bbh_bartle, fontSize = 34.sp, color = Color.White, textAlign = TextAlign.Center, lineHeight = 38.sp)
+                    style = TextStyle(fontFamily = bbh_bartle, fontSize = 34.sp, color = Color.White, textAlign = TextAlign.Center, lineHeight = 38.sp),
+                    modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+                    maxLines = 2
                 )
             }
             Spacer(modifier = Modifier.height(32.dp))
@@ -1158,10 +1213,11 @@ fun WrappedTotalArtistsScreen(uniqueArtistCount: Int, isVisible: Boolean) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(
+            AutoResizingText(
                 text = stringResource(R.string.insight_total_artists_title),
-                modifier = Modifier.padding(horizontal = 8.dp),
-                style = MaterialTheme.typography.headlineSmall.copy(color = Color.White, textAlign = TextAlign.Center, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 34.sp)
+                modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+                style = MaterialTheme.typography.headlineSmall.copy(color = Color.White, textAlign = TextAlign.Center, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 34.sp),
+                maxLines = 3
             )
             Spacer(modifier = Modifier.height(32.dp))
             BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
@@ -1204,10 +1260,11 @@ fun WrappedTopArtistScreen(topArtist: Artist?, isVisible: Boolean) {
             visible = visible,
             enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
         ) {
-            Text(
+            AutoResizingText(
                 text = stringResource(R.string.insight_top_artist_title),
                 style = MaterialTheme.typography.headlineSmall.copy(color = Color.White, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 34.sp),
-                textAlign = TextAlign.Center
+                modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+                maxLines = 3
             )
         }
         Spacer(modifier = Modifier.height(32.dp))
@@ -1262,13 +1319,11 @@ fun WrappedTop5ArtistsScreen(topArtists: List<Artist>, isVisible: Boolean) {
                 visible = visible,
                 enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
             ) {
-                Text(
+                AutoResizingText(
                     text = stringResource(R.string.insight_top_5_artists),
-                    fontSize = 34.sp,
-                    fontFamily = bbh_bartle,
-                    color = Color.White,
-                    textAlign = TextAlign.Center,
-                    lineHeight = 38.sp
+                    style = TextStyle(fontFamily = bbh_bartle, fontSize = 34.sp, color = Color.White, textAlign = TextAlign.Center, lineHeight = 38.sp),
+                    modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+                    maxLines = 2
                 )
             }
             Spacer(modifier = Modifier.height(32.dp))
@@ -1334,7 +1389,9 @@ fun PlaylistPage(state: WrappedState, onCreatePlaylist: () -> Unit) {
         ) {
             AutoResizingText(
                 text = stringResource(R.string.insight_playlist_ready),
-                style = TextStyle(fontFamily = bbh_bartle, fontSize = 40.sp, color = Color.White, textAlign = TextAlign.Center, lineHeight = 48.sp)
+                style = TextStyle(fontFamily = bbh_bartle, fontSize = 40.sp, color = Color.White, textAlign = TextAlign.Center, lineHeight = 48.sp),
+                modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+                maxLines = 3
             )
             Spacer(modifier = Modifier.height(32.dp))
             Image(
@@ -1352,12 +1409,17 @@ fun PlaylistPage(state: WrappedState, onCreatePlaylist: () -> Unit) {
                 onClick = { if (playlistCreationState == PlaylistCreationState.Idle) onCreatePlaylist() },
                 shape = CircleShape,
                 colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-                modifier = Modifier.height(50.dp)
+                modifier = Modifier.height(50.dp).width(240.dp)
             ) {
-                when (playlistCreationState) {
-                    is PlaylistCreationState.Idle -> Text(stringResource(R.string.insight_add_to_library), style = TextStyle(color = Color.Black, fontWeight = FontWeight.Bold))
-                    is PlaylistCreationState.Creating -> CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.Black, strokeWidth = 2.dp)
-                    is PlaylistCreationState.Success -> Text(stringResource(R.string.insight_saved), style = TextStyle(color = Color.Black, fontWeight = FontWeight.Bold))
+                AnimatedContent(
+                    targetState = playlistCreationState,
+                    label = "playlist_btn"
+                ) { btnState ->
+                    when (btnState) {
+                        is PlaylistCreationState.Idle -> Text(stringResource(R.string.insight_add_to_library), style = TextStyle(color = Color.Black, fontWeight = FontWeight.Bold))
+                        is PlaylistCreationState.Creating -> CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.Black, strokeWidth = 2.dp)
+                        is PlaylistCreationState.Success -> Text(stringResource(R.string.insight_saved), style = TextStyle(color = Color.Black, fontWeight = FontWeight.Bold))
+                    }
                 }
             }
         }
