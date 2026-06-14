@@ -14,6 +14,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.Spring
@@ -519,7 +520,11 @@ fun SettingsScreen(
 
     Scaffold(
         topBar = {
-            if (!showSearchBar) {
+            AnimatedVisibility(
+                visible = !showSearchBar,
+                enter = fadeIn(SettingsAnimations.fadeTween(if (animationsDisabled) 0 else 220)),
+                exit = fadeOut(SettingsAnimations.fadeTween(if (animationsDisabled) 0 else 160)),
+            ) {
                 LargeTopAppBar(
                     title = {
                         Text(
@@ -562,7 +567,11 @@ fun SettingsScreen(
         modifier = Modifier.fillMaxSize(),
     ) { innerPadding ->
         Box(modifier = Modifier.fillMaxSize()) {
-            if (!showSearchBar) {
+            AnimatedVisibility(
+                visible = !showSearchBar,
+                enter = fadeIn(SettingsAnimations.fadeTween(if (animationsDisabled) 0 else 220)),
+                exit = fadeOut(SettingsAnimations.fadeTween(if (animationsDisabled) 0 else 160)),
+            ) {
                 AdaptiveSettingsLayout(
                     state = contentState,
                     listState = listState,
@@ -819,7 +828,321 @@ private fun buildSettingsGroups(
 
 @Composable
 private fun buildInternalItems(navController: NavController, resetSearch: () -> Unit): List<SettingsItem> {
-    return emptyList()
+    return listOf(
+        // Appearance
+        SettingsItem(
+            icon = painterResource(R.drawable.palette),
+            title = stringResource(R.string.enable_dynamic_theme),
+            keywords = listOf("dynamic", "theme", "color", "material you"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.palette),
+            title = stringResource(R.string.color_palette),
+            keywords = listOf("color", "palette", "custom theme"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance/palette") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.dark_mode),
+            title = stringResource(R.string.dark_theme),
+            keywords = listOf("dark", "light", "theme", "mode", "amoled"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.contrast),
+            title = stringResource(R.string.pure_black),
+            keywords = listOf("pitch", "black", "amoled", "oled", "dark"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.format_align_left),
+            title = stringResource(R.string.use_system_font),
+            keywords = listOf("font", "system", "text", "typeface"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.format_align_left),
+            title = stringResource(R.string.app_text_size),
+            keywords = listOf("text", "size", "large", "small", "font"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.gradient),
+            title = stringResource(R.string.player_background_style),
+            keywords = listOf("player", "background", "style", "blur", "gradient"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.palette),
+            title = stringResource(R.string.player_buttons_style),
+            keywords = listOf("player", "buttons", "style", "primary", "tertiary"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.sliders),
+            title = stringResource(R.string.player_slider_style),
+            keywords = listOf("player", "slider", "style", "squiggly", "slim"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.swipe),
+            title = stringResource(R.string.enable_swipe_thumbnail),
+            keywords = listOf("swipe", "thumbnail", "gesture"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.format_align_center),
+            title = stringResource(R.string.player_text_alignment),
+            keywords = listOf("player", "text", "alignment", "center", "sided"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.lyrics),
+            title = stringResource(R.string.lyrics_text_position),
+            keywords = listOf("lyrics", "text", "position", "alignment"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.lyrics),
+            title = stringResource(R.string.lyrics_click_change),
+            keywords = listOf("lyrics", "click", "change", "seek"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.nav_bar),
+            title = stringResource(R.string.default_open_tab),
+            keywords = listOf("default", "open", "tab", "home", "explore", "library"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.tab),
+            title = stringResource(R.string.default_lib_chips),
+            keywords = listOf("default", "library", "chips", "filter"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.nav_bar),
+            title = stringResource(R.string.slim_navbar),
+            keywords = listOf("slim", "navbar", "navigation", "bar"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.grid_view),
+            title = stringResource(R.string.grid_cell_size),
+            keywords = listOf("grid", "cell", "size", "large", "small"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        
+        // Player
+        SettingsItem(
+            icon = painterResource(R.drawable.graphic_eq),
+            title = stringResource(R.string.audio_quality),
+            keywords = listOf("audio", "quality", "high", "low", "auto"),
+            onClick = { resetSearch(); navController.navigate("settings/player") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.fast_forward),
+            title = stringResource(R.string.skip_silence),
+            keywords = listOf("skip", "silence", "audio"),
+            onClick = { resetSearch(); navController.navigate("settings/player") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.skip_next),
+            title = stringResource(R.string.enable_sponsorblock),
+            keywords = listOf("sponsor", "block", "skip", "sponsorblock"),
+            onClick = { resetSearch(); navController.navigate("settings/player") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.volume_up),
+            title = stringResource(R.string.audio_normalization),
+            keywords = listOf("audio", "normalization", "volume", "loudness"),
+            onClick = { resetSearch(); navController.navigate("settings/player") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.queue_music),
+            title = stringResource(R.string.persistent_queue),
+            keywords = listOf("persistent", "queue", "save", "restore"),
+            onClick = { resetSearch(); navController.navigate("settings/player") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.skip_next),
+            title = stringResource(R.string.auto_skip_next_on_error),
+            keywords = listOf("auto", "skip", "error", "next"),
+            onClick = { resetSearch(); navController.navigate("settings/player") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.clear_all),
+            title = stringResource(R.string.stop_music_on_task_clear),
+            keywords = listOf("stop", "music", "task", "clear", "kill"),
+            onClick = { resetSearch(); navController.navigate("settings/player") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.info),
+            title = stringResource(R.string.show_nerd_stats),
+            keywords = listOf("nerd", "stats", "info", "technical"),
+            onClick = { resetSearch(); navController.navigate("settings/player") }
+        ),
+
+        // Performance
+        SettingsItem(
+            icon = painterResource(R.drawable.play),
+            title = stringResource(R.string.minimal_player_design),
+            keywords = listOf("minimal", "player", "design", "performance"),
+            onClick = { resetSearch(); navController.navigate("settings/performance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.image),
+            title = stringResource(R.string.disable_blur_effects),
+            keywords = listOf("disable", "blur", "effects", "performance"),
+            onClick = { resetSearch(); navController.navigate("settings/performance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.lyrics),
+            title = stringResource(R.string.animate_lyrics),
+            keywords = listOf("animate", "lyrics", "smooth", "performance"),
+            onClick = { resetSearch(); navController.navigate("settings/performance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.playlist_add),
+            title = stringResource(R.string.auto_load_more),
+            keywords = listOf("auto", "load", "more", "queue", "network"),
+            onClick = { resetSearch(); navController.navigate("settings/performance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.similar),
+            title = stringResource(R.string.enable_similar_content),
+            keywords = listOf("enable", "similar", "content", "recommendations"),
+            onClick = { resetSearch(); navController.navigate("settings/performance") }
+        ),
+
+        // Content
+        SettingsItem(
+            icon = painterResource(R.drawable.language),
+            title = stringResource(R.string.content_language),
+            keywords = listOf("content", "language", "locale"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.location_on),
+            title = stringResource(R.string.content_country),
+            keywords = listOf("content", "country", "region"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.explicit),
+            title = stringResource(R.string.hide_explicit),
+            keywords = listOf("hide", "explicit", "content", "nsfw"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.wifi_proxy),
+            title = stringResource(R.string.enable_proxy),
+            keywords = listOf("proxy", "network", "connection"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.list),
+            title = stringResource(R.string.lyrics_provider_priority),
+            keywords = listOf("lyrics", "provider", "priority", "order"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.trending_up),
+            title = stringResource(R.string.top_length),
+            keywords = listOf("top", "length", "size", "playlist"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.home_outlined),
+            title = stringResource(R.string.set_quick_picks),
+            keywords = listOf("quick", "picks", "home", "last listened"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.history),
+            title = stringResource(R.string.history_duration),
+            keywords = listOf("history", "duration", "scrobble", "time"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+
+        // Storage
+        SettingsItem(
+            icon = painterResource(R.drawable.download),
+            title = stringResource(R.string.downloaded_songs),
+            keywords = listOf("downloaded", "songs", "storage", "clear"),
+            onClick = { resetSearch(); navController.navigate("settings/storage") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.music_note),
+            title = stringResource(R.string.song_cache),
+            keywords = listOf("song", "cache", "storage", "clear"),
+            onClick = { resetSearch(); navController.navigate("settings/storage") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.image),
+            title = stringResource(R.string.image_cache),
+            keywords = listOf("image", "cache", "storage", "clear"),
+            onClick = { resetSearch(); navController.navigate("settings/storage") }
+        ),
+
+        // Privacy
+        SettingsItem(
+            icon = painterResource(R.drawable.history),
+            title = stringResource(R.string.pause_listen_history),
+            keywords = listOf("pause", "listen", "history", "privacy"),
+            onClick = { resetSearch(); navController.navigate("settings/privacy") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.delete_history),
+            title = stringResource(R.string.clear_listen_history),
+            keywords = listOf("clear", "listen", "history", "privacy"),
+            onClick = { resetSearch(); navController.navigate("settings/privacy") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.search_off),
+            title = stringResource(R.string.pause_search_history),
+            keywords = listOf("pause", "search", "history", "privacy"),
+            onClick = { resetSearch(); navController.navigate("settings/privacy") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.clear_all),
+            title = stringResource(R.string.clear_search_history),
+            keywords = listOf("clear", "search", "history", "privacy"),
+            onClick = { resetSearch(); navController.navigate("settings/privacy") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.screenshot),
+            title = stringResource(R.string.disable_screenshot),
+            keywords = listOf("disable", "screenshot", "privacy", "secure"),
+            onClick = { resetSearch(); navController.navigate("settings/privacy") }
+        ),
+
+        // Backup & Restore
+        SettingsItem(
+            icon = painterResource(R.drawable.cloud_lock),
+            title = stringResource(R.string.cloud_upload_title),
+            keywords = listOf("cloud", "upload", "backup", "sync"),
+            onClick = { resetSearch(); navController.navigate("settings/backup_restore") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.backup),
+            title = stringResource(R.string.backup),
+            keywords = listOf("backup", "export", "data"),
+            onClick = { resetSearch(); navController.navigate("settings/backup_restore") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.restore),
+            title = stringResource(R.string.restore),
+            keywords = listOf("restore", "import", "data"),
+            onClick = { resetSearch(); navController.navigate("settings/backup_restore") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.replay),
+            title = stringResource(R.string.visitor_data_title),
+            keywords = listOf("visitor", "data", "reset", "clear"),
+            onClick = { resetSearch(); navController.navigate("settings/backup_restore") }
+        )
+    )
 }
 
 // --- LAYOUT ENGINE ---
@@ -870,19 +1193,22 @@ data class SettingsContentState(
     val onClearSearchHistory: () -> Unit,
 )
 
+@Composable
 private fun LazyListScope.SearchHistorySection(state: SettingsContentState, pad: Dp) {
     if (state.searchHistory.isNotEmpty()) {
         item(key = "search_history_header") {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = pad, vertical = 8.dp),
+                    .padding(horizontal = pad, vertical = 8.dp)
+                    .animateItem(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = stringResource(R.string.search_history),
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
                 TextButton(onClick = state.onClearSearchHistory) {
@@ -891,37 +1217,49 @@ private fun LazyListScope.SearchHistorySection(state: SettingsContentState, pad:
             }
         }
         items(state.searchHistory, key = { "history_$it" }) { historyItem ->
-            Row(
+            Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { state.onSearchHistoryItemClick(historyItem) }
-                    .padding(horizontal = pad, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = pad, vertical = 4.dp)
+                    .animateItem()
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { state.onSearchHistoryItemClick(historyItem) },
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Icon(
-                    painter = painterResource(R.drawable.history),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.width(16.dp))
-                Text(
-                    text = historyItem,
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.weight(1f)
-                )
-                IconButton(
-                    onClick = { state.onRemoveSearchHistoryItem(historyItem) },
-                    onLongClick = {},
-                    modifier = Modifier.size(32.dp)
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        painter = painterResource(R.drawable.close),
+                        painter = painterResource(R.drawable.history),
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp)
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text(
+                        text = historyItem,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(
+                        onClick = { state.onRemoveSearchHistoryItem(historyItem) },
+                        onLongClick = {},
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.close),
+                            contentDescription = stringResource(R.string.delete),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
+        }
+        item(key = "search_history_spacer") {
+            Spacer(modifier = Modifier.height(16.dp).animateItem())
         }
     }
 }
@@ -1100,15 +1438,16 @@ private fun CompactSettingsLayout(
             SearchHistorySection(state, pad)
         } else if (state.isSearchActive && !state.hasSearchResults) {
             item(key = "empty") {
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(24.dp).animateItem())
                 SettingsSearchEmpty(
-                    modifier = Modifier.padding(horizontal = pad),
+                    modifier = Modifier.padding(horizontal = pad).animateItem(),
                 )
             }
         } else {
             if (state.quickActions.isNotEmpty()) {
                 item(key = "quickActions") {
                     AnimatedVisibility(
+                        modifier = Modifier.animateItem(),
                         visible = quickActionsVisible,
                         enter = fadeIn(SettingsAnimations.entranceSpring()) +
                             slideInVertically(
@@ -1130,6 +1469,7 @@ private fun CompactSettingsLayout(
             if (state.integrations.isNotEmpty()) {
                 item(key = "integrations") {
                     AnimatedVisibility(
+                        modifier = Modifier.animateItem(),
                         visible = integrationsVisible,
                         enter = fadeIn(SettingsAnimations.entranceSpring()) +
                             slideInVertically(
@@ -1153,7 +1493,8 @@ private fun CompactSettingsLayout(
                         group = state.internalGroup,
                         modifier = Modifier
                             .padding(horizontal = pad)
-                            .padding(bottom = spacing),
+                            .padding(bottom = spacing)
+                            .animateItem(),
                     )
                 }
             }
@@ -1164,6 +1505,7 @@ private fun CompactSettingsLayout(
             ) { index ->
                 val group = state.groups[index]
                 AnimatedVisibility(
+                    modifier = Modifier.animateItem(),
                     visible = categoriesVisible,
                     enter = fadeIn(
                         SettingsAnimations.staggerTween(index)
@@ -1264,6 +1606,7 @@ private fun MediumSettingsLayout(
                 if (state.quickActions.isNotEmpty()) {
                     item(key = "quickActions") {
                         AnimatedVisibility(
+                            modifier = Modifier.animateItem(),
                             visible = quickActionsVisible,
                             enter = fadeIn(SettingsAnimations.entranceSpring()),
                         ) {
@@ -1279,6 +1622,7 @@ private fun MediumSettingsLayout(
                 if (state.integrations.isNotEmpty()) {
                     item(key = "integrations") {
                         AnimatedVisibility(
+                            modifier = Modifier.animateItem(),
                             visible = integrationsVisible,
                             enter = fadeIn(SettingsAnimations.entranceSpring()),
                         ) {
@@ -1302,15 +1646,15 @@ private fun MediumSettingsLayout(
                 SearchHistorySection(state, 0.dp)
             } else if (state.isSearchActive && !state.hasSearchResults) {
                 item(key = "empty") {
-                    Spacer(modifier = Modifier.height(24.dp))
-                    SettingsSearchEmpty()
+                    Spacer(modifier = Modifier.height(24.dp).animateItem())
+                    SettingsSearchEmpty(modifier = Modifier.animateItem())
                 }
             } else {
                 if (state.internalGroup != null && state.internalGroup.items.isNotEmpty()) {
                     item(key = "internalSearchResults") {
                         SettingsGroupCard(
                             group = state.internalGroup,
-                            modifier = Modifier.padding(bottom = spacing),
+                            modifier = Modifier.padding(bottom = spacing).animateItem(),
                         )
                     }
                 }
@@ -1320,6 +1664,7 @@ private fun MediumSettingsLayout(
                     key = { state.groups[it].title },
                 ) { index ->
                     AnimatedVisibility(
+                        modifier = Modifier.animateItem(),
                         visible = categoriesVisible,
                         enter = fadeIn(
                             SettingsAnimations.staggerTween(index)
@@ -1419,6 +1764,7 @@ private fun ExpandedSettingsLayout(
                 if (state.quickActions.isNotEmpty()) {
                     item(key = "quickActions") {
                         AnimatedVisibility(
+                            modifier = Modifier.animateItem(),
                             visible = quickActionsVisible,
                             enter = fadeIn(SettingsAnimations.entranceSpring()),
                         ) {
@@ -1434,6 +1780,7 @@ private fun ExpandedSettingsLayout(
                 if (state.integrations.isNotEmpty()) {
                     item(key = "integrations") {
                         AnimatedVisibility(
+                            modifier = Modifier.animateItem(),
                             visible = integrationsVisible,
                             enter = fadeIn(SettingsAnimations.entranceSpring()),
                         ) {
@@ -1457,15 +1804,15 @@ private fun ExpandedSettingsLayout(
                 SearchHistorySection(state, 0.dp)
             } else if (state.isSearchActive && !state.hasSearchResults) {
                 item(key = "empty") {
-                    Spacer(modifier = Modifier.height(24.dp))
-                    SettingsSearchEmpty()
+                    Spacer(modifier = Modifier.height(24.dp).animateItem())
+                    SettingsSearchEmpty(modifier = Modifier.animateItem())
                 }
             } else {
                 if (state.internalGroup != null && state.internalGroup.items.isNotEmpty()) {
                     item(key = "internalSearchResults") {
                         SettingsGroupCard(
                             group = state.internalGroup,
-                            modifier = Modifier.padding(bottom = spacing),
+                            modifier = Modifier.padding(bottom = spacing).animateItem(),
                         )
                     }
                 }
@@ -1475,6 +1822,7 @@ private fun ExpandedSettingsLayout(
                     key = { state.groups[it].title },
                 ) { index ->
                     AnimatedVisibility(
+                        modifier = Modifier.animateItem(),
                         visible = categoriesVisible,
                         enter = fadeIn(
                             SettingsAnimations.staggerTween(index)
@@ -1891,7 +2239,7 @@ fun SettingsGroupCard(
     group: SettingsGroup,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier) {
+    Column(modifier = modifier.animateContentSize()) {
         Text(
             text = group.title.uppercase(),
             style = MaterialTheme.typography.labelSmall,
@@ -1910,6 +2258,7 @@ fun SettingsGroupCard(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
             ),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            modifier = Modifier.animateContentSize()
         ) {
             Column {
                 group.items.forEachIndexed { index, item ->
