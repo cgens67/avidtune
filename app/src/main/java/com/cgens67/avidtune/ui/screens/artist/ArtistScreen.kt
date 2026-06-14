@@ -405,13 +405,13 @@ fun ArtistScreen(
                                             R.drawable.subscribe
                                     ),
                                     contentDescription = null,
-                                    modifier = Modifier.size(20.dp),
+                                    modifier = Modifier.size(18.dp),
                                     tint = if (libraryArtist?.artist?.bookmarkedAt != null)
                                         MaterialTheme.colorScheme.onPrimary
                                     else
                                         LocalContentColor.current
                                 )
-                                Spacer(Modifier.size(ToggleButtonDefaults.IconSpacing))
+                                Spacer(Modifier.width(4.dp))
                                 Text(
                                     text = stringResource(
                                         if (libraryArtist?.artist?.bookmarkedAt != null)
@@ -419,7 +419,9 @@ fun ArtistScreen(
                                         else
                                             R.string.subscribe
                                     ),
-                                    style = MaterialTheme.typography.labelMedium
+                                    style = MaterialTheme.typography.labelMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
 
@@ -440,13 +442,15 @@ fun ArtistScreen(
                                     Icon(
                                         painter = painterResource(R.drawable.radio),
                                         contentDescription = null,
-                                        modifier = Modifier.size(20.dp),
+                                        modifier = Modifier.size(18.dp),
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                    Spacer(Modifier.size(ToggleButtonDefaults.IconSpacing))
+                                    Spacer(Modifier.width(4.dp))
                                     Text(
                                         text = stringResource(R.string.radio),
-                                        style = MaterialTheme.typography.labelMedium
+                                        style = MaterialTheme.typography.labelMedium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
                             }
@@ -472,13 +476,15 @@ fun ArtistScreen(
                                     Icon(
                                         painter = painterResource(R.drawable.shuffle),
                                         contentDescription = stringResource(R.string.shuffle),
-                                        modifier = Modifier.size(20.dp),
+                                        modifier = Modifier.size(18.dp),
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                    Spacer(Modifier.size(ToggleButtonDefaults.IconSpacing))
+                                    Spacer(Modifier.width(4.dp))
                                     Text(
                                         text = stringResource(R.string.shuffle),
-                                        style = MaterialTheme.typography.labelMedium
+                                        style = MaterialTheme.typography.labelMedium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
                             }
