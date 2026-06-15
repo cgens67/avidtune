@@ -6,7 +6,8 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven { url = uri("https://jitpack.io") }
+        // Use the www subdomain to circumvent JitPack's 403 CI blocks
+        maven { url = uri("https://www.jitpack.io") }
     }
 }
 
