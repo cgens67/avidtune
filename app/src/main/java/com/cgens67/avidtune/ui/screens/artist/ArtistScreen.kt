@@ -603,11 +603,7 @@ fun ArtistScreen(
                                                 val targetChannelId = channelId ?: YouTube.getChannelId(artistId)
 
                                                 if (targetChannelId.isNotEmpty()) {
-                                                    if (isSubscribing) {
-                                                        YouTube.subscribeChannel(targetChannelId, true)
-                                                    } else {
-                                                        YouTube.unsubscribeChannel(targetChannelId, true)
-                                                    }
+                                                    YouTube.subscribeChannel(targetChannelId, isSubscribing)
                                                 }
                                             } catch (e: Exception) {
                                                 e.printStackTrace()
@@ -1020,7 +1016,7 @@ fun ArtistScreen(
             },
             colors = TopAppBarDefaults.topAppBarColors(
                 containerColor = Color.Transparent,
-                scrolledContainerColor = Color.Transparent
+                scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
             ),
             scrollBehavior = scrollBehavior
         )
