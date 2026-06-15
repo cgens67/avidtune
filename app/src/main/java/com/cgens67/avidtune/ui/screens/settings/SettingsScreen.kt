@@ -755,7 +755,7 @@ private fun buildIntegrationActions(
     val uriHandler = LocalUriHandler.current
     return listOf(
         SettingsIntegrationAction(
-            icon = painterResource(R.drawable.multi_user),
+            icon = painterResource(R.drawable.person),
             label = stringResource(R.string.music_together),
             onClick = { resetSearch(); onTogetherClick() },
             accentColor = Color(0xFF1DB954)
