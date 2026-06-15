@@ -29,7 +29,6 @@ constraintlayout = "2.2.1"
 itextg = "5.5.10"
 mpandroidchart = "v3.1.0"
 
-
 [libraries]
 annotation = { module = "androidx.annotation:annotation", version.ref = "annotation" }
 guava = { group = "com.google.guava", name = "guava", version = "33.4.0-android" }
@@ -49,7 +48,6 @@ compose-ui-util = { group = "androidx.compose.ui", name = "ui-util", version.ref
 compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling", version.ref = "compose" }
 compose-animation = { group = "androidx.compose.animation", name = "animation-graphics", version.ref = "compose" }
 compose-reorderable = { module = "sh.calvin.reorderable:reorderable", version.ref = "composeReorderable" }
-
 
 squigglyslider = { group = "me.saket.squigglyslider", name = "squigglyslider", version = "1.0.0" }
 
