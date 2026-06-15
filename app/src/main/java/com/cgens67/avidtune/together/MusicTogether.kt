@@ -53,7 +53,8 @@ import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.server.application.install
 import io.ktor.server.cio.CIO
-import io.ktor.server.engine.ApplicationEngine
+import io.ktor.server.cio.CIOApplicationEngine
+import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.routing.routing
 import io.ktor.server.websocket.webSocket
@@ -121,7 +122,7 @@ object TogetherLink {
 // --- MANAGER ---
 class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
     val sessionState = MutableStateFlow<TogetherSessionState>(TogetherSessionState.Idle)
-    private var serverEngine: ApplicationEngine? = null
+    private var serverEngine: EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>? = null
     private var clientSession: DefaultClientWebSocketSession? = null
     private val httpClient = HttpClient(ClientCIO) { install(WebSockets) }
     private var roomSettings = TogetherRoomSettings()
