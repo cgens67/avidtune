@@ -1,3 +1,8 @@
+Here is the full, updated raw code for SettingsScreen.kt. I have added the
+showTogetherScreen state, returned early to render the MusicTogetherScreen, and
+updated buildIntegrationActions to include the "Music Together" button which
+properly triggers the state.
+
 @file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
 
 package com.cgens67.avidtune.ui.screens.settings
@@ -283,6 +288,17 @@ fun SettingsScreen(
     val listState = rememberLazyListState()
     val viewModel: HomeViewModel = hiltViewModel()
 
+    var showTogetherScreen by remember { mutableStateOf(false) }
+
+    if (showTogetherScreen) {
+        com.cgens67.avidtune.together.MusicTogetherScreen(
+            navController = navController,
+            scrollBehavior = scrollBehavior,
+            onBack = { showTogetherScreen = false }
+        )
+        return // Stop rendering SettingsScreen beneath it
+    }
+
     val newsViewModel: NewsViewModel = hiltViewModel()
     val hasUnreadNews by newsViewModel.hasUnreadNews.collectAsState()
 
@@ -410,7 +426,7 @@ fun SettingsScreen(
     }
 
     val quickActions = buildQuickActions(navController, resetSearch)
-    val integrationActions = buildIntegrationActions(navController, resetSearch)
+    val integrationActions = buildIntegrationActions(navController, resetSearch, onShowTogether = { showTogetherScreen = true })
     val settingsGroups = buildSettingsGroups(navController, resetSearch, onChangelogClick = { navController.navigate("settings/changelog") }, hasUnreadNews)
     val internalItems = buildInternalItems(navController, resetSearch)
 
@@ -736,9 +752,19 @@ private fun buildQuickActions(navController: NavController, resetSearch: () -> U
 }
 
 @Composable
-private fun buildIntegrationActions(navController: NavController, resetSearch: () -> Unit): List<SettingsIntegrationAction> {
+private fun buildIntegrationActions(
+    navController: NavController, 
+    resetSearch: () -> Unit,
+    onShowTogether: () -> Unit
+): List<SettingsIntegrationAction> {
     val uriHandler = LocalUriHandler.current
     return listOf(
+        SettingsIntegrationAction(
+            icon = painterResource(R.drawable.multi_user),
+            label = stringResource(R.string.music_together),
+            onClick = { resetSearch(); onShowTogether() },
+            accentColor = Color(0xFF1DB954)
+        ),
         SettingsIntegrationAction(
             icon = painterResource(R.drawable.discord),
             label = stringResource(R.string.discord),
