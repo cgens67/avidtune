@@ -921,7 +921,6 @@
     <string name="github">GitHub</string>
     <string name="new_badge">New</string>
     
-    <resources>
     <string name="music_together">Music Together</string>
     <string name="together_display_name">Display Name</string>
     <string name="together_display_name_placeholder">Enter your name</string>
