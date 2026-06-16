@@ -462,6 +462,7 @@ class MainActivity : ComponentActivity() {
                                 Screens.Home.route,
                                 Screens.Explore.route,
                                 Screens.Library.route,
+                                Screens.Together.route,
                                 "settings",
                             )
 
@@ -730,6 +731,7 @@ class MainActivity : ComponentActivity() {
                                 Screens.Home.route -> R.string.home
                                 Screens.Explore.route -> R.string.explore
                                 Screens.Library.route -> R.string.filter_library
+                                Screens.Together.route -> R.string.music_together
                                 else -> null
                             }
                         }
