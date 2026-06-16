@@ -130,7 +130,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
     private var clientSession: DefaultClientWebSocketSession? = null
     private val httpClient = HttpClient(ClientCIO) {
         install(WebSockets) {
-            pingInterval = 20_000L
+            pingIntervalMillis = 20_000L
         }
     }
     private var roomSettings = TogetherRoomSettings()
@@ -256,29 +256,55 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                 )
 
                 val engine = embeddedServer(CIO, port = port, host = "0.0.0.0") {
-                    install(io.ktor.server.websocket.WebSockets)
+                    install(io.ktor.server.websocket.WebSockets) {
+                        pingPeriodMillis = 15000L
+                        timeoutMillis = 15000L
+                        maxFrameSize = Long.MAX_VALUE
+                        masking = false
+                    }
                     routing {
                         webSocket("/together") {
-                            val txt = (incoming.receive() as? Frame.Text)?.readText() ?: return@webSocket
-                            val hello = TogetherJson.json.decodeFromString<TogetherMessage>(txt) as? ClientHello ?: return@webSocket
-                            val pId = UUID.randomUUID().toString()
-
-                            hostParticipants[pId] = TogetherParticipant(
-                                id = pId,
-                                name = hello.displayName,
-                                isHost = false,
-                                isConnected = true
-                            )
-                            hostConnections[pId] = this@webSocket
-
+                            var pId: String? = null
                             try {
-                                send(TogetherJson.json.encodeToString(TogetherMessage.serializer(), ServerWelcome(TogetherProtocolVersion, sId, pId, ServerRole.GUEST, false, roomSettings)))
-                                broadcastRoomState()
-                                for (frame in incoming) { } // Keep-Alive loop
+                                for (frame in incoming) {
+                                    if (frame !is Frame.Text) continue
+                                    val txt = frame.readText()
+                                    val msg = try { 
+                                        TogetherJson.json.decodeFromString<TogetherMessage>(txt) 
+                                    } catch (e: Exception) { null }
+                                    
+                                    if (msg is ClientHello) {
+                                        pId = UUID.randomUUID().toString()
+                                        hostParticipants[pId] = TogetherParticipant(
+                                            id = pId,
+                                            name = msg.displayName,
+                                            isHost = false,
+                                            isConnected = true
+                                        )
+                                        hostConnections[pId] = this@webSocket
+                                        
+                                        send(TogetherJson.json.encodeToString(
+                                            TogetherMessage.serializer(), 
+                                            ServerWelcome(
+                                                protocolVersion = TogetherProtocolVersion, 
+                                                sessionId = sId, 
+                                                participantId = pId, 
+                                                role = ServerRole.GUEST, 
+                                                isPending = false, 
+                                                settings = roomSettings
+                                            )
+                                        ))
+                                        broadcastRoomState()
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                e.printStackTrace()
                             } finally {
-                                hostParticipants.remove(pId)
-                                hostConnections.remove(pId)
-                                broadcastRoomState()
+                                pId?.let {
+                                    hostParticipants.remove(it)
+                                    hostConnections.remove(it)
+                                    broadcastRoomState()
+                                }
                             }
                         }
                     }
@@ -324,26 +350,30 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                     
                     var selfPId = "guest"
 
-                    for (frame in incoming) {
-                        if (frame !is Frame.Text) continue
-                        val msgText = frame.readText()
-                        try {
-                            when (val msg = TogetherJson.json.decodeFromString<TogetherMessage>(msgText)) {
-                                is ServerWelcome -> {
-                                    selfPId = msg.participantId
-                                }
-                                is RoomStateMessage -> {
-                                    val rs = msg.state
-                                    withContext(Dispatchers.Main) {
-                                        sessionState.value = TogetherSessionState.Joined(TogetherRole.Guest, info.sessionId, selfPId, rs)
-                                        syncPlayerToState(rs)
+                    try {
+                        for (frame in incoming) {
+                            if (frame !is Frame.Text) continue
+                            val msgText = frame.readText()
+                            try {
+                                when (val msg = TogetherJson.json.decodeFromString<TogetherMessage>(msgText)) {
+                                    is ServerWelcome -> {
+                                        selfPId = msg.participantId
                                     }
+                                    is RoomStateMessage -> {
+                                        val rs = msg.state
+                                        withContext(Dispatchers.Main) {
+                                            sessionState.value = TogetherSessionState.Joined(TogetherRole.Guest, info.sessionId, selfPId, rs)
+                                            syncPlayerToState(rs)
+                                        }
+                                    }
+                                    else -> {}
                                 }
-                                else -> {}
+                            } catch (e: Exception) {
+                                e.printStackTrace()
                             }
-                        } catch (e: Exception) {
-                            e.printStackTrace()
                         }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
                     }
 
                     // Loop ended, connection closed by host/server
@@ -465,11 +495,13 @@ fun MusicTogetherScreen(
         isVisible = true
     }
 
-    val handleBack = {
-        isVisible = false
-        coroutineScope.launch {
-            delay(300) // Match exit animation duration
-            onBack()
+    val handleBack: () -> Unit = {
+        if (isVisible) {
+            isVisible = false
+            coroutineScope.launch {
+                delay(300) // Match exit animation duration
+                onBack()
+            }
         }
     }
 
