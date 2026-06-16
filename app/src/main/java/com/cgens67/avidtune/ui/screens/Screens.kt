@@ -33,7 +33,14 @@ sealed class Screens(
         route = "library"
     )
 
+    data object Together : Screens(
+        titleId = R.string.music_together,
+        iconIdInactive = R.drawable.auto_awesome,
+        iconIdActive = R.drawable.auto_awesome,
+        route = "together"
+    )
+
     companion object {
-        val MainScreens = listOf(Home, Explore, Library)
+        val MainScreens = listOf(Home, Explore, Library, Together)
     }
 }
