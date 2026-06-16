@@ -19,6 +19,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.cgens67.avidtune.BuildConfig
+import com.cgens67.avidtune.together.MusicTogetherScreen
 import com.cgens67.avidtune.ui.screens.settings.ChangelogScreen
 import com.cgens67.avidtune.ui.screens.artist.ArtistItemsScreen
 import com.cgens67.avidtune.ui.screens.artist.ArtistScreen
@@ -62,6 +63,9 @@ fun NavGraphBuilder.navigationBuilder(
     }
     composable(Screens.Explore.route) {
         ExploreScreen(navController,scrollBehavior)
+    }
+    composable(Screens.Together.route) {
+        MusicTogetherScreen(navController, scrollBehavior, onBack = { navController.navigateUp() })
     }
     composable("history") {
         HistoryScreen(navController)
