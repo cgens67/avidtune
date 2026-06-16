@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Build
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -36,7 +37,10 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.datastore.preferences.core.*
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.navigation.NavController
 import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
@@ -70,8 +74,6 @@ import java.net.URI
 import java.net.URLDecoder
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-import androidx.media3.common.Player
-import androidx.media3.common.MediaItem
 
 // --- PREFERENCES ---
 val TogetherAllowGuestsToAddTracksKey = booleanPreferencesKey("TogetherAllowGuestsToAddTracks")
@@ -126,7 +128,11 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
     val sessionState = MutableStateFlow<TogetherSessionState>(TogetherSessionState.Idle)
     private var serverEngine: EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>? = null
     private var clientSession: DefaultClientWebSocketSession? = null
-    private val httpClient = HttpClient(ClientCIO) { install(WebSockets) }
+    private val httpClient = HttpClient(ClientCIO) {
+        install(WebSockets) {
+            pingInterval = 20_000L
+        }
+    }
     private var roomSettings = TogetherRoomSettings()
 
     private val hostConnections = ConcurrentHashMap<String, io.ktor.websocket.DefaultWebSocketSession>()
@@ -159,6 +165,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
         player.addListener(playerListener)
     }
 
+    // IMPORTANT: Call this ONLY from the Main thread because ExoPlayer is accessed here
     private fun getCurrentRoomState(sId: String): TogetherRoomState {
         val currentItem = player.currentMediaItem
         val trackId = currentItem?.mediaId ?: ""
@@ -192,17 +199,24 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
     private fun broadcastRoomState() {
         val currentState = sessionState.value
         if (currentState is TogetherSessionState.Hosting) {
-            val roomState = getCurrentRoomState(currentState.sessionId)
-            sessionState.value = currentState.copy(roomState = roomState)
+            // Guarantee we jump to Main before reading the player state
+            scope.launch(Dispatchers.Main) {
+                try {
+                    val roomState = getCurrentRoomState(currentState.sessionId)
+                    sessionState.value = currentState.copy(roomState = roomState)
 
-            val msg = TogetherJson.json.encodeToString(TogetherMessage.serializer(), RoomStateMessage(roomState))
-            scope.launch {
-                hostConnections.values.forEach { session ->
-                    try {
-                        session.send(msg)
-                    } catch (e: Exception) {
-                        // ignore
+                    val msg = TogetherJson.json.encodeToString(TogetherMessage.serializer(), RoomStateMessage(roomState))
+                    withContext(Dispatchers.IO) {
+                        hostConnections.values.forEach { session ->
+                            try {
+                                session.send(msg)
+                            } catch (e: Exception) {
+                                // ignore
+                            }
+                        }
                     }
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
             }
         }
@@ -291,7 +305,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
     fun joinTogether(joinLink: String, displayName: String) {
         leaveTogether()
         isHost = false
-        scope.launch(Dispatchers.IO) {
+        val joinJob = scope.launch(Dispatchers.IO) {
             val info = TogetherLink.decode(joinLink)
             if (info == null) {
                 withContext(Dispatchers.Main) {
@@ -313,25 +327,47 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                     for (frame in incoming) {
                         if (frame !is Frame.Text) continue
                         val msgText = frame.readText()
-                        when (val msg = TogetherJson.json.decodeFromString<TogetherMessage>(msgText)) {
-                            is ServerWelcome -> {
-                                selfPId = msg.participantId
-                            }
-                            is RoomStateMessage -> {
-                                val rs = msg.state
-                                withContext(Dispatchers.Main) {
-                                    sessionState.value = TogetherSessionState.Joined(TogetherRole.Guest, info.sessionId, selfPId, rs)
-                                    syncPlayerToState(rs)
+                        try {
+                            when (val msg = TogetherJson.json.decodeFromString<TogetherMessage>(msgText)) {
+                                is ServerWelcome -> {
+                                    selfPId = msg.participantId
                                 }
+                                is RoomStateMessage -> {
+                                    val rs = msg.state
+                                    withContext(Dispatchers.Main) {
+                                        sessionState.value = TogetherSessionState.Joined(TogetherRole.Guest, info.sessionId, selfPId, rs)
+                                        syncPlayerToState(rs)
+                                    }
+                                }
+                                else -> {}
                             }
-                            else -> {}
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+
+                    // Loop ended, connection closed by host/server
+                    withContext(Dispatchers.Main) {
+                        val curr = sessionState.value
+                        if (curr is TogetherSessionState.Joined || curr is TogetherSessionState.Joining) {
+                            sessionState.value = TogetherSessionState.Error("Connection closed by host")
                         }
                     }
                 }
             } catch (e: Exception) {
+                e.printStackTrace()
                 withContext(Dispatchers.Main) {
                     sessionState.value = TogetherSessionState.Error("Failed to connect: ${e.message}")
                 }
+            }
+        }
+
+        // Connection watchdog
+        scope.launch {
+            delay(10_000L)
+            if (sessionState.value is TogetherSessionState.Joining) {
+                joinJob.cancel()
+                sessionState.value = TogetherSessionState.Error("Connection timed out. Please check the host's IP and port.")
             }
         }
     }
@@ -407,7 +443,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
         .firstOrNull { !it.isLoopbackAddress && it is java.net.Inet4Address }?.hostAddress
 }
 
-// --- UI SCREEN (Original UI unmodified in design & animation) ---
+// --- UI SCREEN ---
 @SuppressLint("LocalContextGetResourceValueCall")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -421,6 +457,25 @@ fun MusicTogetherScreen(
     @Suppress("DEPRECATION")
     val clipboard = LocalClipboardManager.current
     val haptic = LocalHapticFeedback.current
+    val coroutineScope = rememberCoroutineScope()
+
+    var isVisible by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        isVisible = true
+    }
+
+    val handleBack = {
+        isVisible = false
+        coroutineScope.launch {
+            delay(300) // Match exit animation duration
+            onBack()
+        }
+    }
+
+    BackHandler(enabled = isVisible) {
+        handleBack()
+    }
 
     val (welcomeShown, setWelcomeShown) = rememberPreference(TogetherWelcomeShownKey, false)
     var welcomeDismissedThisSession by rememberSaveable { mutableStateOf(false) }
@@ -529,35 +584,54 @@ fun MusicTogetherScreen(
         )
     }
 
-    Column(
-        Modifier
-            .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom))
-            .verticalScroll(rememberScrollState()),
+    AnimatedVisibility(
+        visible = isVisible,
+        enter = slideInVertically(
+            initialOffsetY = { it },
+            animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
+        ) + fadeIn(tween(300)),
+        exit = slideOutVertically(
+            targetOffsetY = { it },
+            animationSpec = tween(300)
+        ) + fadeOut(tween(300)),
+        modifier = Modifier.fillMaxSize().zIndex(100f)
     ) {
-        Spacer(Modifier.windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Top)))
+        Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
+            Column(
+                Modifier
+                    .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom))
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                Spacer(Modifier.windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Top)))
+                Spacer(Modifier.height(64.dp)) // To account for TopAppBar height
 
-        StatusCard(state = sessionState, onCopyLink = { link -> clipboard.setText(AnnotatedString(link)); haptic.performHapticFeedback(HapticFeedbackType.LongPress); Toast.makeText(context, R.string.copied, Toast.LENGTH_SHORT).show() }, onShareLink = { link -> context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, link) }, null)) }, onLeave = { playerConnection?.service?.leaveTogether() }, modifier = Modifier.padding(horizontal = 16.dp).padding(top = 4.dp, bottom = 12.dp))
+                StatusCard(state = sessionState, onCopyLink = { link -> clipboard.setText(AnnotatedString(link)); haptic.performHapticFeedback(HapticFeedbackType.LongPress); Toast.makeText(context, R.string.copied, Toast.LENGTH_SHORT).show() }, onShareLink = { link -> context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, link) }, null)) }, onLeave = { playerConnection?.service?.leaveTogether() }, modifier = Modifier.padding(horizontal = 16.dp).padding(top = 4.dp, bottom = 12.dp))
 
-        if (hostingLan?.roomState != null && isHostRole) {
-            OnlineParticipantsCard(participants = hostingLan.roomState.participants, hostApprovalEnabled = hostingLan.settings.requireHostApprovalToJoin, onApprove = { pid, approved -> playerConnection?.service?.approveTogetherParticipant(pid, approved) }, onKick = { confirmKickParticipantId = it }, onBan  = { confirmBanParticipantId  = it }, modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp))
-        }
+                if (hostingLan?.roomState != null && isHostRole) {
+                    OnlineParticipantsCard(participants = hostingLan.roomState.participants, hostApprovalEnabled = hostingLan.settings.requireHostApprovalToJoin, onApprove = { pid, approved -> playerConnection?.service?.approveTogetherParticipant(pid, approved) }, onKick = { confirmKickParticipantId = it }, onBan  = { confirmBanParticipantId  = it }, modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp))
+                }
 
-        if (!isJoinedAsGuest) {
-            HostSectionCard(displayName = displayName, port = port, allowAddTracks = allowAddTracks, allowControlPlayback = allowControlPlayback, requireApproval = requireApproval, onShowNameDialog = { showNameDialog = true }, onShowPortDialog = { showPortDialog = true }, onAllowAddTracksChange = setAllowAddTracks, onAllowControlPlaybackChange = setAllowControlPlayback, onRequireApprovalChange = setRequireApproval, isStartEnabled = !isCreatingSessionLoading && !isJoining && !isHosting && sessionState !is TogetherSessionState.Joined, isLoading = isCreatingSessionLoading, onStartSession = { playerConnection?.service?.startTogetherHost(port = port, displayName = displayName, settings = TogetherRoomSettings(allowGuestsToAddTracks = allowAddTracks, allowGuestsToControlPlayback = allowControlPlayback, requireHostApprovalToJoin = requireApproval)) }, modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp))
-        }
+                if (!isJoinedAsGuest) {
+                    HostSectionCard(displayName = displayName, port = port, allowAddTracks = allowAddTracks, allowControlPlayback = allowControlPlayback, requireApproval = requireApproval, onShowNameDialog = { showNameDialog = true }, onShowPortDialog = { showPortDialog = true }, onAllowAddTracksChange = setAllowAddTracks, onAllowControlPlaybackChange = setAllowControlPlayback, onRequireApprovalChange = setRequireApproval, isStartEnabled = !isCreatingSessionLoading && !isJoining && !isHosting && sessionState !is TogetherSessionState.Joined, isLoading = isCreatingSessionLoading, onStartSession = { playerConnection?.service?.startTogetherHost(port = port, displayName = displayName, settings = TogetherRoomSettings(allowGuestsToAddTracks = allowAddTracks, allowGuestsToControlPlayback = allowControlPlayback, requireHostApprovalToJoin = requireApproval)) }, modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp))
+                }
 
-        JoinSectionCard(joinInput = joinInput, onJoinInputChange = { joinInput = it }, canJoin = canJoin, disableJoinUi = disableJoinUi, isJoined = isJoinedAsAcceptedGuest, isWaitingApproval = isWaitingApproval, isJoining = isJoining, onShowJoinDialog = { showJoinDialog = true }, onPasteFromClipboard = { val text = clipboard.getText()?.text?.trim() ?: ""; if (text.isNotBlank()) { joinInput = text; haptic.performHapticFeedback(HapticFeedbackType.LongPress); if (TogetherLink.decode(text) != null) { setLastJoinLink(text); playerConnection?.service?.joinTogether(text, displayName) } } }, onJoin = { val trimmed = joinInput.trim(); setLastJoinLink(trimmed); playerConnection?.service?.joinTogether(trimmed, displayName) }, modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp))
-    }
-
-    TopAppBar(
-        title = { Text(stringResource(R.string.music_together)) },
-        navigationIcon = {
-            AtIconButton(onClick = onBack, onLongClick = navController::backToMain) {
-                Icon(painterResource(R.drawable.arrow_back), null)
+                JoinSectionCard(joinInput = joinInput, onJoinInputChange = { joinInput = it }, canJoin = canJoin, disableJoinUi = disableJoinUi, isJoined = isJoinedAsAcceptedGuest, isWaitingApproval = isWaitingApproval, isJoining = isJoining, onShowJoinDialog = { showJoinDialog = true }, onPasteFromClipboard = { val text = clipboard.getText()?.text?.trim() ?: ""; if (text.isNotBlank()) { joinInput = text; haptic.performHapticFeedback(HapticFeedbackType.LongPress); if (TogetherLink.decode(text) != null) { setLastJoinLink(text); playerConnection?.service?.joinTogether(text, displayName) } } }, onJoin = { val trimmed = joinInput.trim(); setLastJoinLink(trimmed); playerConnection?.service?.joinTogether(trimmed, displayName) }, modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp))
             }
-        },
-        scrollBehavior = scrollBehavior,
-    )
+
+            TopAppBar(
+                title = { Text(stringResource(R.string.music_together)) },
+                navigationIcon = {
+                    AtIconButton(onClick = handleBack, onLongClick = { handleBack(); navController.backToMain() }) {
+                        Icon(painterResource(R.drawable.arrow_back), null)
+                    }
+                },
+                scrollBehavior = scrollBehavior,
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+                )
+            )
+        }
+    }
 }
 
 @Composable
