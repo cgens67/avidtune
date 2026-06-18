@@ -247,7 +247,7 @@ fun AboutScreen(
                 ContributorsCard(
                     contributors = listOf(
                         Contributor(
-                            avatarUrl = "https://raw.githubusercontent.com/cgens67/Assets/refs/heads/main/706901250_17936492904252146_770663282096616853_n.jpg",
+                            avatarUrl = "https://raw.githubusercontent.com/cgens67/Assets/refs/heads/main/avidtunescreenshots/723961601_17939287968252146_3708914078912691512_n.jpg",
                             name = 0,
                             role = R.string.supporter,
                             profileUrl = "https://www.instagram.com/illit._.610",
