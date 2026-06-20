@@ -7,7 +7,9 @@ import androidx.lifecycle.viewModelScope
 import com.cgens67.innertube.YouTube
 import com.cgens67.innertube.models.BrowseEndpoint
 import com.cgens67.innertube.models.filterExplicit
+import com.cgens67.innertube.models.filterMusicVideos
 import com.cgens67.avidtune.constants.HideExplicitKey
+import com.cgens67.avidtune.constants.HideMusicVideosKey
 import com.cgens67.avidtune.models.ItemsPage
 import com.cgens67.avidtune.utils.dataStore
 import com.cgens67.avidtune.utils.get
@@ -44,7 +46,7 @@ constructor(
                     title.value = artistItemsPage.title
                     itemsPage.value =
                         ItemsPage(
-                            items = artistItemsPage.items.distinctBy { it.id },
+                            items = artistItemsPage.items.distinctBy { it.id }.filterExplicit(context.dataStore.get(HideExplicitKey, false)).filterMusicVideos(context.dataStore.get(HideMusicVideosKey, false)),
                             continuation = artistItemsPage.continuation,
                         )
                 }.onFailure {
@@ -65,7 +67,8 @@ constructor(
                             items =
                                 (oldItemsPage.items + artistItemsContinuationPage.items)
                                     .distinctBy { it.id }
-                                    .filterExplicit(context.dataStore.get(HideExplicitKey, false)),
+                                    .filterExplicit(context.dataStore.get(HideExplicitKey, false))
+                                    .filterMusicVideos(context.dataStore.get(HideMusicVideosKey, false)),
                             continuation = artistItemsContinuationPage.continuation,
                         )
                     }
