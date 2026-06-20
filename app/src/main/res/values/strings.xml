@@ -968,5 +968,7 @@
     <string name="connecting">Connecting…</string>
     <string name="participants">Participants</string>
     <string name="got_it">Got it</string>
+    
+    <string name="double_tap_to_seek">Double tap to seek</string>
 
 </resources>
