@@ -10,8 +10,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cgens67.innertube.YouTube
 import com.cgens67.innertube.models.filterExplicit
+import com.cgens67.innertube.models.filterMusicVideos
 import com.cgens67.innertube.pages.SearchSummaryPage
 import com.cgens67.avidtune.constants.HideExplicitKey
+import com.cgens67.avidtune.constants.HideMusicVideosKey
 import com.cgens67.avidtune.models.ItemsPage
 import com.cgens67.avidtune.utils.dataStore
 import com.cgens67.avidtune.utils.get
@@ -48,6 +50,11 @@ constructor(
                                             HideExplicitKey,
                                             false,
                                         ),
+                                    ).filterMusicVideos(
+                                        context.dataStore.get(
+                                            HideMusicVideosKey,
+                                            false,
+                                        ),
                                     )
                             }.onFailure {
                                 reportException(it)
@@ -65,6 +72,12 @@ constructor(
                                             .filterExplicit(
                                                 context.dataStore.get(
                                                     HideExplicitKey,
+                                                    false
+                                                )
+                                            )
+                                            .filterMusicVideos(
+                                                context.dataStore.get(
+                                                    HideMusicVideosKey,
                                                     false
                                                 )
                                             ),
@@ -89,7 +102,7 @@ constructor(
                 val searchResult =
                     YouTube.searchContinuation(continuation).getOrNull() ?: return@launch
                 viewStateMap[filter] = ItemsPage(
-                    (viewState.items + searchResult.items).distinctBy { it.id },
+                    (viewState.items + searchResult.items).distinctBy { it.id }.filterExplicit(context.dataStore.get(HideExplicitKey, false)).filterMusicVideos(context.dataStore.get(HideMusicVideosKey, false)),
                     searchResult.continuation
                 )
             }
