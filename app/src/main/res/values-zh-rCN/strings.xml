@@ -952,4 +952,6 @@
     <string name="connecting">连接中…</string>
     <string name="participants">参与者</string>
     <string name="got_it">知道了</string>
+    
+    <string name="double_tap_to_seek">双击以快进/快退</string>
 </resources>
