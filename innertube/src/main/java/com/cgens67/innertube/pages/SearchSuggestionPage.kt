@@ -98,7 +98,13 @@ object SearchSuggestionPage {
                 val firstRunText = secondaryLine?.firstOrNull()?.firstOrNull()?.text
                 val typePrefixes = listOf("Episode", "Episodio", "Video", "Vídeo", "Song", "Canción", "Cancion", "Chanson", "Lied", "Canção", "Canzone", "Şarkı", "Песня", "Piosenka", "歌曲", "曲", "노래", "שיר", "أغنية", "Mahnı")
                 val isVideoOrEpisode = firstRunText in typePrefixes || (firstRunText != null && firstRunText.lowercase() in typePrefixes.map { it.lowercase() }) || ((secondaryLine?.size ?: 0) >= 3 && secondaryLine?.firstOrNull()?.firstOrNull()?.navigationEndpoint == null)
-                val fallbackIndex = if (isVideoOrEpisode && (secondaryLine?.size ?: 0) > 1) 1 else 0
+                val fallbackIndex = if (isVideoOrEpisode) {
+                    val startIndex = 1
+                    val endpointIndex = secondaryLine?.drop(startIndex)?.indexOfFirst { chunk ->
+                        chunk.any { it.navigationEndpoint?.browseEndpoint != null }
+                    } ?: -1
+                    if (endpointIndex != -1) startIndex + endpointIndex else startIndex
+                } else 0
 
                 SongItem(
                     id = renderer.videoId ?: return null,
