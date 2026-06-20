@@ -54,6 +54,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -73,8 +74,10 @@ import com.cgens67.avidtune.constants.PersistentQueueKey
 import com.cgens67.avidtune.constants.SkipSilenceKey
 import com.cgens67.avidtune.constants.SponsorBlockEnabledKey
 import com.cgens67.avidtune.constants.StopMusicOnTaskClearKey
+import com.cgens67.avidtune.constants.SeekIncrementKey
 import com.cgens67.avidtune.playback.PlayerConnection
 import com.cgens67.avidtune.ui.component.EnumListPreference
+import com.cgens67.avidtune.ui.component.ListPreference
 import com.cgens67.avidtune.ui.component.IconButton
 import com.cgens67.avidtune.ui.component.SettingsGeneralCategory
 import com.cgens67.avidtune.ui.component.SettingsPage
@@ -95,6 +98,10 @@ fun PlayerSettings(
     val (audioQuality, onAudioQualityChange) = rememberEnumPreference(
         AudioQualityKey,
         defaultValue = AudioQuality.AUTO
+    )
+    val (seekIncrement, onSeekIncrementChange) = rememberPreference(
+        SeekIncrementKey,
+        defaultValue = 5
     )
     val (persistentQueue, onPersistentQueueChange) = rememberPreference(
         PersistentQueueKey,
@@ -148,6 +155,15 @@ fun PlayerSettings(
                             AudioQuality.LOW -> stringResource(R.string.audio_quality_low)
                         }
                     }
+                )},
+                
+                {ListPreference(
+                    title = { Text("Double-tap to seek") },
+                    icon = { Icon(painterResource(R.drawable.fast_forward), null) },
+                    selectedValue = seekIncrement,
+                    values = listOf(5, 10, 15, 30),
+                    valueText = { pluralStringResource(R.plurals.seconds, it, it) },
+                    onValueSelected = onSeekIncrementChange
                 )},
 
                 {SwitchPreference(
