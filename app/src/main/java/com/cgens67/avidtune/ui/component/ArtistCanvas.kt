@@ -77,42 +77,24 @@ object ArtistCanvasProvider {
     }
 
     private val cache = ConcurrentHashMap<String, String>()
-    private var cachedToken: String? = null
+    private var dynamicToken: String? = null
 
-    private suspend fun getDeveloperToken(forceRefresh: Boolean = false): String? {
-        if (forceRefresh) {
-            cachedToken = null
-        }
-        cachedToken?.let { return it }
-        return runCatching {
-            val mainPageResponse = client.get("https://beta.music.apple.com")
-            val mainPageBody = mainPageResponse.bodyAsText()
+    // Dynamically fetches the Apple Music token so it never expires
+    private suspend fun getAppleMusicToken(): String? {
+        dynamicToken?.let { return it }
 
-            val indexJsRegex = Regex("""/assets/index~[^/]+\.js""")
-            val indexJsMatch = indexJsRegex.find(mainPageBody) ?: return null
-            val indexJsUri = indexJsMatch.value
-
-            val indexJsResponse = client.get("https://beta.music.apple.com$indexJsUri")
-            val indexJsBody = indexJsResponse.bodyAsText()
-
-            val tokenRegex = Regex("""eyJh([^"]*)""")
-            val tokenMatch = tokenRegex.find(indexJsBody) ?: return null
-            val token = tokenMatch.value
-            cachedToken = token
+        return try {
+            val mainPage = client.get("https://beta.music.apple.com").bodyAsText()
+            val jsUri = Regex("""/assets/index~[^/]+\.js""").find(mainPage)?.value ?: return null
+            val jsFile = client.get("https://beta.music.apple.com$jsUri").bodyAsText()
+            val token = Regex("""eyJh([^"]*)""").find(jsFile)?.value ?: return null
+            
+            dynamicToken = token
             token
-        }.getOrNull()
-    }
-
-    private suspend fun performSearch(artistName: String, storefront: String, token: String) =
-        client.get("$AMP_BASE_URL/v1/catalog/$storefront/search") {
-            header("Authorization", "Bearer $token")
-            header("Origin", "https://music.apple.com")
-            header("Referer", "https://music.apple.com/")
-            header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-            parameter("term", artistName)
-            parameter("types", "artists")
-            parameter("limit", "3")
+        } catch (e: Exception) {
+            null
         }
+    }
 
     suspend fun getArtistCanvas(artistName: String, storefront: String = "us"): String? {
         if (artistName.isBlank()) return null
@@ -120,14 +102,18 @@ object ArtistCanvasProvider {
         cache[key]?.let { return it }
 
         return runCatching {
-            var token = getDeveloperToken() ?: return@runCatching null
-            
-            var response = performSearch(artistName, storefront, token)
-            if (response.status == HttpStatusCode.Unauthorized) {
-                token = getDeveloperToken(forceRefresh = true) ?: return@runCatching null
-                response = performSearch(artistName, storefront, token)
+            val token = getAppleMusicToken() ?: return@runCatching null
+
+            val searchUrl = "$AMP_BASE_URL/v1/catalog/$storefront/search"
+            val response = client.get(searchUrl) {
+                header("Authorization", "Bearer $token")
+                header("Origin", "https://music.apple.com")
+                header("Referer", "https://music.apple.com/")
+                header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                parameter("term", artistName)
+                parameter("types", "artists")
+                parameter("limit", "3")
             }
-            
             if (response.status != HttpStatusCode.OK) return@runCatching null
 
             val root = response.body<JsonObject>()
@@ -141,26 +127,13 @@ object ArtistCanvasProvider {
                 if (resultName.equals(artistName, ignoreCase = true) || resultName.contains(artistName, ignoreCase = true) || artistName.contains(resultName, ignoreCase = true)) {
                     val artistId = obj["id"]?.jsonPrimitive?.contentOrNull ?: continue
                     val artistUrl = "$AMP_BASE_URL/v1/catalog/$storefront/artists/$artistId"
-                    
-                    var artistRes = client.get(artistUrl) {
+                    val artistRes = client.get(artistUrl) {
                         header("Authorization", "Bearer $token")
                         header("Origin", "https://music.apple.com")
                         header("Referer", "https://music.apple.com/")
                         header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
                         parameter("extend", "editorialVideo,editorialArtwork")
                     }
-                    
-                    if (artistRes.status == HttpStatusCode.Unauthorized) {
-                        token = getDeveloperToken(forceRefresh = true) ?: return@runCatching null
-                        artistRes = client.get(artistUrl) {
-                            header("Authorization", "Bearer $token")
-                            header("Origin", "https://music.apple.com")
-                            header("Referer", "https://music.apple.com/")
-                            header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                            parameter("extend", "editorialVideo,editorialArtwork")
-                        }
-                    }
-                    
                     if (artistRes.status == HttpStatusCode.OK) {
                         val artistRoot = artistRes.body<JsonObject>()
                         val attrs = artistRoot["data"]?.jsonArray?.firstOrNull()?.jsonObject?.get("attributes")?.jsonObject
@@ -211,7 +184,7 @@ fun ArtistVideo(
                     setAudioAttributes(
                         AudioAttributes.Builder()
                             .setUsage(C.USAGE_MEDIA)
-                            .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                            .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
                             .build(),
                         false,
                     )
