@@ -50,6 +50,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.OkHttpClient
+import timber.log.Timber
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
@@ -84,14 +85,35 @@ object ArtistCanvasProvider {
         dynamicToken?.let { return it }
 
         return try {
+            Timber.d("Fetching Apple Music token from beta site...")
             val mainPage = client.get("https://beta.music.apple.com").bodyAsText()
-            val jsUri = Regex("""/assets/index~[^/]+\.js""").find(mainPage)?.value ?: return null
-            val jsFile = client.get("https://beta.music.apple.com$jsUri").bodyAsText()
-            val token = Regex("""eyJh([^"]*)""").find(jsFile)?.value ?: return null
             
+            // The bundle name format changed from index~[hash].js to index-[hash].js or index-legacy-[hash].js
+            val jsUriMatch = Regex("""/assets/index(?:-legacy)?-[^/"]+\.js""").find(mainPage)
+                ?: Regex("""/assets/[^/"]+\.js""").find(mainPage)
+            
+            val jsUri = jsUriMatch?.value ?: run {
+                Timber.e("Could not find Apple Music JS bundle URI")
+                return null
+            }
+            
+            Timber.d("Found Apple Music JS bundle: $jsUri")
+            val jsFile = client.get("https://beta.music.apple.com$jsUri").bodyAsText()
+            
+            // Safely capture a JWT format token starting with "eyJh"
+            val token = Regex("""(eyJh[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+)""").find(jsFile)?.groupValues?.get(1)
+                ?: Regex("""eyJh([^"\\]*)""").find(jsFile)?.value 
+            
+            if (token == null) {
+                Timber.e("Could not find Apple Music token in JS bundle")
+                return null
+            }
+            
+            Timber.d("Successfully extracted Apple Music token")
             dynamicToken = token
             token
         } catch (e: Exception) {
+            Timber.e(e, "Error fetching Apple Music token")
             null
         }
     }
@@ -113,8 +135,12 @@ object ArtistCanvasProvider {
                 parameter("term", artistName)
                 parameter("types", "artists")
                 parameter("limit", "3")
+                parameter("l", "en-US")
             }
-            if (response.status != HttpStatusCode.OK) return@runCatching null
+            if (response.status != HttpStatusCode.OK) {
+                Timber.w("Artist search failed with status: ${response.status}")
+                return@runCatching null
+            }
 
             val root = response.body<JsonObject>()
             val results = root["results"]?.jsonObject?.get("artists")?.jsonObject?.get("data")?.jsonArray ?: return@runCatching null
@@ -127,31 +153,39 @@ object ArtistCanvasProvider {
                 if (resultName.equals(artistName, ignoreCase = true) || resultName.contains(artistName, ignoreCase = true) || artistName.contains(resultName, ignoreCase = true)) {
                     val artistId = obj["id"]?.jsonPrimitive?.contentOrNull ?: continue
                     val artistUrl = "$AMP_BASE_URL/v1/catalog/$storefront/artists/$artistId"
+                    
                     val artistRes = client.get(artistUrl) {
                         header("Authorization", "Bearer $token")
                         header("Origin", "https://music.apple.com")
                         header("Referer", "https://music.apple.com/")
                         header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
                         parameter("extend", "editorialVideo,editorialArtwork")
+                        parameter("l", "en-US")
                     }
                     if (artistRes.status == HttpStatusCode.OK) {
                         val artistRoot = artistRes.body<JsonObject>()
                         val attrs = artistRoot["data"]?.jsonArray?.firstOrNull()?.jsonObject?.get("attributes")?.jsonObject
                         val ev = attrs?.get("editorialVideo")?.jsonObject ?: attrs?.get("editorialArtwork")?.jsonObject
+                        
                         if (ev != null) {
                             val preferredKeys = listOf("motionDetailRaw", "motionDetailTall", "motionDetailSquare", "motionSquareVideo1x1", "motionTallVideo3x4")
                             for (k in preferredKeys) {
                                 val videoUrl = ev[k]?.jsonObject?.get("video")?.jsonPrimitive?.contentOrNull
                                 if (!videoUrl.isNullOrBlank()) {
                                     cache[key] = videoUrl
+                                    Timber.d("Found Canvas video URL: $videoUrl")
                                     return@runCatching videoUrl
                                 }
                             }
+                        } else {
+                            Timber.w("No editorial video/artwork found for $artistName")
                         }
                     }
                 }
             }
             null
+        }.onFailure {
+            Timber.e(it, "Exception in getArtistCanvas")
         }.getOrNull()
     }
 }
