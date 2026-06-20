@@ -14,6 +14,7 @@ import com.cgens67.innertube.models.SongItem
 import com.cgens67.innertube.models.YTItem
 import com.cgens67.innertube.models.clean
 import com.cgens67.innertube.models.filterExplicit
+import com.cgens67.innertube.models.filterMusicVideos
 import com.cgens67.innertube.models.oddElements
 import com.cgens67.innertube.models.splitBySeparator
 import com.cgens67.innertube.utils.parseTime
@@ -43,6 +44,23 @@ data class SearchSummaryPage(
             this
         }
 
+    fun filterMusicVideos(enabled: Boolean) =
+        if (enabled) {
+            SearchSummaryPage(
+                summaries.mapNotNull { s ->
+                    SearchSummary(
+                        title = s.title,
+                        items =
+                            s.items.filterMusicVideos().ifEmpty {
+                                return@mapNotNull null
+                            },
+                    )
+                },
+            )
+        } else {
+            this
+        }
+
     companion object {
         fun fromMusicCardShelfRenderer(renderer: MusicCardShelfRenderer): YTItem? {
             val subtitle = renderer.subtitle.runs?.splitBySeparator()
@@ -59,6 +77,9 @@ data class SearchSummaryPage(
 
             return when {
                 renderer.onTap.watchEndpoint != null -> {
+                    val videoType = renderer.onTap.watchEndpoint.watchEndpointMusicSupportedConfigs?.watchEndpointMusicConfig?.musicVideoType
+                    val isVideo = videoType == "MUSIC_VIDEO_TYPE_OMV" || videoType == "MUSIC_VIDEO_TYPE_UGC" || firstRunText in listOf("Video", "Vídeo") || (firstRunText != null && firstRunText.lowercase() in listOf("video", "vídeo"))
+
                     SongItem(
                         id = renderer.onTap.watchEndpoint.videoId ?: return null,
                         title =
@@ -90,6 +111,7 @@ data class SearchSummaryPage(
                             renderer.subtitleBadges?.find {
                                 it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
                             } != null,
+                        isVideo = isVideo,
                     )
                 }
 
@@ -364,6 +386,10 @@ data class SearchSummaryPage(
                         if (endpointIndex != -1) startIndex + endpointIndex else startIndex
                     } else 0
 
+                    val videoType = renderer.navigationEndpoint?.watchEndpoint?.watchEndpointMusicSupportedConfigs?.watchEndpointMusicConfig?.musicVideoType
+                        ?: renderer.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchEndpoint?.watchEndpointMusicSupportedConfigs?.watchEndpointMusicConfig?.musicVideoType
+                    val isVideo = videoType == "MUSIC_VIDEO_TYPE_OMV" || videoType == "MUSIC_VIDEO_TYPE_UGC" || firstRunText in listOf("Video", "Vídeo") || (firstRunText != null && firstRunText.lowercase() in listOf("video", "vídeo"))
+
                     SongItem(
                         id = renderer.videoId ?: return null,
                         title =
@@ -396,6 +422,7 @@ data class SearchSummaryPage(
                             renderer.badges?.find {
                                 it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
                             } != null,
+                        isVideo = isVideo,
                     )
                 }
 
