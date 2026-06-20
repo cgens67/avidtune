@@ -825,6 +825,7 @@
     <string name="app_text_size">Taille du texte de l\'application</string>
     <string name="text_size_small">Petit</string>
     <string name="text_size_system">Selon le système</string>
+    <string name="text_size_medium">Moyen</string>
     <string name="text_size_large">Grand</string>
     <string name="text_size_extra_large">Très grand</string>
 
