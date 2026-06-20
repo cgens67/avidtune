@@ -85,6 +85,7 @@ import com.cgens67.avidtune.constants.ShowLyricsKey
 import com.cgens67.avidtune.constants.SimilarContent
 import com.cgens67.avidtune.constants.SkipSilenceKey
 import com.cgens67.avidtune.constants.SponsorBlockEnabledKey
+import com.cgens67.avidtune.constants.SeekIncrementKey
 import com.cgens67.avidtune.db.MusicDatabase
 import com.cgens67.avidtune.db.entities.Event
 import com.cgens67.avidtune.db.entities.FormatEntity
@@ -250,6 +251,9 @@ class MusicService :
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate() {
         super.onCreate()
+        
+        val seekIncrementMs = dataStore.get(SeekIncrementKey, 5) * 1000L
+        
         setMediaNotificationProvider(
             DefaultMediaNotificationProvider(
                 this,
@@ -275,8 +279,8 @@ class MusicService :
                         .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
                         .build(),
                     false,
-                ).setSeekBackIncrementMs(5000)
-                .setSeekForwardIncrementMs(5000)
+                ).setSeekBackIncrementMs(seekIncrementMs)
+                .setSeekForwardIncrementMs(seekIncrementMs)
                 .build()
                 .apply {
                     addListener(this@MusicService)
