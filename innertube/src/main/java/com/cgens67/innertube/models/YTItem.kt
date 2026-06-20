@@ -28,6 +28,7 @@ data class SongItem(
     override val thumbnail: String,
     override val explicit: Boolean = false,
     val endpoint: WatchEndpoint? = null,
+    val isVideo: Boolean = false,
 ) : YTItem() {
     override val shareLink: String
         get() = "https://music.youtube.com/watch?v=$id"
@@ -84,6 +85,13 @@ data class ArtistItem(
 fun <T : YTItem> List<T>.filterExplicit(enabled: Boolean = true) =
     if (enabled) {
         filter { !it.explicit }
+    } else {
+        this
+    }
+
+fun <T : YTItem> List<T>.filterMusicVideos(enabled: Boolean = true) =
+    if (enabled) {
+        filter { it !is SongItem || !it.isVideo }
     } else {
         this
     }
