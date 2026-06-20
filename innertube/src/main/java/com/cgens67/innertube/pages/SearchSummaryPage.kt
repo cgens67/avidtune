@@ -47,8 +47,9 @@ data class SearchSummaryPage(
         fun fromMusicCardShelfRenderer(renderer: MusicCardShelfRenderer): YTItem? {
             val subtitle = renderer.subtitle.runs?.splitBySeparator()
             val firstRunText = subtitle?.firstOrNull()?.firstOrNull()?.text
-            val isVideoOrEpisode = firstRunText in listOf("Episode", "Episodio", "Video", "Vídeo")
-            val fallbackIndex = if (isVideoOrEpisode && (subtitle?.size ?: 0) > 1) 1 else 0
+            val typePrefixes = listOf("Episode", "Episodio", "Video", "Vídeo", "Song", "Canción", "Cancion", "Chanson", "Lied", "Canção", "Canzone", "Şarkı", "Песня", "Piosenka", "歌曲", "曲", "노래", "שיר", "أغنية", "Mahnı")
+            val isTypePrefix = firstRunText in typePrefixes || (firstRunText != null && firstRunText.lowercase() in typePrefixes.map { it.lowercase() }) || ((subtitle?.size ?: 0) >= 3 && subtitle?.firstOrNull()?.firstOrNull()?.navigationEndpoint == null)
+            val fallbackIndex = if (isTypePrefix && (subtitle?.size ?: 0) > 1) 1 else 0
 
             return when {
                 renderer.onTap.watchEndpoint != null -> {
@@ -347,7 +348,8 @@ data class SearchSummaryPage(
 
                 renderer.isSong -> {
                     val firstRunText = secondaryLine.firstOrNull()?.firstOrNull()?.text
-                    val isVideoOrEpisode = firstRunText in listOf("Episode", "Episodio", "Video", "Vídeo")
+                    val typePrefixes = listOf("Episode", "Episodio", "Video", "Vídeo", "Song", "Canción", "Cancion", "Chanson", "Lied", "Canção", "Canzone", "Şarkı", "Песня", "Piosenka", "歌曲", "曲", "노래", "שיר", "أغنية", "Mahnı")
+                    val isVideoOrEpisode = firstRunText in typePrefixes || (firstRunText != null && firstRunText.lowercase() in typePrefixes.map { it.lowercase() }) || (secondaryLine.size >= 3 && secondaryLine.firstOrNull()?.firstOrNull()?.navigationEndpoint == null)
                     val fallbackIndex = if (isVideoOrEpisode && secondaryLine.size > 1) 1 else 0
 
                     SongItem(
