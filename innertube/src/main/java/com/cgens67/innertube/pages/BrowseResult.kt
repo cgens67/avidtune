@@ -35,6 +35,11 @@ data class BrowseResult(
             copy(
                 items =
                     items.mapNotNull {
+                        val isVideoSection = it.title?.lowercase()?.let { title ->
+                            title.contains("video") || title.contains("vídeo") || title.contains("vidéo") || title.contains("видео") || title.contains("βίντεο")
+                        } == true
+                        if (isVideoSection) return@mapNotNull null
+
                         it.copy(
                             items =
                                 it.items
