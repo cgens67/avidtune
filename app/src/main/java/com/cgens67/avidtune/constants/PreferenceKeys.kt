@@ -4,7 +4,6 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
-import androidx.datastore.preferences.core.stringPreferencesKey
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 
@@ -145,6 +144,9 @@ const val DefaultPlayPauseButtonShape = "Cookie9Sided"
 
 val MiniPlayerThumbnailShapeKey = stringPreferencesKey("miniPlayerThumbnailShape")
 const val DefaultMiniPlayerThumbnailShape = "Circle"
+
+val SeekIncrementKey = intPreferencesKey("seekIncrement")
+
 enum class LibraryViewType {
     LIST,
     GRID,
