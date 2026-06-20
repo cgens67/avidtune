@@ -49,7 +49,13 @@ data class SearchSummaryPage(
             val firstRunText = subtitle?.firstOrNull()?.firstOrNull()?.text
             val typePrefixes = listOf("Episode", "Episodio", "Video", "Vídeo", "Song", "Canción", "Cancion", "Chanson", "Lied", "Canção", "Canzone", "Şarkı", "Песня", "Piosenka", "歌曲", "曲", "노래", "שיר", "أغنية", "Mahnı")
             val isTypePrefix = firstRunText in typePrefixes || (firstRunText != null && firstRunText.lowercase() in typePrefixes.map { it.lowercase() }) || ((subtitle?.size ?: 0) >= 3 && subtitle?.firstOrNull()?.firstOrNull()?.navigationEndpoint == null)
-            val fallbackIndex = if (isTypePrefix && (subtitle?.size ?: 0) > 1) 1 else 0
+            val fallbackIndex = if (isTypePrefix) {
+                val startIndex = 1
+                val endpointIndex = subtitle?.drop(startIndex)?.indexOfFirst { chunk ->
+                    chunk.any { it.navigationEndpoint?.browseEndpoint != null }
+                } ?: -1
+                if (endpointIndex != -1) startIndex + endpointIndex else startIndex
+            } else 0
 
             return when {
                 renderer.onTap.watchEndpoint != null -> {
@@ -67,7 +73,7 @@ data class SearchSummaryPage(
                                 )
                             } ?: return null,
                         album =
-                            subtitle.getOrNull(fallbackIndex + 1)?.firstOrNull()?.takeIf { it.navigationEndpoint?.browseEndpoint != null }?.let {
+                            subtitle?.getOrNull(fallbackIndex + 1)?.firstOrNull()?.takeIf { it.navigationEndpoint?.browseEndpoint != null }?.let {
                                 Album(
                                     name = it.text,
                                     id = it.navigationEndpoint?.browseEndpoint?.browseId!!,
@@ -75,7 +81,7 @@ data class SearchSummaryPage(
                             },
                         duration =
                             subtitle
-                                .lastOrNull()
+                                ?.lastOrNull()
                                 ?.firstOrNull()
                                 ?.text
                                 ?.parseTime(),
@@ -350,7 +356,13 @@ data class SearchSummaryPage(
                     val firstRunText = secondaryLine.firstOrNull()?.firstOrNull()?.text
                     val typePrefixes = listOf("Episode", "Episodio", "Video", "Vídeo", "Song", "Canción", "Cancion", "Chanson", "Lied", "Canção", "Canzone", "Şarkı", "Песня", "Piosenka", "歌曲", "曲", "노래", "שיר", "أغنية", "Mahnı")
                     val isVideoOrEpisode = firstRunText in typePrefixes || (firstRunText != null && firstRunText.lowercase() in typePrefixes.map { it.lowercase() }) || (secondaryLine.size >= 3 && secondaryLine.firstOrNull()?.firstOrNull()?.navigationEndpoint == null)
-                    val fallbackIndex = if (isVideoOrEpisode && secondaryLine.size > 1) 1 else 0
+                    val fallbackIndex = if (isVideoOrEpisode) {
+                        val startIndex = 1
+                        val endpointIndex = secondaryLine.drop(startIndex).indexOfFirst { chunk ->
+                            chunk.any { it.navigationEndpoint?.browseEndpoint != null }
+                        }
+                        if (endpointIndex != -1) startIndex + endpointIndex else startIndex
+                    } else 0
 
                     SongItem(
                         id = renderer.videoId ?: return null,
