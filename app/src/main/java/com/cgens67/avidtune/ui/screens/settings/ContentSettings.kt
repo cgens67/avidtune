@@ -59,6 +59,7 @@ import com.cgens67.avidtune.constants.EnableBetterLyricsKey
 import com.cgens67.avidtune.constants.EnableLyricsPlusKey
 import com.cgens67.avidtune.constants.EnablePaxsenixKey
 import com.cgens67.avidtune.constants.HideExplicitKey
+import com.cgens67.avidtune.constants.HideMusicVideosKey
 import com.cgens67.avidtune.constants.HistoryDuration
 import com.cgens67.avidtune.constants.LanguageCodeToName
 import com.cgens67.avidtune.constants.LyricsProviderOrderKey
@@ -100,6 +101,10 @@ fun ContentSettings(
     )
     val (hideExplicit, onHideExplicitChange) = rememberPreference(
         key = HideExplicitKey,
+        defaultValue = false
+    )
+    val (hideMusicVideos, onHideMusicVideosChange) = rememberPreference(
+        key = HideMusicVideosKey,
         defaultValue = false
     )
     val (proxyEnabled, onProxyEnabledChange) = rememberPreference(
@@ -204,6 +209,14 @@ fun ContentSettings(
                     icon = { Icon(painterResource(R.drawable.explicit), null) },
                     checked = hideExplicit,
                     onCheckedChange = onHideExplicitChange,
+                )},
+
+                // Hide music videos
+                {SwitchPreference(
+                    title = { Text("Hide music videos") },
+                    icon = { Icon(painterResource(R.drawable.play), null) },
+                    checked = hideMusicVideos,
+                    onCheckedChange = onHideMusicVideosChange,
                 )},
 
                 {NotificationPermissionPreference()},
