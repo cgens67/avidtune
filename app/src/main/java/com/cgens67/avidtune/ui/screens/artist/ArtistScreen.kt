@@ -133,6 +133,8 @@ import androidx.palette.graphics.Palette
 import coil.imageLoader
 import coil.request.ImageRequest
 import com.cgens67.avidtune.playback.queues.ListQueue
+import com.cgens67.avidtune.ui.component.ArtistCanvasProvider
+import com.cgens67.avidtune.ui.component.ArtistVideo
 import com.cgens67.avidtune.ui.theme.PlayerColorExtractor
 import com.cgens67.innertube.YouTube
 import kotlinx.coroutines.Dispatchers
@@ -175,6 +177,14 @@ fun ArtistScreen(
     // Get thumbnail URL
     val thumbnail = artistPage?.artist?.thumbnail ?: libraryArtist?.artist?.thumbnailUrl
     val artistName = artistPage?.artist?.title ?: libraryArtist?.artist?.name ?: stringResource(R.string.unknown)
+
+    // Artist Canvas
+    var artistVideoUrl by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(artistName) {
+        if (artistName.isNotBlank() && artistName != context.getString(R.string.unknown)) {
+            artistVideoUrl = ArtistCanvasProvider.getArtistCanvas(artistName)
+        }
+    }
 
     // Skeleton loading state
     var isFetching by remember { mutableStateOf(true) }
@@ -434,6 +444,15 @@ fun ArtistScreen(
                                             bottom = 80.dp,
                                         ),
                                 )
+
+                                artistVideoUrl?.let { url ->
+                                    ArtistVideo(
+                                        videoUrl = url,
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .fadingEdge(bottom = 80.dp)
+                                    )
+                                }
                             }
                         }
 
