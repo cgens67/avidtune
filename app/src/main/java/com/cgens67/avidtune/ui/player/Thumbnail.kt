@@ -137,6 +137,16 @@ fun Thumbnail(
         }
     }
 
+    var showSeekEffect by remember { mutableStateOf(false) }
+    var seekDirection by remember { mutableStateOf("") }
+
+    LaunchedEffect(showSeekEffect, seekDirection) {
+        if (showSeekEffect) {
+            delay(1000)
+            showSeekEffect = false
+        }
+    }
+
     Box(modifier = modifier) {
 
         AnimatedVisibility(
@@ -198,9 +208,13 @@ fun Thumbnail(
                                             onTap = { onOpenFullscreenLyrics() },
                                             onDoubleTap = { offset ->
                                                 if (offset.x < size.toPx() / 2) {
-                                                    playerConnection.player.seekBack()
+                                                    playerConnection.rewind()
+                                                    seekDirection = "-${playerConnection.seekIncrementMs / 1000}s"
+                                                    showSeekEffect = true
                                                 } else {
-                                                    playerConnection.player.seekForward()
+                                                    playerConnection.fastForward()
+                                                    seekDirection = "+${playerConnection.seekIncrementMs / 1000}s"
+                                                    showSeekEffect = true
                                                 }
                                             }
                                         )
@@ -268,16 +282,6 @@ fun Thumbnail(
                         playerConnection.player.play()
                     }
                 )
-            }
-        }
-
-        var showSeekEffect by remember { mutableStateOf(false) }
-        var seekDirection by remember { mutableStateOf("") }
-
-        LaunchedEffect(showSeekEffect) {
-            if (showSeekEffect) {
-                delay(1000)
-                showSeekEffect = false
             }
         }
 
