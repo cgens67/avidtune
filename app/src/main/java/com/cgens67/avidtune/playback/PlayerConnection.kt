@@ -16,6 +16,7 @@ import androidx.media3.common.Player.STATE_READY
 import androidx.media3.common.Timeline
 import com.cgens67.avidtune.MusicWidget.Companion.ACTION_STATE_CHANGED
 import com.cgens67.avidtune.MusicWidget.Companion.ACTION_UPDATE_PROGRESS
+import com.cgens67.avidtune.constants.SeekIncrementKey
 import com.cgens67.avidtune.db.MusicDatabase
 import com.cgens67.avidtune.extensions.currentMetadata
 import com.cgens67.avidtune.extensions.getCurrentQueueIndex
@@ -23,6 +24,7 @@ import com.cgens67.avidtune.extensions.getQueueWindows
 import com.cgens67.avidtune.extensions.metadata
 import com.cgens67.avidtune.playback.MusicService.MusicBinder
 import com.cgens67.avidtune.playback.queues.Queue
+import com.cgens67.avidtune.utils.dataStore
 import com.cgens67.avidtune.utils.reportException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +37,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -171,12 +174,21 @@ class PlayerConnection(
     private var lastMediaItemIndex: Int = player.currentMediaItemIndex
     private var lastPosition: Long = 0L
 
+    var seekIncrementMs: Long = 5000L
+        private set
+
     init {
         Log.d(TAG, "Initializing PlayerConnection")
 
         player.addListener(this)
         initializeStates()
         startProgressUpdates()
+
+        scope.launch {
+            context.dataStore.data.map { it[SeekIncrementKey] ?: 5 }.collect {
+                seekIncrementMs = it * 1000L
+            }
+        }
 
         instance = this
 
@@ -421,6 +433,22 @@ class PlayerConnection(
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error seeking to previous", e)
+            reportException(e)
+        }
+    }
+
+    fun fastForward() {
+        try {
+            player.seekTo((player.currentPosition + seekIncrementMs).coerceAtMost(player.duration))
+        } catch (e: Exception) {
+            reportException(e)
+        }
+    }
+
+    fun rewind() {
+        try {
+            player.seekTo((player.currentPosition - seekIncrementMs).coerceAtLeast(0L))
+        } catch (e: Exception) {
             reportException(e)
         }
     }
