@@ -40,6 +40,7 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
@@ -53,7 +54,6 @@ import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
 object ArtistCanvasProvider {
-    private const val APPLE_MUSIC_TOKEN = "eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IldlYlBsYXlLaWQifQ.eyJpc3MiOiJBTVBXZWJQbGF5IiwiaWF0IjoxNzc0NDU2MzgyLCJleHAiOjE3ODE3MTM5ODIsInJvb3RfaHR0cHNfb3JpZ2luIjpbImFwcGxlLmNvbSJdfQ.4n8qYF4qa18sL1E0G9A3qX35cD8wQ-IJcS9Bh8ZT8JV_yLBtVq46B-9-2ZS3EvWHuw3yK9BYFYAhAdTaDm38vQ"
     private const val AMP_BASE_URL = "https://amp-api.music.apple.com"
 
     private val json = Json {
@@ -77,6 +77,42 @@ object ArtistCanvasProvider {
     }
 
     private val cache = ConcurrentHashMap<String, String>()
+    private var cachedToken: String? = null
+
+    private suspend fun getDeveloperToken(forceRefresh: Boolean = false): String? {
+        if (forceRefresh) {
+            cachedToken = null
+        }
+        cachedToken?.let { return it }
+        return runCatching {
+            val mainPageResponse = client.get("https://beta.music.apple.com")
+            val mainPageBody = mainPageResponse.bodyAsText()
+
+            val indexJsRegex = Regex("""/assets/index~[^/]+\.js""")
+            val indexJsMatch = indexJsRegex.find(mainPageBody) ?: return null
+            val indexJsUri = indexJsMatch.value
+
+            val indexJsResponse = client.get("https://beta.music.apple.com$indexJsUri")
+            val indexJsBody = indexJsResponse.bodyAsText()
+
+            val tokenRegex = Regex("""eyJh([^"]*)""")
+            val tokenMatch = tokenRegex.find(indexJsBody) ?: return null
+            val token = tokenMatch.value
+            cachedToken = token
+            token
+        }.getOrNull()
+    }
+
+    private suspend fun performSearch(artistName: String, storefront: String, token: String) =
+        client.get("$AMP_BASE_URL/v1/catalog/$storefront/search") {
+            header("Authorization", "Bearer $token")
+            header("Origin", "https://music.apple.com")
+            header("Referer", "https://music.apple.com/")
+            header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            parameter("term", artistName)
+            parameter("types", "artists")
+            parameter("limit", "3")
+        }
 
     suspend fun getArtistCanvas(artistName: String, storefront: String = "us"): String? {
         if (artistName.isBlank()) return null
@@ -84,16 +120,14 @@ object ArtistCanvasProvider {
         cache[key]?.let { return it }
 
         return runCatching {
-            val searchUrl = "$AMP_BASE_URL/v1/catalog/$storefront/search"
-            val response = client.get(searchUrl) {
-                header("Authorization", "Bearer $APPLE_MUSIC_TOKEN")
-                header("Origin", "https://music.apple.com")
-                header("Referer", "https://music.apple.com/")
-                header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                parameter("term", artistName)
-                parameter("types", "artists")
-                parameter("limit", "3")
+            var token = getDeveloperToken() ?: return@runCatching null
+            
+            var response = performSearch(artistName, storefront, token)
+            if (response.status == HttpStatusCode.Unauthorized) {
+                token = getDeveloperToken(forceRefresh = true) ?: return@runCatching null
+                response = performSearch(artistName, storefront, token)
             }
+            
             if (response.status != HttpStatusCode.OK) return@runCatching null
 
             val root = response.body<JsonObject>()
@@ -107,13 +141,26 @@ object ArtistCanvasProvider {
                 if (resultName.equals(artistName, ignoreCase = true) || resultName.contains(artistName, ignoreCase = true) || artistName.contains(resultName, ignoreCase = true)) {
                     val artistId = obj["id"]?.jsonPrimitive?.contentOrNull ?: continue
                     val artistUrl = "$AMP_BASE_URL/v1/catalog/$storefront/artists/$artistId"
-                    val artistRes = client.get(artistUrl) {
-                        header("Authorization", "Bearer $APPLE_MUSIC_TOKEN")
+                    
+                    var artistRes = client.get(artistUrl) {
+                        header("Authorization", "Bearer $token")
                         header("Origin", "https://music.apple.com")
                         header("Referer", "https://music.apple.com/")
                         header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
                         parameter("extend", "editorialVideo,editorialArtwork")
                     }
+                    
+                    if (artistRes.status == HttpStatusCode.Unauthorized) {
+                        token = getDeveloperToken(forceRefresh = true) ?: return@runCatching null
+                        artistRes = client.get(artistUrl) {
+                            header("Authorization", "Bearer $token")
+                            header("Origin", "https://music.apple.com")
+                            header("Referer", "https://music.apple.com/")
+                            header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                            parameter("extend", "editorialVideo,editorialArtwork")
+                        }
+                    }
+                    
                     if (artistRes.status == HttpStatusCode.OK) {
                         val artistRoot = artistRes.body<JsonObject>()
                         val attrs = artistRoot["data"]?.jsonArray?.firstOrNull()?.jsonObject?.get("attributes")?.jsonObject
@@ -164,7 +211,7 @@ fun ArtistVideo(
                     setAudioAttributes(
                         AudioAttributes.Builder()
                             .setUsage(C.USAGE_MEDIA)
-                            .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+                            .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
                             .build(),
                         false,
                     )
