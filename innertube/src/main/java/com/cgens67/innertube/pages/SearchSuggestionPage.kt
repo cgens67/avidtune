@@ -106,6 +106,10 @@ object SearchSuggestionPage {
                     if (endpointIndex != -1) startIndex + endpointIndex else startIndex
                 } else 0
 
+                val videoType = renderer.navigationEndpoint?.watchEndpoint?.watchEndpointMusicSupportedConfigs?.watchEndpointMusicConfig?.musicVideoType
+                    ?: renderer.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchEndpoint?.watchEndpointMusicSupportedConfigs?.watchEndpointMusicConfig?.musicVideoType
+                val isVideo = videoType == "MUSIC_VIDEO_TYPE_OMV" || videoType == "MUSIC_VIDEO_TYPE_UGC" || firstRunText in listOf("Video", "Vídeo") || (firstRunText != null && firstRunText.lowercase() in listOf("video", "vídeo"))
+
                 SongItem(
                     id = renderer.videoId ?: return null,
                     title =
@@ -130,6 +134,7 @@ object SearchSuggestionPage {
                         renderer.badges?.find {
                             it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
                         } != null,
+                    isVideo = isVideo,
                 )
             }
             else -> null
