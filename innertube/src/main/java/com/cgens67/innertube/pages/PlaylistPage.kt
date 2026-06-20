@@ -16,6 +16,10 @@ data class PlaylistPage(
 ) {
     companion object {
         fun fromMusicResponsiveListItemRenderer(renderer: MusicResponsiveListItemRenderer): SongItem? {
+            val videoType = renderer.navigationEndpoint?.watchEndpoint?.watchEndpointMusicSupportedConfigs?.watchEndpointMusicConfig?.musicVideoType
+                ?: renderer.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchEndpoint?.watchEndpointMusicSupportedConfigs?.watchEndpointMusicConfig?.musicVideoType
+            val isVideo = videoType == "MUSIC_VIDEO_TYPE_OMV" || videoType == "MUSIC_VIDEO_TYPE_UGC"
+
             return SongItem(
                 id = renderer.videoId ?: return null,
                 title =
@@ -70,7 +74,8 @@ data class PlaylistPage(
                         ?.watchEndpoint,
                 setVideoId =
                     renderer.playlistItemData?.playlistSetVideoId
-                        ?: return null
+                        ?: return null,
+                isVideo = isVideo,
             )
         }
     }
