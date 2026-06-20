@@ -32,13 +32,10 @@ import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
-import androidx.media3.ui.AspectRatioFrameLayout
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
-import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
-import io.ktor.client.plugins.cache.HttpCache
-import io.ktor.client.plugins.compression.ContentEncoding
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -66,7 +63,7 @@ object ArtistCanvasProvider {
     }
 
     private val client by lazy {
-        HttpClient(OkHttp) {
+        HttpClient(CIO) {
             install(ContentNegotiation) {
                 json(json)
             }
@@ -75,11 +72,6 @@ object ArtistCanvasProvider {
                 requestTimeoutMillis = 25_000
                 socketTimeoutMillis = 25_000
             }
-            install(ContentEncoding) {
-                gzip()
-                deflate()
-            }
-            install(HttpCache)
             expectSuccess = false
         }
     }
@@ -179,6 +171,7 @@ fun ArtistVideo(
                     volume = 0f
                     repeatMode = Player.REPEAT_MODE_ONE
                     playWhenReady = true
+                    videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
                 }
         }
 
@@ -235,12 +228,11 @@ fun ArtistVideo(
     ) {
         AndroidView(
             factory = { viewContext ->
-                AspectRatioFrameLayout(viewContext).apply {
+                android.widget.FrameLayout(viewContext).apply {
                     layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
 
                     val textureView = TextureView(viewContext).apply {
-                        layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+                        layoutParams = android.widget.FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT, android.view.Gravity.CENTER)
                     }
                     addView(textureView)
                     exoPlayer.setVideoTextureView(textureView)
