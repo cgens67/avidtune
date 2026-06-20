@@ -948,6 +948,6 @@
     <string name="connecting">Connexion…</string>
     <string name="participants">Participants</string>
     <string name="got_it">Compris</string>
-
-
+    
+    <string name="double_tap_to_seek">Appuyez deux fois pour avancer/reculer</string>
 </resources>
