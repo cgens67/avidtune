@@ -96,7 +96,8 @@ object SearchSuggestionPage {
             renderer.isSong -> {
                 val secondaryLine = renderer.flexColumns.getOrNull(1)?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.splitBySeparator()
                 val firstRunText = secondaryLine?.firstOrNull()?.firstOrNull()?.text
-                val isVideoOrEpisode = firstRunText in listOf("Episode", "Episodio", "Video", "Vídeo")
+                val typePrefixes = listOf("Episode", "Episodio", "Video", "Vídeo", "Song", "Canción", "Cancion", "Chanson", "Lied", "Canção", "Canzone", "Şarkı", "Песня", "Piosenka", "歌曲", "曲", "노래", "שיר", "أغنية", "Mahnı")
+                val isVideoOrEpisode = firstRunText in typePrefixes || (firstRunText != null && firstRunText.lowercase() in typePrefixes.map { it.lowercase() }) || ((secondaryLine?.size ?: 0) >= 3 && secondaryLine?.firstOrNull()?.firstOrNull()?.navigationEndpoint == null)
                 val fallbackIndex = if (isVideoOrEpisode && (secondaryLine?.size ?: 0) > 1) 1 else 0
 
                 SongItem(
