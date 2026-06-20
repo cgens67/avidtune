@@ -10,7 +10,6 @@ import com.cgens67.innertube.models.SongItem
 import com.cgens67.innertube.models.oddElements
 import com.cgens67.innertube.utils.parseTime
 import com.cgens67.innertube.models.getItems
-import com.cgens67.innertube.models.oddElements
 import com.cgens67.innertube.models.response.BrowseResponse
 import com.cgens67.innertube.models.splitBySeparator
 
@@ -21,6 +20,10 @@ data class AlbumPage(
 ) {
     companion object {
         fun fromMusicResponsiveListItemRenderer(renderer: MusicResponsiveListItemRenderer): SongItem? {
+            val videoType = renderer.navigationEndpoint?.watchEndpoint?.watchEndpointMusicSupportedConfigs?.watchEndpointMusicConfig?.musicVideoType
+                ?: renderer.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchEndpoint?.watchEndpointMusicSupportedConfigs?.watchEndpointMusicConfig?.musicVideoType
+            val isVideo = videoType == "MUSIC_VIDEO_TYPE_OMV" || videoType == "MUSIC_VIDEO_TYPE_UGC"
+
             return SongItem(
                 id = renderer.videoId ?: return null,
                 title =
@@ -59,6 +62,7 @@ data class AlbumPage(
                     renderer.badges?.find {
                         it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
                     } != null,
+                isVideo = isVideo,
             )
         }
 
@@ -99,6 +103,10 @@ data class AlbumPage(
         }
 
         fun getSong(response: BrowseResponse, renderer: MusicResponsiveListItemRenderer, album: AlbumItem? = null): SongItem? {
+            val videoType = renderer.navigationEndpoint?.watchEndpoint?.watchEndpointMusicSupportedConfigs?.watchEndpointMusicConfig?.musicVideoType
+                ?: renderer.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchEndpoint?.watchEndpointMusicSupportedConfigs?.watchEndpointMusicConfig?.musicVideoType
+            val isVideo = videoType == "MUSIC_VIDEO_TYPE_OMV" || videoType == "MUSIC_VIDEO_TYPE_UGC"
+
             return SongItem(
                 id = renderer.videoId ?: return null,
                 title = PageHelper.extractRuns(renderer.flexColumns, "MUSIC_VIDEO").firstOrNull()?.text ?: return null,
@@ -117,7 +125,8 @@ data class AlbumPage(
                 thumbnail = renderer.thumbnail?.musicThumbnailRenderer?.getThumbnailUrl() ?: album?.thumbnail!!,
                 explicit = renderer.badges?.find {
                     it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
-                } != null
+                } != null,
+                isVideo = isVideo,
             )
         }
     }
