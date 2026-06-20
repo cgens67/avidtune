@@ -2,6 +2,7 @@ package com.cgens67.innertube.pages
 
 import com.cgens67.innertube.models.YTItem
 import com.cgens67.innertube.models.filterExplicit
+import com.cgens67.innertube.models.filterMusicVideos
 
 data class BrowseResult(
     val title: String?,
@@ -21,6 +22,23 @@ data class BrowseResult(
                             items =
                                 it.items
                                     .filterExplicit()
+                                    .ifEmpty { return@mapNotNull null },
+                        )
+                    },
+            )
+        } else {
+            this
+        }
+
+    fun filterMusicVideos(enabled: Boolean = true) =
+        if (enabled) {
+            copy(
+                items =
+                    items.mapNotNull {
+                        it.copy(
+                            items =
+                                it.items
+                                    .filterMusicVideos()
                                     .ifEmpty { return@mapNotNull null },
                         )
                     },
