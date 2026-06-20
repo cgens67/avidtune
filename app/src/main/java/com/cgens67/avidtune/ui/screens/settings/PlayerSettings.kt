@@ -158,7 +158,7 @@ fun PlayerSettings(
                 )},
                 
                 {ListPreference(
-                    title = { Text("Double-tap to seek") },
+                    title = { Text(stringResource(R.string.double_tap_to_seek)) },
                     icon = { Icon(painterResource(R.drawable.fast_forward), null) },
                     selectedValue = seekIncrement,
                     values = listOf(5, 10, 15, 30),
