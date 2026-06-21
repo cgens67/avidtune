@@ -44,17 +44,15 @@ import io.ktor.client.request.parameter
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.OkHttpClient
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
 object ArtistCanvasProvider {
-    // Updated fallback token from your friend's code
     private const val APPLE_MUSIC_TOKEN =
         "eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiIsImtpZCI6IldlYlBsYXlLaWQifQ" +
         ".eyJpc3MiOiJBTVBXZWJQbGF5IiwiaWF0IjoxNzgxMDMyODU1LCJleHAiOjE3ODQw" +
@@ -114,7 +112,8 @@ object ArtistCanvasProvider {
                 for (token in tokens) {
                     try {
                         val body = token.split(".")[1]
-                        val decodedBytes = Base64.decode(body, Base64.URL_SAFE)
+                        // SAFE BASE 64 DECODE
+                        val decodedBytes = Base64.decode(body, Base64.URL_SAFE or Base64.NO_PADDING)
                         val decoded = String(decodedBytes, Charsets.UTF_8)
                         if (decoded.contains("iss") && decoded.contains("exp")) {
                             val expIndex = decoded.indexOf("\"exp\":")
@@ -165,12 +164,16 @@ object ArtistCanvasProvider {
             if (response.status != HttpStatusCode.OK) return@runCatching null
 
             val root = response.body<JsonObject>()
-            val results = root["results"]?.jsonObject?.get("artists")?.jsonObject?.get("data")?.jsonArray ?: return@runCatching null
+            
+            // SAFE JSON DECODING: Avoids crashing if the field returned is JsonNull
+            val results = (root["results"] as? JsonObject)
+                ?.get("artists") as? JsonObject
+                ?.get("data") as? JsonArray ?: return@runCatching null
 
             val scoredResults = results.mapNotNull { item ->
-                val obj = item.jsonObject
-                val attributes = obj["attributes"]?.jsonObject ?: return@mapNotNull null
-                val resultName = attributes["name"]?.jsonPrimitive?.contentOrNull ?: ""
+                val obj = item as? JsonObject ?: return@mapNotNull null
+                val attributes = obj["attributes"] as? JsonObject ?: return@mapNotNull null
+                val resultName = (attributes["name"] as? JsonPrimitive)?.contentOrNull ?: ""
                 
                 if (!resultName.contains(artistName, ignoreCase = true) && 
                     !artistName.contains(resultName, ignoreCase = true)) return@mapNotNull null
@@ -184,7 +187,7 @@ object ArtistCanvasProvider {
             
             for ((score, obj) in scoredResults) {
                 if (score < 4) continue
-                val artistId = obj["id"]?.jsonPrimitive?.contentOrNull ?: continue
+                val artistId = (obj["id"] as? JsonPrimitive)?.contentOrNull ?: continue
                 val artistUrl = "$AMP_BASE_URL/v1/catalog/$storefront/artists/$artistId"
                 val artistRes = client.get(artistUrl) {
                     header("Authorization", "Bearer ${getOrFetchToken()}")
@@ -193,12 +196,13 @@ object ArtistCanvasProvider {
                     header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
                     parameter("extend", "editorialVideo,editorialArtwork")
                 }
+                
                 if (artistRes.status == HttpStatusCode.OK) {
                     val artistRoot = artistRes.body<JsonObject>()
-                    val attrs = artistRoot["data"]?.jsonArray?.firstOrNull()?.jsonObject?.get("attributes")?.jsonObject
+                    val attrs = (artistRoot["data"] as? JsonArray)?.firstOrNull() as? JsonObject
+                    val attributes = attrs?.get("attributes") as? JsonObject
                     
-                    // Fix implemented by your friend: Check BOTH editorialVideo and editorialArtwork explicitly
-                    val ev = attrs?.get("editorialVideo")?.jsonObject
+                    val ev = attributes?.get("editorialVideo") as? JsonObject
                     if (ev != null) {
                         val videoUrl = extractEditorialVideoUrl(ev)
                         if (!videoUrl.isNullOrBlank()) {
@@ -207,7 +211,7 @@ object ArtistCanvasProvider {
                         }
                     }
 
-                    val ea = attrs?.get("editorialArtwork")?.jsonObject
+                    val ea = attributes?.get("editorialArtwork") as? JsonObject
                     if (ea != null) {
                         val videoUrl = extractEditorialVideoUrl(ea)
                         if (!videoUrl.isNullOrBlank()) {
@@ -224,13 +228,13 @@ object ArtistCanvasProvider {
     private fun extractEditorialVideoUrl(editorialData: JsonObject): String? {
         val preferredKeys = listOf("motionDetailRaw", "motionDetailTall", "motionDetailSquare", "motionSquareVideo1x1", "motionTallVideo3x4")
         for (key in preferredKeys) {
-            val videoUrl = editorialData[key]?.jsonObject?.get("video")?.jsonPrimitive?.contentOrNull
-            if (!videoUrl.isNullOrBlank()) return videoUrl
+            val videoUrl = (editorialData[key] as? JsonObject)?.get("video") as? JsonPrimitive
+            if (!videoUrl?.contentOrNull.isNullOrBlank()) return videoUrl?.contentOrNull
         }
         // Deep Fallback: Loop through all keys if preferred ones don't match
         for ((_, value) in editorialData) {
-            val videoUrl = (value as? JsonObject)?.get("video")?.jsonPrimitive?.contentOrNull
-            if (!videoUrl.isNullOrBlank()) return videoUrl
+            val videoUrl = (value as? JsonObject)?.get("video") as? JsonPrimitive
+            if (!videoUrl?.contentOrNull.isNullOrBlank()) return videoUrl?.contentOrNull
         }
         return null
     }
@@ -326,18 +330,24 @@ fun ArtistVideo(
             .background(Color.Black.copy(alpha = 0.3f))
             .clickable { onClick() },
     ) {
+        // SAFE EXO PLAYER BINDING: The update block forces ExoPlayer's view attachment 
+        // across recompositions so we never call methods on an invalid or released player instance.
         AndroidView(
             factory = { viewContext ->
                 android.widget.FrameLayout(viewContext).apply {
                     layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
 
                     val textureView = TextureView(viewContext).apply {
-                        layoutParams = android.widget.FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT, android.view.Gravity.CENTER)
+                        layoutParams = android.widget.FrameLayout.LayoutParams(
+                            MATCH_PARENT, MATCH_PARENT, android.view.Gravity.CENTER
+                        )
                     }
                     addView(textureView)
-                    exoPlayer.setVideoTextureView(textureView)
-                    setBackgroundColor(android.graphics.Color.TRANSPARENT)
                 }
+            },
+            update = { frameLayout ->
+                val textureView = frameLayout.getChildAt(0) as TextureView
+                exoPlayer.setVideoTextureView(textureView)
             },
             modifier = Modifier
                 .matchParentSize()
