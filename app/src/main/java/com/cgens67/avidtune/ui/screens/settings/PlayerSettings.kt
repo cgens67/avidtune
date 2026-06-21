@@ -67,6 +67,7 @@ import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
 import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.AudioNormalizationKey
+import com.cgens67.avidtune.constants.AudioFadingKey
 import com.cgens67.avidtune.constants.AudioQuality
 import com.cgens67.avidtune.constants.AudioQualityKey
 import com.cgens67.avidtune.constants.AutoSkipNextOnErrorKey
@@ -114,6 +115,10 @@ fun PlayerSettings(
     val (sponsorBlockEnabled, onSponsorBlockEnabledChange) = rememberPreference(
         SponsorBlockEnabledKey,
         defaultValue = true
+    )
+    val (audioFading, onAudioFadingChange) = rememberPreference(
+        AudioFadingKey,
+        defaultValue = false
     )
     val (audioNormalization, onAudioNormalizationChange) = rememberPreference(
         AudioNormalizationKey,
@@ -179,6 +184,14 @@ fun PlayerSettings(
                     icon = { Icon(painterResource(R.drawable.skip_next), null) },
                     checked = sponsorBlockEnabled,
                     onCheckedChange = onSponsorBlockEnabledChange
+                )},
+
+                {SwitchPreference(
+                    title = { Text(stringResource(R.string.premium_audio_fading)) },
+                    description = stringResource(R.string.premium_audio_fading_desc),
+                    icon = { Icon(painterResource(R.drawable.graphic_eq), null) },
+                    checked = audioFading,
+                    onCheckedChange = onAudioFadingChange
                 )},
 
                 {SwitchPreference(
