@@ -973,6 +973,6 @@
     <string name="turn_on_artist_canvas">Turn on artist canvas</string>
     <string name="turn_on_artist_canvas_desc">Displays animated video backgrounds on artist profiles to celebrate their legacy and artistry.</string>
     <string name="hide_music_videos">Hide music videos</string>
-
-
+    <string name="premium_audio_fading">Premium audio fading</string>
+    <string name="premium_audio_fading_desc">Smoothly fade volume in and out when pausing, playing, or skipping tracks</string>
 </resources>
