@@ -54,7 +54,13 @@ import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
 object ArtistCanvasProvider {
-    private const val APPLE_MUSIC_TOKEN = "eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IldlYlBsYXlLaWQifQ.eyJpc3MiOiJBTVBXZWJQbGF5IiwiaWF0IjoxNzc0NDU2MzgyLCJleHAiOjE3ODE3MTM5ODIsInJvb3RfaHR0cHNfb3JpZ2luIjpbImFwcGxlLmNvbSJdfQ.4n8qYF4qa18sL1E0G9A3qX35cD8wQ-IJcS9Bh8ZT8JV_yLBtVq46B-9-2ZS3EvWHuw3yK9BYFYAhAdTaDm38vQ"
+    // Updated fallback token from your friend's code
+    private const val APPLE_MUSIC_TOKEN =
+        "eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiIsImtpZCI6IldlYlBsYXlLaWQifQ" +
+        ".eyJpc3MiOiJBTVBXZWJQbGF5IiwiaWF0IjoxNzgxMDMyODU1LCJleHAiOjE3ODQw" +
+        "NTY4NTUsInJvb3RfaHR0cHNfb3JpZ2luIjpbImFwcGxlLmNvbSJdfQ" +
+        ".fiMFcJWkfSlxKP9NVA0UW9CbItD1Rge0SISuepz203XcpU762OqdCpU9M-YkmtKkjRmaIWtjsfGgqZPrlMonpA"
+
     private const val AMP_BASE_URL = "https://amp-api.music.apple.com"
 
     private val json = Json {
@@ -190,21 +196,43 @@ object ArtistCanvasProvider {
                 if (artistRes.status == HttpStatusCode.OK) {
                     val artistRoot = artistRes.body<JsonObject>()
                     val attrs = artistRoot["data"]?.jsonArray?.firstOrNull()?.jsonObject?.get("attributes")?.jsonObject
-                    val ev = attrs?.get("editorialVideo")?.jsonObject ?: attrs?.get("editorialArtwork")?.jsonObject
+                    
+                    // Fix implemented by your friend: Check BOTH editorialVideo and editorialArtwork explicitly
+                    val ev = attrs?.get("editorialVideo")?.jsonObject
                     if (ev != null) {
-                        val preferredKeys = listOf("motionDetailRaw", "motionDetailTall", "motionDetailSquare", "motionSquareVideo1x1", "motionTallVideo3x4")
-                        for (k in preferredKeys) {
-                            val videoUrl = ev[k]?.jsonObject?.get("video")?.jsonPrimitive?.contentOrNull
-                            if (!videoUrl.isNullOrBlank()) {
-                                cache[key] = videoUrl
-                                return@runCatching videoUrl
-                            }
+                        val videoUrl = extractEditorialVideoUrl(ev)
+                        if (!videoUrl.isNullOrBlank()) {
+                            cache[key] = videoUrl
+                            return@runCatching videoUrl
+                        }
+                    }
+
+                    val ea = attrs?.get("editorialArtwork")?.jsonObject
+                    if (ea != null) {
+                        val videoUrl = extractEditorialVideoUrl(ea)
+                        if (!videoUrl.isNullOrBlank()) {
+                            cache[key] = videoUrl
+                            return@runCatching videoUrl
                         }
                     }
                 }
             }
             null
         }.getOrNull()
+    }
+
+    private fun extractEditorialVideoUrl(editorialData: JsonObject): String? {
+        val preferredKeys = listOf("motionDetailRaw", "motionDetailTall", "motionDetailSquare", "motionSquareVideo1x1", "motionTallVideo3x4")
+        for (key in preferredKeys) {
+            val videoUrl = editorialData[key]?.jsonObject?.get("video")?.jsonPrimitive?.contentOrNull
+            if (!videoUrl.isNullOrBlank()) return videoUrl
+        }
+        // Deep Fallback: Loop through all keys if preferred ones don't match
+        for ((_, value) in editorialData) {
+            val videoUrl = (value as? JsonObject)?.get("video")?.jsonPrimitive?.contentOrNull
+            if (!videoUrl.isNullOrBlank()) return videoUrl
+        }
+        return null
     }
 }
 
