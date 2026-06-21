@@ -850,6 +850,32 @@ private fun buildSettingsGroups(
 @Composable
 private fun buildInternalItems(navController: NavController, resetSearch: () -> Unit): List<SettingsItem> {
     return listOf(
+        // Account
+        SettingsItem(
+            icon = painterResource(R.drawable.person),
+            title = stringResource(R.string.login),
+            keywords = listOf("account", "login", "google", "sign in"),
+            onClick = { resetSearch(); navController.navigate("settings/account") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.token),
+            title = stringResource(R.string.advanced_login),
+            keywords = listOf("advanced", "login", "token", "cookie"),
+            onClick = { resetSearch(); navController.navigate("settings/account") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.person),
+            title = stringResource(R.string.use_login_for_browse),
+            keywords = listOf("use", "login", "browse", "account"),
+            onClick = { resetSearch(); navController.navigate("settings/account") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.cached),
+            title = stringResource(R.string.ytm_sync),
+            keywords = listOf("youtube", "music", "sync", "ytm", "playlists"),
+            onClick = { resetSearch(); navController.navigate("settings/account") }
+        ),
+
         // Appearance
         SettingsItem(
             icon = painterResource(R.drawable.palette),
@@ -888,9 +914,21 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
             onClick = { resetSearch(); navController.navigate("settings/appearance") }
         ),
         SettingsItem(
+            icon = painterResource(R.drawable.language),
+            title = stringResource(R.string.app_language),
+            keywords = listOf("app", "language", "locale", "translation"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
             icon = painterResource(R.drawable.gradient),
             title = stringResource(R.string.player_background_style),
             keywords = listOf("player", "background", "style", "blur", "gradient"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.scatter_plot),
+            title = "Shape Selector",
+            keywords = listOf("shape", "selector", "customize", "button", "corners"),
             onClick = { resetSearch(); navController.navigate("settings/appearance") }
         ),
         SettingsItem(
@@ -930,6 +968,12 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
             onClick = { resetSearch(); navController.navigate("settings/appearance") }
         ),
         SettingsItem(
+            icon = painterResource(R.drawable.artist),
+            title = stringResource(R.string.turn_on_artist_canvas),
+            keywords = listOf("artist", "canvas", "video", "background"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
             icon = painterResource(R.drawable.nav_bar),
             title = stringResource(R.string.default_open_tab),
             keywords = listOf("default", "open", "tab", "home", "explore", "library"),
@@ -963,6 +1007,12 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
         ),
         SettingsItem(
             icon = painterResource(R.drawable.fast_forward),
+            title = stringResource(R.string.double_tap_to_seek),
+            keywords = listOf("double", "tap", "seek", "forward", "rewind"),
+            onClick = { resetSearch(); navController.navigate("settings/player") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.fast_forward),
             title = stringResource(R.string.skip_silence),
             keywords = listOf("skip", "silence", "audio"),
             onClick = { resetSearch(); navController.navigate("settings/player") }
@@ -971,6 +1021,12 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
             icon = painterResource(R.drawable.skip_next),
             title = stringResource(R.string.enable_sponsorblock),
             keywords = listOf("sponsor", "block", "skip", "sponsorblock"),
+            onClick = { resetSearch(); navController.navigate("settings/player") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.graphic_eq),
+            title = stringResource(R.string.premium_audio_fading),
+            keywords = listOf("premium", "audio", "fading", "fade", "crossfade"),
             onClick = { resetSearch(); navController.navigate("settings/player") }
         ),
         SettingsItem(
@@ -1056,9 +1112,51 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
             onClick = { resetSearch(); navController.navigate("settings/content") }
         ),
         SettingsItem(
+            icon = painterResource(R.drawable.play),
+            title = stringResource(R.string.hide_music_videos),
+            keywords = listOf("hide", "music", "videos", "omv"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.info), // Fallback icon
+            title = stringResource(R.string.notification),
+            keywords = listOf("notification", "permission", "alert"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
             icon = painterResource(R.drawable.wifi_proxy),
             title = stringResource(R.string.enable_proxy),
             keywords = listOf("proxy", "network", "connection"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.lyrics),
+            title = stringResource(R.string.enable_lyrics_plus),
+            keywords = listOf("lyrics", "plus", "provider", "ttml"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.lyrics),
+            title = stringResource(R.string.enable_better_lyrics),
+            keywords = listOf("better", "lyrics", "provider", "ttml"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.lyrics),
+            title = stringResource(R.string.enable_paxsenix),
+            keywords = listOf("paxsenix", "lyrics", "provider"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.lyrics),
+            title = stringResource(R.string.enable_lrclib),
+            keywords = listOf("lrclib", "lyrics", "provider", "synced"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.lyrics),
+            title = stringResource(R.string.enable_kugou),
+            keywords = listOf("kugou", "lyrics", "provider"),
             onClick = { resetSearch(); navController.navigate("settings/content") }
         ),
         SettingsItem(
