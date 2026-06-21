@@ -433,24 +433,19 @@ fun ArtistScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .aspectRatio(1f)
+                                    .fadingEdge(bottom = 80.dp)
                             ) {
                                 AsyncImage(
                                     model = thumbnail.resize(1200, 1200),
                                     contentDescription = null,
                                     contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .fadingEdge(
-                                            bottom = 80.dp,
-                                        ),
+                                    modifier = Modifier.fillMaxSize(),
                                 )
 
                                 artistVideoUrl?.let { url ->
                                     ArtistVideo(
                                         videoUrl = url,
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .fadingEdge(bottom = 80.dp)
+                                        modifier = Modifier.fillMaxSize()
                                     )
                                 }
                             }
