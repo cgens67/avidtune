@@ -33,23 +33,25 @@ import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withContext
-import okhttp3.Call
-import okhttp3.Callback
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.request.parameter
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpStatusCode
+import io.ktor.serialization.kotlinx.json.json
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.Response
-import org.json.JSONObject
-import java.io.IOException
-import java.net.URLEncoder
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.TimeUnit
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 
 object ArtistCanvasProvider {
     // Updated fallback token from your friend's code
@@ -61,42 +63,30 @@ object ArtistCanvasProvider {
 
     private const val AMP_BASE_URL = "https://amp-api.music.apple.com"
 
-    // Switched to OkHttp to prevent unhandled exceptions and crashes caused by Ktor's CIO engine on Android
-    private val okHttpClient = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(25, TimeUnit.SECONDS)
-        .build()
+    private val json = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+        explicitNulls = false
+    }
+
+    private val client by lazy {
+        HttpClient(OkHttp) {
+            install(ContentNegotiation) {
+                json(json)
+            }
+            install(HttpTimeout) {
+                connectTimeoutMillis = 15_000
+                requestTimeoutMillis = 25_000
+                socketTimeoutMillis = 25_000
+            }
+            expectSuccess = false
+        }
+    }
 
     private val cache = ConcurrentHashMap<String, String>()
     
     private var cachedToken: String? = null
     private var tokenExpiryMs: Long = 0L
-
-    private suspend fun asyncGet(url: String, headers: Map<String, String> = emptyMap()): String {
-        val requestBuilder = Request.Builder().url(url)
-        headers.forEach { (k, v) -> requestBuilder.header(k, v) }
-        val request = requestBuilder.build()
-
-        return suspendCancellableCoroutine { continuation ->
-            val call = okHttpClient.newCall(request)
-            continuation.invokeOnCancellation { call.cancel() }
-            call.enqueue(object : Callback {
-                override fun onFailure(call: Call, e: IOException) {
-                    if (continuation.isActive) continuation.resumeWithException(e)
-                }
-                override fun onResponse(call: Call, response: Response) {
-                    response.use {
-                        if (!it.isSuccessful) {
-                            if (continuation.isActive) continuation.resumeWithException(IOException("HTTP ${it.code}"))
-                        } else {
-                            val bodyStr = it.body?.string() ?: ""
-                            if (continuation.isActive) continuation.resume(bodyStr)
-                        }
-                    }
-                }
-            })
-        }
-    }
 
     private suspend fun getOrFetchToken(): String {
         val now = System.currentTimeMillis()
@@ -105,9 +95,9 @@ object ArtistCanvasProvider {
         }
 
         return try {
-            val html = asyncGet("https://music.apple.com/us/browse", mapOf(
-                "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-            ))
+            val html = client.get("https://music.apple.com/us/browse") {
+                header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            }.bodyAsText()
 
             val scriptRegex = Regex("""/assets/index(?:-legacy)?[~-][a-zA-Z0-9_-]+\.js""")
             val scripts = scriptRegex.findAll(html).map { it.value }.distinct().toList()
@@ -115,25 +105,16 @@ object ArtistCanvasProvider {
             var fetchedToken: String? = null
             for (scriptPath in scripts) {
                 val scriptUrl = "https://music.apple.com$scriptPath"
-                val scriptText = try {
-                    asyncGet(scriptUrl, mapOf(
-                        "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-                    ))
-                } catch (e: Exception) {
-                    continue
-                }
+                val scriptText = client.get(scriptUrl) {
+                    header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                }.bodyAsText()
 
                 val tokenRegex = Regex("""ey[a-zA-Z0-9_-]+\.ey[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+""")
                 val tokens = tokenRegex.findAll(scriptText).map { it.value }
                 for (token in tokens) {
                     try {
                         val body = token.split(".")[1]
-                        var base64 = body.replace("-", "+").replace("_", "/")
-                        val pad = base64.length % 4
-                        if (pad > 0) {
-                            base64 += "=".repeat(4 - pad)
-                        }
-                        val decodedBytes = Base64.decode(base64, Base64.DEFAULT)
+                        val decodedBytes = Base64.decode(body, Base64.URL_SAFE)
                         val decoded = String(decodedBytes, Charsets.UTF_8)
                         if (decoded.contains("iss") && decoded.contains("exp")) {
                             val expIndex = decoded.indexOf("\"exp\":")
@@ -160,8 +141,6 @@ object ArtistCanvasProvider {
             } else {
                 APPLE_MUSIC_TOKEN
             }
-        } catch (e: CancellationException) {
-            throw e
         } catch (e: Exception) {
             APPLE_MUSIC_TOKEN
         }
@@ -172,97 +151,87 @@ object ArtistCanvasProvider {
         val key = "$storefront|$artistName"
         cache[key]?.let { return it }
 
-        return try {
-            val token = getOrFetchToken()
-            val encodedTerm = URLEncoder.encode(artistName, "UTF-8")
-            val searchUrl = "$AMP_BASE_URL/v1/catalog/$storefront/search?term=$encodedTerm&types=artists&limit=3"
-            
-            val responseStr = asyncGet(searchUrl, mapOf(
-                "Authorization" to "Bearer $token",
-                "Origin" to "https://music.apple.com",
-                "Referer" to "https://music.apple.com/",
-                "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-            ))
+        return runCatching {
+            val searchUrl = "$AMP_BASE_URL/v1/catalog/$storefront/search"
+            val response = client.get(searchUrl) {
+                header("Authorization", "Bearer ${getOrFetchToken()}")
+                header("Origin", "https://music.apple.com")
+                header("Referer", "https://music.apple.com/")
+                header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                parameter("term", artistName)
+                parameter("types", "artists")
+                parameter("limit", "3")
+            }
+            if (response.status != HttpStatusCode.OK) return@runCatching null
 
-            val root = JSONObject(responseStr)
-            val results = root.optJSONObject("results")?.optJSONObject("artists")?.optJSONArray("data") ?: return null
+            val responseText = response.bodyAsText()
+            val root = json.parseToJsonElement(responseText).jsonObject
+            val results = root["results"]?.jsonObject?.get("artists")?.jsonObject?.get("data")?.jsonArray ?: return@runCatching null
 
-            val scoredResults = mutableListOf<Pair<Int, JSONObject>>()
-            for (i in 0 until results.length()) {
-                val obj = results.optJSONObject(i) ?: continue
-                val attributes = obj.optJSONObject("attributes") ?: continue
-                val resultName = attributes.optString("name", "")
+            val scoredResults = results.mapNotNull { item ->
+                val obj = item.jsonObject
+                val attributes = obj["attributes"]?.jsonObject ?: return@mapNotNull null
+                val resultName = attributes["name"]?.jsonPrimitive?.contentOrNull ?: ""
                 
                 if (!resultName.contains(artistName, ignoreCase = true) && 
-                    !artistName.contains(resultName, ignoreCase = true)) continue
+                    !artistName.contains(resultName, ignoreCase = true)) return@mapNotNull null
                 
                 var score = 0
                 if (resultName.equals(artistName, ignoreCase = true)) score += 10
                 else if (resultName.contains(artistName, ignoreCase = true) || artistName.contains(resultName, ignoreCase = true)) score += 5
                 
-                scoredResults.add(score to obj)
-            }
+                score to obj
+            }.sortedByDescending { it.first }
             
-            val sortedResults = scoredResults.sortedByDescending { it.first }
-            
-            for ((score, obj) in sortedResults) {
+            for ((score, obj) in scoredResults) {
                 if (score < 4) continue
-                val artistId = obj.optString("id", "")
-                if (artistId.isEmpty()) continue
-                
-                val artistUrl = "$AMP_BASE_URL/v1/catalog/$storefront/artists/$artistId?extend=editorialVideo,editorialArtwork"
-                
-                val artistResStr = try {
-                    asyncGet(artistUrl, mapOf(
-                        "Authorization" to "Bearer $token",
-                        "Origin" to "https://music.apple.com",
-                        "Referer" to "https://music.apple.com/",
-                        "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-                    ))
-                } catch (e: Exception) {
-                    continue
+                val artistId = obj["id"]?.jsonPrimitive?.contentOrNull ?: continue
+                val artistUrl = "$AMP_BASE_URL/v1/catalog/$storefront/artists/$artistId"
+                val artistRes = client.get(artistUrl) {
+                    header("Authorization", "Bearer ${getOrFetchToken()}")
+                    header("Origin", "https://music.apple.com")
+                    header("Referer", "https://music.apple.com/")
+                    header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                    parameter("extend", "editorialVideo,editorialArtwork")
                 }
-
-                val artistRoot = JSONObject(artistResStr)
-                val attrs = artistRoot.optJSONArray("data")?.optJSONObject(0)?.optJSONObject("attributes")
-                
-                val ev = attrs?.optJSONObject("editorialVideo")
-                if (ev != null) {
-                    val videoUrl = extractEditorialVideoUrl(ev)
-                    if (!videoUrl.isNullOrBlank()) {
-                        cache[key] = videoUrl
-                        return videoUrl
+                if (artistRes.status == HttpStatusCode.OK) {
+                    val artistText = artistRes.bodyAsText()
+                    val artistRoot = json.parseToJsonElement(artistText).jsonObject
+                    val attrs = artistRoot["data"]?.jsonArray?.firstOrNull()?.jsonObject?.get("attributes")?.jsonObject
+                    
+                    // Fix implemented by your friend: Check BOTH editorialVideo and editorialArtwork explicitly
+                    val ev = attrs?.get("editorialVideo")?.jsonObject
+                    if (ev != null) {
+                        val videoUrl = extractEditorialVideoUrl(ev)
+                        if (!videoUrl.isNullOrBlank()) {
+                            cache[key] = videoUrl
+                            return@runCatching videoUrl
+                        }
                     }
-                }
 
-                val ea = attrs?.optJSONObject("editorialArtwork")
-                if (ea != null) {
-                    val videoUrl = extractEditorialVideoUrl(ea)
-                    if (!videoUrl.isNullOrBlank()) {
-                        cache[key] = videoUrl
-                        return videoUrl
+                    val ea = attrs?.get("editorialArtwork")?.jsonObject
+                    if (ea != null) {
+                        val videoUrl = extractEditorialVideoUrl(ea)
+                        if (!videoUrl.isNullOrBlank()) {
+                            cache[key] = videoUrl
+                            return@runCatching videoUrl
+                        }
                     }
                 }
             }
             null
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            null
-        }
+        }.getOrNull()
     }
 
-    private fun extractEditorialVideoUrl(editorialData: JSONObject): String? {
+    private fun extractEditorialVideoUrl(editorialData: JsonObject): String? {
         val preferredKeys = listOf("motionDetailRaw", "motionDetailTall", "motionDetailSquare", "motionSquareVideo1x1", "motionTallVideo3x4")
-        for (k in preferredKeys) {
-            val videoUrl = editorialData.optJSONObject(k)?.optString("video", null)
+        for (key in preferredKeys) {
+            val videoUrl = editorialData[key]?.jsonObject?.get("video")?.jsonPrimitive?.contentOrNull
             if (!videoUrl.isNullOrBlank()) return videoUrl
         }
         // Deep Fallback: Loop through all keys if preferred ones don't match
-        val keys = editorialData.keys()
-        while (keys.hasNext()) {
-            val k = keys.next()
-            val videoUrl = editorialData.optJSONObject(k)?.optString("video", null)
+        for ((_, value) in editorialData) {
+            val videoUrl = (value as? JsonObject)?.get("video")?.jsonPrimitive?.contentOrNull
             if (!videoUrl.isNullOrBlank()) return videoUrl
         }
         return null
@@ -276,7 +245,7 @@ fun ArtistVideo(
     onClick: () -> Unit = {},
 ) {
     val context = LocalContext.current
-    var isVideoReady by remember { mutableStateOf(false) }
+    var isVideoReady by remember(videoUrl) { mutableStateOf(false) }
 
     val okHttpClient = remember { OkHttpClient.Builder().build() }
     val mediaSourceFactory =
@@ -288,11 +257,8 @@ fun ArtistVideo(
                 ),
             )
         }
-    
-    // Crucial Fix: Create ExoPlayer without passing videoUrl as a key to prevent recreating the player
-    // This allows the AndroidView's TextureView to stay correctly bound to the same ExoPlayer instance.
     val exoPlayer =
-        remember {
+        remember(videoUrl) {
             ExoPlayer.Builder(context)
                 .setMediaSourceFactory(mediaSourceFactory)
                 .build()
@@ -311,7 +277,7 @@ fun ArtistVideo(
                 }
         }
 
-    DisposableEffect(exoPlayer) {
+    DisposableEffect(exoPlayer, videoUrl) {
         val listener =
             object : Player.Listener {
                 override fun onRenderedFirstFrame() {
@@ -319,10 +285,7 @@ fun ArtistVideo(
                 }
             }
         exoPlayer.addListener(listener)
-        onDispose {
-            exoPlayer.removeListener(listener)
-            exoPlayer.release()
-        }
+        onDispose { exoPlayer.removeListener(listener) }
     }
 
     LaunchedEffect(videoUrl, exoPlayer) {
@@ -345,6 +308,12 @@ fun ArtistVideo(
         exoPlayer.setMediaItem(mediaItem)
         exoPlayer.prepare()
         exoPlayer.playWhenReady = true
+    }
+
+    DisposableEffect(exoPlayer) {
+        onDispose {
+            exoPlayer.release()
+        }
     }
 
     val videoAlpha by animateFloatAsState(
