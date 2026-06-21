@@ -950,4 +950,6 @@
     <string name="got_it">Compris</string>
     
     <string name="double_tap_to_seek">Appuyez deux fois pour avancer/reculer</string>
+    <string name="turn_on_artist_canvas">Activer le canevas de l\'artiste</string>
+    <string name="turn_on_artist_canvas_desc">Affiche des arrière-plans vidéo animés sur les profils d\'artistes pour célébrer leur héritage et leur art.</string>
 </resources>
