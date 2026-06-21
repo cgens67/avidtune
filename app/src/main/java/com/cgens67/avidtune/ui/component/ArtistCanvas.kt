@@ -293,23 +293,27 @@ fun ArtistVideo(
     }
 
     LaunchedEffect(videoUrl) {
-        val normalized = videoUrl.trim()
-        val mimeType = when {
-            normalized.lowercase(Locale.ROOT).contains("m3u8") -> MimeTypes.APPLICATION_M3U8
-            normalized.lowercase(Locale.ROOT).contains("mp4") -> MimeTypes.VIDEO_MP4
-            else -> MimeTypes.APPLICATION_M3U8
+        try {
+            val normalized = videoUrl.trim()
+            val mimeType = when {
+                normalized.lowercase(Locale.ROOT).contains("m3u8") -> MimeTypes.APPLICATION_M3U8
+                normalized.lowercase(Locale.ROOT).contains("mp4") -> MimeTypes.VIDEO_MP4
+                else -> MimeTypes.APPLICATION_M3U8
+            }
+
+            val mediaItem = MediaItem.Builder()
+                .setUri(normalized)
+                .setMimeType(mimeType)
+                .build()
+
+            exoPlayer.stop()
+            isVideoReady = false
+            exoPlayer.setMediaItem(mediaItem)
+            exoPlayer.prepare()
+            exoPlayer.playWhenReady = true
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
-
-        val mediaItem = MediaItem.Builder()
-            .setUri(normalized)
-            .setMimeType(mimeType)
-            .build()
-
-        exoPlayer.stop()
-        isVideoReady = false
-        exoPlayer.setMediaItem(mediaItem)
-        exoPlayer.prepare()
-        exoPlayer.playWhenReady = true
     }
 
     val videoAlpha by animateFloatAsState(
@@ -337,9 +341,8 @@ fun ArtistVideo(
                     setBackgroundColor(android.graphics.Color.TRANSPARENT)
                 }
             },
-            update = { view ->
-                val textureView = view.getChildAt(0) as TextureView
-                exoPlayer.setVideoTextureView(textureView)
+            update = { _ ->
+                // TextureView is already set in factory. Doing it here causes flickering.
             },
             modifier = Modifier
                 .matchParentSize()
