@@ -58,6 +58,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -74,7 +75,6 @@ import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -137,6 +137,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.core.util.Consumer
 import androidx.core.view.WindowCompat
+import androidx.datastore.preferences.core.edit
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -162,6 +163,7 @@ import com.cgens67.avidtune.constants.DarkModeKey
 import com.cgens67.avidtune.constants.DefaultOpenTabKey
 import com.cgens67.avidtune.constants.DisableScreenshotKey
 import com.cgens67.avidtune.constants.DynamicThemeKey
+import com.cgens67.avidtune.constants.LastSeenVersionCodeKey
 import com.cgens67.avidtune.constants.MiniPlayerHeight
 import com.cgens67.avidtune.constants.NavigationBarAnimationSpec
 import com.cgens67.avidtune.constants.NavigationBarHeight
@@ -425,6 +427,64 @@ class MainActivity : ComponentActivity() {
                     themeColor = themeColor,
                     useSystemFont = useSystemFont,
                 ) {
+                    var showUpdateChangelog by rememberSaveable { mutableStateOf(false) }
+
+                    LaunchedEffect(Unit) {
+                        val prefs = dataStore.data.first()
+                        val lastSeen = prefs[LastSeenVersionCodeKey] ?: 0
+                        if (lastSeen < BuildConfig.VERSION_CODE) {
+                            showUpdateChangelog = true
+                            dataStore.edit { it[LastSeenVersionCodeKey] = BuildConfig.VERSION_CODE }
+                        }
+                    }
+
+                    if (showUpdateChangelog) {
+                        Dialog(
+                            onDismissRequest = { showUpdateChangelog = false },
+                            properties = DialogProperties(usePlatformDefaultWidth = false)
+                        ) {
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth(0.9f)
+                                    .fillMaxHeight(0.85f),
+                                shape = RoundedCornerShape(24.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainer
+                            ) {
+                                Column(modifier = Modifier.fillMaxSize()) {
+                                    Text(
+                                        text = stringResource(R.string.release_notes) + " v${BuildConfig.VERSION_NAME}",
+                                        style = MaterialTheme.typography.headlineSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(24.dp)
+                                    )
+                                    androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                    Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                                        CompositionLocalProvider(
+                                            LocalPlayerAwareWindowInsets provides WindowInsets(0, 0, 0, 0)
+                                        ) {
+                                            com.cgens67.avidtune.ui.screens.settings.ReleasesContent(
+                                                versionTag = "v" + BuildConfig.VERSION_NAME,
+                                                refreshTrigger = 0
+                                            )
+                                        }
+                                    }
+                                    androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                        horizontalArrangement = Arrangement.End
+                                    ) {
+                                        androidx.compose.material3.Button(
+                                            onClick = { showUpdateChangelog = false },
+                                            shape = RoundedCornerShape(12.dp)
+                                        ) {
+                                            Text(stringResource(android.R.string.ok))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     BoxWithConstraints(
                         modifier =
                             Modifier
