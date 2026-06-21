@@ -79,7 +79,6 @@ import com.cgens67.avidtune.constants.MiniPlayerHeight
 import com.cgens67.avidtune.constants.PureBlackKey
 import com.cgens67.avidtune.constants.SwipeThumbnailKey
 import com.cgens67.avidtune.constants.ThumbnailCornerRadius
-import com.cgens67.avidtune.extensions.togglePlayPause
 import com.cgens67.avidtune.models.MediaMetadata
 import com.cgens67.avidtune.playback.PlayerConnection
 import com.cgens67.avidtune.utils.rememberPreference
@@ -232,9 +231,9 @@ fun SwipeableMiniPlayerBox(
                                     val canSkipNext = playerConnection.player.nextMediaItemIndex != -1
 
                                     if (isRightSwipe && canSkipPrevious) {
-                                        playerConnection.player.seekToPreviousMediaItem()
+                                        playerConnection.seekToPrevious()
                                     } else if (!isRightSwipe && canSkipNext) {
-                                        playerConnection.player.seekToNext()
+                                        playerConnection.seekToNext()
                                     }
                                 }
 
@@ -429,7 +428,7 @@ private fun MiniPlayerTransportControls(
         MiniPlayerTransportButton(
             iconResId = R.drawable.skip_previous,
             contentDescription = null,
-            onClick = playerConnection::seekToPrevious,
+            onClick = { playerConnection.seekToPrevious() },
             enabled = canSkipPrevious
         )
 
@@ -453,7 +452,7 @@ private fun MiniPlayerTransportControls(
                         playerConnection.player.seekTo(0, 0)
                         playerConnection.player.playWhenReady = true
                     } else {
-                        playerConnection.player.togglePlayPause()
+                        playerConnection.togglePlayPause()
                     }
                 },
                 isPrimary = true
@@ -463,7 +462,7 @@ private fun MiniPlayerTransportControls(
         MiniPlayerTransportButton(
             iconResId = R.drawable.skip_next,
             contentDescription = null,
-            onClick = playerConnection::seekToNext,
+            onClick = { playerConnection.seekToNext() },
             enabled = canSkipNext
         )
     }
