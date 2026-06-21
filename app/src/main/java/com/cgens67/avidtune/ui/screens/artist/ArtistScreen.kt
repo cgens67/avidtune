@@ -132,11 +132,13 @@ import androidx.compose.ui.zIndex
 import androidx.palette.graphics.Palette
 import coil.imageLoader
 import coil.request.ImageRequest
+import com.cgens67.avidtune.constants.EnableArtistCanvasKey
 import com.cgens67.avidtune.playback.queues.ListQueue
 import com.cgens67.avidtune.ui.component.ArtistCanvasProvider
 import com.cgens67.avidtune.ui.component.ArtistVideo
 import com.cgens67.avidtune.ui.theme.PlayerColorExtractor
 import com.cgens67.innertube.YouTube
+import com.cgens67.avidtune.utils.rememberPreference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -178,11 +180,15 @@ fun ArtistScreen(
     val thumbnail = artistPage?.artist?.thumbnail ?: libraryArtist?.artist?.thumbnailUrl
     val artistName = artistPage?.artist?.title ?: libraryArtist?.artist?.name ?: stringResource(R.string.unknown)
 
+    val (enableArtistCanvas) = rememberPreference(EnableArtistCanvasKey, defaultValue = true)
+
     // Artist Canvas
     var artistVideoUrl by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(artistName) {
-        if (artistName.isNotBlank() && artistName != context.getString(R.string.unknown)) {
+    LaunchedEffect(artistName, enableArtistCanvas) {
+        if (enableArtistCanvas && artistName.isNotBlank() && artistName != context.getString(R.string.unknown)) {
             artistVideoUrl = ArtistCanvasProvider.getArtistCanvas(artistName)
+        } else {
+            artistVideoUrl = null
         }
     }
 
