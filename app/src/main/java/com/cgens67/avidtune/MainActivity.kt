@@ -221,7 +221,6 @@ import com.cgens67.avidtune.utils.get
 import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
 import com.cgens67.avidtune.utils.reportException
-import com.cgens67.avidtune.viewmodels.NewReleaseViewModel
 import com.valentinilk.shimmer.LocalShimmerTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
@@ -229,6 +228,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
