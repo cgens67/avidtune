@@ -118,11 +118,11 @@ val SongFilterKey = stringPreferencesKey("songFilter")
 val ArtistFilterKey = stringPreferencesKey("artistFilter")
 val AlbumFilterKey = stringPreferencesKey("albumFilter")
 
+val EnableArtistCanvasKey = booleanPreferencesKey("enableArtistCanvas")
 
 val LyricsScrollKey = booleanPreferencesKey("lyricsScrollKey")
 
 val DiscordUseDetailsKey = booleanPreferencesKey("discordUseDetails")
-
 
 val AppleMusicLyricsBlurKey = booleanPreferencesKey("apple_music_lyrics_blur")
 
