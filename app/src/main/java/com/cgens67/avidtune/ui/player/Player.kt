@@ -138,7 +138,6 @@ import com.cgens67.avidtune.constants.PureBlackKey
 import com.cgens67.avidtune.constants.QueuePeekHeight
 import com.cgens67.avidtune.constants.SliderStyle
 import com.cgens67.avidtune.constants.SliderStyleKey
-import com.cgens67.avidtune.extensions.togglePlayPause
 import com.cgens67.avidtune.extensions.toggleRepeatMode
 import com.cgens67.avidtune.models.MediaMetadata
 import com.cgens67.avidtune.playback.ExoDownloadService
@@ -571,7 +570,7 @@ fun BottomSheetPlayer(
                                 onValueChange = { sliderPosition = it },
                                 onValueChangeFinished = {
                                     sliderPosition?.let { pos ->
-                                        playerConnection.player.seekTo(pos)
+                                        playerConnection.seekTo(pos)
                                         position = pos
                                     }
                                     sliderPosition = null
@@ -731,7 +730,7 @@ fun BottomSheetPlayer(
                             onValueChange = { sliderPosition = it },
                             onValueChangeFinished = {
                                 sliderPosition?.let { pos ->
-                                    playerConnection.player.seekTo(pos)
+                                    playerConnection.seekTo(pos)
                                     position = pos
                                 }
                                 sliderPosition = null
@@ -1282,7 +1281,7 @@ fun PlayerPlaybackControlsV4(
             ) {
                 Surface(
                     onClick = {
-                        playerConnection.player.shuffleModeEnabled = !shuffleModeEnabled
+                        playerConnection.toggleShuffle()
                     },
                     shape = RoundedCornerShape(smallRadius),
                     color = textBackgroundColor.copy(
@@ -1336,7 +1335,7 @@ fun PlayerPlaybackControlsV4(
                         playerConnection.player.seekTo(0, 0)
                         playerConnection.player.playWhenReady = true
                     } else {
-                        playerConnection.player.togglePlayPause()
+                        playerConnection.togglePlayPause()
                     }
                 },
                 shape = RoundedCornerShape(28.dp),
@@ -1400,7 +1399,7 @@ fun PlayerPlaybackControlsV4(
                 Spacer(modifier = Modifier.width(gap))
 
                 Surface(
-                    onClick = { playerConnection.player.toggleRepeatMode() },
+                    onClick = { playerConnection.toggleReplayMode() },
                     shape = RoundedCornerShape(smallRadius),
                     color = textBackgroundColor.copy(
                         alpha = if (repeatMode != Player.REPEAT_MODE_OFF) 0.2f else 0.08f
@@ -1533,7 +1532,7 @@ fun PlayerPlaybackControlsV3(
                     .size(40.dp)
                     .clip(RoundedCornerShape(10.dp))
                     .clickable {
-                        playerConnection.player.shuffleModeEnabled = !shuffleModeEnabled
+                        playerConnection.toggleShuffle()
                     },
                 contentAlignment = Alignment.Center
             ) {
@@ -1575,7 +1574,7 @@ fun PlayerPlaybackControlsV3(
                             playerConnection.player.seekTo(0, 0)
                             playerConnection.player.playWhenReady = true
                         } else {
-                            playerConnection.player.togglePlayPause()
+                            playerConnection.togglePlayPause()
                         }
                     },
                 contentAlignment = Alignment.Center
@@ -1624,7 +1623,7 @@ fun PlayerPlaybackControlsV3(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .clickable { playerConnection.player.toggleRepeatMode() },
+                    .clickable { playerConnection.toggleReplayMode() },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
