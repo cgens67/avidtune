@@ -221,6 +221,7 @@ import com.cgens67.avidtune.utils.get
 import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
 import com.cgens67.avidtune.utils.reportException
+import com.cgens67.avidtune.viewmodels.NewReleaseViewModel
 import com.valentinilk.shimmer.LocalShimmerTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
