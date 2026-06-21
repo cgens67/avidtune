@@ -48,6 +48,7 @@ import com.cgens67.avidtune.constants.DefaultOpenTabKey
 import com.cgens67.avidtune.constants.DefaultPlayPauseButtonShape
 import com.cgens67.avidtune.constants.DefaultSmallButtonsShape
 import com.cgens67.avidtune.constants.DynamicThemeKey
+import com.cgens67.avidtune.constants.EnableArtistCanvasKey
 import com.cgens67.avidtune.constants.GridItemSize
 import com.cgens67.avidtune.constants.GridItemsSizeKey
 import com.cgens67.avidtune.constants.LibraryFilter
@@ -142,6 +143,11 @@ fun AppearanceSettings(
     val (gridItemSize, onGridItemSizeChange) = rememberEnumPreference(
         GridItemsSizeKey,
         defaultValue = GridItemSize.BIG
+    )
+
+    val (enableArtistCanvas, onEnableArtistCanvasChange) = rememberPreference(
+        EnableArtistCanvasKey,
+        defaultValue = true
     )
 
     val smallButtonsShapeState = rememberPreference(
@@ -527,6 +533,13 @@ fun AppearanceSettings(
         SettingsGeneralCategory(
             title = stringResource(R.string.misc),
             items = listOf(
+                {SwitchPreference(
+                    title = { Text(stringResource(R.string.turn_on_artist_canvas)) },
+                    description = stringResource(R.string.turn_on_artist_canvas_desc),
+                    icon = { Icon(painterResource(R.drawable.artist), null) },
+                    checked = enableArtistCanvas,
+                    onCheckedChange = onEnableArtistCanvasChange
+                )},
                 {EnumListPreference(
                     title = { Text(stringResource(R.string.default_open_tab)) },
                     icon = { Icon(painterResource(R.drawable.nav_bar), null) },
