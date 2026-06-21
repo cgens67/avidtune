@@ -970,5 +970,8 @@
     <string name="got_it">Got it</string>
     
     <string name="double_tap_to_seek">Double tap to seek</string>
+    <string name="turn_on_artist_canvas">Turn on artist canvas</string>
+    <string name="turn_on_artist_canvas_desc">Displays animated video backgrounds on artist profiles to celebrate their legacy and artistry.</string>
+
 
 </resources>
