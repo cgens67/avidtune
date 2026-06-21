@@ -464,7 +464,7 @@ class MainActivity : ComponentActivity() {
                                             LocalPlayerAwareWindowInsets provides WindowInsets(0, 0, 0, 0)
                                         ) {
                                             com.cgens67.avidtune.ui.screens.settings.ReleasesContent(
-                                                versionTag = "v" + BuildConfig.VERSION_NAME,
+                                                versionTag = BuildConfig.VERSION_NAME,
                                                 refreshTrigger = 0
                                             )
                                         }
