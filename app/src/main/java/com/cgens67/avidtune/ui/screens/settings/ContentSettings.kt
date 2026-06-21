@@ -213,7 +213,7 @@ fun ContentSettings(
 
                 // Hide music videos
                 {SwitchPreference(
-                    title = { Text("Hide music videos") },
+                    title = { Text(stringResource(R.string.hide_music_videos)) },
                     icon = { Icon(painterResource(R.drawable.play), null) },
                     checked = hideMusicVideos,
                     onCheckedChange = onHideMusicVideosChange,
