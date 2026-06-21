@@ -956,5 +956,6 @@
     <string name="double_tap_to_seek">双击以快进/快退</string>
     <string name="turn_on_artist_canvas">开启歌手画布</string>
     <string name="turn_on_artist_canvas_desc">在歌手主页显示动态视频背景，以致敬他们的音乐传奇与艺术成就。</string>
+    <string name="hide_music_videos">隐藏音乐视频</string>
 
 </resources>
