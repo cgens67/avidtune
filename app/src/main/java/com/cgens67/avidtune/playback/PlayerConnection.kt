@@ -16,6 +16,7 @@ import androidx.media3.common.Player.STATE_READY
 import androidx.media3.common.Timeline
 import com.cgens67.avidtune.MusicWidget.Companion.ACTION_STATE_CHANGED
 import com.cgens67.avidtune.MusicWidget.Companion.ACTION_UPDATE_PROGRESS
+import com.cgens67.avidtune.constants.AudioFadingKey
 import com.cgens67.avidtune.constants.SeekIncrementKey
 import com.cgens67.avidtune.db.MusicDatabase
 import com.cgens67.avidtune.extensions.currentMetadata
@@ -29,7 +30,9 @@ import com.cgens67.avidtune.utils.reportException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -48,7 +51,7 @@ class PlayerConnection(
     private val context: Context,
     binder: MusicBinder,
     val database: MusicDatabase,
-    scope: CoroutineScope,
+    private val scope: CoroutineScope,
 ) : Player.Listener {
 
     companion object {
@@ -177,6 +180,9 @@ class PlayerConnection(
     var seekIncrementMs: Long = 5000L
         private set
 
+    private var audioFadingEnabled = false
+    private var fadeJob: Job? = null
+
     init {
         Log.d(TAG, "Initializing PlayerConnection")
 
@@ -187,6 +193,12 @@ class PlayerConnection(
         scope.launch {
             context.dataStore.data.map { it[SeekIncrementKey] ?: 5 }.collect {
                 seekIncrementMs = it * 1000L
+            }
+        }
+
+        scope.launch {
+            context.dataStore.data.map { it[AudioFadingKey] ?: false }.collect {
+                audioFadingEnabled = it
             }
         }
 
@@ -412,10 +424,36 @@ class PlayerConnection(
     fun seekToNext() {
         try {
             Log.d(TAG, "Seeking to next track")
-            if (player.hasNextMediaItem()) {
-                player.seekToNext()
-                player.prepare()
-                player.playWhenReady = true
+            if (audioFadingEnabled && player.isPlaying) {
+                fadeJob?.cancel()
+                fadeJob = scope.launch {
+                    val targetVol = service.playerVolume.value
+                    val steps = 15
+                    val delayMs = 300L / steps
+                    
+                    for (i in steps downTo 1) {
+                        player.volume = targetVol * (i.toFloat() / steps)
+                        delay(delayMs)
+                    }
+                    
+                    if (player.hasNextMediaItem()) {
+                        player.seekToNext()
+                        player.prepare()
+                        player.playWhenReady = true
+                    }
+                    
+                    for (i in 1..steps) {
+                        player.volume = targetVol * (i.toFloat() / steps)
+                        delay(delayMs)
+                    }
+                    player.volume = targetVol
+                }
+            } else {
+                if (player.hasNextMediaItem()) {
+                    player.seekToNext()
+                    player.prepare()
+                    player.playWhenReady = true
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error seeking to next", e)
@@ -426,10 +464,36 @@ class PlayerConnection(
     fun seekToPrevious() {
         try {
             Log.d(TAG, "Seeking to previous track")
-            if (player.hasPreviousMediaItem() || player.currentPosition > 3000) {
-                player.seekToPrevious()
-                player.prepare()
-                player.playWhenReady = true
+            if (audioFadingEnabled && player.isPlaying) {
+                fadeJob?.cancel()
+                fadeJob = scope.launch {
+                    val targetVol = service.playerVolume.value
+                    val steps = 15
+                    val delayMs = 300L / steps
+                    
+                    for (i in steps downTo 1) {
+                        player.volume = targetVol * (i.toFloat() / steps)
+                        delay(delayMs)
+                    }
+                    
+                    if (player.hasPreviousMediaItem() || player.currentPosition > 3000) {
+                        player.seekToPrevious()
+                        player.prepare()
+                        player.playWhenReady = true
+                    }
+                    
+                    for (i in 1..steps) {
+                        player.volume = targetVol * (i.toFloat() / steps)
+                        delay(delayMs)
+                    }
+                    player.volume = targetVol
+                }
+            } else {
+                if (player.hasPreviousMediaItem() || player.currentPosition > 3000) {
+                    player.seekToPrevious()
+                    player.prepare()
+                    player.playWhenReady = true
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error seeking to previous", e)
@@ -457,7 +521,42 @@ class PlayerConnection(
         try {
             val newPlayWhenReady = !player.playWhenReady
             Log.d(TAG, "Toggling play/pause to: $newPlayWhenReady")
-            player.playWhenReady = newPlayWhenReady
+            
+            if (audioFadingEnabled) {
+                fadeJob?.cancel()
+                fadeJob = scope.launch {
+                    val targetVol = service.playerVolume.value
+                    val steps = 15
+                    val delayMs = 300L / steps
+
+                    if (!newPlayWhenReady) {
+                        // Playing -> Pause (Fade out)
+                        for (i in steps downTo 1) {
+                            player.volume = targetVol * (i.toFloat() / steps)
+                            delay(delayMs)
+                        }
+                        player.playWhenReady = false
+                        player.volume = targetVol
+                    } else {
+                        // Paused -> Play (Fade in)
+                        player.volume = 0f
+                        if (player.playbackState == Player.STATE_IDLE) {
+                            player.prepare()
+                        }
+                        player.playWhenReady = true
+                        for (i in 1..steps) {
+                            player.volume = targetVol * (i.toFloat() / steps)
+                            delay(delayMs)
+                        }
+                        player.volume = targetVol
+                    }
+                }
+            } else {
+                if (newPlayWhenReady && player.playbackState == Player.STATE_IDLE) {
+                    player.prepare()
+                }
+                player.playWhenReady = newPlayWhenReady
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error toggling play/pause", e)
             reportException(e)
