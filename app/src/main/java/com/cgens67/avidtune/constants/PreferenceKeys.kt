@@ -89,6 +89,7 @@ const val DefaultSmallButtonsShape = "Pill"
 val PauseListenHistoryKey = booleanPreferencesKey("pauseListenHistory")
 val PauseSearchHistoryKey = booleanPreferencesKey("pauseSearchHistory")
 val DisableScreenshotKey = booleanPreferencesKey("disableScreenshot")
+val LastSeenVersionCodeKey = intPreferencesKey("last_seen_version_code")
 val NewsLastReadTimestampKey = longPreferencesKey("news_last_read_timestamp")
 
 val DiscordTokenKey = stringPreferencesKey("discordToken")
