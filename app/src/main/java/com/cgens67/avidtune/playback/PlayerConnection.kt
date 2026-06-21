@@ -428,8 +428,8 @@ class PlayerConnection(
                 fadeJob?.cancel()
                 fadeJob = scope.launch {
                     val targetVol = service.playerVolume.value
-                    val steps = 15
-                    val delayMs = 300L / steps
+                    val steps = 10
+                    val delayMs = 150L / steps
                     
                     for (i in steps downTo 1) {
                         player.volume = targetVol * (i.toFloat() / steps)
@@ -468,8 +468,8 @@ class PlayerConnection(
                 fadeJob?.cancel()
                 fadeJob = scope.launch {
                     val targetVol = service.playerVolume.value
-                    val steps = 15
-                    val delayMs = 300L / steps
+                    val steps = 10
+                    val delayMs = 150L / steps
                     
                     for (i in steps downTo 1) {
                         player.volume = targetVol * (i.toFloat() / steps)
@@ -526,8 +526,8 @@ class PlayerConnection(
                 fadeJob?.cancel()
                 fadeJob = scope.launch {
                     val targetVol = service.playerVolume.value
-                    val steps = 15
-                    val delayMs = 300L / steps
+                    val steps = 10
+                    val delayMs = 100L / steps
 
                     if (!newPlayWhenReady) {
                         // Playing -> Pause (Fade out)
