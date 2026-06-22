@@ -20,7 +20,6 @@
     <string name="quick_picks">猜你喜欢</string>
     <string name="quick_picks_empty">听歌以生成个人歌曲推荐</string>
     <string name="new_release_albums">新发布</string>
-    <string name="forgotten_favorites">被遗忘的最爱</string>
     <string name="similar_to">相似歌曲</string>
     <string name="keep_listening">继续聆听</string>
     <string name="your_ytb_playlists">你的 YouTube 账户</string>
@@ -59,9 +58,6 @@
     <string name="filter_featured_playlists">精选歌单</string>
     <string name="filter_bookmarked">收藏</string>
     <string name="no_results_found">无结果</string>
-
-    <!-- Artist screen -->
-    <string name="from_your_library">你的资料库中</string>
 
     <!-- Album screen -->
     <string name="other_versions">其他版本</string>
@@ -970,5 +966,18 @@
     <string name="artist_featured_on">参与演出</string>
     <string name="artist_fans_might_also_like">粉丝可能还喜欢</string>
     <string name="view_all">查看全部</string>
+    
+    <!-- Home Section Titles -->
+    <string name="albums_for_you">为你推荐的专辑</string>
+    <string name="new_releases">新发行</string>
+    <string name="similar_to_caps">相似于</string>
+    <string name="fresh_finds_old_favorites">新发现，老最爱</string>
+    <string name="from_your_library">来自你的资料库</string>
+    <string name="from_the_community">来自社区</string>
+    <string name="forgotten_favorites">被遗忘的最爱</string>
+    <string name="music_videos_for_you">为你推荐的音乐视频</string>
+    <string name="todays_hits">今日热歌</string>
+    <string name="mixed_for_you">为你混合</string>
+    <string name="your_daily_discover">你的每日发现</string>
 
 </resources>
