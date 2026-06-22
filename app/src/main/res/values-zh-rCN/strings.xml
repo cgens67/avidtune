@@ -969,5 +969,6 @@
     <string name="artist_live_performances">现场表演</string>
     <string name="artist_featured_on">参与演出</string>
     <string name="artist_fans_might_also_like">粉丝可能还喜欢</string>
+    <string name="view_all">查看全部</string>
 
 </resources>
