@@ -969,10 +969,22 @@
     <string name="participants">Participants</string>
     <string name="got_it">Got it</string>
     
+    <!-- 1.2.0 -->    
     <string name="double_tap_to_seek">Double tap to seek</string>
     <string name="turn_on_artist_canvas">Turn on artist canvas</string>
     <string name="turn_on_artist_canvas_desc">Displays animated video backgrounds on artist profiles to celebrate their legacy and artistry.</string>
     <string name="hide_music_videos">Hide music videos</string>
     <string name="premium_audio_fading">Premium audio fading</string>
     <string name="premium_audio_fading_desc">Smoothly fade volume in and out when pausing, playing, or skipping tracks</string>
+    
+    <!-- 1.1.1 -->
+    <string name="artist_top_songs">Top songs</string>
+    <string name="artist_albums">Albums</string>
+    <string name="artist_singles_eps">Singles &amp; EPs</string>
+    <string name="artist_videos">Videos</string>
+    <string name="artist_playlists">Playlists</string>
+    <string name="artist_playlists_by">Playlists by %1$s</string>
+    <string name="artist_live_performances">Live performances</string>
+    <string name="artist_featured_on">Featured on</string>
+    <string name="artist_fans_might_also_like">Fans might also like</string>
 </resources>
