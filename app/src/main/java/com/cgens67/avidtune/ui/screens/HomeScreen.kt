@@ -533,7 +533,7 @@ fun HomeScreen(
             homePage?.sections?.forEach {
                 item {
                     NavigationTitle(
-                        title = it.title,
+                        title = getTranslatedHomeSectionTitle(it.title),
                         label = it.label,
                         thumbnail = it.thumbnail?.let { thumbnailUrl ->
                             {
@@ -876,5 +876,24 @@ fun QuickPicksSection(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun getTranslatedHomeSectionTitle(title: String): String {
+    return when {
+        title.equals("Albums for you", ignoreCase = true) -> stringResource(R.string.albums_for_you)
+        title.equals("New releases", ignoreCase = true) -> stringResource(R.string.new_releases)
+        title.equals("SIMILAR TO", ignoreCase = true) -> stringResource(R.string.similar_to_caps)
+        title.equals("Fresh finds, old favorites", ignoreCase = true) -> stringResource(R.string.fresh_finds_old_favorites)
+        title.equals("From your library", ignoreCase = true) -> stringResource(R.string.from_your_library)
+        title.equals("From the community", ignoreCase = true) -> stringResource(R.string.from_the_community)
+        title.equals("Forgotten favorites", ignoreCase = true) -> stringResource(R.string.forgotten_favorites)
+        title.equals("Music videos for you", ignoreCase = true) -> stringResource(R.string.music_videos_for_you)
+        title.equals("Today's hits", ignoreCase = true) -> stringResource(R.string.todays_hits)
+        title.equals("Mixed for you", ignoreCase = true) -> stringResource(R.string.mixed_for_you)
+        title.equals("Live performances", ignoreCase = true) -> stringResource(R.string.artist_live_performances)
+        title.equals("Your daily discover", ignoreCase = true) -> stringResource(R.string.your_daily_discover)
+        else -> title
     }
 }
