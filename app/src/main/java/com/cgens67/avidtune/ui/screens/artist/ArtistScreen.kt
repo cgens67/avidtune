@@ -822,7 +822,7 @@ fun ArtistScreen(
                                     .padding(horizontal = 16.dp, vertical = 8.dp)
                             ) {
                                 Text(
-                                    text = "View All",
+                                    text = stringResource(R.string.view_all),
                                     style = MaterialTheme.typography.labelLarge,
                                     color = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier
@@ -844,7 +844,7 @@ fun ArtistScreen(
                             key = "youtube_section_header_${section.title}_${section.items.firstOrNull()?.id.orEmpty()}_${section.moreEndpoint?.browseId.orEmpty()}",
                         ) {
                             NavigationTitle(
-                                title = section.title,
+                                title = getTranslatedArtistSectionTitle(section.title),
                                 onClick = section.moreEndpoint?.let {
                                     {
                                         navController.navigate(
@@ -1050,5 +1050,27 @@ fun ArtistScreen(
                 scrolledContainerColor = Color.Transparent
             )
         )
+    }
+}
+
+@Composable
+private fun getTranslatedArtistSectionTitle(title: String): String {
+    return when {
+        title.equals("top songs", ignoreCase = true) -> stringResource(R.string.artist_top_songs)
+        title.equals("albums", ignoreCase = true) -> stringResource(R.string.artist_albums)
+        title.equals("singles & eps", ignoreCase = true) || title.equals("singles and eps", ignoreCase = true) -> stringResource(R.string.artist_singles_eps)
+        title.equals("videos", ignoreCase = true) -> stringResource(R.string.artist_videos)
+        title.equals("live performances", ignoreCase = true) -> stringResource(R.string.artist_live_performances)
+        title.equals("featured on", ignoreCase = true) -> stringResource(R.string.artist_featured_on)
+        title.equals("fans might also like", ignoreCase = true) || title.equals("fan might also like", ignoreCase = true) -> stringResource(R.string.artist_fans_might_also_like)
+        title.startsWith("playlists by", ignoreCase = true) -> {
+            val artistName = title.substringAfter("by", "").trim()
+            if (artistName.isNotEmpty()) {
+                stringResource(R.string.artist_playlists_by, artistName)
+            } else {
+                stringResource(R.string.artist_playlists)
+            }
+        }
+        else -> title
     }
 }
