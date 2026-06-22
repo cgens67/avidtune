@@ -979,5 +979,6 @@
     <string name="todays_hits">今日热歌</string>
     <string name="mixed_for_you">为你混合</string>
     <string name="your_daily_discover">你的每日发现</string>
+    <string name="featured_playlists_for_you">为您推荐的精选歌单</string>
 
 </resources>
