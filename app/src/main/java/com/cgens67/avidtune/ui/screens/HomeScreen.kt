@@ -553,7 +553,7 @@ fun HomeScreen(
                 item {
                     NavigationTitle(
                         title = getTranslatedHomeSectionTitle(it.title),
-                        label = it.label,
+                        label = it.label?.let { label -> getTranslatedHomeSectionTitle(label) },
                         thumbnail = it.thumbnail?.let { thumbnailUrl ->
                             {
                                 val shape =
