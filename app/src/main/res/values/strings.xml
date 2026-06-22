@@ -20,7 +20,6 @@
     <string name="quick_picks">Quick picks</string>
     <string name="quick_picks_empty">Listen to songs to generate your quick picks</string>
     <string name="new_release_albums">New releases</string>
-    <string name="forgotten_favorites">Forgotten favorites</string>
     <string name="similar_to">Similar to</string>
     <string name="keep_listening">Keep listening</string>
     <string name="your_ytb_playlists">Your youtube account</string>
@@ -988,4 +987,17 @@
     <string name="artist_featured_on">Featured on</string>
     <string name="artist_fans_might_also_like">Fans might also like</string>
     <string name="view_all">View All</string>
+    
+    <!-- Home Section Titles -->
+    <string name="albums_for_you">Albums for you</string>
+    <string name="new_releases">New releases</string>
+    <string name="similar_to_caps">SIMILAR TO</string>
+    <string name="fresh_finds_old_favorites">Fresh finds, old favorites</string>
+    <string name="from_your_library">From your library</string>
+    <string name="from_the_community">From the community</string>
+    <string name="forgotten_favorites">Forgotten favorites</string>
+    <string name="music_videos_for_you">Music videos for you</string>
+    <string name="todays_hits">Today\'s hits</string>
+    <string name="mixed_for_you">Mixed for you</string>
+    <string name="your_daily_discover">Your daily discover</string>
 </resources>
