@@ -977,7 +977,7 @@
     <string name="premium_audio_fading">Premium audio fading</string>
     <string name="premium_audio_fading_desc">Smoothly fade volume in and out when pausing, playing, or skipping tracks</string>
     
-    <!-- 1.1.1 -->
+    <!-- 1.2.1 -->
     <string name="artist_top_songs">Top songs</string>
     <string name="artist_albums">Albums</string>
     <string name="artist_singles_eps">Singles &amp; EPs</string>
@@ -987,4 +987,5 @@
     <string name="artist_live_performances">Live performances</string>
     <string name="artist_featured_on">Featured on</string>
     <string name="artist_fans_might_also_like">Fans might also like</string>
+    <string name="view_all">View All</string>
 </resources>
