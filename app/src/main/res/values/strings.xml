@@ -997,4 +997,5 @@
     <string name="todays_hits">Today\'s hits</string>
     <string name="mixed_for_you">Mixed for you</string>
     <string name="your_daily_discover">Your daily discover</string>
+    <string name="featured_playlists_for_you">Featured playlists for you</string>
 </resources>
