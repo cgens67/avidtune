@@ -887,17 +887,9 @@ class MainActivity : ComponentActivity() {
                                                 }
                                             }
 
-                                            // Animaciones de Icono y Titulo
+                                            // Animaciones de Titulo
                                             val infiniteTransition = rememberInfiniteTransition(label = "header_transition")
-                                            val logoScale by infiniteTransition.animateFloat(
-                                                initialValue = 1f,
-                                                targetValue = 1.15f,
-                                                animationSpec = infiniteRepeatable(
-                                                    animation = tween(1500, easing = FastOutSlowInEasing),
-                                                    repeatMode = RepeatMode.Reverse
-                                                ),
-                                                label = "logo_scale"
-                                            )
+                                            
                                             val gradientOffset by infiniteTransition.animateFloat(
                                                 initialValue = 0f,
                                                 targetValue = 1000f,
@@ -927,9 +919,7 @@ class MainActivity : ComponentActivity() {
                                                             painter = painterResource(R.drawable.avidtune),
                                                             contentDescription = null,
                                                             tint = MaterialTheme.colorScheme.primary,
-                                                            modifier = Modifier
-                                                                .size(28.dp)
-                                                                .scale(logoScale)
+                                                            modifier = Modifier.size(28.dp)
                                                         )
                                                         Spacer(modifier = Modifier.width(8.dp))
                                                         Text(
@@ -958,7 +948,7 @@ class MainActivity : ComponentActivity() {
                                                         val isNotifPressed by notifInteractionSource.collectIsPressedAsState()
                                                         val notifScale by animateFloatAsState(
                                                             targetValue = if (isNotifPressed) 0.8f else 1f,
-                                                            animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                                                            animationSpec = spring<Float>(stiffness = Spring.StiffnessMedium),
                                                             label = "notif_scale"
                                                         )
 
@@ -1027,7 +1017,7 @@ class MainActivity : ComponentActivity() {
                                                         val isSearchPressed by searchInteractionSource.collectIsPressedAsState()
                                                         val searchScale by animateFloatAsState(
                                                             targetValue = if (isSearchPressed) 0.8f else 1f,
-                                                            animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                                                            animationSpec = spring<Float>(stiffness = Spring.StiffnessMedium),
                                                             label = "search_scale"
                                                         )
 
@@ -1048,7 +1038,7 @@ class MainActivity : ComponentActivity() {
                                                         val isProfilePressed by profileInteractionSource.collectIsPressedAsState()
                                                         val profileScale by animateFloatAsState(
                                                             targetValue = if (isProfilePressed) 0.85f else 1f,
-                                                            animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                                                            animationSpec = spring<Float>(stiffness = Spring.StiffnessMedium),
                                                             label = "profile_scale"
                                                         )
 
@@ -1833,7 +1823,7 @@ fun ProfileIconWithUpdateBadge(
     val isPressed by interactionSource.collectIsPressedAsState()
     val pressScale by animateFloatAsState(
         targetValue = if (isPressed) 0.85f else 1f,
-        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        animationSpec = spring<Float>(stiffness = Spring.StiffnessMedium),
         label = "press_scale"
     )
 
