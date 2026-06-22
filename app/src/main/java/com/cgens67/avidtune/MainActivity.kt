@@ -28,6 +28,7 @@ import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
@@ -47,6 +48,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -814,6 +816,11 @@ class MainActivity : ComponentActivity() {
                                     )
 
                                     if (shouldShowTopBar) {
+                                    AnimatedVisibility(
+                                        visible = shouldShowTopBar,
+                                        enter = fadeIn(animationSpec = tween(400)) + slideInVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { -it },
+                                        exit = fadeOut(animationSpec = tween(300)) + slideOutVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { -it }
+                                    ) {
                                         Box(modifier = Modifier.fillMaxWidth()) {
                                             // Capa base con color de fondo siempre visible
                                             Box(
@@ -878,6 +885,36 @@ class MainActivity : ComponentActivity() {
                                                 }
                                             }
 
+                                            // Animaciones de Icono y Titulo
+                                            val infiniteTransition = rememberInfiniteTransition(label = "header_transition")
+                                            val logoScale by infiniteTransition.animateFloat(
+                                                initialValue = 1f,
+                                                targetValue = 1.15f,
+                                                animationSpec = infiniteRepeatable(
+                                                    animation = tween(1500, easing = FastOutSlowInEasing),
+                                                    repeatMode = RepeatMode.Reverse
+                                                ),
+                                                label = "logo_scale"
+                                            )
+                                            val gradientOffset by infiniteTransition.animateFloat(
+                                                initialValue = 0f,
+                                                targetValue = 1000f,
+                                                animationSpec = infiniteRepeatable(
+                                                    animation = tween(3000, easing = LinearEasing),
+                                                    repeatMode = RepeatMode.Restart
+                                                ),
+                                                label = "gradient_offset"
+                                            )
+                                            val titleGradient = Brush.linearGradient(
+                                                colors = listOf(
+                                                    MaterialTheme.colorScheme.primary,
+                                                    MaterialTheme.colorScheme.tertiary,
+                                                    MaterialTheme.colorScheme.primary
+                                                ),
+                                                start = Offset(gradientOffset - 500f, 0f),
+                                                end = Offset(gradientOffset + 500f, 0f)
+                                            )
+
                                             TopAppBar(
                                                 title = {
                                                     Row(
@@ -887,14 +924,18 @@ class MainActivity : ComponentActivity() {
                                                         Icon(
                                                             painter = painterResource(R.drawable.avidtune),
                                                             contentDescription = null,
-                                                            tint = MaterialTheme.colorScheme.onSurface,
-                                                            modifier = Modifier.size(28.dp)
+                                                            tint = MaterialTheme.colorScheme.primary,
+                                                            modifier = Modifier
+                                                                .size(28.dp)
+                                                                .scale(logoScale)
                                                         )
                                                         Spacer(modifier = Modifier.width(8.dp))
                                                         Text(
                                                             text = stringResource(R.string.app_name),
-                                                            style = MaterialTheme.typography.titleLarge,
-                                                            fontWeight = FontWeight.Bold,
+                                                            style = MaterialTheme.typography.titleLarge.copy(
+                                                                brush = titleGradient
+                                                            ),
+                                                            fontWeight = FontWeight.ExtraBold,
                                                             maxLines = 1,
                                                             overflow = TextOverflow.Ellipsis
                                                         )
@@ -910,9 +951,20 @@ class MainActivity : ComponentActivity() {
                                                         val viewModel: NewReleaseViewModel = hiltViewModel()
                                                         val hasNewReleases by viewModel.hasNewReleases.collectAsState()
 
+                                                        // Notif Anim
+                                                        val notifInteractionSource = remember { MutableInteractionSource() }
+                                                        val isNotifPressed by notifInteractionSource.collectIsPressedAsState()
+                                                        val notifScale by animateFloatAsState(
+                                                            targetValue = if (isNotifPressed) 0.8f else 1f,
+                                                            animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                                                            label = "notif_scale"
+                                                        )
+
                                                         // Ícono de notificación para nuevos lanzamientos
                                                         Box(
-                                                            modifier = Modifier.size(48.dp)
+                                                            modifier = Modifier
+                                                                .size(48.dp)
+                                                                .scale(notifScale)
                                                         ) {
                                                             IconButton(
                                                                 onClick = {
@@ -929,7 +981,8 @@ class MainActivity : ComponentActivity() {
                                                                         ).show()
                                                                     }
                                                                 },
-                                                                onLongClick = {}
+                                                                onLongClick = {},
+                                                                interactionSource = notifInteractionSource
                                                             ) {
                                                                 Icon(
                                                                     painter = painterResource(R.drawable.notification_on),
@@ -940,10 +993,20 @@ class MainActivity : ComponentActivity() {
 
                                                             // Badge para nuevos lanzamientos
                                                             if (hasNewReleases) {
+                                                                val badgeScale by infiniteTransition.animateFloat(
+                                                                    initialValue = 0.8f,
+                                                                    targetValue = 1.2f,
+                                                                    animationSpec = infiniteRepeatable(
+                                                                        animation = tween(800, easing = FastOutSlowInEasing),
+                                                                        repeatMode = RepeatMode.Reverse
+                                                                    ),
+                                                                    label = "badge_scale"
+                                                                )
                                                                 Box(
                                                                     modifier = Modifier
                                                                         .align(Alignment.TopEnd)
                                                                         .size(10.dp)
+                                                                        .scale(badgeScale)
                                                                         .clip(CircleShape)
                                                                         .background(
                                                                             color = MaterialTheme.colorScheme.primary,
@@ -958,9 +1021,19 @@ class MainActivity : ComponentActivity() {
                                                             }
                                                         }
 
+                                                        val searchInteractionSource = remember { MutableInteractionSource() }
+                                                        val isSearchPressed by searchInteractionSource.collectIsPressedAsState()
+                                                        val searchScale by animateFloatAsState(
+                                                            targetValue = if (isSearchPressed) 0.8f else 1f,
+                                                            animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                                                            label = "search_scale"
+                                                        )
+
                                                         IconButton(
                                                             onClick = { onActiveChange(true) },
-                                                            onLongClick = {}
+                                                            onLongClick = {},
+                                                            interactionSource = searchInteractionSource,
+                                                            modifier = Modifier.scale(searchScale)
                                                         ) {
                                                             Icon(
                                                                 painter = painterResource(R.drawable.search),
@@ -969,21 +1042,31 @@ class MainActivity : ComponentActivity() {
                                                             )
                                                         }
 
-                                                        ProfileIconWithUpdateBadge(
-                                                            currentVersion = BuildConfig.VERSION_NAME,
-                                                            onProfileClick = {
-                                                                try {
-                                                                    navController.navigate("settings")
-                                                                } catch (e: Exception) {
-                                                                    e.printStackTrace()
-                                                                    Toast.makeText(
-                                                                        context,
-                                                                        R.string.navigation_error,
-                                                                        Toast.LENGTH_SHORT
-                                                                    ).show()
-                                                                }
-                                                            }
+                                                        val profileInteractionSource = remember { MutableInteractionSource() }
+                                                        val isProfilePressed by profileInteractionSource.collectIsPressedAsState()
+                                                        val profileScale by animateFloatAsState(
+                                                            targetValue = if (isProfilePressed) 0.85f else 1f,
+                                                            animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                                                            label = "profile_scale"
                                                         )
+
+                                                        Box(modifier = Modifier.scale(profileScale)) {
+                                                            ProfileIconWithUpdateBadge(
+                                                                currentVersion = BuildConfig.VERSION_NAME,
+                                                                onProfileClick = {
+                                                                    try {
+                                                                        navController.navigate("settings")
+                                                                    } catch (e: Exception) {
+                                                                        e.printStackTrace()
+                                                                        Toast.makeText(
+                                                                            context,
+                                                                            R.string.navigation_error,
+                                                                            Toast.LENGTH_SHORT
+                                                                        ).show()
+                                                                    }
+                                                                }
+                                                            )
+                                                        }
                                                     }
                                                 },
                                                 scrollBehavior = searchBarScrollBehavior,
@@ -992,6 +1075,7 @@ class MainActivity : ComponentActivity() {
                                                 )
                                             )
                                         }
+                                    }
                                     }
 
                                     // Verificación más segura para la ruta
@@ -1743,6 +1827,14 @@ fun ProfileIconWithUpdateBadge(
         label = "alpha"
     )
 
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.85f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "press_scale"
+    )
+
     // Control seguro de updates
     LaunchedEffect(currentVersion) {
         try {
@@ -1757,10 +1849,11 @@ fun ProfileIconWithUpdateBadge(
         contentAlignment = Alignment.Center,
         modifier = Modifier
             .size(48.dp)
+            .scale(pressScale)
             .clip(CircleShape)
             .clickable(
                 indication = null,
-                interactionSource = remember { MutableInteractionSource() }
+                interactionSource = interactionSource
             ) {
                 try {
                     updatedOnClick.value()
