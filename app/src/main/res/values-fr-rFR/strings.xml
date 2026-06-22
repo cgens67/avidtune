@@ -955,4 +955,14 @@
     <string name="hide_music_videos">Masquer les clips musicaux</string>
     <string name="premium_audio_fading">Fondu audio premium</string>
     <string name="premium_audio_fading_desc">Fondu enchaîné du volume lors de la mise en pause, de la lecture ou du passage à une autre piste</string>
+    
+    <string name="artist_top_songs">Meilleurs titres</string>
+    <string name="artist_albums">Albums</string>
+    <string name="artist_singles_eps">Singles et EP</string>
+    <string name="artist_videos">Vidéos</string>
+    <string name="artist_playlists">Playlists</string>
+    <string name="artist_playlists_by">Playlists par %1$s</string>
+    <string name="artist_live_performances">Concerts</string>
+    <string name="artist_featured_on">En vedette sur</string>
+    <string name="artist_fans_might_also_like">Les fans aiment aussi</string>
 </resources>
