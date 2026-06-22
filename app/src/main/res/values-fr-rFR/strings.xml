@@ -965,4 +965,5 @@
     <string name="artist_live_performances">Concerts</string>
     <string name="artist_featured_on">En vedette sur</string>
     <string name="artist_fans_might_also_like">Les fans aiment aussi</string>
+    <string name="view_all">Tout afficher</string>
 </resources>
