@@ -959,5 +959,15 @@
     <string name="hide_music_videos">隐藏音乐视频</string>
     <string name="premium_audio_fading">高级音频淡入淡出</string>
     <string name="premium_audio_fading_desc">在暂停、播放或跳过曲目时平滑地淡入和淡出音量</string>
+    
+    <string name="artist_top_songs">热门歌曲</string>
+    <string name="artist_albums">专辑</string>
+    <string name="artist_singles_eps">单曲和 EP</string>
+    <string name="artist_videos">视频</string>
+    <string name="artist_playlists">播放列表</string>
+    <string name="artist_playlists_by">%1$s 的播放列表</string>
+    <string name="artist_live_performances">现场表演</string>
+    <string name="artist_featured_on">参与演出</string>
+    <string name="artist_fans_might_also_like">粉丝可能还喜欢</string>
 
 </resources>
