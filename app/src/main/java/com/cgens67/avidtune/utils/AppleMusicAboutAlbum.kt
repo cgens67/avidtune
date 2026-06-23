@@ -175,8 +175,13 @@ object AppleMusicAboutAlbum {
             val description = editorialNotes?.get("standard")?.jsonPrimitive?.contentOrNull
                 ?: editorialNotes?.get("short")?.jsonPrimitive?.contentOrNull
 
-            // Remove HTML tags if present
-            description?.replace(Regex("<[^>]*>"), "")?.trim()
+            // Remove HTML tags and common entities if present
+            description?.replace(Regex("<[^>]*>"), "")
+                ?.replace("&amp;", "&")
+                ?.replace("&quot;", "\"")
+                ?.replace("&#39;", "'")
+                ?.replace("&apos;", "'")
+                ?.trim()
         }.onFailure {
             Timber.w("Failed to fetch Apple Music description for $albumTitle: ${it.message}")
         }.getOrNull()
