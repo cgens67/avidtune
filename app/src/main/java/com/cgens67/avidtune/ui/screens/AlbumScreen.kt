@@ -9,9 +9,12 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,8 +38,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonGroupDefaults
@@ -49,7 +50,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.material3.TopAppBar
@@ -103,7 +103,6 @@ import com.cgens67.avidtune.db.entities.Album
 import com.cgens67.avidtune.extensions.togglePlayPause
 import com.cgens67.avidtune.playback.ExoDownloadService
 import com.cgens67.avidtune.playback.queues.LocalAlbumRadio
-import com.cgens67.avidtune.ui.component.IconButton
 import com.cgens67.avidtune.ui.component.LocalMenuState
 import com.cgens67.avidtune.ui.component.NavigationTitle
 import com.cgens67.avidtune.ui.component.SongListItem
@@ -116,14 +115,14 @@ import com.cgens67.avidtune.ui.menu.SelectionSongMenu
 import com.cgens67.avidtune.ui.menu.SongMenu
 import com.cgens67.avidtune.ui.menu.YouTubeAlbumMenu
 import com.cgens67.avidtune.ui.utils.ItemWrapper
-import com.cgens67.avidtune.ui.utils.backToMain
 import com.cgens67.avidtune.ui.utils.resize
 import com.cgens67.avidtune.viewmodels.AlbumViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.io.IOException
+import java.io.IOException
 
 @SuppressLint("LocalContextGetResourceValueCall")
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class,
@@ -166,6 +165,22 @@ fun AlbumScreen(
     val downloadUtil = LocalDownloadUtil.current
     var downloadState by remember {
         mutableStateOf(Download.STATE_STOPPED)
+    }
+
+    var isDescriptionLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(albumWithSongs?.album?.id) {
+        if (albumWithSongs != null) {
+            isDescriptionLoading = true
+            delay(8000)
+            isDescriptionLoading = false
+        }
+    }
+
+    LaunchedEffect(albumDescription) {
+        if (albumDescription != null) {
+            isDescriptionLoading = false
+        }
     }
 
     LaunchedEffect(albumWithSongs) {
@@ -229,10 +244,9 @@ fun AlbumScreen(
                                 contentScale = ContentScale.Crop
                             )
 
-                            // Botón de descarga superpuesto (manteniendo tu función original)
+                            // Botón de descarga superpuesto
                             androidx.compose.material3.IconButton(
                                 onClick = {
-                                    // Lanza una coroutine para guardar la imagen
                                     CoroutineScope(Dispatchers.IO).launch {
                                         albumWithSongs.album.thumbnailUrl?.let {
                                             saveAlbumImageToGallery(
@@ -244,18 +258,18 @@ fun AlbumScreen(
                                     }
                                 },
                                 modifier = Modifier
-                                    .align(Alignment.BottomEnd) // Ubicar el botón en la esquina inferior derecha
-                                    .padding(8.dp) // Margen desde el borde
-                                    .size(40.dp) // Hacerlo más pequeño
-                                    .clip(CircleShape) // Bordes redondeados
+                                    .align(Alignment.BottomEnd)
+                                    .padding(8.dp)
+                                    .size(40.dp)
+                                    .clip(CircleShape)
                                     .background(
-                                        MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f) // Fondo semitransparente
+                                        MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
                                     )
                             ) {
                                 Icon(
                                     painter = painterResource(R.drawable.download),
                                     contentDescription = "Guardar imagen en galería",
-                                    tint = MaterialTheme.colorScheme.onSecondaryContainer // Color del ícono
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
                                 )
                             }
                         }
@@ -426,77 +440,39 @@ fun AlbumScreen(
                         Spacer(Modifier.height(16.dp))
 
                         // Album Description
-                        var showDescriptionDialog by rememberSaveable { mutableStateOf(false) }
-                        var isDescriptionTruncated by remember { mutableStateOf(false) }
-                        
-                        val staticDescription = "${albumWithSongs.album.title} is an album by ${albumWithSongs.artists.joinToString { it.name }}${
-                            if (albumWithSongs.album.year != null) ", released in ${albumWithSongs.album.year}" else ""
-                        }. This collection features ${albumWithSongs.songs.size} tracks showcasing their musical artistry."
-                        
-                        val description = albumDescription ?: staticDescription
-
-                        Text(
-                            text = description,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Start,
-                            modifier = Modifier
-                                .padding(horizontal = 32.dp)
-                                .combinedClickable(
-                                    onClick = {
-                                        if (isDescriptionTruncated) {
-                                            showDescriptionDialog = true
-                                        }
-                                    }
-                                ),
-                            maxLines = 3,
-                            overflow = TextOverflow.Ellipsis,
-                            onTextLayout = { textLayoutResult ->
-                                isDescriptionTruncated = textLayoutResult.hasVisualOverflow
+                        if (isDescriptionLoading) {
+                            ShimmerHost(modifier = Modifier.padding(horizontal = 32.dp)) {
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    TextPlaceholder(modifier = Modifier.fillMaxWidth())
+                                    TextPlaceholder(modifier = Modifier.fillMaxWidth(0.8f))
+                                    TextPlaceholder(modifier = Modifier.fillMaxWidth(0.6f))
+                                }
                             }
-                        )
+                        } else {
+                            var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
 
-                        if (showDescriptionDialog) {
-                            AlertDialog(
-                                onDismissRequest = { showDescriptionDialog = false },
-                                title = {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        AsyncImage(
-                                            model = albumWithSongs.album.thumbnailUrl?.resize(120, 120),
-                                            contentDescription = null,
-                                            modifier = Modifier
-                                                .size(50.dp)
-                                                .clip(CircleShape),
-                                            contentScale = ContentScale.Crop
-                                        )
-                                        Spacer(Modifier.width(16.dp))
-                                        Text(
-                                            text = albumWithSongs.album.title,
-                                            style = MaterialTheme.typography.titleLarge
-                                        )
-                                    }
-                                },
-                                text = {
-                                    LazyColumn {
-                                        item {
-                                            Text(
-                                                text = description,
-                                                style = MaterialTheme.typography.bodyMedium
-                                            )
-                                        }
-                                    }
-                                },
-                                confirmButton = {
-                                    Button(
-                                        onClick = { showDescriptionDialog = false },
-                                        shapes = ButtonDefaults.shapes()
-                                    ) {
-                                        Text(stringResource(android.R.string.ok))
-                                    }
-                                },
+                            val staticDescription = "${albumWithSongs.album.title} is an album by ${albumWithSongs.artists.joinToString { it.name }}${
+                                if (albumWithSongs.album.year != null) ", released in ${albumWithSongs.album.year}" else ""
+                            }. This collection features ${albumWithSongs.songs.size} tracks showcasing their musical artistry."
+
+                            val description = albumDescription ?: staticDescription
+
+                            Text(
+                                text = description,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Start,
+                                modifier = Modifier
+                                    .padding(horizontal = 32.dp)
+                                    .fillMaxWidth()
+                                    .animateContentSize()
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                        onClick = { isDescriptionExpanded = !isDescriptionExpanded }
+                                    ),
+                                maxLines = if (isDescriptionExpanded) Int.MAX_VALUE else 3,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
 
