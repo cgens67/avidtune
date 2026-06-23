@@ -557,7 +557,7 @@ class MusicService :
             .build()
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    @RequiresApi(Build.VERSION.CODES.O)
     private fun handleAudioFocusChange(focusChange: Int) {
         when (focusChange) {
             AudioManager.AUDIOFOCUS_GAIN -> {
@@ -1308,7 +1308,7 @@ class MusicService :
                                     .Builder()
                                     .proxy(YouTube.proxy)
                                     .build(),
-                            ),
+                            ).setUserAgent(com.cgens67.innertube.models.YouTubeClient.USER_AGENT_WEB),
                         ),
                     ),
             ).setCacheWriteDataSinkFactory(null)
@@ -1408,7 +1408,7 @@ class MusicService :
                 val useAlternativeSource = runBlocking {
                     dataStore.data.map { preferences ->
                         val JossRedMultimedia = booleanPreferencesKey("JossRedMultimedia")
-                        preferences[JossRedMultimedia] ?: false
+                        preferences[JossRedMultimedia] ?: true
                     }.first()
                 }
 
@@ -1451,7 +1451,7 @@ class MusicService :
                                     .subrange(0, length)
                             } else {
                                 Timber.tag(JRlogTag)
-                                    .w("JossRed URL unreachable (HTTP ${response.code}), throwing original error")
+                                    .w("JossRed URL unreachable (HTTP \${response.code}), throwing original error")
                                 throw e
                             }
                         } catch (jrException: Exception) {
@@ -1468,7 +1468,7 @@ class MusicService :
                     when (jrException) {
                         is JossRedClient.JossRedException -> {
                             Timber.tag(JRlogTag)
-                                .w("JossRed error: ${jrException.message}, throwing original error")
+                                .w("JossRed error: \${jrException.message}, throwing original error")
                         }
 
                         is TimeoutCancellationException -> {
