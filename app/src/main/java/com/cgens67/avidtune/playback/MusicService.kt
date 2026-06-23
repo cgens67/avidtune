@@ -1,3 +1,4 @@
+--- START OF FILE avidtune-master/app/src/main/java/com/cgens67/avidtune/playback/MusicService.kt ---
 @file:Suppress("DEPRECATION")
 
 package com.cgens67.avidtune.playback
@@ -1332,7 +1333,9 @@ class MusicService :
 
             songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
                 scope.launch(Dispatchers.IO) { recoverSong(mediaId) }
+                val length = if (dataSpec.length == C.LENGTH_UNSET) CHUNK_LENGTH else kotlin.math.min(dataSpec.length, CHUNK_LENGTH)
                 return@Factory dataSpec.withUri(it.first.toUri())
+                    .subrange(0, length)
             }
 
             // Intentar YouTube primero (fuente principal)
@@ -1395,8 +1398,10 @@ class MusicService :
 
                 songUrlCache[mediaId] =
                     streamUrl to System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L)
+                
+                val length = if (dataSpec.length == C.LENGTH_UNSET) CHUNK_LENGTH else kotlin.math.min(dataSpec.length, CHUNK_LENGTH)
                 return@Factory dataSpec.withUri(streamUrl.toUri())
-                    .subrange(dataSpec.uriPositionOffset, CHUNK_LENGTH)
+                    .subrange(0, length)
             } catch (e: Exception) {
                 Timber.tag(ytLogTag).e(e, "YouTube playback error, trying JossRed as fallback")
 
@@ -1442,7 +1447,9 @@ class MusicService :
                                 Timber.tag(JRlogTag)
                                     .i("Using JossRed URL as fallback: $alternativeUrl")
                                 scope.launch(Dispatchers.IO) { recoverSong(mediaId) }
+                                val length = if (dataSpec.length == C.LENGTH_UNSET) CHUNK_LENGTH else kotlin.math.min(dataSpec.length, CHUNK_LENGTH)
                                 return@Factory dataSpec.withUri(alternativeUrl.toUri())
+                                    .subrange(0, length)
                             } else {
                                 Timber.tag(JRlogTag)
                                     .w("JossRed URL unreachable (HTTP ${response.code}), throwing original error")
