@@ -59,7 +59,7 @@ constructor(
                             .Builder()
                             .proxy(YouTube.proxy)
                             .build(),
-                    ).setUserAgent(com.cgens67.innertube.models.YouTubeClient.USER_AGENT_WEB),
+                    ),
                 ),
         ) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")
