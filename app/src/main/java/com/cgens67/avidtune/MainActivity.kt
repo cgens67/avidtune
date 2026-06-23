@@ -100,7 +100,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -114,6 +113,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.CompositingStrategy
@@ -892,9 +892,9 @@ class MainActivity : ComponentActivity() {
                                             
                                             val gradientOffset by infiniteTransition.animateFloat(
                                                 initialValue = 0f,
-                                                targetValue = 1000f,
+                                                targetValue = 500f,
                                                 animationSpec = infiniteRepeatable(
-                                                    animation = tween(3000, easing = LinearEasing),
+                                                    animation = tween(2500, easing = LinearEasing),
                                                     repeatMode = RepeatMode.Restart
                                                 ),
                                                 label = "gradient_offset"
@@ -905,8 +905,9 @@ class MainActivity : ComponentActivity() {
                                                     MaterialTheme.colorScheme.tertiary,
                                                     MaterialTheme.colorScheme.primary
                                                 ),
-                                                start = Offset(gradientOffset - 500f, 0f),
-                                                end = Offset(gradientOffset + 500f, 0f)
+                                                start = Offset(gradientOffset, 0f),
+                                                end = Offset(gradientOffset + 500f, 0f),
+                                                tileMode = TileMode.Repeated
                                             )
 
                                             TopAppBar(
