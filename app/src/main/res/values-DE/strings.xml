@@ -21,7 +21,6 @@
     <string name="quick_picks">Schnellauswahl</string>
     <string name="quick_picks_empty">Höre dir Songs an, um deine Schnellauswahl zu generieren</string>
     <string name="new_release_albums">Neuerscheinungen</string>
-    <string name="forgotten_favorites">Vergessene Favoriten</string>
     <string name="similar_to">Ähnlich wie</string>
     <string name="keep_listening">Weiterhören</string>
     <string name="your_ytb_playlists">Dein YouTube-Konto</string>
@@ -60,9 +59,6 @@
     <string name="filter_featured_playlists">Vorgestellte Playlists</string>
     <string name="filter_bookmarked">Gemerkt</string>
     <string name="no_results_found">Keine Ergebnisse gefunden</string>
-
-    <!-- Artist screen -->
-    <string name="from_your_library">Aus deiner Bibliothek</string>
 
     <!-- Album screen -->
     <string name="other_versions">Andere Versionen</string>
@@ -375,7 +371,7 @@
     <string name="restore_failed">Backup konnte nicht wiederhergestellt werden</string>
 
     <string name="discord_integration">Discord-Integration</string>
-    <string name="discord_information">AvidTune verwendet die KizzyRPC-Bibliothek, um den Status deines Discord-Kontos festzulegen. Dies beinhaltet die Nutzung der Discord-Gateway-Verbindung, was als Verstoß gegen die TOS von Discord angesehen werden kann. Es sind jedoch keine Fälle bekannt, in denen Benutzerkonten aus diesem Grund gesperrt wurden. Nutzung auf eigene Gefahr. OpenTunne wird nur dein Token extrahieren, und alles andere wird lokal gespeichert.</string>
+    <string name="discord_information">AvidTune verwendet die KizzyRPC-Bibliothek, um den Status deines Discord-Kontos festzulegen. Dies beinhaltet die Nutzung der Discord-Gateway-Verbindung, was als Verstoß gegen die TOS von Discord angesehen werden kann. Es sind jedoch keine Fälle bekannt, in denen Benutzerkonten aus diesem Grund gesperrt wurden. Nutzung auf eigene Gefahr. AvidTune wird nur dein Token extrahieren, und alles andere wird lokal gespeichert.</string>
     <string name="dismiss">Schließen</string>
     <string name="options">Optionen</string>
     <string name="preview">Vorschau</string>
@@ -518,7 +514,6 @@
     <string name="language">App-Sprache</string>
     <string name="selection_mode_active">Aktiver Auswahlmodus</string>
 
-
     <!-- Avatar Selection -->
     <string name="avatar_selection">Avatar-Auswahl</string>
     <string name="choose_predefined_avatar">Wähle einen vordefinierten Avatar</string>
@@ -550,7 +545,6 @@
     <string name="show_controls">Steuerelemente anzeigen</string>
     <string name="customize_lyrics_image">Songtext-Bild anpassen</string>
 
-
     <string name="customize_image">Bild anpassen</string>
     <string name="select_theme">Design auswählen</string>
     <string name="from_cover">Vom Cover</string>
@@ -564,8 +558,6 @@
     <string name="clear">Löschen</string>
     <string name="playing_from">"Wird gespielt von: "</string>
     <string name="SmallButtonsShape">Form für kleine Schaltflächen</string>
-
-
 
     <string name="cloud_upload_title">Automatischer Cloud-Upload</string>
     <string name="cloud_upload_enabled_description">Backups werden auf filebin.net hochgeladen</string>
@@ -656,7 +648,7 @@
     <string name="start_timer">Starten</string>
     <string name="sleep_timer_active">Aktiver Timer:</string>
     <string name="sleep_timer_desc">Automatisches Herunterfahren planen</string>
-    
+
     <!-- Thumbnail Corner Radius Selector -->
     <string name="shape_and_corners">Form und Ecken</string>
     <string name="album_preview">Album-Vorschau</string>
@@ -664,7 +656,7 @@
     <string name="decrease">Verringern</string>
     <string name="increase">Erhöhen</string>
     <string name="quick_presets">Schnell-Voreinstellungen</string>
-    
+
     <!-- Lyrics Settings -->
     <string name="enable_lyrics_plus">LyricsPlus aktivieren</string>
     <string name="enable_better_lyrics">BetterLyrics aktivieren</string>
@@ -679,13 +671,13 @@
     <string name="visual_effects">Visuelle Effekte</string>
     <string name="background_blur_intensity">Intensität der Hintergrundunschärfe</string>
     <string name="network">Netzwerk</string>
-    
+
     <!-- Lyrics Translate -->
     <string name="translate_lyrics_prompt">Dieser Song scheint Wörter in einer anderen Sprache zu enthalten. Übersetzen?</string>
     <string name="translate_zh_tw_prompt">Dieser Song scheint in traditionellem Chinesisch zu sein. In vereinfachtes Chinesisch konvertieren?</string>
     <string name="show_original">Original anzeigen</string>
     <string name="translation_failed">Übersetzung fehlgeschlagen</string>
-    
+
     <string name="new_version_available">Neue Version verfügbar!</string>
     <string name="update_version">Version %1$s aktualisieren</string>
     <string name="download_update_prompt">Möchtest du das Update herunterladen?</string>
@@ -694,15 +686,15 @@
     <string name="download_completed">Download abgeschlossen!</string>
     <string name="install">Installieren</string>
     <string name="download_error">Download-Fehler</string>
-    
+
     <string name="disable_blur_effects">Unschärfeeffekte deaktivieren</string>
     <string name="disable_blur_effects_desc">Deaktiviert die Hintergrundunschärfe zur Verbesserung der Leistung</string>
-    
+
     <string name="show_nerd_stats">Nerd-Statistiken anzeigen</string>
     <string name="show_nerd_stats_desc">Detaillierte Wiedergabestatistiken anzeigen</string>
     <string name="nerd_stats">Nerd-Statistiken</string>
     <string name="nerd_stats_desc">Echtzeit-Wiedergabestatistiken</string>
-    
+
     <string name="track">Titel</string>
     <string name="no_track_playing">Kein Titel wird abgespielt</string>
     <string name="codec">Codec</string>
@@ -712,24 +704,24 @@
     <string name="loading_format_details">Formatdetails werden geladen…</string>
     <string name="buffer_health">Puffer-Gesundheit</string>
     <string name="buffer_health_stats">%1$d%% (%2$d Sek. voraus)</string>
-    
+
     <string name="state">Status</string>
     <string name="state_idle">Leerlauf</string>
     <string name="state_buffering">Puffern</string>
     <string name="state_ready">Bereit</string>
     <string name="state_ended">Beendet</string>
-    
+
     <string name="speed">Geschwindigkeit</string>
     <string name="media_id">Medien-ID</string>
     <string name="n_a">N/A</string>
-    
+
     <!-- String formats -->
     <string name="format_kbps">%1$d kbps</string>
     <string name="format_khz">%1$d kHz</string>
     <string name="format_mb">%1$s MB</string>
     <string name="format_speed">%1$sx</string>
     <string name="version_name">v%1$s</string>
-    
+
     <!-- Appearance & Theme Settings -->
     <string name="color_palette">Farbpalette</string>
     <string name="choose_custom_color_theme">Wähle ein benutzerdefiniertes Farbdesign</string>
@@ -742,13 +734,13 @@
     <string name="avatars">Avatare</string>
     <string name="select_an_avatar">Wähle einen Avatar</string>
     <string name="choose_a_style">Wähle einen Stil</string>
-    
+
     <!-- Custom Theme Color Sliders -->
     <string name="red_colon">Rot: %1$d</string>
     <string name="green_colon">Grün: %1$d</string>
     <string name="blue_colon">Blau: %1$d</string>
     <string name="selected_theme_color">Ausgewählte Designfarbe</string>
-    
+
     <!-- Changelog & Release Notes -->
     <string name="loading_releases">Veröffentlichungen werden geladen…</string>
     <string name="no_releases_available">Keine Veröffentlichungen verfügbar</string>
@@ -777,7 +769,7 @@
     <string name="note_security">Sicherheit</string>
     <string name="note_deprecation">Veraltet</string>
     <string name="note_error">Fehler</string>
-    
+
     <!-- Language Settings & Locale Manager -->
     <string name="system_language">System (%1$s)</string>
     <string name="search_language_placeholder">Sprache suchen…</string>
@@ -785,35 +777,222 @@
     <string name="applying">Wird angewendet…</string>
     <string name="restarting">Wird neu gestartet…</string>
     <string name="try_another_term">Versuche einen anderen Begriff</string>
-    
+
     <!-- Language Status Badges -->
     <string name="status_incomplete">Unvollständig</string>
     <string name="status_beta">Beta</string>
     <string name="status_experimental">Exp</string>
-    
+
     <!-- About Screen -->
     <string name="developers">Entwickler</string>
     <string name="supporters">Unterstützer</string>
     <string name="about_app">Über die App</string>
-    
+
     <string name="lead_developer">Hauptentwickler</string>
     <string name="co_developer">Co-Entwickler</string>
     <string name="supporter">Unterstützer</string>
-    
+
     <string name="dev_by_cgens67">Entwickelt von cgens67</string>
     <string name="gpl_3_license">GPL-3.0-Lizenz</string>
-    
+
     <string name="social_links">Social-Media-Links</string>
     <string name="view_license">Lizenz ansehen</string>
     <string name="social_github">GitHub</string>
     <string name="social_telegram">Telegram</string>
     <string name="social_paypal">PayPal</string>
     <string name="social_web">Web</string>
-    
+
     <string name="about_app_desc_part1">"AvidTune ist im Grunde eine mobile Version von "</string>
     <string name="about_app_desc_ganvo">Ganvo Music</string>
     <string name="about_app_desc_part2">", die ein schlankes, schnelles und funktionsreiches Erlebnis bietet, um deine Lieblingssongs unterwegs zu genießen. Mit Blick auf die Leistung kannst du ganz einfach direkt auf alle Songs von YouTube Music zugreifen."</string>
 
     <string name="use_system_font">Systemschriftart verwenden</string>
     <string name="use_system_font_desc">Verwende die Geräteschriftart anstelle der App-Schriftart</string>
+
+    <string name="permissions_title">Berechtigungen</string>
+    <string name="permissions_desc">Zugriff auf Speicher und Benachrichtigungen zulassen</string>
+    <string name="allow">Zulassen</string>
+    <string name="try_different_search_term">Versuche einen anderen Suchbegriff</string>
+
+    <string name="app_text_size">App-Textgröße</string>
+    <string name="text_size_small">Klein</string>
+    <string name="text_size_system">System folgen</string>
+    <string name="text_size_medium">Mittel</string>
+    <string name="text_size_large">Groß</string>
+    <string name="text_size_extra_large">Extra groß</string>
+
+    <string name="sync_offset">Synchronisations-Offset</string>
+    <string name="lyrics_sync_offset">Songtext-Synchronisations-Offset</string>
+    <string name="sync_offset_description">Timing anpassen, wenn der Songtext nicht synchron ist.\nPositiv (+ms) lässt den Text früher erscheinen.\nNegativ (-ms) lässt den Text später erscheinen.</string>
+
+    <string name="romanize">Romanisieren</string>
+    <string name="hide_romanized">Umschrift ausblenden</string>
+
+    <!-- Insight Strings -->
+    <string name="avidtune_insight">AvidTune Insight</string>
+    <string name="insight_discover_year">Entdecke dein musikalisches Jahr</string>
+    <string name="insight_your_musical_year">Dein musikalisches Jahr</string>
+    <string name="insight_tap_to_view">Tippe, um deine kompletten Statistiken anzusehen</string>
+    <string name="insight_top_songs">Top\nSongs</string>
+    <string name="insight_top_artists">Top\nKünstler</string>
+    <string name="insight_full_stats">Alle\nStatistiken</string>
+    <string name="insight_download_report">Bericht\nherunterladen</string>
+    <string name="insight_view_full">Vollständiges AvidTune Insight ansehen</string>
+    <string name="insight_minutes">Minuten</string>
+    <string name="insight_playlist_name">AvidTune Insight %1$d</string>
+    <string name="insight_msg_tease_0">Ich hoffe wirklich, du bist nicht enttäuscht...</string>
+    <string name="insight_msg_reveal_0">Das sind **%1$d Minuten**. Gerade erst warmgeworden?</string>
+    <string name="insight_msg_tease_1000">Es scheint, als hättest du uns erst kürzlich gefunden...</string>
+    <string name="insight_msg_reveal_1000">Und du hast den Melodien **%1$d Minuten** gewidmet.</string>
+    <string name="insight_msg_tease_5000">Musik ist definitiv dein Ding.</string>
+    <string name="insight_msg_reveal_5000">**%1$d Minuten** sind ein solider Soundtrack für dein Jahr.</string>
+    <string name="insight_msg_tease_15000">Nimmst du deine Kopfhörer jemals ab?</string>
+    <string name="insight_msg_reveal_15000">**%1$d Minuten** deuten darauf hin, dass Musik dein Sauerstoff ist.</string>
+    <string name="insight_msg_tease_40000">Bist du... in Ordnung?</string>
+    <string name="insight_msg_reveal_40000">Du hast hier buchstäblich **%1$d Minuten** gelebt.</string>
+    <string name="insight_msg_tease_default">Sieht so aus, als hätten wir uns verzählt!</string>
+    <string name="insight_msg_reveal_default">Aber du hast definitiv **%1$d Minuten** Musik gehört.</string>
+    <string name="insight_title">AvidTune Insight</string>
+    <string name="insight_intro_subtitle">Ein Rückblick auf dein musikalisches Jahr.</string>
+    <string name="insight_lets_go">Los geht\'s!</string>
+    <string name="insight_total_songs_title">Songs, die du\ngehört hast</string>
+    <string name="insight_total_songs_subtitle">Das sind eine Menge Melodien.</string>
+    <string name="insight_top_song_title">Aber dein absoluter\nFavorit war...</string>
+    <string name="insight_no_data">Keine Daten</string>
+    <string name="insight_listened_for_minutes">%1$d Minuten gehört</string>
+    <string name="insight_minutes_short">%1$d Min.</string>
+    <string name="insight_top_5_songs">Deine Top 5 Songs</string>
+    <string name="insight_total_albums_title">Alben, die du\nentdeckt hast</string>
+    <string name="insight_total_albums_subtitle">Das ist eine Menge Überspringen und Wiederholen.</string>
+    <string name="insight_top_album_title">Aber es gab ein Album,\ndas sie alle beherrschte.</string>
+    <string name="insight_top_5_albums">Deine Top 5\nAlben</string>
+    <string name="insight_total_artists_title">Künstler, die du\ngehört hast</string>
+    <string name="insight_total_artists_subtitle">Dein Musikgeschmack ist ziemlich vielfältig.</string>
+    <string name="insight_top_artist_title">Dein Top-Künstler</string>
+    <string name="insight_top_5_artists">Top 5 Künstler</string>
+    <string name="insight_playlist_ready">Deine Insight-Playlist\nist bereit.</string>
+    <string name="insight_add_to_library">Zur Bibliothek hinzufügen</string>
+    <string name="insight_saved">Gespeichert!</string>
+    <string name="insight_thank_you">Danke fürs Zuhören</string>
+    <string name="insight_see_you">Bis zum nächsten Mal!</string>
+    <string name="insight_close">Insight schließen</string>
+
+    <!-- News -->
+    <string name="news">Neuigkeiten</string>
+    <string name="search_news_placeholder">Neuigkeiten suchen...</string>
+    <string name="search_results">Suchergebnisse</string>
+    <string name="latest_news">Neueste Nachrichten</string>
+    <plurals name="n_articles">
+        <item quantity="one">%d Artikel</item>
+        <item quantity="other">%d Artikel</item>
+    </plurals>
+    <string name="important">WICHTIG</string>
+    <string name="read_more">Mehr lesen</string>
+    <string name="loading_news">Neuigkeiten werden geladen...</string>
+    <string name="no_news_available">Keine Neuigkeiten verfügbar</string>
+    <string name="try_different_keywords">Versuche andere Schlüsselwörter</string>
+    <string name="check_back_later">Schau später wieder vorbei</string>
+    <string name="something_went_wrong">Etwas ist schiefgelaufen</string>
+    <string name="failed_to_fetch_news">Neuigkeiten konnten nicht abgerufen werden</string>
+    <string name="loading">Wird geladen...</string>
+    <string name="error">Fehler</string>
+    <string name="could_not_load_article">Artikel konnte nicht geladen werden</string>
+
+    <!-- SponsorBlock setting -->
+    <string name="enable_sponsorblock">SponsorBlock aktivieren</string>
+    <string name="enable_sponsorblock_desc">Überspringe automatisch Nicht-Musik-Teile, Intros und Sponsoring in Musikvideos</string>
+    <string name="skipped_sponsor">Segment übersprungen (SponsorBlock)</string>
+
+    <string name="fallback_artist_desc">%1$s ist ein Musikkünstler.</string>
+
+    <string name="current_version">Aktuell</string>
+    <string name="error_loading_changelog">Fehler beim Laden des Änderungsprotokolls</string>
+    <string name="error_loading_commits">Fehler beim Laden von Commits</string>
+    <string name="cached">Zwischengespeichert</string>
+
+    <!-- Settings Search & Layout -->
+    <string name="internal_settings">Interne Einstellungen</string>
+    <string name="github">GitHub</string>
+    <string name="new_badge">Neu</string>
+
+    <string name="music_together">Music Together</string>
+    <string name="together_display_name">Anzeigename</string>
+    <string name="together_display_name_placeholder">Gib deinen Namen ein</string>
+    <string name="together_port">Port</string>
+    <string name="together_host_section">Sitzung hosten</string>
+    <string name="together_lan">Lokales Netzwerk</string>
+    <string name="together_allow_guests_add">Gästen erlauben, Titel hinzuzufügen</string>
+    <string name="together_allow_guests_control">Gästen erlauben, die Wiedergabe zu steuern</string>
+    <string name="together_require_approval">Beitritt erfordert Genehmigung</string>
+    <string name="together_join_section">Einer Sitzung beitreten</string>
+    <string name="together_join_link_hint">Beitrittslink hier einfügen</string>
+    <string name="together_kick">Kicken</string>
+    <string name="together_kick_confirm">Bist du sicher, dass du %1$s kicken möchtest?</string>
+    <string name="together_ban">Bannen</string>
+    <string name="together_ban_confirm">Bist du sicher, dass du %1$s bannen möchtest?</string>
+    <string name="together_status">Status</string>
+    <string name="together_idle">Im Leerlauf</string>
+    <string name="together_hosting">Hostet</string>
+    <string name="together_joining">Beitritt…</string>
+    <string name="together_waiting_approval">Warten auf Genehmigung…</string>
+    <string name="together_connected">Verbunden</string>
+    <string name="together_error_state">Fehler</string>
+    <string name="together_participants">Teilnehmer</string>
+    <string name="together_connected_count">%1$d verbunden</string>
+    <string name="together_role_host">Host</string>
+    <string name="together_role_guest">Gast</string>
+    <string name="together_pending_approval">Ausstehende Genehmigung</string>
+    <string name="together_welcome_title">Willkommen bei Music Together</string>
+    <string name="together_welcome_body">Höre gleichzeitig mit Freunden über dasselbe Netzwerk Musik.</string>
+    <string name="together_welcome_host_title">Host</string>
+    <string name="together_welcome_host_body">Starte eine Sitzung und teile den Link mit deinen Freunden.</string>
+    <string name="together_welcome_join_title">Beitreten</string>
+    <string name="together_welcome_join_body">Füge einen Sitzungslink ein, um einem bestehenden Raum beizutreten.</string>
+    <string name="together_welcome_permissions_title">Berechtigungen</string>
+    <string name="together_welcome_permissions_body">Der Host kontrolliert, wer Songs hinzufügen und abspielen/pausieren kann.</string>
+    <string name="together_dont_show_again">Nicht mehr anzeigen</string>
+    <string name="start_session">Sitzung starten</string>
+    <string name="join_session">Sitzung beitreten</string>
+    <string name="session_link">Sitzungslink</string>
+    <string name="paste">Einfügen</string>
+    <string name="join">Beitreten</string>
+    <string name="joined">Beigetreten</string>
+    <string name="leave">Verlassen</string>
+    <string name="connecting">Verbinden…</string>
+    <string name="participants">Teilnehmer</string>
+    <string name="got_it">Verstanden</string>
+
+    <!-- 1.2.0 -->    
+    <string name="double_tap_to_seek">Doppeltippen zum Spulen</string>
+    <string name="turn_on_artist_canvas">Künstler-Canvas aktivieren</string>
+    <string name="turn_on_artist_canvas_desc">Zeigt animierte Videohintergründe in Künstlerprofilen an</string>
+    <string name="hide_music_videos">Musikvideos ausblenden</string>
+    <string name="premium_audio_fading">Premium-Audio-Fading</string>
+    <string name="premium_audio_fading_desc">Die Lautstärke beim Pausieren, Abspielen oder Überspringen von Titeln sanft ein- und ausblenden</string>
+
+    <!-- 1.2.1 -->
+    <string name="artist_top_songs">Top-Songs</string>
+    <string name="artist_albums">Alben</string>
+    <string name="artist_singles_eps">Singles &amp; EPs</string>
+    <string name="artist_videos">Videos</string>
+    <string name="artist_playlists">Playlists</string>
+    <string name="artist_playlists_by">Playlists von %1$s</string>
+    <string name="artist_live_performances">Live-Auftritte</string>
+    <string name="artist_featured_on">Mitgewirkt bei</string>
+    <string name="artist_fans_might_also_like">Fans gefällt vielleicht auch</string>
+    <string name="view_all">Alle ansehen</string>
+
+    <!-- Home Section Titles -->
+    <string name="albums_for_you">Alben für dich</string>
+    <string name="new_releases">Neuerscheinungen</string>
+    <string name="similar_to_caps">ÄHNLICH WIE</string>
+    <string name="fresh_finds_old_favorites">Neuentdeckungen, alte Favoriten</string>
+    <string name="from_your_library">Aus deiner Bibliothek</string>
+    <string name="from_the_community">Aus der Community</string>
+    <string name="forgotten_favorites">Vergessene Favoriten</string>
+    <string name="music_videos_for_you">Musikvideos für dich</string>
+    <string name="todays_hits">Die Hits von heute</string>
+    <string name="mixed_for_you">Für dich gemixt</string>
+    <string name="your_daily_discover">Dein täglicher Mix</string>
+    <string name="featured_playlists_for_you">Vorgestellte Playlists für dich</string>
 </resources>
