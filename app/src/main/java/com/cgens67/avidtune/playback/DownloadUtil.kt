@@ -52,6 +52,7 @@ constructor(
             CacheDataSource
                 .Factory()
                 .setCache(playerCache)
+                .setCacheWriteDataSinkFactory(null) // Prevent writing to playerCache during downloads
                 .setUpstreamDataSourceFactory(
                     OkHttpDataSource.Factory(
                         OkHttpClient
@@ -69,7 +70,9 @@ constructor(
             }
 
             songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
+                val newLength = if (dataSpec.length == androidx.media3.common.C.LENGTH_UNSET.toLong()) 512 * 1024L else kotlin.math.min(dataSpec.length, 512 * 1024L)
                 return@Factory dataSpec.withUri(it.first.toUri())
+                    .subrange(0, newLength)
             }
 
             val playedFormat = runBlocking(Dispatchers.IO) { database.format(mediaId).first() }
@@ -98,14 +101,13 @@ constructor(
                 )
             }
 
-            val streamUrl = playbackData.streamUrl.let {
-                // Specify range to avoid YouTube's throttling
-                "${it}&range=0-${format.contentLength ?: 10000000}"
-            }
+            val streamUrl = playbackData.streamUrl
 
             songUrlCache[mediaId] =
                 streamUrl to System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L)
-            dataSpec.withUri(streamUrl.toUri())
+            
+            val newLength = if (dataSpec.length == androidx.media3.common.C.LENGTH_UNSET.toLong()) 512 * 1024L else kotlin.math.min(dataSpec.length, 512 * 1024L)
+            dataSpec.withUri(streamUrl.toUri()).subrange(0, newLength)
         }
     val downloadNotificationHelper =
         DownloadNotificationHelper(context, ExoDownloadService.CHANNEL_ID)
