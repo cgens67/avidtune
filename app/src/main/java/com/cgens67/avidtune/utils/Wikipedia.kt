@@ -33,11 +33,10 @@ object Wikipedia {
     @Serializable
     private data class WikiSummary(val extract: String? = null, val type: String? = null)
 
-    private suspend fun fetchPageSummary(title: String, lang: String): String? = runCatching {
+    private suspend fun fetchPageSummary(title: String, lang: String): WikiSummary? = runCatching {
         val encodedTitle = title.replace(" ", "_").encodeURLQueryComponent()
         client.get("https://$lang.wikipedia.org/api/rest_v1/page/summary/$encodedTitle")
             .body<WikiSummary>()
-            .extract
     }.onFailure {
         if (it is ResponseException && it.response.status == HttpStatusCode.NotFound) {
             Timber.d("No Wikipedia summary found for: $title")
@@ -62,38 +61,37 @@ object Wikipedia {
      * @return The extract/summary text if found, or null.
      */
     suspend fun fetchAlbumInfo(albumTitle: String, artistName: String?, lang: String = "en"): String? {
-        // Precise queries: explicitly include artist name in the search term
+        // Localized album suffixes to improve non-English matches
+        val albumSuffixes = listOf("album", "álbum", "EP", "mixtape", "음반", "アルバム", "专辑")
+
         if (artistName != null) {
-            val preciseQueries = listOf(
-                "$albumTitle ($artistName album)",
-                "$albumTitle ($artistName)"
-            )
+            val preciseQueries = mutableListOf<String>()
+            albumSuffixes.forEach { preciseQueries.add("$albumTitle ($artistName $it)") }
+            preciseQueries.add("$albumTitle ($artistName)")
+            
             for (query in preciseQueries) {
                 val summary = fetchPageSummary(query, lang)
-                // Need to localize "may refer to" checks if necessary, but usually just missing content is enough
-                if (summary != null && !summary.contains("may refer to", ignoreCase = true)) {
-                    return summary
+                if (summary != null && summary.type != "disambiguation" && !summary.extract.isNullOrBlank()) {
+                    return summary.extract
                 }
             }
         }
 
-        // Generic queries: rely on validation of the returned content
-        val genericQueries = listOf(
-            "$albumTitle (album)",
-            albumTitle
-        )
+        val genericQueries = mutableListOf<String>()
+        albumSuffixes.forEach { genericQueries.add("$albumTitle ($it)") }
+        genericQueries.add(albumTitle)
 
         for (query in genericQueries) {
             val summary = fetchPageSummary(query, lang)
-            if (summary != null && !summary.contains("may refer to", ignoreCase = true)) {
+            if (summary != null && summary.type != "disambiguation" && !summary.extract.isNullOrBlank()) {
                 // If we know the artist, ensure the summary actually mentions them.
                 // This prevents "Greatest Hits" returning the wrong album.
                 if (artistName != null) {
-                    if (summary.contains(artistName, ignoreCase = true)) {
-                        return summary
+                    if (summary.extract.contains(artistName, ignoreCase = true)) {
+                        return summary.extract
                     }
                 } else {
-                    return summary
+                    return summary.extract
                 }
             }
         }
@@ -101,5 +99,8 @@ object Wikipedia {
         return null
     }
 
-    suspend fun fetchPlaylistInfo(playlistTitle: String, lang: String = "en"): String? = fetchPageSummary(playlistTitle, lang)
+    suspend fun fetchPlaylistInfo(playlistTitle: String, lang: String = "en"): String? {
+        val summary = fetchPageSummary(playlistTitle, lang)
+        return if (summary?.type != "disambiguation") summary?.extract else null
+    }
 }
