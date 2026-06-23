@@ -116,12 +116,14 @@ object AppleMusicAboutAlbum {
      * @param albumTitle The title of the album.
      * @param artistName The name of the artist.
      * @param storefront The Apple Music storefront (default "us").
+     * @param language The requested language (default "en-US").
      * @return The editorial note/summary text if found, or null.
      */
     suspend fun fetchAlbumDescription(
         albumTitle: String,
         artistName: String?,
-        storefront: String = "us"
+        storefront: String = "us",
+        language: String = "en-US"
     ): String? {
         return runCatching {
             // 1. Search for the album to get the ID
@@ -140,6 +142,7 @@ object AppleMusicAboutAlbum {
                 parameter("types", "albums")
                 parameter("limit", "5")
                 parameter("extend", "editorialNotes")
+                parameter("l", language)
             }
 
             if (searchResponse.status != HttpStatusCode.OK) return@runCatching null
