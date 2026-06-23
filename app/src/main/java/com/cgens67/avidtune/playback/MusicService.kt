@@ -1332,7 +1332,7 @@ class MusicService :
 
             songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
                 scope.launch(Dispatchers.IO) { recoverSong(mediaId) }
-                val length = if (dataSpec.length == C.LENGTH_UNSET) CHUNK_LENGTH else kotlin.math.min(dataSpec.length, CHUNK_LENGTH)
+                val length = if (dataSpec.length == C.LENGTH_UNSET.toLong()) CHUNK_LENGTH else kotlin.math.min(dataSpec.length, CHUNK_LENGTH)
                 return@Factory dataSpec.withUri(it.first.toUri())
                     .subrange(0, length)
             }
@@ -1398,7 +1398,7 @@ class MusicService :
                 songUrlCache[mediaId] =
                     streamUrl to System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L)
                 
-                val length = if (dataSpec.length == C.LENGTH_UNSET) CHUNK_LENGTH else kotlin.math.min(dataSpec.length, CHUNK_LENGTH)
+                val length = if (dataSpec.length == C.LENGTH_UNSET.toLong()) CHUNK_LENGTH else kotlin.math.min(dataSpec.length, CHUNK_LENGTH)
                 return@Factory dataSpec.withUri(streamUrl.toUri())
                     .subrange(0, length)
             } catch (e: Exception) {
@@ -1446,7 +1446,7 @@ class MusicService :
                                 Timber.tag(JRlogTag)
                                     .i("Using JossRed URL as fallback: $alternativeUrl")
                                 scope.launch(Dispatchers.IO) { recoverSong(mediaId) }
-                                val length = if (dataSpec.length == C.LENGTH_UNSET) CHUNK_LENGTH else kotlin.math.min(dataSpec.length, CHUNK_LENGTH)
+                                val length = if (dataSpec.length == C.LENGTH_UNSET.toLong()) CHUNK_LENGTH else kotlin.math.min(dataSpec.length, CHUNK_LENGTH)
                                 return@Factory dataSpec.withUri(alternativeUrl.toUri())
                                     .subrange(0, length)
                             } else {
