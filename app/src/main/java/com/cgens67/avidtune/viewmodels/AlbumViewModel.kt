@@ -57,7 +57,7 @@ constructor(
 
                     if (albumDescription.value == null) {
                         val title = it.album.title
-                        val artist = it.album.artists?.firstOrNull()?.name ?: it.artists.firstOrNull()?.name
+                        val artist = it.album.artists?.firstOrNull()?.name ?: album?.artists?.firstOrNull()?.name
                         fetchDescription(title, artist)
                     }
                 }.onFailure {
