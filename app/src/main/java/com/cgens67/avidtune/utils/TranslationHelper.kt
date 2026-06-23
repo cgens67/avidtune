@@ -4,6 +4,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
+import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -29,10 +30,13 @@ object TranslationHelper {
         var currentChunk = java.lang.StringBuilder()
         
         for (line in lines) {
-            // Keep chunks safely within the API's limit
-            if (currentChunk.length + line.length > 1500) {
-                chunks.add(currentChunk.toString())
-                currentChunk = java.lang.StringBuilder()
+            // Keep chunks safely within the API's limit.
+            // Reduced to 500 to account for URL encoding bloating non-ASCII strings drastically.
+            if (currentChunk.length + line.length > 500) {
+                if (currentChunk.isNotEmpty()) {
+                    chunks.add(currentChunk.toString())
+                    currentChunk = java.lang.StringBuilder()
+                }
             }
             currentChunk.append(line).append("\n")
         }
@@ -48,6 +52,7 @@ object TranslationHelper {
                 parameter("tl", targetLang)
                 parameter("dt", "t")
                 parameter("q", chunk)
+                header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
             }.bodyAsText()
 
             val jsonArray = Json.parseToJsonElement(response).jsonArray
@@ -72,6 +77,7 @@ object TranslationHelper {
                             parameter("tl", "en")
                             parameter("dt", "rm") // rm requests transliteration/romanization
                             parameter("q", line)
+                            header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
                         }.bodyAsText()
 
                         val jsonArray = Json.parseToJsonElement(response).jsonArray
@@ -103,6 +109,7 @@ object TranslationHelper {
             parameter("tl", "en")
             parameter("dt", "t")
             parameter("q", sample)
+            header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
         }.bodyAsText()
 
         val jsonArray = Json.parseToJsonElement(response).jsonArray
