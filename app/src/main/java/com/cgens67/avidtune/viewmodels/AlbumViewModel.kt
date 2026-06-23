@@ -17,13 +17,14 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
 class AlbumViewModel
 @Inject
 constructor(
-    database: MusicDatabase,
+    val database: MusicDatabase,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
     val albumId = savedStateHandle.get<String>("albumId")!!
@@ -35,6 +36,7 @@ constructor(
     var otherVersions = MutableStateFlow<List<AlbumItem>>(emptyList())
 
     val albumDescription = MutableStateFlow<String?>(null)
+    private var isFetchingDescription = false
 
     init {
         viewModelScope.launch {
@@ -56,7 +58,7 @@ constructor(
                         }
                     }
 
-                        if (albumDescription.value == null) {
+                    if (albumDescription.value == null) {
                         val title = it.album.title
                         val artist = it.album.artists?.firstOrNull()?.name ?: album?.artists?.firstOrNull()?.name
                         fetchDescription(title, artist)
@@ -73,25 +75,55 @@ constructor(
     }
 
     private fun fetchDescription(albumTitle: String, artistName: String?) {
+        if (isFetchingDescription) return
+        isFetchingDescription = true
+
         viewModelScope.launch(Dispatchers.IO) {
-            val hl = YouTube.locale.hl
-            val gl = YouTube.locale.gl.lowercase()
-            val langCode = hl.substringBefore("-").lowercase()
-
-            var desc = AppleMusicAboutAlbum.fetchAlbumDescription(albumTitle, artistName, gl, hl)
-            if (desc == null) {
-                desc = Wikipedia.fetchAlbumInfo(albumTitle, artistName, langCode)
-            }
-
-            // If a description is found and the target language is not English, translate it to user's locale
-            if (desc != null && !langCode.startsWith("en")) {
-                val translatedDesc = TranslationHelper.translate(desc, hl)
-                if (translatedDesc != null) {
-                    desc = translatedDesc
+            try {
+                val hl = YouTube.locale.hl
+                val gl = YouTube.locale.gl.lowercase()
+                val langCode = hl.substringBefore("-").lowercase()
+                
+                val googleTranslateLang = when {
+                    hl.lowercase().startsWith("zh-tw") || hl.lowercase().startsWith("zh-hk") -> "zh-TW"
+                    hl.lowercase().startsWith("zh") -> "zh-CN"
+                    else -> langCode
                 }
-            }
 
-            albumDescription.value = desc
+                // 1. Try Apple Music with user's locale
+                var desc = AppleMusicAboutAlbum.fetchAlbumDescription(albumTitle, artistName, gl, hl)
+                
+                // 2. Try Wikipedia in user's locale
+                if (desc == null && !langCode.startsWith("en")) {
+                    desc = Wikipedia.fetchAlbumInfo(albumTitle, artistName, langCode)
+                }
+                
+                // 3. Try Apple Music in English (US) if localized version wasn't found
+                if (desc == null) {
+                    desc = AppleMusicAboutAlbum.fetchAlbumDescription(albumTitle, artistName, "us", "en-US")
+                }
+                
+                // 4. Try Wikipedia in English
+                if (desc == null) {
+                    desc = Wikipedia.fetchAlbumInfo(albumTitle, artistName, "en")
+                }
+
+                // 5. If a description is found and the target language is not English, translate it.
+                // Apple Music API might return English text even if we requested localized text, 
+                // so translating it automatically guarantees it's in the user's language.
+                if (desc != null && !langCode.startsWith("en")) {
+                    val translatedDesc = TranslationHelper.translate(desc, googleTranslateLang)
+                    if (!translatedDesc.isNullOrBlank()) {
+                        desc = translatedDesc
+                    }
+                }
+
+                withContext(Dispatchers.Main) {
+                    albumDescription.value = desc
+                }
+            } finally {
+                isFetchingDescription = false
+            }
         }
     }
 }
