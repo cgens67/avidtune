@@ -947,7 +947,7 @@
     
     <string name="double_tap_to_seek">Appuyez deux fois pour avancer/reculer</string>
     <string name="turn_on_artist_canvas">Activer le canevas de l\'artiste</string>
-    <string name="turn_on_artist_canvas_desc">Affiche des arrière-plans vidéo animés sur les profils d\'artistes pour célébrer leur héritage et leur art.</string>
+    <string name="turn_on_artist_canvas_desc">Affiche des arrière-plans vidéo animés sur les profils des artistes</string>
     <string name="hide_music_videos">Masquer les clips musicaux</string>
     <string name="premium_audio_fading">Fondu audio premium</string>
     <string name="premium_audio_fading_desc">Fondu enchaîné du volume lors de la mise en pause, de la lecture ou du passage à une autre piste</string>
