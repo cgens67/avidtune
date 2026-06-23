@@ -109,7 +109,6 @@ import com.cgens67.avidtune.ui.component.SongListItem
 import com.cgens67.avidtune.ui.component.YouTubeGridItem
 import com.cgens67.avidtune.ui.component.shimmer.ListItemPlaceHolder
 import com.cgens67.avidtune.ui.component.shimmer.ShimmerHost
-import com.cgens67.avidtune.ui.component.shimmer.TextPlaceholder
 import com.cgens67.avidtune.ui.menu.AlbumMenu
 import com.cgens67.avidtune.ui.menu.SelectionSongMenu
 import com.cgens67.avidtune.ui.menu.SongMenu
@@ -171,9 +170,13 @@ fun AlbumScreen(
 
     LaunchedEffect(albumWithSongs?.album?.id) {
         if (albumWithSongs != null) {
-            isDescriptionLoading = true
-            delay(8000)
-            isDescriptionLoading = false
+            if (albumDescription == null) {
+                isDescriptionLoading = true
+                delay(8000)
+                isDescriptionLoading = false
+            } else {
+                isDescriptionLoading = false
+            }
         }
     }
 
@@ -442,10 +445,34 @@ fun AlbumScreen(
                         // Album Description
                         if (isDescriptionLoading) {
                             ShimmerHost(modifier = Modifier.padding(horizontal = 32.dp)) {
-                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    TextPlaceholder(modifier = Modifier.fillMaxWidth())
-                                    TextPlaceholder(modifier = Modifier.fillMaxWidth(0.8f))
-                                    TextPlaceholder(modifier = Modifier.fillMaxWidth(0.6f))
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Spacer(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(14.dp)
+                                            .background(
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                shape = RoundedCornerShape(8.dp)
+                                            )
+                                    )
+                                    Spacer(
+                                        modifier = Modifier
+                                            .fillMaxWidth(0.8f)
+                                            .height(14.dp)
+                                            .background(
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                shape = RoundedCornerShape(8.dp)
+                                            )
+                                    )
+                                    Spacer(
+                                        modifier = Modifier
+                                            .fillMaxWidth(0.6f)
+                                            .height(14.dp)
+                                            .background(
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                shape = RoundedCornerShape(8.dp)
+                                            )
+                                    )
                                 }
                             }
                         } else {
