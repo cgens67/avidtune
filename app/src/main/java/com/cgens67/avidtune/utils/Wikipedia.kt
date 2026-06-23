@@ -4,7 +4,6 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.request.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.json
@@ -13,10 +12,8 @@ import kotlinx.serialization.json.Json
 import timber.log.Timber
 import io.ktor.client.plugins.ResponseException
 
-
 /**
  * Utility for fetching summaries from Wikipedia via the REST API.
- * Defines a custom Ktor client with a specific User-Agent/Content-Negotiation configuration.
  */
 object Wikipedia {
     private val client by lazy {
@@ -29,7 +26,6 @@ object Wikipedia {
                     }
                 )
             }
-            defaultRequest { url("https://en.wikipedia.org/api/rest_v1/") }
             expectSuccess = true
         }
     }
@@ -37,8 +33,9 @@ object Wikipedia {
     @Serializable
     private data class WikiSummary(val extract: String? = null, val type: String? = null)
 
-    private suspend fun fetchPageSummary(title: String): String? = runCatching {
-        client.get("page/summary/${title.replace(" ", "_").encodeURLQueryComponent()}")
+    private suspend fun fetchPageSummary(title: String, lang: String): String? = runCatching {
+        val encodedTitle = title.replace(" ", "_").encodeURLQueryComponent()
+        client.get("https://$lang.wikipedia.org/api/rest_v1/page/summary/$encodedTitle")
             .body<WikiSummary>()
             .extract
     }.onFailure {
@@ -61,9 +58,10 @@ object Wikipedia {
      *
      * @param albumTitle The title of the album.
      * @param artistName The name of the artist (optional but recommended for accuracy).
+     * @param lang The language code to fetch the summary in (e.g., "en", "es").
      * @return The extract/summary text if found, or null.
      */
-    suspend fun fetchAlbumInfo(albumTitle: String, artistName: String?): String? {
+    suspend fun fetchAlbumInfo(albumTitle: String, artistName: String?, lang: String = "en"): String? {
         // Precise queries: explicitly include artist name in the search term
         if (artistName != null) {
             val preciseQueries = listOf(
@@ -71,7 +69,8 @@ object Wikipedia {
                 "$albumTitle ($artistName)"
             )
             for (query in preciseQueries) {
-                val summary = fetchPageSummary(query)
+                val summary = fetchPageSummary(query, lang)
+                // Need to localize "may refer to" checks if necessary, but usually just missing content is enough
                 if (summary != null && !summary.contains("may refer to", ignoreCase = true)) {
                     return summary
                 }
@@ -85,7 +84,7 @@ object Wikipedia {
         )
 
         for (query in genericQueries) {
-            val summary = fetchPageSummary(query)
+            val summary = fetchPageSummary(query, lang)
             if (summary != null && !summary.contains("may refer to", ignoreCase = true)) {
                 // If we know the artist, ensure the summary actually mentions them.
                 // This prevents "Greatest Hits" returning the wrong album.
@@ -102,5 +101,5 @@ object Wikipedia {
         return null
     }
 
-    suspend fun fetchPlaylistInfo(playlistTitle: String): String? = fetchPageSummary(playlistTitle)
+    suspend fun fetchPlaylistInfo(playlistTitle: String, lang: String = "en"): String? = fetchPageSummary(playlistTitle, lang)
 }
