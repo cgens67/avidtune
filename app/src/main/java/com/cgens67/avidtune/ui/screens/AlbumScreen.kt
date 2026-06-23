@@ -150,6 +150,7 @@ fun AlbumScreen(
     val playlistId by viewModel.playlistId.collectAsState()
     val albumWithSongs by viewModel.albumWithSongs.collectAsState()
     val otherVersions by viewModel.otherVersions.collectAsState()
+    val albumDescription by viewModel.albumDescription.collectAsState()
 
     val wrappedSongs = albumWithSongs?.songs?.map { item -> ItemWrapper(item) }?.toMutableList()
     var selection by remember {
@@ -427,10 +428,12 @@ fun AlbumScreen(
                         // Album Description
                         var showDescriptionDialog by rememberSaveable { mutableStateOf(false) }
                         var isDescriptionTruncated by remember { mutableStateOf(false) }
+                        
                         val staticDescription = "${albumWithSongs.album.title} is an album by ${albumWithSongs.artists.joinToString { it.name }}${
                             if (albumWithSongs.album.year != null) ", released in ${albumWithSongs.album.year}" else ""
                         }. This collection features ${albumWithSongs.songs.size} tracks showcasing their musical artistry."
-                        val description = staticDescription
+                        
+                        val description = albumDescription ?: staticDescription
 
                         Text(
                             text = description,
