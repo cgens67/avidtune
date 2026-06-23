@@ -73,9 +73,13 @@ constructor(
 
     private fun fetchDescription(albumTitle: String, artistName: String?) {
         viewModelScope.launch(Dispatchers.IO) {
-            var desc = AppleMusicAboutAlbum.fetchAlbumDescription(albumTitle, artistName)
+            val hl = YouTube.locale.hl
+            val gl = YouTube.locale.gl.lowercase()
+            val langCode = hl.substringBefore("-").lowercase()
+
+            var desc = AppleMusicAboutAlbum.fetchAlbumDescription(albumTitle, artistName, gl, hl)
             if (desc == null) {
-                desc = Wikipedia.fetchAlbumInfo(albumTitle, artistName)
+                desc = Wikipedia.fetchAlbumInfo(albumTitle, artistName, langCode)
             }
             albumDescription.value = desc
         }
