@@ -1,4 +1,3 @@
---- START OF FILE avidtune-master/app/src/main/java/com/cgens67/avidtune/playback/MusicService.kt ---
 @file:Suppress("DEPRECATION")
 
 package com.cgens67.avidtune.playback
