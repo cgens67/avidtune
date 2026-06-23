@@ -7,6 +7,7 @@ import com.cgens67.innertube.YouTube
 import com.cgens67.innertube.models.AlbumItem
 import com.cgens67.avidtune.db.MusicDatabase
 import com.cgens67.avidtune.utils.AppleMusicAboutAlbum
+import com.cgens67.avidtune.utils.TranslationHelper
 import com.cgens67.avidtune.utils.Wikipedia
 import com.cgens67.avidtune.utils.reportException
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -55,7 +56,7 @@ constructor(
                         }
                     }
 
-                    if (albumDescription.value == null) {
+                        if (albumDescription.value == null) {
                         val title = it.album.title
                         val artist = it.album.artists?.firstOrNull()?.name ?: album?.artists?.firstOrNull()?.name
                         fetchDescription(title, artist)
@@ -81,6 +82,15 @@ constructor(
             if (desc == null) {
                 desc = Wikipedia.fetchAlbumInfo(albumTitle, artistName, langCode)
             }
+
+            // If a description is found and the target language is not English, translate it to user's locale
+            if (desc != null && !langCode.startsWith("en")) {
+                val translatedDesc = TranslationHelper.translate(desc, hl)
+                if (translatedDesc != null) {
+                    desc = translatedDesc
+                }
+            }
+
             albumDescription.value = desc
         }
     }
