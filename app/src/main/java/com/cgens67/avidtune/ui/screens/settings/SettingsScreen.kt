@@ -814,7 +814,7 @@ private fun buildSettingsGroups(
                 ),
                 SettingsItem(
                     icon = painterResource(R.drawable.link),
-                    title = "Open supported links",
+                    title = stringResource(R.string.open_supported_links),
                     keywords = listOf("open", "supported", "links", "default"),
                     onClick = { 
                         resetSearch()
@@ -1289,7 +1289,7 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
         // General
         SettingsItem(
             icon = painterResource(R.drawable.link),
-            title = "Open supported links",
+            title = stringResource(R.string.open_supported_links),
             keywords = listOf("open", "supported", "links", "default"),
             onClick = {
                 resetSearch()
