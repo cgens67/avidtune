@@ -309,7 +309,7 @@
     <string name="app_language">Langue de l\'application (Bêta)</string>
     <string name="configure_app_language">Configurer la langue de l\'application</string>
     <string name="intent_app_language_not_found">Impossible de trouver les paramètres de langue, veuillez les configurer manuellement</string>
-    <string name="open_supported_links">Ouvrir les liens pris en charge par défaut</string>
+    <string name="open_supported_links">Ouvrir les liens pris en charge</string>
     <string name="configure_supported_links">Configurer les liens pris en charge</string>
     <string name="intent_supported_links_not_found">Impossible de trouver les paramètres des liens pris en charge, veuillez les configurer manuellement</string>
     <string name="enable_kugou">Activer le fournisseur de paroles KuGou</string>
