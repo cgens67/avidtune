@@ -170,7 +170,8 @@ class LocaleManager private constructor(private val context: Context) {
             "nl" to LanguageMetadata("🇳🇱", CompletionStatus.INCOMPLETE),
             "id" to LanguageMetadata("🇮🇩", CompletionStatus.BETA),
             "uk" to LanguageMetadata("🇺🇦", CompletionStatus.BETA),
-            "he" to LanguageMetadata("🇮🇱", CompletionStatus.BETA)
+            "he" to LanguageMetadata("🇮🇱", CompletionStatus.BETA),
+            "ms" to LanguageMetadata("🇲🇾", CompletionStatus.COMPLETE)
         )
 
         private data class LanguageMetadata(
