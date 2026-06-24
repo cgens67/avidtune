@@ -308,7 +308,7 @@
     <string name="app_language">App language (Beta)</string>
     <string name="configure_app_language">Configure app languages</string>
     <string name="intent_app_language_not_found">Couldn\'t find app language settings, please configure them manually</string>
-    <string name="open_supported_links">Open supported link by default</string>
+    <string name="open_supported_links">Open supported links</string>
     <string name="configure_supported_links">Configure supported links</string>
     <string name="intent_supported_links_not_found">Couldn\'t find supported links settings, please configure them manually</string>
     <string name="enable_kugou">Enable KuGou lyrics provider</string>
@@ -998,5 +998,4 @@
     <string name="mixed_for_you">Mixed for you</string>
     <string name="your_daily_discover">Your daily discover</string>
     <string name="featured_playlists_for_you">Featured playlists for you</string>
-    <string name="open_supported_links">Open supported links</string>
 </resources>
