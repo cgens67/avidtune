@@ -981,4 +981,7 @@
     <string name="your_daily_discover">你的每日发现</string>
     <string name="featured_playlists_for_you">为您推荐的精选歌单</string>
     
+    <string name="moods_and_moments">心情与时刻</string>
+    <string name="genres">流派</string>
+    
 </resources>
