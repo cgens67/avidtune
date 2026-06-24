@@ -53,6 +53,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,6 +69,9 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
@@ -191,6 +195,7 @@ fun AutoPlaylistScreen(
 
     val downloadUtil = LocalDownloadUtil.current
     var downloadState by remember { mutableIntStateOf(Download.STATE_STOPPED) }
+    val coroutineScope = rememberCoroutineScope()
 
     // Defer sync to background after UI renders
     LaunchedEffect(Unit) {
@@ -563,7 +568,7 @@ fun AutoPlaylistScreen(
                                                 menuState.show {
                                                     PlaylistMenu(
                                                         playlist = fakePlaylist,
-                                                        coroutineScope = this,
+                                                        coroutineScope = coroutineScope,
                                                         onDismiss = menuState::dismiss,
                                                         autoPlaylist = true,
                                                         downloadPlaylist = playlistType == PlaylistType.DOWNLOAD,
@@ -765,20 +770,16 @@ fun AutoPlaylistScreen(
                 }
             },
             navigationIcon = {
-                IconButton(
+                com.cgens67.avidtune.ui.component.IconButton(
                     onClick = {
-                        when {
-                            isSearching -> {
-                                isSearching = false
-                                searchQuery = TextFieldValue()
-                                focusManager.clearFocus()
-                            }
-                            selection -> {
-                                selection = false
-                            }
-                            else -> {
-                                navController.navigateUp()
-                            }
+                        if (isSearching) {
+                            isSearching = false
+                            searchQuery = TextFieldValue()
+                            focusManager.clearFocus()
+                        } else if (selection) {
+                            selection = false
+                        } else {
+                            navController.navigateUp()
                         }
                     },
                     onLongClick = {
