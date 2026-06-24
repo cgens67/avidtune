@@ -995,4 +995,6 @@
     <string name="mixed_for_you">Für dich gemixt</string>
     <string name="your_daily_discover">Dein täglicher Mix</string>
     <string name="featured_playlists_for_you">Vorgestellte Playlists für dich</string>
+    
+    <string name="open_supported_links">Unterstützte Links öffnen</string>
 </resources>
