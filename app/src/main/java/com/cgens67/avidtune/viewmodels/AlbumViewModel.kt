@@ -109,8 +109,6 @@ constructor(
                 }
 
                 // 5. If a description is found and the target language is not English, translate it.
-                // Apple Music API might return English text even if we requested localized text, 
-                // so translating it automatically guarantees it's in the user's language.
                 if (desc != null && !langCode.startsWith("en")) {
                     val translatedDesc = TranslationHelper.translate(desc, googleTranslateLang)
                     if (!translatedDesc.isNullOrBlank()) {
