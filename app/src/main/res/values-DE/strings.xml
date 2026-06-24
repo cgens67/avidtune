@@ -309,7 +309,7 @@
     <string name="app_language">App-Sprache (Beta)</string>
     <string name="configure_app_language">App-Sprachen konfigurieren</string>
     <string name="intent_app_language_not_found">App-Spracheinstellungen konnten nicht gefunden werden. Bitte konfiguriere sie manuell</string>
-    <string name="open_supported_links">Unterstützte Links standardmäßig öffnen</string>
+    <string name="open_supported_links">Unterstützte Links öffnen</string>
     <string name="configure_supported_links">Unterstützte Links konfigurieren</string>
     <string name="intent_supported_links_not_found">Einstellungen für unterstützte Links konnten nicht gefunden werden. Bitte konfiguriere sie manuell</string>
     <string name="enable_kugou">KuGou-Songtextanbieter aktivieren</string>
@@ -996,5 +996,4 @@
     <string name="your_daily_discover">Dein täglicher Mix</string>
     <string name="featured_playlists_for_you">Vorgestellte Playlists für dich</string>
     
-    <string name="open_supported_links">Unterstützte Links öffnen</string>
 </resources>
