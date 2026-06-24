@@ -1,10 +1,11 @@
 package com.cgens67.avidtune.utils
 
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.okhttp.OkHttp
-import io.ktor.client.request.forms.submitForm
+import io.ktor.client.engine.cio.CIO
+import io.ktor.client.request.get
+import io.ktor.client.request.parameter
+import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
-import io.ktor.http.parameters
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -19,8 +20,7 @@ import timber.log.Timber
 import java.util.Locale
 
 object TranslationHelper {
-    // OkHttp is much more robust for POST form requests to Google endpoints
-    private val client = HttpClient(OkHttp)
+    private val client = HttpClient(CIO)
 
     suspend fun translate(text: String, targetLang: String = Locale.getDefault().toLanguageTag()): String? = runCatching {
         if (text.isBlank()) return null
@@ -30,8 +30,9 @@ object TranslationHelper {
         var currentChunk = java.lang.StringBuilder()
         
         for (line in lines) {
-            // Using POST allows larger chunks, keeping sentences together
-            if (currentChunk.length + line.length > 2000) {
+            // Keep chunks safely within the API's limit.
+            // Reduced to 500 to account for URL encoding bloating non-ASCII strings drastically.
+            if (currentChunk.length + line.length > 500) {
                 if (currentChunk.isNotEmpty()) {
                     chunks.add(currentChunk.toString())
                     currentChunk = java.lang.StringBuilder()
@@ -45,17 +46,14 @@ object TranslationHelper {
         
         val resultBuilder = java.lang.StringBuilder()
         for (chunk in chunks) {
-            // Send as POST form data to completely bypass URL length limits
-            val response = client.submitForm(
-                url = "https://translate.googleapis.com/translate_a/single",
-                formParameters = parameters {
-                    append("client", "gtx")
-                    append("sl", "auto")
-                    append("tl", targetLang)
-                    append("dt", "t")
-                    append("q", chunk)
-                }
-            ).bodyAsText()
+            val response = client.get("https://translate.googleapis.com/translate_a/single") {
+                parameter("client", "gtx")
+                parameter("sl", "auto")
+                parameter("tl", targetLang)
+                parameter("dt", "t")
+                parameter("q", chunk)
+                header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            }.bodyAsText()
 
             val jsonArray = Json.parseToJsonElement(response).jsonArray
             val translatedSegments = jsonArray[0].jsonArray
@@ -73,16 +71,14 @@ object TranslationHelper {
                 if (line.isBlank()) return@async ""
                 semaphore.withPermit {
                     runCatching {
-                        val response = client.submitForm(
-                            url = "https://translate.googleapis.com/translate_a/single",
-                            formParameters = parameters {
-                                append("client", "gtx")
-                                append("sl", "auto")
-                                append("tl", "en")
-                                append("dt", "rm") // rm requests transliteration/romanization
-                                append("q", line)
-                            }
-                        ).bodyAsText()
+                        val response = client.get("https://translate.googleapis.com/translate_a/single") {
+                            parameter("client", "gtx")
+                            parameter("sl", "auto")
+                            parameter("tl", "en")
+                            parameter("dt", "rm") // rm requests transliteration/romanization
+                            parameter("q", line)
+                            header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                        }.bodyAsText()
 
                         val jsonArray = Json.parseToJsonElement(response).jsonArray
                         val rmSegments = jsonArray.getOrNull(0)?.jsonArray
@@ -107,16 +103,14 @@ object TranslationHelper {
     suspend fun detectLanguage(text: String): String? = runCatching {
         if (text.isBlank()) return null
         val sample = text.take(200)
-        val response = client.submitForm(
-            url = "https://translate.googleapis.com/translate_a/single",
-            formParameters = parameters {
-                append("client", "gtx")
-                append("sl", "auto")
-                append("tl", "en")
-                append("dt", "t")
-                append("q", sample)
-            }
-        ).bodyAsText()
+        val response = client.get("https://translate.googleapis.com/translate_a/single") {
+            parameter("client", "gtx")
+            parameter("sl", "auto")
+            parameter("tl", "en")
+            parameter("dt", "t")
+            parameter("q", sample)
+            header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        }.bodyAsText()
 
         val jsonArray = Json.parseToJsonElement(response).jsonArray
         jsonArray[2].jsonPrimitive.content
