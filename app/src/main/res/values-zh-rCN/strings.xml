@@ -298,7 +298,7 @@
     <string name="app_language">应用语言（测试版）</string>
     <string name="configure_app_language">配置应用语言</string>
     <string name="intent_app_language_not_found">找不到应用语言设置，请手动配置</string>
-    <string name="open_supported_links">默认打开支持的链接</string>
+    <string name="open_supported_links">打开支持的链接</string>
     <string name="configure_supported_links">配置支持的链接</string>
     <string name="intent_supported_links_not_found">找不到支持的链接设置，请手动配置</string>
     <string name="enable_kugou">启用酷狗歌词源</string>
@@ -981,6 +981,4 @@
     <string name="your_daily_discover">你的每日发现</string>
     <string name="featured_playlists_for_you">为您推荐的精选歌单</string>
     
-    <string name="open_supported_links">打开支持的链接</string>
-
 </resources>
