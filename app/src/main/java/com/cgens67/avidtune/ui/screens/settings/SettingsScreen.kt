@@ -783,6 +783,7 @@ private fun buildSettingsGroups(
     hasUnreadNews: Boolean
 ): List<SettingsGroup> {
     val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
     return listOf(
         SettingsGroup(
             title = stringResource(R.string.general_settings),
@@ -810,6 +811,28 @@ private fun buildSettingsGroups(
                     title = stringResource(R.string.backup_restore),
                     keywords = listOf("backup", "restore", "data"),
                     onClick = { resetSearch(); navController.navigate("settings/backup_restore") }
+                ),
+                SettingsItem(
+                    icon = painterResource(R.drawable.link),
+                    title = "Open supported links",
+                    keywords = listOf("open", "supported", "links", "default"),
+                    onClick = { 
+                        resetSearch()
+                        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            Intent(Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS).apply {
+                                data = Uri.parse("package:${context.packageName}")
+                            }
+                        } else {
+                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.parse("package:${context.packageName}")
+                            }
+                        }
+                        try {
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
                 ),
                 SettingsItem(
                     icon = painterResource(R.drawable.info),
@@ -849,6 +872,7 @@ private fun buildSettingsGroups(
 
 @Composable
 private fun buildInternalItems(navController: NavController, resetSearch: () -> Unit): List<SettingsItem> {
+    val context = LocalContext.current
     return listOf(
         // Account
         SettingsItem(
@@ -1260,6 +1284,30 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
             title = stringResource(R.string.visitor_data_title),
             keywords = listOf("visitor", "data", "reset", "clear"),
             onClick = { resetSearch(); navController.navigate("settings/backup_restore") }
+        ),
+        
+        // General
+        SettingsItem(
+            icon = painterResource(R.drawable.link),
+            title = "Open supported links",
+            keywords = listOf("open", "supported", "links", "default"),
+            onClick = {
+                resetSearch()
+                val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    Intent(Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS).apply {
+                        data = Uri.parse("package:${context.packageName}")
+                    }
+                } else {
+                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = Uri.parse("package:${context.packageName}")
+                    }
+                }
+                try {
+                    context.startActivity(intent)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
         )
     )
 }
