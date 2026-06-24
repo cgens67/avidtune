@@ -977,4 +977,7 @@
     <string name="your_daily_discover">Votre découverte quotidienne</string>
     <string name="featured_playlists_for_you">Playlists sélectionnées pour vous</string>
     
+    <string name="moods_and_moments">Ambiance et moments</string>
+    <string name="genres">Genres</string>
+    
 </resources>
