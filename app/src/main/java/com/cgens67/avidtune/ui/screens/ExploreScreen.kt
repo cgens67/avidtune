@@ -11,8 +11,9 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -22,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -35,6 +37,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -50,30 +54,30 @@ import com.cgens67.avidtune.viewmodels.MoodAndGenresViewModel
 @Composable
 fun ExploreScreen(
     navController: NavController,
-    scrollBehavior: TopAppBarScrollBehavior, // Kept so NavigationBuilder doesn't break
+    scrollBehavior: TopAppBarScrollBehavior,
     viewModel: MoodAndGenresViewModel = hiltViewModel(),
 ) {
     val moodAndGenresList by viewModel.moodAndGenres.collectAsState()
     val lazyGridState = rememberLazyGridState()
 
     Scaffold(
-        modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
-    ) { _ ->
+    ) { paddingValues ->
         LazyVerticalGrid(
             state = lazyGridState,
             columns = GridCells.Adaptive(minSize = 160.dp),
             contentPadding = PaddingValues(
-                // Use system bars directly for top padding since TopAppBar is gone
-                top = WindowInsets.systemBars.asPaddingValues().calculateTopPadding() + 16.dp,
+                top = LocalPlayerAwareWindowInsets.current.asPaddingValues().calculateTopPadding() + 8.dp,
                 bottom = LocalPlayerAwareWindowInsets.current.asPaddingValues().calculateBottomPadding() + 24.dp,
                 start = 16.dp,
                 end = 16.dp
             ),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
         ) {
             if (moodAndGenresList == null) {
                 items(12) {
@@ -96,7 +100,7 @@ fun ExploreScreen(
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground,
-                        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp, start = 4.dp)
+                        modifier = Modifier.padding(top = 16.dp, bottom = 4.dp, start = 4.dp)
                     )
                 }
 
@@ -149,6 +153,21 @@ fun MoodAndGenresCard(
                 .fillMaxSize()
                 .background(gradient)
         ) {
+            // A subtle, oversized background decorative icon
+            Icon(
+                painter = painterResource(R.drawable.music_note),
+                contentDescription = null,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .offset(x = 12.dp, y = 16.dp)
+                    .size(80.dp)
+                    .graphicsLayer {
+                        rotationZ = -20f
+                        alpha = 0.25f
+                    },
+                tint = Color.White
+            )
+
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
