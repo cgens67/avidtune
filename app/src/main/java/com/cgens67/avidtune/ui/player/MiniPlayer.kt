@@ -82,6 +82,17 @@ import com.cgens67.avidtune.constants.ThumbnailCornerRadius
 import com.cgens67.avidtune.models.MediaMetadata
 import com.cgens67.avidtune.playback.PlayerConnection
 import com.cgens67.avidtune.utils.rememberPreference
+import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.graphicsLayer
+import coil.request.ImageRequest
+import androidx.compose.ui.platform.LocalContext
 
 @Composable
 fun MiniPlayer(
@@ -110,6 +121,12 @@ private fun NewMiniPlayer(
     val coroutineScope = rememberCoroutineScope()
     val swipeSensitivity = 0.73f
     val swipeThumbnail by rememberPreference(SwipeThumbnailKey, true)
+    
+    val playerBackground by rememberEnumPreference(
+        key = com.cgens67.avidtune.constants.PlayerBackgroundStyleKey,
+        defaultValue = com.cgens67.avidtune.constants.PlayerBackgroundStyle.DEFAULT
+    )
+    val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
 
     SwipeableMiniPlayerBox(
         modifier = modifier,
@@ -128,9 +145,38 @@ private fun NewMiniPlayer(
                 .offset { IntOffset(offsetX.roundToInt(), 0) }
                 .clip(RoundedCornerShape(32.dp))
                 .background(
-                    color = MaterialTheme.colorScheme.surfaceContainer
+                    color = if (playerBackground == com.cgens67.avidtune.constants.PlayerBackgroundStyle.LIVE_MESH) Color.Black else MaterialTheme.colorScheme.surfaceContainer
                 )
         ) {
+            if (playerBackground == com.cgens67.avidtune.constants.PlayerBackgroundStyle.LIVE_MESH && mediaMetadata?.thumbnailUrl != null) {
+                val infiniteTransition = rememberInfiniteTransition(label = "mini_mesh")
+                val rotation by infiniteTransition.animateFloat(
+                    initialValue = 0f,
+                    targetValue = 360f,
+                    animationSpec = infiniteRepeatable(tween(60000, easing = LinearEasing)),
+                    label = "mini_mesh_rot"
+                )
+                val saturationMatrix = remember { ColorMatrix().apply { setToSaturation(1.6f) } }
+                
+                Box(modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = 1.5f; scaleY = 1.5f }) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(mediaMetadata?.thumbnailUrl)
+                            .size(128, 128)
+                            .allowHardware(false)
+                            .build(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        colorFilter = ColorFilter.colorMatrix(saturationMatrix),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .blur(40.dp)
+                            .graphicsLayer { rotationZ = rotation }
+                    )
+                    Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f)))
+                }
+            }
+
             NewMiniPlayerContent(
                 pureBlack = pureBlack,
                 position = position,
