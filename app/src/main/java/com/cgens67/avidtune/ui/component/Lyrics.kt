@@ -115,6 +115,7 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.clipRect
@@ -475,7 +476,7 @@ fun Lyrics(
 
     val textBackgroundColor = when (playerBackground) {
         PlayerBackgroundStyle.DEFAULT -> MaterialTheme.colorScheme.onBackground
-        PlayerBackgroundStyle.BLUR, PlayerBackgroundStyle.GRADIENT, PlayerBackgroundStyle.APPLE_MUSIC -> Color.White
+        PlayerBackgroundStyle.BLUR, PlayerBackgroundStyle.GRADIENT, PlayerBackgroundStyle.APPLE_MUSIC, PlayerBackgroundStyle.LIVE_MESH -> Color.White
     }
 
     val primaryColor = MaterialTheme.colorScheme.primary
@@ -967,6 +968,36 @@ fun Lyrics(
                                         .fillMaxSize()
                                         .background(Color.Black.copy(alpha = 0.25f))
                                 )
+                            }
+                        }
+                    }
+                    PlayerBackgroundStyle.LIVE_MESH -> {
+                        currentMetadata?.let { metadata ->
+                            val infiniteTransition = rememberInfiniteTransition(label = "live_mesh")
+                            val rotation by infiniteTransition.animateFloat(
+                                initialValue = 0f,
+                                targetValue = 360f,
+                                animationSpec = infiniteRepeatable(tween(60000, easing = LinearEasing)),
+                                label = "live_mesh_rot"
+                            )
+                            val saturationMatrix = remember { ColorMatrix().apply { setToSaturation(1.6f) } }
+                            
+                            Box(modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = 1.5f; scaleY = 1.5f }) {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(LocalContext.current)
+                                        .data(metadata.thumbnailUrl)
+                                        .size(128, 128)
+                                        .allowHardware(false)
+                                        .build(),
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    colorFilter = ColorFilter.colorMatrix(saturationMatrix),
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .blur(if (!disableBlur) 40.dp else 0.dp)
+                                        .graphicsLayer { rotationZ = rotation }
+                                )
+                                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f)))
                             }
                         }
                     }
