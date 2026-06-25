@@ -82,6 +82,7 @@ import com.cgens67.avidtune.constants.ThumbnailCornerRadius
 import com.cgens67.avidtune.models.MediaMetadata
 import com.cgens67.avidtune.playback.PlayerConnection
 import com.cgens67.avidtune.utils.rememberPreference
+import com.cgens67.avidtune.utils.rememberEnumPreference
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.animateFloat
