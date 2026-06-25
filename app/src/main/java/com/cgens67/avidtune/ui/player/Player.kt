@@ -161,6 +161,15 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import me.saket.squiggles.SquigglySlider
 import kotlin.math.roundToInt
+import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.ui.platform.LocalView
+import android.app.Activity
+import androidx.core.view.WindowCompat
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -173,6 +182,7 @@ fun BottomSheetPlayer(
     val context = LocalContext.current
     val database = LocalDatabase.current
     val menuState = LocalMenuState.current
+    val view = LocalView.current
 
     val clipboardManager = LocalClipboardManager.current
     val playerConnection = LocalPlayerConnection.current ?: return
@@ -262,7 +272,7 @@ fun BottomSheetPlayer(
         }
         if (useBlackBackground && playerBackground != PlayerBackgroundStyle.GRADIENT && playerBackground != PlayerBackgroundStyle.APPLE_MUSIC) {
             gradientColors = listOf(Color.Black, Color.Black)
-        } else if (playerBackground == PlayerBackgroundStyle.GRADIENT || playerBackground == PlayerBackgroundStyle.APPLE_MUSIC) {
+        } else if (playerBackground == PlayerBackgroundStyle.GRADIENT || playerBackground == PlayerBackgroundStyle.APPLE_MUSIC || playerBackground == PlayerBackgroundStyle.LIVE_MESH) {
             withContext(Dispatchers.IO) {
                 val result = runCatching {
                     ImageLoader(context)
@@ -296,6 +306,18 @@ fun BottomSheetPlayer(
         }
     }
 
+    LaunchedEffect(state.progress, playerBackground, useDarkTheme) {
+        val window = (context as? Activity)?.window
+        if (window != null) {
+            val insetsController = WindowCompat.getInsetsController(window, view)
+            if (state.progress > 0.5f && playerBackground == PlayerBackgroundStyle.LIVE_MESH) {
+                insetsController.isAppearanceLightStatusBars = false
+            } else {
+                insetsController.isAppearanceLightStatusBars = !useDarkTheme
+            }
+        }
+    }
+
     val TextBackgroundColor =
         when (playerBackground) {
             PlayerBackgroundStyle.DEFAULT -> MaterialTheme.colorScheme.onBackground
@@ -305,11 +327,18 @@ fun BottomSheetPlayer(
     val icBackgroundColor =
         when (playerBackground) {
             PlayerBackgroundStyle.DEFAULT -> MaterialTheme.colorScheme.surface
+            PlayerBackgroundStyle.LIVE_MESH -> Color.White
             else -> Color.Black
         }
 
     val (textButtonColor, iconButtonColor) = when (playerButtonsStyle) {
-        PlayerButtonsStyle.DEFAULT -> Pair(TextBackgroundColor, icBackgroundColor)
+        PlayerButtonsStyle.DEFAULT -> {
+            if (playerBackground == PlayerBackgroundStyle.LIVE_MESH) {
+                Pair(Color.White.copy(alpha = 0.2f), Color.White)
+            } else {
+                Pair(TextBackgroundColor, icBackgroundColor)
+            }
+        }
         PlayerButtonsStyle.PRIMARY -> Pair(
             MaterialTheme.colorScheme.primary,
             MaterialTheme.colorScheme.onPrimary
@@ -407,6 +436,7 @@ fun BottomSheetPlayer(
         )
 
     val bottomSheetBackgroundColor = when (playerBackground) {
+        PlayerBackgroundStyle.LIVE_MESH -> Color.Black
         PlayerBackgroundStyle.BLUR, PlayerBackgroundStyle.GRADIENT ->
             MaterialTheme.colorScheme.surfaceContainer
         else ->
@@ -788,12 +818,7 @@ fun BottomSheetPlayer(
             state = queueSheetState,
             playerBottomSheetState = state,
             navController = navController,
-            backgroundColor =
-                if (useBlackBackground) {
-                    Color.Black
-                } else {
-                    MaterialTheme.colorScheme.surfaceContainer
-                },
+            backgroundColor = bottomSheetBackgroundColor,
             onBackgroundColor = queueOnBgColor,
             textBackgroundColor = TextBackgroundColor,
         )
@@ -923,6 +948,111 @@ fun PlayerBackground(
                                     )
                                 )
                         )
+                    }
+                }
+            }
+            PlayerBackgroundStyle.LIVE_MESH -> {
+                AnimatedContent(
+                    targetState = mediaMetadata?.thumbnailUrl,
+                    transitionSpec = {
+                        fadeIn(tween(800)) togetherWith fadeOut(tween(800))
+                    },
+                    label = "liveMeshBackground"
+                ) { thumbnailUrl ->
+                    if (thumbnailUrl != null) {
+                        val infiniteTransition = rememberInfiniteTransition(label = "mesh")
+                        
+                        // 1. Anchor Layer Rotation
+                        val anchorRotation by infiniteTransition.animateFloat(
+                            initialValue = 0f, targetValue = -360f,
+                            animationSpec = infiniteRepeatable(tween(80000, easing = LinearEasing), RepeatMode.Restart),
+                            label = "anchor"
+                        )
+                        // 2. Fast Layer Rotation
+                        val fastRotation by infiniteTransition.animateFloat(
+                            initialValue = 0f, targetValue = 360f,
+                            animationSpec = infiniteRepeatable(tween(40000, easing = LinearEasing), RepeatMode.Restart),
+                            label = "fast"
+                        )
+                        // 3. Slow Layer Rotation
+                        val slowRotation by infiniteTransition.animateFloat(
+                            initialValue = 0f, targetValue = 360f,
+                            animationSpec = infiniteRepeatable(tween(60000, easing = LinearEasing), RepeatMode.Restart),
+                            label = "slow"
+                        )
+                        
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .alpha(backgroundAlpha)
+                                .graphicsLayer { scaleX = 1.7f; scaleY = 1.7f }
+                        ) {
+                            val context = LocalContext.current
+                            val imageRequest = remember(thumbnailUrl) {
+                                ImageRequest.Builder(context)
+                                    .data(thumbnailUrl)
+                                    .size(128, 128)
+                                    .allowHardware(false)
+                                    .build()
+                            }
+                            val saturationMatrix = remember { ColorMatrix().apply { setToSaturation(1.8f) } }
+
+                            // Layer 1 (Anchor)
+                            AsyncImage(
+                                model = imageRequest,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                colorFilter = ColorFilter.colorMatrix(saturationMatrix),
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .blur(100.dp)
+                                    .graphicsLayer { rotationZ = anchorRotation }
+                            )
+
+                            // Layer 2 (Fast)
+                            AsyncImage(
+                                model = imageRequest,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                alignment = Alignment.TopStart,
+                                colorFilter = ColorFilter.colorMatrix(saturationMatrix),
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .blur(120.dp)
+                                    .graphicsLayer { 
+                                        rotationZ = fastRotation
+                                        alpha = 0.6f
+                                    }
+                            )
+
+                            // Layer 3 (Slow)
+                            AsyncImage(
+                                model = imageRequest,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                alignment = Alignment.BottomEnd,
+                                colorFilter = ColorFilter.colorMatrix(saturationMatrix),
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .blur(120.dp)
+                                    .graphicsLayer { 
+                                        rotationZ = slowRotation
+                                        alpha = 0.5f
+                                    }
+                            )
+                            
+                            // Depth & Contrast Overlays
+                            Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.2f)))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        Brush.verticalGradient(
+                                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.25f))
+                                        )
+                                    )
+                            )
+                        }
                     }
                 }
             }
