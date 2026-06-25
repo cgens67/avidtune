@@ -182,7 +182,8 @@ private fun NewMiniPlayer(
                 pureBlack = pureBlack,
                 position = position,
                 duration = duration,
-                playerConnection = playerConnection
+                playerConnection = playerConnection,
+                isLiveMesh = playerBackground == com.cgens67.avidtune.constants.PlayerBackgroundStyle.LIVE_MESH
             )
         }
     }
@@ -324,7 +325,9 @@ fun SwipeableMiniPlayerBox(
 
 @Composable
 fun RowScope.MiniPlayerInfo(
-    mediaMetadata: MediaMetadata
+    mediaMetadata: MediaMetadata,
+    primaryTextColor: Color = MaterialTheme.colorScheme.onSurface,
+    secondaryTextColor: Color = MaterialTheme.colorScheme.onSurfaceVariant
 ) {
     Column(
         modifier = Modifier
@@ -340,7 +343,7 @@ fun RowScope.MiniPlayerInfo(
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = primaryTextColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.basicMarquee()
@@ -355,7 +358,7 @@ fun RowScope.MiniPlayerInfo(
             Text(
                 text = artists.joinToString { it.name },
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = secondaryTextColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.basicMarquee()
@@ -370,8 +373,13 @@ private fun MiniPlayerArtwork(
     position: Long,
     duration: Long,
     isLoading: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isLiveMesh: Boolean = false
 ) {
+    val progressColor = if (isLiveMesh) Color.White else MaterialTheme.colorScheme.primary
+    val progressTrackColor = if (isLiveMesh) Color.White.copy(alpha = 0.2f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)
+    val imageBorderColor = if (isLiveMesh) Color.White.copy(alpha = 0.2f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier.size(47.dp)
@@ -379,15 +387,15 @@ private fun MiniPlayerArtwork(
         if (isLoading) {
             CircularWavyProgressIndicator(
                 modifier = Modifier.fillMaxSize(),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)
+                color = progressColor,
+                trackColor = progressTrackColor
             )
         } else {
             CircularWavyProgressIndicator(
                 progress = { if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f },
                 modifier = Modifier.fillMaxSize(),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)
+                color = progressColor,
+                trackColor = progressTrackColor
             )
         }
 
@@ -399,7 +407,7 @@ private fun MiniPlayerArtwork(
                 .background(MaterialTheme.colorScheme.surfaceVariant)
                 .border(
                     width = 1.dp,
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                    color = imageBorderColor,
                     shape = CircleShape
                 )
         ) {
@@ -429,16 +437,21 @@ private fun MiniPlayerTransportButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    isPrimary: Boolean = false
+    isPrimary: Boolean = false,
+    iconColor: Color = MaterialTheme.colorScheme.onSurface,
+    disabledIconColor: Color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+    containerColorPrimary: Color = MaterialTheme.colorScheme.surface,
+    borderColorEnabled: Color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+    borderColorDisabled: Color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
 ) {
     val containerColor =
-        if (isPrimary) MaterialTheme.colorScheme.surface else Color.Transparent
+        if (isPrimary) containerColorPrimary else Color.Transparent
     val borderColor =
-        if (enabled) MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
-        else MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
+        if (enabled) borderColorEnabled
+        else borderColorDisabled
     val iconTint =
-        if (enabled) MaterialTheme.colorScheme.onSurface
-        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+        if (enabled) iconColor
+        else disabledIconColor
 
     Box(
         contentAlignment = Alignment.Center,
@@ -466,7 +479,12 @@ private fun MiniPlayerTransportControls(
     isLoading: Boolean,
     canSkipPrevious: Boolean,
     canSkipNext: Boolean,
-    playerConnection: PlayerConnection
+    playerConnection: PlayerConnection,
+    iconColor: Color = MaterialTheme.colorScheme.onSurface,
+    disabledIconColor: Color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+    containerColorPrimary: Color = MaterialTheme.colorScheme.surface,
+    borderColorEnabled: Color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+    borderColorDisabled: Color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
 ) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -476,7 +494,12 @@ private fun MiniPlayerTransportControls(
             iconResId = R.drawable.skip_previous,
             contentDescription = null,
             onClick = { playerConnection.seekToPrevious() },
-            enabled = canSkipPrevious
+            enabled = canSkipPrevious,
+            iconColor = iconColor,
+            disabledIconColor = disabledIconColor,
+            containerColorPrimary = containerColorPrimary,
+            borderColorEnabled = borderColorEnabled,
+            borderColorDisabled = borderColorDisabled
         )
 
         Box(
@@ -502,7 +525,12 @@ private fun MiniPlayerTransportControls(
                         playerConnection.togglePlayPause()
                     }
                 },
-                isPrimary = true
+                isPrimary = true,
+                iconColor = iconColor,
+                disabledIconColor = disabledIconColor,
+                containerColorPrimary = containerColorPrimary,
+                borderColorEnabled = borderColorEnabled,
+                borderColorDisabled = borderColorDisabled
             )
         }
 
@@ -510,7 +538,12 @@ private fun MiniPlayerTransportControls(
             iconResId = R.drawable.skip_next,
             contentDescription = null,
             onClick = { playerConnection.seekToNext() },
-            enabled = canSkipNext
+            enabled = canSkipNext,
+            iconColor = iconColor,
+            disabledIconColor = disabledIconColor,
+            containerColorPrimary = containerColorPrimary,
+            borderColorEnabled = borderColorEnabled,
+            borderColorDisabled = borderColorDisabled
         )
     }
 }
@@ -520,7 +553,8 @@ fun NewMiniPlayerContent(
     pureBlack: Boolean,
     position: Long,
     duration: Long,
-    playerConnection: PlayerConnection
+    playerConnection: PlayerConnection,
+    isLiveMesh: Boolean = false
 ) {
     val isPlaying by playerConnection.isPlaying.collectAsState()
     val playbackState by playerConnection.playbackState.collectAsState()
@@ -529,6 +563,14 @@ fun NewMiniPlayerContent(
     val canSkipNext by playerConnection.canSkipNext.collectAsState()
 
     val isLoading = playbackState == Player.STATE_BUFFERING
+
+    val primaryTextColor = if (isLiveMesh) Color.White else MaterialTheme.colorScheme.onSurface
+    val secondaryTextColor = if (isLiveMesh) Color.White.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant
+    val iconColor = if (isLiveMesh) Color.White else MaterialTheme.colorScheme.onSurface
+    val disabledIconColor = if (isLiveMesh) Color.White.copy(alpha = 0.38f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+    val containerColorPrimary = if (isLiveMesh) Color.White.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surface
+    val borderColorEnabled = if (isLiveMesh) Color.White.copy(alpha = 0.3f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+    val borderColorDisabled = if (isLiveMesh) Color.White.copy(alpha = 0.12f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -540,13 +582,18 @@ fun NewMiniPlayerContent(
             mediaMetadata = mediaMetadata,
             position = position,
             duration = duration,
-            isLoading = isLoading
+            isLoading = isLoading,
+            isLiveMesh = isLiveMesh
         )
 
         Spacer(modifier = Modifier.width(5.dp))
 
         mediaMetadata?.let {
-            MiniPlayerInfo(mediaMetadata = it)
+            MiniPlayerInfo(
+                mediaMetadata = it,
+                primaryTextColor = primaryTextColor,
+                secondaryTextColor = secondaryTextColor
+            )
         } ?: Spacer(Modifier.weight(1f))
 
         Spacer(modifier = Modifier.width(12.dp))
@@ -557,7 +604,12 @@ fun NewMiniPlayerContent(
             isLoading = isLoading,
             canSkipPrevious = canSkipPrevious,
             canSkipNext = canSkipNext,
-            playerConnection = playerConnection
+            playerConnection = playerConnection,
+            iconColor = iconColor,
+            disabledIconColor = disabledIconColor,
+            containerColorPrimary = containerColorPrimary,
+            borderColorEnabled = borderColorEnabled,
+            borderColorDisabled = borderColorDisabled
         )
     }
 }
