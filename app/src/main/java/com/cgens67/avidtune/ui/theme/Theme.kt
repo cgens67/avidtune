@@ -217,6 +217,7 @@ object PlayerSliderColors {
             PlayerBackgroundStyle.BLUR -> Color.White
             PlayerBackgroundStyle.GRADIENT -> Color.White
             PlayerBackgroundStyle.APPLE_MUSIC -> Color.White
+            PlayerBackgroundStyle.LIVE_MESH -> Color.White
         },
         inactiveTrackColor = when {
             useDarkTheme -> Color.Gray.copy(alpha = 0.5f)
@@ -227,6 +228,7 @@ object PlayerSliderColors {
             PlayerBackgroundStyle.BLUR -> Color.White
             PlayerBackgroundStyle.GRADIENT -> Color.White
             PlayerBackgroundStyle.APPLE_MUSIC -> Color.White
+            PlayerBackgroundStyle.LIVE_MESH -> Color.White
         },
         inactiveTickColor = Color.Gray,
         thumbColor = when (playerBackground) {
@@ -234,6 +236,7 @@ object PlayerSliderColors {
             PlayerBackgroundStyle.BLUR -> Color.White
             PlayerBackgroundStyle.GRADIENT -> Color.White
             PlayerBackgroundStyle.APPLE_MUSIC -> Color.White
+            PlayerBackgroundStyle.LIVE_MESH -> Color.White
         }
     )
 }
