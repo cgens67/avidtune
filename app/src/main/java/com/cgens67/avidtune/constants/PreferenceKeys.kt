@@ -299,6 +299,7 @@ enum class PlayerBackgroundStyle {
     GRADIENT,
     BLUR,
     APPLE_MUSIC,
+    LIVE_MESH,
 }
 
 
