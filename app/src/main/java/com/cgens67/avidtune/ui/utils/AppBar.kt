@@ -40,6 +40,17 @@ class AppBarScrollBehavior(
     override val isPinned: Boolean = true
     override var nestedScrollConnection =
         object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (!canScroll()) return Offset.Zero
+                val prevHeightOffset = state.heightOffset
+                state.heightOffset += available.y
+                return if (prevHeightOffset != state.heightOffset) {
+                    available.copy(x = 0f)
+                } else {
+                    Offset.Zero
+                }
+            }
+
             override fun onPostScroll(
                 consumed: Offset,
                 available: Offset,
@@ -49,8 +60,6 @@ class AppBarScrollBehavior(
                 state.contentOffset += consumed.y
                 if (state.heightOffset == 0f || state.heightOffset == state.heightOffsetLimit) {
                     if (consumed.y == 0f && available.y > 0f) {
-                        // Reset the total content offset to zero when scrolling all the way down.
-                        // This will eliminate some float precision inaccuracies.
                         state.contentOffset = 0f
                     }
                 }
