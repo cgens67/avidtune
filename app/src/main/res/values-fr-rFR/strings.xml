@@ -997,5 +997,8 @@
     <string name="reverb_living_room">Salon</string>
     <string name="reverb_concert_hall">Salle de concert</string>
     <string name="reverb_cave">Grotte / Plaque</string>
+    <string name="reverb_device_support_warning">Cela peut ne pas fonctionner sur certains appareils</string>
+    <string name="in_app_audio_effects_and_eq">Effets audio et égaliseur intégrés à l\'application</string>
+
     
 </resources>
