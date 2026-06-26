@@ -984,4 +984,22 @@
     <string name="moods_and_moments">心情与时刻</string>
     <string name="genres">流派</string>
     
+    <string name="equalizer_and_effects">均衡器和音效</string>
+    <string name="enable_audio_effects">启用音频音效</string>
+    <string name="enable_audio_effects_desc">打开内置的均衡器、低音增强和混响</string>
+    <string name="enhancements">增强功能</string>
+    <string name="mega_bass">重低音</string>
+    <string name="panoramic_surround">全景环绕声</string>
+    <string name="environment_reverb">环境混响</string>
+    <string name="clear_voice">清晰人声</string>
+    <string name="reset_all_settings">重置所有设置</string>
+    <string name="no_system_equalizer_found">未找到系统均衡器</string>
+    <string name="no_equalizer_bands_available">没有可用的均衡器频段。</string>
+    <string name="equalizer_not_supported">此设备不支持均衡器。</string>
+    <string name="reverb_none">无</string>
+    <string name="reverb_bathroom">浴室</string>
+    <string name="reverb_living_room">客厅</string>
+    <string name="reverb_concert_hall">音乐厅</string>
+    <string name="reverb_cave">洞穴 / 钢板</string>
+    
 </resources>
