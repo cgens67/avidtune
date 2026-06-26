@@ -43,9 +43,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
@@ -472,26 +476,45 @@ fun StatsScreen(
     if (showInsightBottomSheet) {
         val totalMinutes = mostPlayedSongsStats.sumOf { it.timeListened ?: 0L } / 60000L
 
+        // Consumes ALL vertical overscroll to prevent the sheet from dragging and snapping back
+        val nestedScrollConnection = remember {
+            object : NestedScrollConnection {
+                override fun onPostScroll(
+                    consumed: Offset,
+                    available: Offset,
+                    source: NestedScrollSource
+                ): Offset {
+                    return Offset(0f, available.y)
+                }
+            }
+        }
+
         ModalBottomSheet(
             onDismissRequest = { showInsightBottomSheet = false },
             sheetState = sheetState
         ) {
-            InsightBottomSheetContent(
-                totalMinutes = totalMinutes,
-                onNavigateToFullInsight = {
-                    coroutineScope.launch {
-                        sheetState.hide()
-                        showInsightBottomSheet = false
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .nestedScroll(nestedScrollConnection)
+            ) {
+                InsightBottomSheetContent(
+                    totalMinutes = totalMinutes,
+                    onNavigateToFullInsight = {
+                        coroutineScope.launch {
+                            sheetState.hide()
+                            showInsightBottomSheet = false
+                        }
+                        navController.navigate("insight")
+                    },
+                    onDismiss = {
+                        coroutineScope.launch {
+                            sheetState.hide()
+                            showInsightBottomSheet = false
+                        }
                     }
-                    navController.navigate("insight")
-                },
-                onDismiss = {
-                    coroutineScope.launch {
-                        sheetState.hide()
-                        showInsightBottomSheet = false
-                    }
-                }
-            )
+                )
+            }
         }
     }
 }
