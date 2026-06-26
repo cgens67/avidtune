@@ -814,7 +814,7 @@ fun ColumnScope.PlayerMenu(
                         add(
                             MenuItemData(
                                 title = { Text(text = stringResource(R.string.equalizer)) },
-                                description = { Text("In-App Audio Effects & EQ") },
+                                description = { Text(text = stringResource(R.string.in_app_audio_effects_and_eq)) },
                                 icon = {
                                     Icon(
                                         painter = painterResource(R.drawable.equalizer),
