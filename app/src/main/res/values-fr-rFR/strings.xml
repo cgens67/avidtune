@@ -980,4 +980,22 @@
     <string name="moods_and_moments">Ambiance et moments</string>
     <string name="genres">Genres</string>
     
+    <string name="equalizer_and_effects">Égaliseur et effets</string>
+    <string name="enable_audio_effects">Activer les effets audio</string>
+    <string name="enable_audio_effects_desc">Activer l\'égaliseur, l\'amplification des basses et la réverbération intégrés</string>
+    <string name="enhancements">Améliorations</string>
+    <string name="mega_bass">Méga basses</string>
+    <string name="panoramic_surround">Son surround panoramique</string>
+    <string name="environment_reverb">Réverbération de l\'environnement</string>
+    <string name="clear_voice">Voix claire</string>
+    <string name="reset_all_settings">Réinitialiser tous les paramètres</string>
+    <string name="no_system_equalizer_found">Aucun égaliseur système trouvé</string>
+    <string name="no_equalizer_bands_available">Aucune bande d\'égalisation disponible.</string>
+    <string name="equalizer_not_supported">L\'égaliseur n\'est pas pris en charge sur cet appareil.</string>
+    <string name="reverb_none">Aucune</string>
+    <string name="reverb_bathroom">Salle de bain</string>
+    <string name="reverb_living_room">Salon</string>
+    <string name="reverb_concert_hall">Salle de concert</string>
+    <string name="reverb_cave">Grotte / Plaque</string>
+    
 </resources>
