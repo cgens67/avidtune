@@ -135,7 +135,6 @@ fun ColumnScope.PlayerMenu(
             mediaMetadata.artists.filter { it.id != null }
         }
 
-    // Sleep Timer
     val sleepTimerEnabled =
         remember(
             playerConnection.service.sleepTimer.triggerTime,
@@ -176,6 +175,16 @@ fun ColumnScope.PlayerMenu(
 
     var showErrorPlaylistAddDialog by rememberSaveable {
         mutableStateOf(false)
+    }
+
+    var showInAppEqualizer by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    if (showInAppEqualizer) {
+        com.cgens67.avidtune.playback.InAppEqualizerBottomSheet(
+            onDismiss = { showInAppEqualizer = false }
+        )
     }
 
     AddToPlaylistDialog(
@@ -320,10 +329,7 @@ fun ColumnScope.PlayerMenu(
                     TextButton(
                         onClick = {
                             showSleepTimerDialog = false
-                            if (sleepTimerEnabled) {
-                                // Si ya hay timer activo, OK solo cierra el diálogo
-                            } else {
-                                // Si no hay timer, inicia uno nuevo
+                            if (!sleepTimerEnabled) {
                                 playerConnection.service.sleepTimer.start(sleepTimerValue.roundToInt())
                             }
                         },
@@ -808,7 +814,7 @@ fun ColumnScope.PlayerMenu(
                         add(
                             MenuItemData(
                                 title = { Text(text = stringResource(R.string.equalizer)) },
-                                description = { Text(text = stringResource(R.string.equalizer_desc)) },
+                                description = { Text("In-App Audio Effects & EQ") },
                                 icon = {
                                     Icon(
                                         painter = painterResource(R.drawable.equalizer),
@@ -817,15 +823,7 @@ fun ColumnScope.PlayerMenu(
                                     )
                                 },
                                 onClick = {
-                                    val intent = Intent(AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL).apply {
-                                        putExtra(AudioEffect.EXTRA_AUDIO_SESSION, playerConnection.player.audioSessionId)
-                                        putExtra(AudioEffect.EXTRA_PACKAGE_NAME, context.packageName)
-                                        putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC)
-                                    }
-                                    if (intent.resolveActivity(context.packageManager) != null) {
-                                        activityResultLauncher.launch(intent)
-                                    }
-                                    onDismiss()
+                                    showInAppEqualizer = true
                                 }
                             )
                         )
