@@ -1001,5 +1001,8 @@
     <string name="reverb_living_room">客厅</string>
     <string name="reverb_concert_hall">音乐厅</string>
     <string name="reverb_cave">洞穴 / 钢板</string>
+    <string name="reverb_device_support_warning">这在某些设备上可能无法正常工作</string>
+    <string name="in_app_audio_effects_and_eq">应用内音频特效与均衡器</string>
+
     
 </resources>
