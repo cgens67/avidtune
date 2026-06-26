@@ -535,6 +535,7 @@ fun LanguageSelector(
             ) {}
         }
     ) {
+        // Consumes ALL vertical overscroll (both up and down) to prevent the sheet from dragging and snapping back
         val nestedScrollConnection = remember {
             object : NestedScrollConnection {
                 override fun onPostScroll(
@@ -542,10 +543,7 @@ fun LanguageSelector(
                     available: Offset,
                     source: NestedScrollSource
                 ): Offset {
-                    if (available.y < 0f) {
-                        return Offset(0f, available.y)
-                    }
-                    return Offset.Zero
+                    return Offset(0f, available.y)
                 }
             }
         }
