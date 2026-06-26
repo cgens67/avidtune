@@ -240,6 +240,19 @@ fun ThumbnailCornerRadiusBottomSheet(
             }
         }
     }
+    
+    // Disables snap back when swiping far ends in the horizontal LazyRow
+    val horizontalNestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                return Offset(available.x, 0f)
+            }
+        }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -391,7 +404,9 @@ fun ThumbnailCornerRadiusBottomSheet(
                 
                 LazyRow(
                     state = presetsListState,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .nestedScroll(horizontalNestedScrollConnection), // Consumes horizontal bounds
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = PaddingValues(horizontal = 24.dp)
                 ) {
