@@ -1001,4 +1001,22 @@
     
     <string name="moods_and_moments">Moods &amp; moments</string>
     <string name="genres">Genres</string>
+    
+    <string name="equalizer_and_effects">Equalizer and effects</string>
+    <string name="enable_audio_effects">Enable audio effects</string>
+    <string name="enable_audio_effects_desc">Turn on built-in equalizer, bass boost and reverb</string>
+    <string name="enhancements">Enhancements</string>
+    <string name="mega_bass">Mega bass</string>
+    <string name="panoramic_surround">Panoramic surround</string>
+    <string name="environment_reverb">Environment reverb</string>
+    <string name="clear_voice">Clear voice</string>
+    <string name="reset_all_settings">Reset all settings</string>
+    <string name="no_system_equalizer_found">No system equalizer found</string>
+    <string name="no_equalizer_bands_available">No equalizer bands available.</string>
+    <string name="equalizer_not_supported">Equalizer not supported on this device.</string>
+    <string name="reverb_none">None</string>
+    <string name="reverb_bathroom">Bathroom</string>
+    <string name="reverb_living_room">Living room</string>
+    <string name="reverb_concert_hall">Concert hall</string>
+    <string name="reverb_cave">Cave / Plate</string>
 </resources>
