@@ -34,7 +34,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -208,11 +208,11 @@ fun InAppEqualizerBottomSheet(onDismiss: () -> Unit) {
     var updateTrigger by remember { mutableIntStateOf(0) }
 
     val reverbOptions = listOf(
-        PresetReverb.PRESET_NONE to "None",
-        PresetReverb.PRESET_SMALLROOM to "Bathroom",
-        PresetReverb.PRESET_MEDIUMROOM to "Living Room",
-        PresetReverb.PRESET_LARGEHALL to "Concert Hall",
-        PresetReverb.PRESET_PLATE to "Cave/Plate"
+        PresetReverb.PRESET_NONE to stringResource(R.string.reverb_none),
+        PresetReverb.PRESET_SMALLROOM to stringResource(R.string.reverb_bathroom),
+        PresetReverb.PRESET_MEDIUMROOM to stringResource(R.string.reverb_living_room),
+        PresetReverb.PRESET_LARGEHALL to stringResource(R.string.reverb_concert_hall),
+        PresetReverb.PRESET_PLATE to stringResource(R.string.reverb_cave)
     )
 
     // Consumes ALL vertical overscroll to prevent the sheet from dragging and snapping back
@@ -264,7 +264,7 @@ fun InAppEqualizerBottomSheet(onDismiss: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Equalizer & Effects",
+                    text = stringResource(R.string.equalizer_and_effects),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -280,7 +280,7 @@ fun InAppEqualizerBottomSheet(onDismiss: () -> Unit) {
                         if (intent.resolveActivity(context.packageManager) != null) {
                             context.startActivity(intent)
                         } else {
-                            Toast.makeText(context, "No system equalizer found", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.no_system_equalizer_found), Toast.LENGTH_SHORT).show()
                         }
                     }
                 ) {
@@ -308,12 +308,12 @@ fun InAppEqualizerBottomSheet(onDismiss: () -> Unit) {
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "Enable Audio Effects", 
+                            stringResource(R.string.enable_audio_effects), 
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            "Turn on built-in equalizer, bass boost and reverb", 
+                            stringResource(R.string.enable_audio_effects_desc), 
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -349,10 +349,10 @@ fun InAppEqualizerBottomSheet(onDismiss: () -> Unit) {
                         )
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Text("Enhancements", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.enhancements), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             Spacer(Modifier.height(16.dp))
                             
-                            Text("Mega Bass", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(R.string.mega_bass), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Slider(
                                 value = bass,
                                 onValueChange = {
@@ -370,7 +370,7 @@ fun InAppEqualizerBottomSheet(onDismiss: () -> Unit) {
 
                             Spacer(Modifier.height(8.dp))
 
-                            Text("Panoramic Surround", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(R.string.panoramic_surround), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Slider(
                                 value = surround,
                                 onValueChange = {
@@ -397,7 +397,7 @@ fun InAppEqualizerBottomSheet(onDismiss: () -> Unit) {
                         )
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Text("Environment Reverb", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.environment_reverb), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             Spacer(Modifier.height(8.dp))
                             LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -437,7 +437,7 @@ fun InAppEqualizerBottomSheet(onDismiss: () -> Unit) {
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text("Equalizer", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                Text(stringResource(R.string.equalizer), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                                 FilledTonalButton(
                                     onClick = {
                                         AudioEffectManager.applyClearVoice(context)
@@ -446,7 +446,7 @@ fun InAppEqualizerBottomSheet(onDismiss: () -> Unit) {
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                                     modifier = Modifier.height(32.dp)
                                 ) {
-                                    Text("Clear Voice", style = MaterialTheme.typography.labelMedium)
+                                    Text(stringResource(R.string.clear_voice), style = MaterialTheme.typography.labelMedium)
                                 }
                             }
 
@@ -498,9 +498,9 @@ fun InAppEqualizerBottomSheet(onDismiss: () -> Unit) {
                                         }
                                     }
                                 } else {
-                                    Text("No equalizer bands available.", color = MaterialTheme.colorScheme.error)
+                                    Text(stringResource(R.string.no_equalizer_bands_available), color = MaterialTheme.colorScheme.error)
                                 }
-                            } ?: Text("Equalizer not supported on this device", color = MaterialTheme.colorScheme.error)
+                            } ?: Text(stringResource(R.string.equalizer_not_supported), color = MaterialTheme.colorScheme.error)
                         }
                     }
 
@@ -523,7 +523,7 @@ fun InAppEqualizerBottomSheet(onDismiss: () -> Unit) {
                     ) {
                         Icon(Icons.Rounded.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text("Reset All Settings")
+                        Text(stringResource(R.string.reset_all_settings))
                     }
                 }
             }
