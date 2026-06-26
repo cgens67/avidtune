@@ -213,6 +213,14 @@ fun BottomSheetPlayer(
             isDark && pureBlack
         }
         
+    val bottomSheetBackgroundColor = when (playerBackground) {
+        PlayerBackgroundStyle.LIVE_MESH, PlayerBackgroundStyle.BLUR, PlayerBackgroundStyle.GRADIENT ->
+            MaterialTheme.colorScheme.surfaceContainer
+        else ->
+            if (useBlackBackground) Color.Black
+            else MaterialTheme.colorScheme.surfaceContainer
+    }
+
     val backgroundColor = if (useBlackBackground && state.value > state.collapsedBound) {
         lerp(MaterialTheme.colorScheme.surfaceContainer, Color.Black, state.progress)
     } else {
@@ -316,6 +324,15 @@ fun BottomSheetPlayer(
                 insetsController.isAppearanceLightStatusBars = !useDarkTheme
             }
         }
+    }
+
+    val queueOnBgColor = when (playerBackground) {
+        PlayerBackgroundStyle.DEFAULT -> MaterialTheme.colorScheme.secondary
+        else ->
+            if (useDarkTheme)
+                MaterialTheme.colorScheme.onSurface
+            else
+                MaterialTheme.colorScheme.onPrimary
     }
 
     val TextBackgroundColor =
@@ -434,24 +451,6 @@ fun BottomSheetPlayer(
                 .calculateBottomPadding(),
             expandedBound = state.expandedBound,
         )
-
-    val bottomSheetBackgroundColor = when (playerBackground) {
-        PlayerBackgroundStyle.LIVE_MESH -> Color.Black
-        PlayerBackgroundStyle.BLUR, PlayerBackgroundStyle.GRADIENT ->
-            MaterialTheme.colorScheme.surfaceContainer
-        else ->
-            if (useBlackBackground) Color.Black
-            else MaterialTheme.colorScheme.surfaceContainer
-    }
-
-    val queueOnBgColor = when (playerBackground) {
-        PlayerBackgroundStyle.DEFAULT -> MaterialTheme.colorScheme.secondary
-        else ->
-            if (useDarkTheme)
-                MaterialTheme.colorScheme.onSurface
-            else
-                MaterialTheme.colorScheme.onPrimary
-    }
 
     LaunchedEffect(playbackState) {
         if (playbackState == STATE_READY) {
