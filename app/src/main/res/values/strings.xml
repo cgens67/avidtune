@@ -113,7 +113,7 @@
     <string name="select">Select all</string>
     <string name="like_all">Like all</string>
     <string name="dislike_all">Dislike all</string>
-    <string name="tempo_and_pitch">Time and tone</string>
+    <string name="tempo_and_pitch">Tempo and pitch</string>
 
     <!-- Sort menu -->
     <string name="sort_by_create_date">Date added</string>
@@ -1019,4 +1019,7 @@
     <string name="reverb_living_room">Living room</string>
     <string name="reverb_concert_hall">Concert hall</string>
     <string name="reverb_cave">Cave / Plate</string>
+    <string name="reverb_device_support_warning">This may not work on certain devices</string>
+    <string name="in_app_audio_effects_and_eq">In-app audio effects and EQ</string>
+    
 </resources>
