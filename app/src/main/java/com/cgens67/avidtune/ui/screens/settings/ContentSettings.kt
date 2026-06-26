@@ -42,6 +42,10 @@ import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -357,6 +361,19 @@ fun ReorderLyricsProvidersBottomSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val coroutineScope = rememberCoroutineScope()
 
+    // Consumes ALL vertical overscroll to prevent the sheet from dragging and snapping back
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                return Offset(0f, available.y)
+            }
+        }
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -366,6 +383,7 @@ fun ReorderLyricsProvidersBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .nestedScroll(nestedScrollConnection)
                 .windowInsetsPadding(WindowInsets.navigationBars)
                 .padding(bottom = 16.dp)
         ) {
