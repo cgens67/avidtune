@@ -212,8 +212,9 @@ fun ThumbnailCornerRadiusBottomSheet(
     val mediaMetadata by playerConnection?.mediaMetadata?.collectAsState() ?: remember { mutableStateOf(null) }
 
     var thumbnailCornerRadius by remember { mutableFloatStateOf(initialRadius) }
-    val presetValues = listOf(0f, 8f, 16f, 24f, 32f, 45f)
+    val presetValues = remember { listOf(0f, 8f, 16f, 24f, 32f, 45f) }
     val coroutineScope = rememberCoroutineScope()
+    val presetsListState = rememberLazyListState()
 
     // Smooth animation for the preview
     val animatedRadius by animateFloatAsState(
@@ -388,14 +389,13 @@ fun ThumbnailCornerRadiusBottomSheet(
                     modifier = Modifier.padding(bottom = 8.dp, start = 24.dp)
                 )
                 
-                val lazyListState = rememberLazyListState()
                 LazyRow(
-                    state = lazyListState,
+                    state = presetsListState,
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = PaddingValues(horizontal = 24.dp)
                 ) {
-                    items(presetValues) { preset ->
+                    items(presetValues, key = { it }) { preset ->
                         val isSelected = thumbnailCornerRadius == preset
                         
                         val bgColor by animateColorAsState(
