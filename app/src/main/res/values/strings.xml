@@ -1022,4 +1022,9 @@
     <string name="reverb_device_support_warning">This may not work on certain devices</string>
     <string name="in_app_audio_effects_and_eq">In-app audio effects and EQ</string>
     
+    <string name="new_beta_version_available">New beta version available!</string>
+    <string name="beta_version_name">Beta %1$s</string>
+    <string name="update_beta_version">Update to Beta %1$s?</string>
+    <string name="download_beta_update_prompt">A new beta version is available with experimental features. Would you like to download and install it now?</string>
+    
 </resources>
