@@ -56,9 +56,24 @@ fun AvidTuneTheme(
                 dynamicLightColorScheme(context).pureBlack(false, darkTheme)
             }
         } else {
-            SchemeTonalSpot(Hct.fromInt(themeColor.toArgb()), darkTheme, 0.0)
+            val baseScheme = SchemeTonalSpot(Hct.fromInt(themeColor.toArgb()), darkTheme, 0.0)
                 .toColorScheme()
-                .pureBlack(pureBlack, darkTheme)
+            
+            // Override the primary colors to be EXACTLY the requested color
+            // This allows users to actually set dark colors as their accent/theme color
+            // instead of Material 3 forcing it into a washed-out pastel color.
+            val isDarkColor = themeColor.luminance() < 0.5f
+            val onThemeColor = if (isDarkColor) Color.White else Color.Black
+            
+            baseScheme.copy(
+                primary = themeColor,
+                onPrimary = onThemeColor,
+                primaryContainer = themeColor.copy(alpha = 0.25f),
+                onPrimaryContainer = themeColor,
+                secondary = themeColor,
+                onSecondary = onThemeColor,
+                surfaceTint = themeColor
+            ).pureBlack(pureBlack, darkTheme)
         }
     }
 
