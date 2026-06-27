@@ -878,7 +878,7 @@ fun HomeScreen(
             Modifier
                 .align(Alignment.TopCenter)
         ) {
-            PullToRefreshDefaults.LoadingIndicator(
+            PullToRefreshDefaults.Indicator(
                 state = pullRefreshState,
                 isRefreshing = isRefreshing,
                 modifier = Modifier.padding(LocalPlayerAwareWindowInsets.current.asPaddingValues())
