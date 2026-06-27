@@ -299,9 +299,13 @@ fun SettingsScreen(
     val focusRequester = remember { FocusRequester() }
 
     var showUpdateDialog by remember { mutableStateOf(false) }
+    var showBetaUpdateDialog by remember { mutableStateOf(false) }
 
     var hasUpdate by remember { mutableStateOf(false) }
     var fetchedLatestVersion by remember { mutableStateOf(BuildConfig.VERSION_NAME) }
+
+    var hasBetaUpdate by remember { mutableStateOf(false) }
+    var fetchedLatestBetaVersion by remember { mutableStateOf(BuildConfig.VERSION_NAME) }
 
     var showTogetherScreen by remember { mutableStateOf(false) }
 
@@ -343,6 +347,14 @@ fun SettingsScreen(
         if (newVersion != null && isNewerVersion(newVersion, BuildConfig.VERSION_NAME)) {
             hasUpdate = true
             fetchedLatestVersion = newVersion
+        }
+        
+        val newBetaVersion = checkForBetaUpdates()
+        if (newBetaVersion != null && isNewerVersion(newBetaVersion, BuildConfig.VERSION_NAME)) {
+            if (newVersion == null || isNewerVersion(newBetaVersion, newVersion)) {
+                hasBetaUpdate = true
+                fetchedLatestBetaVersion = newBetaVersion
+            }
         }
     }
 
@@ -386,7 +398,6 @@ fun SettingsScreen(
         }
     }
 
-    // Observe lifecycle events to detect when returning from app settings
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -402,7 +413,6 @@ fun SettingsScreen(
         }
     }
 
-    // Determine banner visibility. Hide immediately when notifications are allowed (Tiramisu+)
     val shouldShowPermissionHint = if (notificationPermission != null) {
         !isNotificationGranted
     } else {
@@ -471,6 +481,8 @@ fun SettingsScreen(
         showPermissionBanner = shouldShowPermissionHint,
         showUpdateBanner = hasUpdate,
         latestVersion = fetchedLatestVersion,
+        showBetaUpdateBanner = hasBetaUpdate,
+        latestBetaVersion = fetchedLatestBetaVersion,
         isSearchActive = false,
         searchQuery = queryText,
         searchHistory = searchHistory,
@@ -498,7 +510,6 @@ fun SettingsScreen(
                     androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(activity, it)
                 }
 
-                // Go directly to settings if previously denied, bypassing silent failures
                 if (hasRequestedPermissions && !shouldShowRationale) {
                     val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                         data = Uri.fromParts("package", context.packageName, null)
@@ -512,6 +523,7 @@ fun SettingsScreen(
             }
         },
         onUpdateClick = { showUpdateDialog = true },
+        onBetaUpdateClick = { showBetaUpdateDialog = true },
         onSearchHistoryItemClick = { clickedQuery ->
             query = TextFieldValue(clickedQuery)
             focusManager.clearFocus()
@@ -656,7 +668,16 @@ fun SettingsScreen(
     if (showUpdateDialog) {
         UpdateDownloadDialog(
             latestVersion = fetchedLatestVersion,
+            isBeta = false,
             onDismiss = { showUpdateDialog = false }
+        )
+    }
+
+    if (showBetaUpdateDialog) {
+        UpdateDownloadDialog(
+            latestVersion = fetchedLatestBetaVersion,
+            isBeta = true,
+            onDismiss = { showBetaUpdateDialog = false }
         )
     }
 }
@@ -1348,6 +1369,8 @@ data class SettingsContentState(
     val showPermissionBanner: Boolean,
     val showUpdateBanner: Boolean,
     val latestVersion: String,
+    val showBetaUpdateBanner: Boolean,
+    val latestBetaVersion: String,
     val isSearchActive: Boolean,
     val searchQuery: String,
     val searchHistory: List<String>,
@@ -1355,6 +1378,7 @@ data class SettingsContentState(
     val onProfileHeaderClick: () -> Unit,
     val onRequestPermission: () -> Unit,
     val onUpdateClick: () -> Unit,
+    val onBetaUpdateClick: () -> Unit,
     val onSearchHistoryItemClick: (String) -> Unit,
     val onRemoveSearchHistoryItem: (String) -> Unit,
     val onClearSearchHistory: () -> Unit,
@@ -1598,6 +1622,23 @@ private fun CompactSettingsLayout(
                     )
                 }
             }
+
+            item(key = "beta_update") {
+                AnimatedVisibility(
+                    visible = bannerVisible && state.showBetaUpdateBanner,
+                    enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                        expandVertically(SettingsAnimations.entranceSpring()),
+                    exit = fadeOut(SettingsAnimations.exitTween()) + shrinkVertically(SettingsAnimations.exitTween()),
+                ) {
+                    SettingsBetaUpdateBanner(
+                        latestVersion = state.latestBetaVersion,
+                        onClick = state.onBetaUpdateClick,
+                        modifier = Modifier
+                            .padding(horizontal = pad)
+                            .padding(bottom = spacing),
+                    )
+                }
+            }
         }
 
         if (state.isSearchActive && state.searchQuery.isBlank()) {
@@ -1766,6 +1807,21 @@ private fun MediumSettingsLayout(
                         )
                     }
                 }
+
+                item(key = "beta_update") {
+                    AnimatedVisibility(
+                        visible = bannerVisible && state.showBetaUpdateBanner,
+                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                            expandVertically(SettingsAnimations.entranceSpring()),
+                        exit = fadeOut(SettingsAnimations.exitTween()) + shrinkVertically(SettingsAnimations.exitTween()),
+                    ) {
+                        SettingsBetaUpdateBanner(
+                            latestVersion = state.latestBetaVersion,
+                            onClick = state.onBetaUpdateClick,
+                            modifier = Modifier.padding(bottom = spacing),
+                        )
+                    }
+                }
             }
 
             if (!state.isSearchActive || state.searchQuery.isNotBlank()) {
@@ -1920,6 +1976,21 @@ private fun ExpandedSettingsLayout(
                         SettingsUpdateBanner(
                             latestVersion = state.latestVersion,
                             onClick = state.onUpdateClick,
+                            modifier = Modifier.padding(bottom = spacing),
+                        )
+                    }
+                }
+
+                item(key = "beta_update") {
+                    AnimatedVisibility(
+                        visible = bannerVisible && state.showBetaUpdateBanner,
+                        enter = fadeIn(SettingsAnimations.entranceSpring()) +
+                            expandVertically(SettingsAnimations.entranceSpring()),
+                        exit = fadeOut(SettingsAnimations.exitTween()) + shrinkVertically(SettingsAnimations.exitTween()),
+                    ) {
+                        SettingsBetaUpdateBanner(
+                            latestVersion = state.latestBetaVersion,
+                            onClick = state.onBetaUpdateClick,
                             modifier = Modifier.padding(bottom = spacing),
                         )
                     }
@@ -2343,6 +2414,112 @@ fun SettingsUpdateBanner(
                     painter = painterResource(R.drawable.arrow_forward),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsBetaUpdateBanner(
+    latestVersion: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) SettingsAnimations.PressScale else 1f,
+        animationSpec = SettingsAnimations.pressSpring(),
+        label = "betaUpdateScale",
+    )
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .scale(scale)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick,
+            ),
+        shape = RoundedCornerShape(SettingsDimensions.BannerCardCornerRadius),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.secondary.copy(alpha = 0.14f),
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                            Color.Transparent,
+                        ),
+                        start = Offset(0f, 0f),
+                        end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
+                    ),
+                )
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(SettingsDimensions.BannerIconSize)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.secondary.copy(alpha = 0.16f),
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                            ),
+                        ),
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.update),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.size(SettingsDimensions.BannerIconInnerSize),
+                )
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.new_beta_version_available),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = stringResource(R.string.beta_version_name, latestVersion),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.10f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.arrow_forward),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.secondary,
                     modifier = Modifier.size(18.dp),
                 )
             }
@@ -2874,9 +3051,31 @@ suspend fun checkForUpdates(): String? = withContext(Dispatchers.IO) {
     }
 }
 
+suspend fun checkForBetaUpdates(): String? = withContext(Dispatchers.IO) {
+    try {
+        val url = URL("https://api.github.com/repos/cgens67/AvidTune/releases")
+        val connection = url.openConnection()
+        connection.connect()
+        val json = connection.getInputStream().bufferedReader().use { it.readText() }
+        val jsonArray = org.json.JSONArray(json)
+        for (i in 0 until jsonArray.length()) {
+            val release = jsonArray.getJSONObject(i)
+            if (release.getBoolean("prerelease")) {
+                return@withContext release.getString("tag_name")
+            }
+        }
+        return@withContext null
+    } catch (e: Exception) {
+        e.printStackTrace()
+        return@withContext null
+    }
+}
+
 fun isNewerVersion(remoteVersion: String, currentVersion: String): Boolean {
-    val remote = remoteVersion.removePrefix("v").split(".").map { it.toIntOrNull() ?: 0 }
-    val current = currentVersion.removePrefix("v").split(".").map { it.toIntOrNull() ?: 0 }
+    val cleanRemote = remoteVersion.removePrefix("v").substringBefore("-")
+    val cleanCurrent = currentVersion.removePrefix("v").substringBefore("-")
+    val remote = cleanRemote.split(".").map { it.toIntOrNull() ?: 0 }
+    val current = cleanCurrent.split(".").map { it.toIntOrNull() ?: 0 }
 
     for (i in 0 until maxOf(remote.size, current.size)) {
         val r = remote.getOrNull(i) ?: 0
@@ -2884,12 +3083,24 @@ fun isNewerVersion(remoteVersion: String, currentVersion: String): Boolean {
         if (r > c) return true
         if (r < c) return false
     }
+
+    // Same base version, check tags
+    val remoteTag = remoteVersion.substringAfter("-", "")
+    val currentTag = currentVersion.substringAfter("-", "")
+
+    if (remoteTag.isEmpty() && currentTag.isNotEmpty()) return true // Stable > Beta
+    if (remoteTag.isNotEmpty() && currentTag.isEmpty()) return false // Beta < Stable
+    if (remoteTag.isNotEmpty() && currentTag.isNotEmpty()) {
+        return remoteTag > currentTag // E.g., beta02 > beta01
+    }
+
     return false
 }
 
 @Composable
 fun UpdateDownloadDialog(
     latestVersion: String,
+    isBeta: Boolean = false,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
@@ -2925,7 +3136,7 @@ fun UpdateDownloadDialog(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = stringResource(R.string.update_version, latestVersion),
+                    text = if (isBeta) stringResource(R.string.update_beta_version, latestVersion) else stringResource(R.string.update_version, latestVersion),
                     style = MaterialTheme.typography.headlineSmall
                 )
 
@@ -2933,7 +3144,7 @@ fun UpdateDownloadDialog(
 
                 when (downloadStatus) {
                     DownloadStatus.NOT_STARTED -> {
-                        Text(stringResource(R.string.download_update_prompt))
+                        Text(if (isBeta) stringResource(R.string.download_beta_update_prompt) else stringResource(R.string.download_update_prompt))
                         Spacer(modifier = Modifier.height(16.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
