@@ -222,6 +222,7 @@ import android.graphics.Paint
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.runtime.derivedStateOf
 
 @RequiresApi(Build.VERSION_CODES.M)
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class,
@@ -1878,8 +1879,8 @@ fun GapIndicator(
         }
     }
 
-    val progress = ((smoothPosition - gapStart).toFloat() / (gapEnd - gapStart)).coerceIn(0f, 1f)
-    val isVisible = smoothPosition in gapStart..(gapEnd - 1000L)
+    val progress by remember { derivedStateOf { ((smoothPosition - gapStart).toFloat() / (gapEnd - gapStart)).coerceIn(0f, 1f) } }
+    val isVisible by remember { derivedStateOf { smoothPosition in gapStart..(gapEnd - 1000L) } }
 
     AnimatedVisibility(
         visible = isVisible,
