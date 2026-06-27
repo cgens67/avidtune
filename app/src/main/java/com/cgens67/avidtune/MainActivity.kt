@@ -1463,12 +1463,12 @@ class MainActivity : ComponentActivity() {
                                         if (initialState.destination.route in topLevelScreens &&
                                             targetState.destination.route in topLevelScreens
                                         ) {
-                                            fadeIn(spring(dampingRatio = Spring.DampingRatioNoBouncy))
+                                            fadeIn(tween(300))
                                         } else {
-                                            fadeIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) +
+                                            fadeIn(tween(300)) +
                                                     slideInHorizontally(
                                                         initialOffsetX = { it },
-                                                        animationSpec = spring(stiffness = Spring.StiffnessLow)
+                                                        animationSpec = tween(300)
                                                     )
                                         }
                                     },
@@ -1477,12 +1477,12 @@ class MainActivity : ComponentActivity() {
                                         if (initialState.destination.route in topLevelScreens &&
                                             targetState.destination.route in topLevelScreens
                                         ) {
-                                            fadeOut(spring(dampingRatio = Spring.DampingRatioNoBouncy))
+                                            fadeOut(tween(300))
                                         } else {
-                                            fadeOut(spring(dampingRatio = Spring.DampingRatioLowBouncy)) +
+                                            fadeOut(tween(300)) +
                                                     slideOutHorizontally(
                                                         targetOffsetX = { -it / 5 },
-                                                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
+                                                        animationSpec = tween(300)
                                                     )
                                         }
                                     },
@@ -1492,12 +1492,12 @@ class MainActivity : ComponentActivity() {
                                                     initialState.destination.route?.startsWith("search/") == true) &&
                                             targetState.destination.route in topLevelScreens
                                         ) {
-                                            fadeIn(spring(dampingRatio = Spring.DampingRatioNoBouncy))
+                                            fadeIn(tween(300))
                                         } else {
-                                            fadeIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) +
+                                            fadeIn(tween(300)) +
                                                     slideInHorizontally(
-                                                        initialOffsetX = { -it },
-                                                        animationSpec = spring(stiffness = Spring.StiffnessLow)
+                                                        initialOffsetX = { -it / 5 },
+                                                        animationSpec = tween(300)
                                                     )
                                         }
                                     },
@@ -1507,12 +1507,12 @@ class MainActivity : ComponentActivity() {
                                                     initialState.destination.route?.startsWith("search/") == true) &&
                                             targetState.destination.route in topLevelScreens
                                         ) {
-                                            fadeOut(spring(dampingRatio = Spring.DampingRatioNoBouncy))
+                                            fadeOut(tween(300))
                                         } else {
-                                            fadeOut(spring(dampingRatio = Spring.DampingRatioLowBouncy)) +
+                                            fadeOut(tween(300)) +
                                                     slideOutHorizontally(
-                                                        targetOffsetX = { -it / 5 },
-                                                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
+                                                        targetOffsetX = { it },
+                                                        animationSpec = tween(300)
                                                     )
                                         }
                                     },
