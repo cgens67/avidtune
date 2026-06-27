@@ -1460,60 +1460,46 @@ class MainActivity : ComponentActivity() {
                                     }.route,
 
                                     enterTransition = {
-                                        if (initialState.destination.route in topLevelScreens &&
-                                            targetState.destination.route in topLevelScreens
-                                        ) {
-                                            fadeIn(tween(300))
+                                        if (initialState.destination.route in topLevelScreens && targetState.destination.route in topLevelScreens) {
+                                            fadeIn(animationSpec = tween(300, easing = FastOutSlowInEasing))
                                         } else {
-                                            fadeIn(tween(300)) +
-                                                    slideInHorizontally(
-                                                        initialOffsetX = { it },
-                                                        animationSpec = tween(300, easing = FastOutSlowInEasing)
-                                                    )
+                                            slideInHorizontally(
+                                                initialOffsetX = { it },
+                                                animationSpec = tween(350, easing = FastOutSlowInEasing)
+                                            ) + fadeIn(animationSpec = tween(300, easing = LinearEasing))
                                         }
                                     },
 
                                     exitTransition = {
-                                        if (initialState.destination.route in topLevelScreens &&
-                                            targetState.destination.route in topLevelScreens
-                                        ) {
-                                            fadeOut(tween(300))
+                                        if (initialState.destination.route in topLevelScreens && targetState.destination.route in topLevelScreens) {
+                                            fadeOut(animationSpec = tween(300, easing = FastOutSlowInEasing))
                                         } else {
-                                            fadeOut(tween(300)) +
-                                                    slideOutHorizontally(
-                                                        targetOffsetX = { -it / 3 },
-                                                        animationSpec = tween(300, easing = FastOutSlowInEasing)
-                                                    )
+                                            slideOutHorizontally(
+                                                targetOffsetX = { -it / 4 },
+                                                animationSpec = tween(350, easing = FastOutSlowInEasing)
+                                            ) + fadeOut(animationSpec = tween(300, easing = LinearEasing))
                                         }
                                     },
 
                                     popEnterTransition = {
-                                        if ((initialState.destination.route in topLevelScreens ||
-                                                    initialState.destination.route?.startsWith("search/") == true) &&
-                                            targetState.destination.route in topLevelScreens
-                                        ) {
-                                            fadeIn(tween(300))
+                                        if ((initialState.destination.route in topLevelScreens || initialState.destination.route?.startsWith("search/") == true) && targetState.destination.route in topLevelScreens) {
+                                            fadeIn(animationSpec = tween(300, easing = FastOutSlowInEasing))
                                         } else {
-                                            fadeIn(tween(300)) +
-                                                    slideInHorizontally(
-                                                        initialOffsetX = { -it / 3 },
-                                                        animationSpec = tween(300, easing = FastOutSlowInEasing)
-                                                    )
+                                            slideInHorizontally(
+                                                initialOffsetX = { -it / 4 },
+                                                animationSpec = tween(350, easing = FastOutSlowInEasing)
+                                            ) + fadeIn(animationSpec = tween(300, easing = LinearEasing))
                                         }
                                     },
 
                                     popExitTransition = {
-                                        if ((initialState.destination.route in topLevelScreens ||
-                                                    initialState.destination.route?.startsWith("search/") == true) &&
-                                            targetState.destination.route in topLevelScreens
-                                        ) {
-                                            fadeOut(tween(300))
+                                        if ((initialState.destination.route in topLevelScreens || initialState.destination.route?.startsWith("search/") == true) && targetState.destination.route in topLevelScreens) {
+                                            fadeOut(animationSpec = tween(300, easing = FastOutSlowInEasing))
                                         } else {
-                                            fadeOut(tween(300)) +
-                                                    slideOutHorizontally(
-                                                        targetOffsetX = { it },
-                                                        animationSpec = tween(300, easing = FastOutSlowInEasing)
-                                                    )
+                                            slideOutHorizontally(
+                                                targetOffsetX = { it },
+                                                animationSpec = tween(350, easing = FastOutSlowInEasing)
+                                            ) + fadeOut(animationSpec = tween(200, easing = LinearEasing)) // Rapid fade to drop it from hit testing
                                         }
                                     },
 
