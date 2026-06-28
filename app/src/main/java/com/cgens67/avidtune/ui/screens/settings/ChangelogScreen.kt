@@ -90,10 +90,9 @@ import okhttp3.Request
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
-import java.net.URL
+import java.time.Duration
+import java.time.ZoneId
 import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 // --- Data Models ---
@@ -109,8 +108,52 @@ data class CommitData(
 )
 
 data class ChangelogSection(val title: String, val items: List<String>)
-data class ReleaseMetadata(val tagName: String, val name: String, val date: String, val changelogUrl: String?)
+data class ReleaseMetadata(
+    val tagName: String, 
+    val name: String, 
+    val date: String, 
+    val changelogUrl: String?,
+    val isPrerelease: Boolean,
+    val rawDate: String
+)
 data class CachedChangelogData(val sections: List<ChangelogSection>, val image: String?, val description: String?, val warning: String?)
+
+// --- Utils ---
+
+fun getTimeAgo(dateString: String?): String {
+    if (dateString.isNullOrBlank()) return "Unknown date"
+    return try {
+        val zdt = ZonedDateTime.parse(dateString)
+        val now = ZonedDateTime.now(ZoneId.systemDefault())
+        val duration = Duration.between(zdt, now)
+        
+        val seconds = duration.seconds
+        when {
+            seconds < 0 -> "Just now"
+            seconds < 60 -> "$seconds seconds ago"
+            seconds < 120 -> "1 minute ago"
+            seconds < 3600 -> "${seconds / 60} minutes ago"
+            seconds < 7200 -> "1 hour ago"
+            seconds < 86400 -> "${seconds / 3600} hours ago"
+            seconds < 172800 -> "1 day ago"
+            seconds < 2592000 -> "${seconds / 86400} days ago"
+            seconds < 5184000 -> "1 month ago"
+            seconds < 31536000 -> "${seconds / 2592000} months ago"
+            seconds < 63072000 -> "1 year ago"
+            else -> "${seconds / 31536000} years ago"
+        }
+    } catch (e: Exception) {
+        dateString
+    }
+}
+
+fun getBetaTarget(tagName: String): String? {
+    val base = tagName.removePrefix("v")
+    if (base.contains("-")) {
+        return base.substringBefore("-")
+    }
+    return null
+}
 
 // --- Main Screen ---
 
@@ -175,12 +218,17 @@ fun ChangelogScreen(
                 Tab(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
+                    text = { Text("Beta Releases", fontWeight = FontWeight.SemiBold) }
+                )
+                Tab(
+                    selected = selectedTab == 2,
+                    onClick = { selectedTab = 2 },
                     text = { Text(stringResource(R.string.tab_commits), fontWeight = FontWeight.SemiBold) }
                 )
             }
 
-            if (selectedTab == 0) {
-                ReleasesContent(versionTag = versionTag, refreshTrigger = refreshTrigger)
+            if (selectedTab == 0 || selectedTab == 1) {
+                ReleasesContent(versionTag = versionTag, refreshTrigger = refreshTrigger, isBetaTab = selectedTab == 1)
             } else {
                 CommitsContent(refreshTrigger = refreshTrigger)
             }
@@ -191,7 +239,7 @@ fun ChangelogScreen(
 // --- Releases (News-style) Content ---
 
 @Composable
-fun ReleasesContent(versionTag: String, refreshTrigger: Int) {
+fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean) {
     val context = LocalContext.current
     var changelogSections by remember { mutableStateOf<List<ChangelogSection>>(emptyList()) }
     var updateImage by remember { mutableStateOf<String?>(null) }
@@ -203,12 +251,9 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int) {
     var showingCached by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
-    val currentVersionStr = stringResource(R.string.current_version)
-    var currentVersionTag by remember { mutableStateOf(versionTag) }
-    var availableReleases by remember { mutableStateOf<List<ReleaseMetadata>>(
-        listOf(ReleaseMetadata(versionTag, versionTag, currentVersionStr, null))
-    ) }
-    var isFetchingOldReleases by remember { mutableStateOf(false) }
+    var currentVersionTag by remember { mutableStateOf("") }
+    var availableReleases by remember { mutableStateOf<List<ReleaseMetadata>>(emptyList()) }
+    var isFetchingOldReleases by remember { mutableStateOf(true) }
 
     val pullToRefreshState = rememberPullToRefreshState()
     val isRefreshing = isLoading || isFetchingOldReleases
@@ -227,7 +272,10 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int) {
             .build()
     }
 
+    val filteredReleases = availableReleases.filter { it.isPrerelease == isBetaTab }
+
     fun fetchChangelog(tag: String, bypassCache: Boolean = false) {
+        if (tag.isBlank()) return
         isLoading = true
         hasError = false
         detailedError = null
@@ -330,12 +378,12 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int) {
     }
 
     fun fetchOldReleases() {
-        if (isFetchingOldReleases) return
+        if (!isFetchingOldReleases && availableReleases.isNotEmpty()) return
         isFetchingOldReleases = true
         coroutineScope.launch(Dispatchers.IO) {
             try {
                 val request = Request.Builder()
-                    .url("https://api.github.com/repos/cgens67/AvidTune/releases")
+                    .url("https://api.github.com/repos/cgens67/AvidTune/releases?per_page=50")
                     .header("User-Agent", "AvidTune-App")
                     .header("Accept", "application/vnd.github.v3+json")
                     .build()
@@ -346,17 +394,14 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int) {
                     val json = response.body?.string() ?: "[]"
                     val array = JSONArray(json)
                     val list = mutableListOf<ReleaseMetadata>()
-                    val outputFormatter = DateTimeFormatter.ofPattern("MMMM d, yyyy", Locale.getDefault())
 
                     for (i in 0 until array.length()) {
                         val obj = array.getJSONObject(i)
                         val tagName = obj.getString("tag_name")
-
                         val name = obj.optString("name", tagName)
                         val publishedAt = obj.getString("published_at")
-                        val formattedDate = try {
-                            ZonedDateTime.parse(publishedAt).format(outputFormatter)
-                        } catch (e: Exception) { publishedAt }
+                        val isPrerelease = obj.getBoolean("prerelease")
+                        val formattedDate = getTimeAgo(publishedAt)
 
                         val assets = obj.getJSONArray("assets")
                         var changelogUrl: String? = null
@@ -368,16 +413,10 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int) {
                             }
                         }
 
-                        list.add(ReleaseMetadata(tagName, name, formattedDate, changelogUrl))
+                        list.add(ReleaseMetadata(tagName, name, formattedDate, changelogUrl, isPrerelease, publishedAt))
                     }
                     withContext(Dispatchers.Main) {
-                        val currentFromList = list.find { it.tagName == currentVersionTag }
-                        if (currentFromList != null) {
-                            availableReleases = list
-                        } else {
-                            val currentVersion = ReleaseMetadata(currentVersionTag, currentVersionTag, currentVersionStr, null)
-                            availableReleases = (listOf(currentVersion) + list).distinctBy { it.tagName }
-                        }
+                        availableReleases = list
                         isFetchingOldReleases = false
                     }
                 } else {
@@ -397,15 +436,33 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int) {
         fetchOldReleases()
     }
 
+    LaunchedEffect(isBetaTab, availableReleases) {
+        if (filteredReleases.isNotEmpty()) {
+            if (currentVersionTag.isBlank() || filteredReleases.none { it.tagName == currentVersionTag }) {
+                val appVerMatchesTab = (versionTag.contains("-") == isBetaTab)
+                currentVersionTag = if (appVerMatchesTab && filteredReleases.any { it.tagName == versionTag }) {
+                    versionTag
+                } else {
+                    filteredReleases.first().tagName
+                }
+            }
+        }
+    }
+
     LaunchedEffect(currentVersionTag) {
-        cleanupOldChangelogCache(context, currentVersionTag)
-        fetchChangelog(currentVersionTag)
+        if (currentVersionTag.isNotBlank()) {
+            cleanupOldChangelogCache(context, currentVersionTag)
+            fetchChangelog(currentVersionTag)
+        }
     }
 
     LaunchedEffect(refreshTrigger) {
         if (refreshTrigger > 0) {
+            isFetchingOldReleases = true
             fetchOldReleases()
-            fetchChangelog(currentVersionTag, bypassCache = true)
+            if (currentVersionTag.isNotBlank()) {
+                fetchChangelog(currentVersionTag, bypassCache = true)
+            }
         }
     }
 
@@ -415,13 +472,16 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int) {
             .pullToRefresh(
                 state = pullToRefreshState,
                 isRefreshing = isRefreshing,
-                onRefresh = { fetchChangelog(currentVersionTag, bypassCache = true) }
+                onRefresh = { 
+                    isFetchingOldReleases = true
+                    fetchOldReleases()
+                    if (currentVersionTag.isNotBlank()) fetchChangelog(currentVersionTag, bypassCache = true) 
+                }
             )
             .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom))
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Version Selection Chips
-            if (availableReleases.isNotEmpty()) {
+            if (filteredReleases.isNotEmpty()) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -435,7 +495,7 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int) {
                         horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        availableReleases.forEachIndexed { index, release ->
+                        filteredReleases.forEachIndexed { index, release ->
                             ToggleButton(
                                 checked = currentVersionTag == release.tagName,
                                 onCheckedChange = {
@@ -444,9 +504,9 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int) {
                                     }
                                 },
                                 shapes = when {
-                                    availableReleases.size == 1 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                                    filteredReleases.size == 1 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
                                     index == 0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                                    index == availableReleases.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                                    index == filteredReleases.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
                                     else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
                                 }
                             ) {
@@ -467,65 +527,95 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int) {
                         )
                     }
                 }
-            }
 
-            if (hasError && !isLoading) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
-                        Icon(Icons.Default.Error, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp))
-                        Spacer(Modifier.height(16.dp))
-                        Text(stringResource(R.string.error_loading_changelog), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-                        
-                        detailedError?.let { detail ->
-                            Spacer(Modifier.height(8.dp))
-                            Surface(
-                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text(
-                                    text = detail, 
-                                    color = MaterialTheme.colorScheme.onErrorContainer,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    modifier = Modifier.padding(12.dp),
-                                    textAlign = TextAlign.Center
-                                )
-                            }
-                        }
-                        
-                        Spacer(Modifier.height(24.dp))
-                        Button(onClick = { fetchChangelog(currentVersionTag, bypassCache = true) }) {
-                            Text(stringResource(R.string.action_retry))
-                        }
-                    }
-                }
-            } else {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                val currentRelease = filteredReleases.find { it.tagName == currentVersionTag }
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (!isLoading || availableReleases.isNotEmpty()) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                    Column {
+                        Text(
+                            text = currentVersionTag,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        if (currentRelease != null) {
                             Text(
-                                text = currentVersionTag,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
+                                text = getTimeAgo(currentRelease.rawDate),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            if (showingCached) {
-                                Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(8.dp)) {
-                                    Text(stringResource(R.string.cached), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                            if (currentRelease.isPrerelease) {
+                                val target = getBetaTarget(currentRelease.tagName)
+                                if (target != null) {
+                                    Text(
+                                        text = "Pre-release for $target",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.secondary,
+                                        fontWeight = FontWeight.Medium
+                                    )
                                 }
                             }
                         }
+                    }
+                    if (showingCached) {
+                        Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(8.dp)) {
+                            Text(stringResource(R.string.cached), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                        }
+                    }
+                }
+            } else if (!isFetchingOldReleases && !isLoading) {
+                Box(modifier = Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = if (isBetaTab) "No beta releases available." else "No stable releases available.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
 
+            if (filteredReleases.isNotEmpty()) {
+                if (hasError && !isLoading) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
+                            Icon(Icons.Default.Error, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp))
+                            Spacer(Modifier.height(16.dp))
+                            Text(stringResource(R.string.error_loading_changelog), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                            
+                            detailedError?.let { detail ->
+                                Spacer(Modifier.height(8.dp))
+                                Surface(
+                                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(
+                                        text = detail, 
+                                        color = MaterialTheme.colorScheme.onErrorContainer,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        modifier = Modifier.padding(12.dp),
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                            
+                            Spacer(Modifier.height(24.dp))
+                            Button(onClick = { fetchChangelog(currentVersionTag, bypassCache = true) }) {
+                                Text(stringResource(R.string.action_retry))
+                            }
+                        }
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
                         updateImage?.let { imageUrl ->
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
                             ElevatedCard(
                                 shape = MaterialTheme.shapes.extraLarge,
                                 colors = CardDefaults.elevatedCardColors(
@@ -550,7 +640,7 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int) {
                                 }
                             }
                         } ?: updateDescription?.let { desc ->
-                            Spacer(Modifier.height(16.dp))
+                            Spacer(Modifier.height(8.dp))
                             ElevatedCard(
                                 shape = MaterialTheme.shapes.extraLarge,
                                 colors = CardDefaults.elevatedCardColors(
@@ -671,48 +761,68 @@ fun CommitsContent(refreshTrigger: Int) {
         else LinearOutSlowInEasing.transform(pullToRefreshState.distanceFraction).coerceIn(0f, 1f)
     }
 
+    val httpClient = remember {
+        OkHttpClient.Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
+            .followRedirects(true)
+            .followSslRedirects(true)
+            .build()
+    }
+
     fun fetchCommits() {
         isLoading = true
         hasError = false
         coroutineScope.launch(Dispatchers.IO) {
             try {
                 // Pointing to AvidTune repo and main branch.
-                val url = URL("https://api.github.com/repos/cgens67/AvidTune/commits?branch=main&per_page=50")
-                val json = url.openStream().bufferedReader().use { it.readText() }
-                val array = JSONArray(json)
-                val outputFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.getDefault())
+                val request = Request.Builder()
+                    .url("https://api.github.com/repos/cgens67/AvidTune/commits?branch=main&per_page=50")
+                    .header("User-Agent", "AvidTune-App")
+                    .header("Accept", "application/vnd.github.v3+json")
+                    .build()
 
-                val list = mutableListOf<CommitData>()
-                for (i in 0 until array.length()) {
-                    val obj = array.getJSONObject(i)
-                    val sha = obj.getString("sha")
-                    val htmlUrl = obj.getString("html_url")
+                val response = httpClient.newCall(request).execute()
 
-                    val commitObj = obj.getJSONObject("commit")
-                    val fullMessage = commitObj.getString("message")
-                    val message = fullMessage.lines().firstOrNull { it.isNotBlank() } ?: fullMessage
+                if (response.isSuccessful) {
+                    val json = response.body?.string() ?: "[]"
+                    val array = JSONArray(json)
 
-                    val authorObj = commitObj.getJSONObject("author")
-                    val authorName = authorObj.optString("name").takeIf { it.isNotEmpty() } ?: context.getString(R.string.unknown)
-                    val rawDate = authorObj.optString("date", "")
-                    val formattedDate = try {
-                        ZonedDateTime.parse(rawDate).format(outputFormatter)
-                    } catch (e: Exception) { rawDate }
+                    val list = mutableListOf<CommitData>()
+                    for (i in 0 until array.length()) {
+                        val obj = array.getJSONObject(i)
+                        val sha = obj.getString("sha")
+                        val htmlUrl = obj.getString("html_url")
 
-                    val authorLogin = if (!obj.isNull("author")) {
-                        obj.getJSONObject("author").optString("login", null)
-                    } else null
-                    val authorAvatarUrl = if (!obj.isNull("author")) {
-                        obj.getJSONObject("author").optString("avatar_url", null)
-                    } else null
+                        val commitObj = obj.getJSONObject("commit")
+                        val fullMessage = commitObj.getString("message")
+                        val message = fullMessage.lines().firstOrNull { it.isNotBlank() } ?: fullMessage
 
-                    list.add(CommitData(sha, message, authorName, authorAvatarUrl, authorLogin, formattedDate, htmlUrl))
-                }
+                        val authorObj = commitObj.getJSONObject("author")
+                        val authorName = authorObj.optString("name").takeIf { it.isNotEmpty() } ?: context.getString(R.string.unknown)
+                        val rawDate = authorObj.optString("date", "")
+                        val formattedDate = getTimeAgo(rawDate)
 
-                withContext(Dispatchers.Main) {
-                    commits = list
-                    isLoading = false
-                    hasError = false
+                        val authorLogin = if (!obj.isNull("author")) {
+                            obj.getJSONObject("author").optString("login", null)
+                        } else null
+                        val authorAvatarUrl = if (!obj.isNull("author")) {
+                            obj.getJSONObject("author").optString("avatar_url", null)
+                        } else null
+
+                        list.add(CommitData(sha, message, authorName, authorAvatarUrl, authorLogin, formattedDate, htmlUrl))
+                    }
+
+                    withContext(Dispatchers.Main) {
+                        commits = list
+                        isLoading = false
+                        hasError = false
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        hasError = true
+                        isLoading = false
+                    }
                 }
             } catch (e: Exception) {
                 Log.e("CommitScreen", "Error fetching commits: ${e.message}")
