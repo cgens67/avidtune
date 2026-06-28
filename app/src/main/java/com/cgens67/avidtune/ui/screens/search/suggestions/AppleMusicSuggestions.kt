@@ -1,11 +1,18 @@
 package com.cgens67.avidtune.ui.screens.search.suggestions
 
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -186,8 +193,29 @@ fun AppleMusicTrendingScreen(
                     }
                 },
                 actions = {
-                    TextButton(onClick = { showRegionSheet = true }) { 
-                        Text((SuggestionRegionSlugToName[regionCode] ?: "US").uppercase()) 
+                    Surface(
+                        onClick = { showRegionSheet = true },
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.padding(end = 4.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.language),
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = (SuggestionRegionSlugToName[regionCode] ?: "US").uppercase(),
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 },
                 scrollBehavior = scrollBehavior
@@ -208,30 +236,55 @@ fun AppleMusicTrendingScreen(
                 }
             }
 
-            tracks?.let { t ->
-                TrendingAppleMusicSection(t, onTrackClick = {
-                    Toast.makeText(context, context.getString(R.string.loading_item, it.title), Toast.LENGTH_SHORT).show()
-                    viewModel.playTrack(it, playerConnection)
-                })
-            }
+            AnimatedVisibility(
+                visible = !isLoading && tracks != null,
+                enter = fadeIn(tween(400)) + 
+                        scaleIn(
+                            initialScale = 0.92f, 
+                            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
+                        ) +
+                        slideInVertically(
+                            initialOffsetY = { 80 }, 
+                            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
+                        ),
+                exit = fadeOut(tween(200))
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    tracks?.let { t ->
+                        TrendingAppleMusicSection(t, onTrackClick = {
+                            Toast.makeText(context, context.getString(R.string.loading_item, it.title), Toast.LENGTH_SHORT).show()
+                            viewModel.playTrack(it, playerConnection)
+                        })
+                    }
 
-            artists?.let { a ->
-                TopArtistsSection(a, onArtistClick = {
-                    Toast.makeText(context, context.getString(R.string.loading_item, it.name), Toast.LENGTH_SHORT).show()
-                    viewModel.navigateToArtist(it, navController)
-                })
-            }
+                    artists?.let { a ->
+                        TopArtistsSection(a, onArtistClick = {
+                            Toast.makeText(context, context.getString(R.string.loading_item, it.name), Toast.LENGTH_SHORT).show()
+                            viewModel.navigateToArtist(it, navController)
+                        })
+                    }
 
-            albums?.let { a ->
-                TrendingAlbumsSection(a, onAlbumClick = {
-                    Toast.makeText(context, context.getString(R.string.loading_item, it.title), Toast.LENGTH_SHORT).show()
-                    viewModel.navigateToAlbum(it, navController)
-                })
-            }
+                    albums?.let { a ->
+                        TrendingAlbumsSection(a, onAlbumClick = {
+                            Toast.makeText(context, context.getString(R.string.loading_item, it.title), Toast.LENGTH_SHORT).show()
+                            viewModel.navigateToAlbum(it, navController)
+                        })
+                    }
 
-            if (tracks != null) {
-                Column(modifier = Modifier.fillMaxWidth().padding(top = 48.dp, bottom = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(stringResource(R.string.data_from_apple_music), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                    if (tracks != null) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 48.dp, bottom = 32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                stringResource(R.string.data_from_apple_music),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            )
+                        }
+                    }
                 }
             }
         }
