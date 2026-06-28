@@ -1019,6 +1019,24 @@
     <string name="trending_albums">热门专辑</string>
     <string name="loading_item">正在加载 %1$s…</string>
     <string name="trending">热门</string>
+    
+    <!-- Changelog & Time -->
+    <string name="beta_releases">测试版</string>
+    <string name="no_beta_releases">没有可用的测试版。</string>
+    <string name="no_stable_releases">没有可用的稳定版。</string>
+    <string name="pre_release_for">%1$s 的预发布版</string>
+    <string name="just_now">刚刚</string>
+    <string name="seconds_ago">%1$d 秒前</string>
+    <string name="one_minute_ago">1 分钟前</string>
+    <string name="minutes_ago">%1$d 分钟前</string>
+    <string name="one_hour_ago">1 小时前</string>
+    <string name="hours_ago">%1$d 小时前</string>
+    <string name="one_day_ago">1 天前</string>
+    <string name="days_ago">%1$d 天前</string>
+    <string name="one_month_ago">1 个月前</string>
+    <string name="months_ago">%1$d 个月前</string>
+    <string name="one_year_ago">1 年前</string>
+    <string name="years_ago">%1$d 年前</string>
 
     
 </resources>
