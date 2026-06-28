@@ -39,7 +39,6 @@ import com.cgens67.avidtune.playback.queues.YouTubeQueue
 import com.cgens67.avidtune.ui.component.LocalMenuState
 import com.cgens67.avidtune.ui.component.YouTubeListItem
 import com.cgens67.avidtune.ui.menu.*
-import com.cgens67.avidtune.ui.screens.search.suggestions.AppleMusicSuggestionsContent
 import com.cgens67.avidtune.viewmodels.OnlineSearchSuggestionViewModel
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
@@ -93,6 +92,40 @@ fun OnlineSearchScreen(
             .fillMaxSize()
             .background(if (pureBlack) Color.Black else MaterialTheme.colorScheme.background)
     ) {
+        if (query.isEmpty()) {
+            item {
+                Surface(
+                    onClick = {
+                        onDismiss()
+                        navController.navigate("apple_music_trending")
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.music_note),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text = stringResource(R.string.apple_music_trending),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+            }
+        }
+
         items(viewState.history, key = { "history_${it.query}" }) { history ->
             SuggestionItem(
                 query = history.query,
@@ -128,15 +161,6 @@ fun OnlineSearchScreen(
                 modifier = Modifier.animateItem(),
                 pureBlack = pureBlack
             )
-        }
-
-        if (query.isEmpty()) {
-            item {
-                AppleMusicSuggestionsContent(
-                    navController = navController,
-                    onDismiss = onDismiss
-                )
-            }
         }
 
         if (viewState.items.isNotEmpty() && viewState.history.size + viewState.suggestions.size > 0) {
