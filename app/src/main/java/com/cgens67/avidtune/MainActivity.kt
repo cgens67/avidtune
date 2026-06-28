@@ -470,7 +470,8 @@ class MainActivity : ComponentActivity() {
                                         ) {
                                             com.cgens67.avidtune.ui.screens.settings.ReleasesContent(
                                                 versionTag = BuildConfig.VERSION_NAME,
-                                                refreshTrigger = 0
+                                                refreshTrigger = 0,
+                                                isBetaTab = BuildConfig.VERSION_NAME.contains("-")
                                             )
                                         }
                                     }
