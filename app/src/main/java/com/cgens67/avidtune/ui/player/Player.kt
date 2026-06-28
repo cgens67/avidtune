@@ -515,8 +515,7 @@ fun BottomSheetPlayer(
                                 sliderPositionProvider = { sliderPosition },
                                 onOpenFullscreenLyrics = onOpenFullscreenLyrics,
                                 modifier = Modifier.size(thumbnailSize),
-                                isPlayerExpanded = state.isExpanded,
-                                bottomSheetProgress = state.progress
+                                isPlayerExpanded = state.isExpanded
                             )
                         }
                     }
@@ -673,8 +672,7 @@ fun BottomSheetPlayer(
                             Thumbnail(
                                 sliderPositionProvider = { sliderPosition },
                                 onOpenFullscreenLyrics = onOpenFullscreenLyrics,
-                                isPlayerExpanded = state.isExpanded,
-                                bottomSheetProgress = state.progress
+                                isPlayerExpanded = state.isExpanded
                             )
                         }
                     }
@@ -834,6 +832,8 @@ fun PlayerBackground(
     backgroundAlpha: Float,
     disableBlur: Boolean
 ) {
+    val useDarkTheme = isSystemInDarkTheme()
+
     Box(modifier = Modifier.fillMaxSize()) {
         when (playerBackground) {
             PlayerBackgroundStyle.BLUR -> {
@@ -845,7 +845,6 @@ fun PlayerBackground(
                     label = "blurBackground"
                 ) { thumbnailUrl ->
                     if (thumbnailUrl != null) {
-                        val useDarkTheme = isSystemInDarkTheme()
                         Box(modifier = Modifier.alpha(backgroundAlpha)) {
                             AsyncImage(
                                 model = thumbnailUrl,
