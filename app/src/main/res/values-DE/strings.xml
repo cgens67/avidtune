@@ -1030,5 +1030,6 @@
     <string name="trending_artists">Angesagte Künstler</string>
     <string name="trending_albums">Angesagte Alben</string>
     <string name="loading_item">Lade %1$s…</string>
+    <string name="trending">Trends</string>
 
 </resources>
