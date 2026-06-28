@@ -39,6 +39,7 @@ import com.cgens67.avidtune.playback.queues.YouTubeQueue
 import com.cgens67.avidtune.ui.component.LocalMenuState
 import com.cgens67.avidtune.ui.component.YouTubeListItem
 import com.cgens67.avidtune.ui.menu.*
+import com.cgens67.avidtune.ui.screens.search.suggestions.AppleMusicSuggestionsContent
 import com.cgens67.avidtune.viewmodels.OnlineSearchSuggestionViewModel
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
@@ -127,6 +128,12 @@ fun OnlineSearchScreen(
                 modifier = Modifier.animateItem(),
                 pureBlack = pureBlack
             )
+        }
+
+        if (query.isEmpty()) {
+            item {
+                AppleMusicSuggestionsContent(navController = navController)
+            }
         }
 
         if (viewState.items.isNotEmpty() && viewState.history.size + viewState.suggestions.size > 0) {
