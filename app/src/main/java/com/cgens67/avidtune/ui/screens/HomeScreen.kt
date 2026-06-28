@@ -128,6 +128,7 @@ import com.cgens67.avidtune.ui.component.AlbumGridItem
 import com.cgens67.avidtune.ui.component.ArtistGridItem
 import com.cgens67.avidtune.ui.component.HideOnScrollFAB
 import com.cgens67.avidtune.ui.component.LocalMenuState
+import com.cgens67.avidtune.ui.component.MenuState
 import com.cgens67.avidtune.ui.component.NavigationTitle
 import com.cgens67.avidtune.ui.component.SongGridItem
 import com.cgens67.avidtune.ui.component.SongListItem
@@ -143,6 +144,7 @@ import com.cgens67.avidtune.ui.menu.YouTubeArtistMenu
 import com.cgens67.avidtune.ui.menu.YouTubePlaylistMenu
 import com.cgens67.avidtune.ui.menu.YouTubeSongMenu
 import com.cgens67.avidtune.ui.utils.SnapLayoutInfoProvider
+import com.cgens67.avidtune.ui.utils.resize
 import com.cgens67.avidtune.utils.rememberPreference
 import com.cgens67.avidtune.viewmodels.HomeViewModel
 import kotlinx.coroutines.Dispatchers
@@ -639,15 +641,15 @@ fun HomeScreen(
                 }
             }
 
-            similarRecommendations?.forEach {
+            similarRecommendations?.forEach { rec ->
                 item {
                     NavigationTitle(
                         label = stringResource(R.string.similar_to_caps),
-                        title = it.title.title,
-                        thumbnail = it.title.thumbnailUrl?.let { thumbnailUrl ->
-                            {
+                        title = rec.title.title,
+                        thumbnail = rec.title.thumbnailUrl?.let { thumbnailUrl ->
+                            @Composable {
                                 val shape =
-                                    if (it.title is Artist) CircleShape else RoundedCornerShape(
+                                    if (rec.title is Artist) CircleShape else RoundedCornerShape(
                                         ThumbnailCornerRadius
                                     )
                                 AsyncImage(
@@ -660,10 +662,11 @@ fun HomeScreen(
                             }
                         },
                         onClick = {
-                            when (it.title) {
-                                is Song -> navController.navigate("album/${it.title.album!!.id}")
-                                is Album -> navController.navigate("album/${it.title.id}")
-                                is Artist -> navController.navigate("artist/${it.title.id}")
+                            val localItem = rec.title
+                            when (localItem) {
+                                is Song -> navController.navigate("album/${localItem.album?.id ?: localItem.song.albumId}")
+                                is Album -> navController.navigate("album/${localItem.id}")
+                                is Artist -> navController.navigate("artist/${localItem.id}")
                                 is Playlist -> {}
                             }
                         },
@@ -678,7 +681,7 @@ fun HomeScreen(
                             .asPaddingValues(),
                         modifier = Modifier.animateItem()
                     ) {
-                        items(it.items) { item ->
+                        items(rec.items) { item ->
                             ytGridItem(item)
                         }
                     }
@@ -686,15 +689,15 @@ fun HomeScreen(
             }
 
             // Filter out duplicate "New releases" from the personalized homePage sections
-            homePage?.sections?.filter { !it.title.equals("New releases", ignoreCase = true) }?.forEach {
+            homePage?.sections?.filter { !it.title.equals("New releases", ignoreCase = true) }?.forEach { section ->
                 item {
                     NavigationTitle(
-                        title = getTranslatedHomeSectionTitle(it.title),
-                        label = it.label?.let { label -> getTranslatedHomeSectionTitle(label) },
-                        thumbnail = it.thumbnail?.let { thumbnailUrl ->
-                            {
+                        title = getTranslatedHomeSectionTitle(section.title),
+                        label = section.label?.let { label -> getTranslatedHomeSectionTitle(label) },
+                        thumbnail = section.thumbnail?.let { thumbnailUrl ->
+                            @Composable {
                                 val shape =
-                                    if (it.endpoint?.isArtistEndpoint == true) CircleShape else RoundedCornerShape(
+                                    if (section.endpoint?.isArtistEndpoint == true) CircleShape else RoundedCornerShape(
                                         ThumbnailCornerRadius
                                     )
                                 AsyncImage(
@@ -717,7 +720,7 @@ fun HomeScreen(
                             .asPaddingValues(),
                         modifier = Modifier.animateItem()
                     ) {
-                        items(it.items) { item ->
+                        items(section.items) { item ->
                             ytGridItem(item)
                         }
                     }
