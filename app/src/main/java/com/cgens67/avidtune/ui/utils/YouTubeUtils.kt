@@ -5,10 +5,11 @@ fun String.resize(
     height: Int? = null,
 ): String {
     if (width == null && height == null) return this
-    var result = this
 
-    val wMatch = "([=-])w(\\d+)".toRegex().find(result)
-    val hMatch = "([=-])h(\\d+)".toRegex().find(result)
+    // We use .findAll(...).lastOrNull() instead of .find(...) to avoid matching base64 video/playlist
+    // IDs that accidentally contain "-w", "-h", or "-s" followed by digits (e.g., Hot Pink album cover).
+    val wMatch = "([=-])w(\\d+)".toRegex().findAll(this).lastOrNull()
+    val hMatch = "([=-])h(\\d+)".toRegex().findAll(this).lastOrNull()
 
     if (wMatch != null && hMatch != null) {
         val W = wMatch.groupValues[2].toIntOrNull() ?: 0
@@ -23,15 +24,23 @@ fun String.resize(
             if (h == null) h = width
         }
 
-        result = result.replace(wMatch.value, "${wMatch.groupValues[1]}w$w")
-        result = result.replace(hMatch.value, "${hMatch.groupValues[1]}h$h")
+        var result = this
+        // Replace only the last occurrence (the actual parameter) to prevent corrupting the URL hash
+        result = result.replaceLast(wMatch.value, "${wMatch.groupValues[1]}w$w")
+        result = result.replaceLast(hMatch.value, "${hMatch.groupValues[1]}h$h")
         return result
     }
 
-    val sMatch = "([=-])s(\\d+)".toRegex().find(result)
+    val sMatch = "([=-])s(\\d+)".toRegex().findAll(this).lastOrNull()
     if (sMatch != null) {
-        return result.replace(sMatch.value, "${sMatch.groupValues[1]}s${width ?: height}")
+        return this.replaceLast(sMatch.value, "${sMatch.groupValues[1]}s${width ?: height}")
     }
 
-    return result
+    return this
+}
+
+private fun String.replaceLast(oldValue: String, newValue: String): String {
+    val lastIndex = this.lastIndexOf(oldValue)
+    if (lastIndex == -1) return this
+    return this.substring(0, lastIndex) + newValue + this.substring(lastIndex + oldValue.length)
 }
