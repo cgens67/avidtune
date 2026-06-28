@@ -1003,6 +1003,11 @@
     <string name="reverb_cave">洞穴 / 钢板</string>
     <string name="reverb_device_support_warning">这在某些设备上可能无法正常工作</string>
     <string name="in_app_audio_effects_and_eq">应用内音频特效与均衡器</string>
+    
+    <string name="new_beta_version_available">有新的 Beta 版本可用！</string>
+    <string name="beta_version_name">Beta %1$s</string>
+    <string name="update_beta_version">更新至 Beta %1$s？</string>
+    <string name="download_beta_update_prompt">有包含实验性功能的新 Beta 版本可用。是否立即下载并安装？</string>
 
     
 </resources>
