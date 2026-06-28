@@ -18,6 +18,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -44,10 +45,13 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -122,11 +126,8 @@ import com.cgens67.avidtune.playback.queues.YouTubeAlbumRadio
 import com.cgens67.avidtune.playback.queues.YouTubeQueue
 import com.cgens67.avidtune.ui.component.AlbumGridItem
 import com.cgens67.avidtune.ui.component.ArtistGridItem
-import com.cgens67.avidtune.ui.component.ChipsRow
 import com.cgens67.avidtune.ui.component.HideOnScrollFAB
-import com.cgens67.avidtune.ui.component.IconButton
 import com.cgens67.avidtune.ui.component.LocalMenuState
-import com.cgens67.avidtune.ui.component.MenuState
 import com.cgens67.avidtune.ui.component.NavigationTitle
 import com.cgens67.avidtune.ui.component.SongGridItem
 import com.cgens67.avidtune.ui.component.SongListItem
@@ -142,12 +143,9 @@ import com.cgens67.avidtune.ui.menu.YouTubeArtistMenu
 import com.cgens67.avidtune.ui.menu.YouTubePlaylistMenu
 import com.cgens67.avidtune.ui.menu.YouTubeSongMenu
 import com.cgens67.avidtune.ui.utils.SnapLayoutInfoProvider
-import com.cgens67.avidtune.ui.utils.backToMain
-import com.cgens67.avidtune.ui.utils.resize
 import com.cgens67.avidtune.utils.rememberPreference
 import com.cgens67.avidtune.viewmodels.HomeViewModel
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.min
@@ -467,7 +465,7 @@ fun HomeScreen(
 
         val horizontalLazyGridItemWidthFactor = if (maxWidth * 0.475f >= 320.dp) 0.475f else 0.9f
         val horizontalLazyGridItemWidth = maxWidth * horizontalLazyGridItemWidthFactor
-        
+
         val forgottenFavoritesSnapLayoutInfoProvider = remember(forgottenFavoritesLazyGridState) {
             SnapLayoutInfoProvider(
                 lazyGridState = forgottenFavoritesLazyGridState,
@@ -486,33 +484,61 @@ fun HomeScreen(
                     modifier = Modifier
                         .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Horizontal))
                         .fillMaxWidth()
-                        .animateItem()
+                        .horizontalScroll(rememberScrollState())
+                        .animateItem(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    ChipsRow(
-                        chips = listOfNotNull(
-                            Pair("history", stringResource(R.string.history)),
-                            Pair("stats", stringResource(R.string.stats)),
-                            Pair("liked", stringResource(R.string.liked)),
-                            Pair("downloads", stringResource(R.string.offline)),
-                            Pair("apple_music_trending", stringResource(R.string.apple_music_trending)),
-                            if (isLoggedIn) Pair(
-                                "account",
-                                stringResource(R.string.account)
-                            ) else null
-                        ),
-                        currentValue = "",
-                        onValueUpdate = { value ->
-                            when (value) {
-                                "history" -> navController.navigate("history")
-                                "stats" -> navController.navigate("stats")
-                                "liked" -> navController.navigate("auto_playlist/liked")
-                                "downloads" -> navController.navigate("auto_playlist/downloaded")
-                                "apple_music_trending" -> navController.navigate("apple_music_trending")
-                                "account" -> if (isLoggedIn) navController.navigate("account")
-                            }
+                    Spacer(Modifier.width(12.dp))
+
+                    FilterChip(
+                        selected = false,
+                        onClick = { navController.navigate("apple_music_trending") },
+                        label = { Text(stringResource(R.string.trending)) },
+                        leadingIcon = {
+                            Icon(
+                                painter = painterResource(R.drawable.apple),
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
                         },
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer
+                        shape = RoundedCornerShape(16.dp),
+                        border = null,
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer
+                        )
                     )
+
+                    Spacer(Modifier.width(8.dp))
+
+                    val chips = listOfNotNull(
+                        "history" to stringResource(R.string.history),
+                        "stats" to stringResource(R.string.stats),
+                        "liked" to stringResource(R.string.liked),
+                        "downloads" to stringResource(R.string.offline),
+                        if (isLoggedIn) "account" to stringResource(R.string.account) else null
+                    )
+
+                    chips.forEach { (value, label) ->
+                        FilterChip(
+                            selected = false,
+                            onClick = {
+                                when (value) {
+                                    "history" -> navController.navigate("history")
+                                    "stats" -> navController.navigate("stats")
+                                    "liked" -> navController.navigate("auto_playlist/liked")
+                                    "downloads" -> navController.navigate("auto_playlist/downloaded")
+                                    "account" -> if (isLoggedIn) navController.navigate("account")
+                                }
+                            },
+                            label = { Text(label) },
+                            shape = RoundedCornerShape(16.dp),
+                            border = null,
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainer
+                            )
+                        )
+                        Spacer(Modifier.width(8.dp))
+                    }
                 }
             }
 
