@@ -148,6 +148,7 @@ import com.cgens67.avidtune.ui.utils.resize
 import com.cgens67.avidtune.utils.rememberPreference
 import com.cgens67.avidtune.viewmodels.HomeViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.min
@@ -512,13 +513,15 @@ fun HomeScreen(
 
                     Spacer(Modifier.width(8.dp))
 
-                    val chips = listOfNotNull(
-                        "history" to stringResource(R.string.history),
-                        "stats" to stringResource(R.string.stats),
-                        "liked" to stringResource(R.string.liked),
-                        "downloads" to stringResource(R.string.offline),
-                        if (isLoggedIn) "account" to stringResource(R.string.account) else null
-                    )
+                    val chips = buildList {
+                        add("history" to stringResource(R.string.history))
+                        add("stats" to stringResource(R.string.stats))
+                        add("liked" to stringResource(R.string.liked))
+                        add("downloads" to stringResource(R.string.offline))
+                        if (isLoggedIn) {
+                            add("account" to stringResource(R.string.account))
+                        }
+                    }
 
                     chips.forEach { (value, label) ->
                         FilterChip(
@@ -631,10 +634,7 @@ fun HomeScreen(
                             .asPaddingValues(),
                         modifier = Modifier.animateItem()
                     ) {
-                        items(
-                            items = accountPlaylists,
-                            key = { it.id },
-                        ) { item ->
+                        items(accountPlaylists) { item ->
                             ytGridItem(item)
                         }
                     }
@@ -643,10 +643,11 @@ fun HomeScreen(
 
             similarRecommendations?.forEach { recommendation ->
                 item {
+                    val thumbnailUrl = recommendation.title.thumbnailUrl
                     NavigationTitle(
                         label = stringResource(R.string.similar_to_caps),
                         title = recommendation.title.title,
-                        thumbnail = recommendation.title.thumbnailUrl?.let { thumbnailUrl ->
+                        thumbnail = if (thumbnailUrl != null) {
                             {
                                 val shape =
                                     if (recommendation.title is Artist) CircleShape else RoundedCornerShape(
@@ -660,7 +661,7 @@ fun HomeScreen(
                                         .clip(shape)
                                 )
                             }
-                        },
+                        } else null,
                         onClick = {
                             when (val itemTitle = recommendation.title) {
                                 is Song -> navController.navigate("album/${itemTitle.album!!.id}")
@@ -688,15 +689,16 @@ fun HomeScreen(
             }
 
             // Filter out duplicate "New releases" from the personalized homePage sections
-            homePage?.sections?.filter { !it.title.equals("New releases", ignoreCase = true) }?.forEach {
+            homePage?.sections?.filter { !it.title.equals("New releases", ignoreCase = true) }?.forEach { section ->
                 item {
+                    val thumbnailUrl = section.thumbnail
                     NavigationTitle(
-                        title = getTranslatedHomeSectionTitle(it.title),
-                        label = it.label?.let { label -> getTranslatedHomeSectionTitle(label) },
-                        thumbnail = it.thumbnail?.let { thumbnailUrl ->
+                        title = getTranslatedHomeSectionTitle(section.title),
+                        label = section.label?.let { label -> getTranslatedHomeSectionTitle(label) },
+                        thumbnail = if (thumbnailUrl != null) {
                             {
                                 val shape =
-                                    if (it.endpoint?.isArtistEndpoint == true) CircleShape else RoundedCornerShape(
+                                    if (section.endpoint?.isArtistEndpoint == true) CircleShape else RoundedCornerShape(
                                         ThumbnailCornerRadius
                                     )
                                 AsyncImage(
@@ -707,7 +709,7 @@ fun HomeScreen(
                                         .clip(shape)
                                 )
                             }
-                        },
+                        } else null,
                         modifier = Modifier.animateItem()
                     )
                 }
@@ -719,7 +721,7 @@ fun HomeScreen(
                             .asPaddingValues(),
                         modifier = Modifier.animateItem()
                     ) {
-                        items(it.items) { item ->
+                        items(section.items) { item ->
                             ytGridItem(item)
                         }
                     }
@@ -744,10 +746,7 @@ fun HomeScreen(
                             .asPaddingValues(),
                         modifier = Modifier.animateItem()
                     ) {
-                        items(
-                            items = newReleaseAlbums,
-                            key = { it.id }
-                        ) { album ->
+                        items(newReleaseAlbums) { album ->
                             YouTubeGridItem(
                                 item = album,
                                 isActive = mediaMetadata?.album?.id == album.id,
@@ -821,10 +820,7 @@ fun HomeScreen(
                             .height(ListItemHeight * rows)
                             .animateItem()
                     ) {
-                        items(
-                            items = forgottenFavorites,
-                            key = { it.id }
-                        ) { originalSong ->
+                        items(forgottenFavorites) { originalSong ->
                             val song by database.song(originalSong.id)
                                 .collectAsState(initial = originalSong)
 
