@@ -515,7 +515,8 @@ fun BottomSheetPlayer(
                                 sliderPositionProvider = { sliderPosition },
                                 onOpenFullscreenLyrics = onOpenFullscreenLyrics,
                                 modifier = Modifier.size(thumbnailSize),
-                                isPlayerExpanded = state.isExpanded
+                                isPlayerExpanded = state.isExpanded,
+                                bottomSheetProgress = state.progress
                             )
                         }
                     }
@@ -672,7 +673,8 @@ fun BottomSheetPlayer(
                             Thumbnail(
                                 sliderPositionProvider = { sliderPosition },
                                 onOpenFullscreenLyrics = onOpenFullscreenLyrics,
-                                isPlayerExpanded = state.isExpanded
+                                isPlayerExpanded = state.isExpanded,
+                                bottomSheetProgress = state.progress
                             )
                         }
                     }
@@ -1004,7 +1006,7 @@ fun PlayerBackground(
                                 colorFilter = ColorFilter.colorMatrix(saturationMatrix),
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .blur(100.dp)
+                                    .blur(if (!disableBlur) 100.dp else 0.dp)
                                     .graphicsLayer { rotationZ = anchorRotation }
                             )
 
@@ -1017,7 +1019,7 @@ fun PlayerBackground(
                                 colorFilter = ColorFilter.colorMatrix(saturationMatrix),
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .blur(120.dp)
+                                    .blur(if (!disableBlur) 120.dp else 0.dp)
                                     .graphicsLayer { 
                                         rotationZ = fastRotation
                                         alpha = 0.6f
@@ -1033,7 +1035,7 @@ fun PlayerBackground(
                                 colorFilter = ColorFilter.colorMatrix(saturationMatrix),
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .blur(120.dp)
+                                    .blur(if (!disableBlur) 120.dp else 0.dp)
                                     .graphicsLayer { 
                                         rotationZ = slowRotation
                                         alpha = 0.5f
@@ -1058,6 +1060,14 @@ fun PlayerBackground(
             else -> {
                 // DEFAULT
             }
+        }
+
+        if (playerBackground != PlayerBackgroundStyle.DEFAULT) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = if (useDarkTheme) 0.3f else 0.45f))
+            )
         }
     }
 }
