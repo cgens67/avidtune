@@ -1010,6 +1010,13 @@
     <string name="download_beta_update_prompt">有包含实验性功能的新 Beta 版本可用。是否立即下载并安装？</string>
     
     <string name="live_mesh">动态网格</string>
+    
+    <string name="apple_music_trending">Apple Music 流行趋势</string>
+    <string name="data_from_apple_music">数据来自 Apple Music</string>
+    <string name="select_region">选择地区</string>
+    <string name="trending_artists">热门歌手</string>
+    <string name="trending_albums">热门专辑</string>
+    <string name="loading_item">正在加载 %1$s…</string>
 
     
 </resources>
