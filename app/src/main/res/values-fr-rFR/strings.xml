@@ -1013,6 +1013,7 @@
     <string name="trending_artists">Artistes tendances</string>
     <string name="trending_albums">Albums tendances</string>
     <string name="loading_item">Chargement de %1$s…</string>
+    <string name="trending">Tendances</string>
 
     
 </resources>
