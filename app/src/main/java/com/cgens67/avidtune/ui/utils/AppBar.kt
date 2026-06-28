@@ -37,27 +37,9 @@ class AppBarScrollBehavior(
     override val flingAnimationSpec: DecayAnimationSpec<Float>?,
     val canScroll: () -> Boolean = { true },
 ) : TopAppBarScrollBehavior {
-    override val isPinned: Boolean = false
+    override val isPinned: Boolean = true
     override var nestedScrollConnection =
         object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (!canScroll()) return Offset.Zero
-                
-                // If the limit hasn't been set or if the app bar is pinned (limit >= 0f), 
-                // do not consume any scroll. Let the list scroll normally.
-                if (state.heightOffsetLimit == -Float.MAX_VALUE || state.heightOffsetLimit >= 0f) {
-                    return Offset.Zero
-                }
-                
-                val prevHeightOffset = state.heightOffset
-                state.heightOffset += available.y
-                return if (prevHeightOffset != state.heightOffset) {
-                    available.copy(x = 0f)
-                } else {
-                    Offset.Zero
-                }
-            }
-
             override fun onPostScroll(
                 consumed: Offset,
                 available: Offset,
@@ -65,15 +47,14 @@ class AppBarScrollBehavior(
             ): Offset {
                 if (!canScroll()) return Offset.Zero
                 state.contentOffset += consumed.y
-                
-                if (state.heightOffsetLimit != -Float.MAX_VALUE && state.heightOffsetLimit < 0f) {
-                    if (state.heightOffset == 0f || state.heightOffset == state.heightOffsetLimit) {
-                        if (consumed.y == 0f && available.y > 0f) {
-                            state.contentOffset = 0f
-                        }
+                if (state.heightOffset == 0f || state.heightOffset == state.heightOffsetLimit) {
+                    if (consumed.y == 0f && available.y > 0f) {
+                        // Reset the total content offset to zero when scrolling all the way down.
+                        // This will eliminate some float precision inaccuracies.
+                        state.contentOffset = 0f
                     }
-                    state.heightOffset += consumed.y
                 }
+                state.heightOffset += consumed.y
                 return Offset.Zero
             }
         }
