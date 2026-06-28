@@ -641,15 +641,15 @@ fun HomeScreen(
                 }
             }
 
-            similarRecommendations?.forEach { rec ->
+            similarRecommendations?.forEach { recommendation ->
                 item {
                     NavigationTitle(
                         label = stringResource(R.string.similar_to_caps),
-                        title = rec.title.title,
-                        thumbnail = rec.title.thumbnailUrl?.let { thumbnailUrl ->
-                            @Composable {
+                        title = recommendation.title.title,
+                        thumbnail = recommendation.title.thumbnailUrl?.let { thumbnailUrl ->
+                            {
                                 val shape =
-                                    if (rec.title is Artist) CircleShape else RoundedCornerShape(
+                                    if (recommendation.title is Artist) CircleShape else RoundedCornerShape(
                                         ThumbnailCornerRadius
                                     )
                                 AsyncImage(
@@ -662,11 +662,10 @@ fun HomeScreen(
                             }
                         },
                         onClick = {
-                            val localItem = rec.title
-                            when (localItem) {
-                                is Song -> navController.navigate("album/${localItem.album?.id ?: localItem.song.albumId}")
-                                is Album -> navController.navigate("album/${localItem.id}")
-                                is Artist -> navController.navigate("artist/${localItem.id}")
+                            when (val itemTitle = recommendation.title) {
+                                is Song -> navController.navigate("album/${itemTitle.album!!.id}")
+                                is Album -> navController.navigate("album/${itemTitle.id}")
+                                is Artist -> navController.navigate("artist/${itemTitle.id}")
                                 is Playlist -> {}
                             }
                         },
@@ -681,7 +680,7 @@ fun HomeScreen(
                             .asPaddingValues(),
                         modifier = Modifier.animateItem()
                     ) {
-                        items(rec.items) { item ->
+                        items(recommendation.items) { item ->
                             ytGridItem(item)
                         }
                     }
@@ -689,15 +688,15 @@ fun HomeScreen(
             }
 
             // Filter out duplicate "New releases" from the personalized homePage sections
-            homePage?.sections?.filter { !it.title.equals("New releases", ignoreCase = true) }?.forEach { section ->
+            homePage?.sections?.filter { !it.title.equals("New releases", ignoreCase = true) }?.forEach {
                 item {
                     NavigationTitle(
-                        title = getTranslatedHomeSectionTitle(section.title),
-                        label = section.label?.let { label -> getTranslatedHomeSectionTitle(label) },
-                        thumbnail = section.thumbnail?.let { thumbnailUrl ->
-                            @Composable {
+                        title = getTranslatedHomeSectionTitle(it.title),
+                        label = it.label?.let { label -> getTranslatedHomeSectionTitle(label) },
+                        thumbnail = it.thumbnail?.let { thumbnailUrl ->
+                            {
                                 val shape =
-                                    if (section.endpoint?.isArtistEndpoint == true) CircleShape else RoundedCornerShape(
+                                    if (it.endpoint?.isArtistEndpoint == true) CircleShape else RoundedCornerShape(
                                         ThumbnailCornerRadius
                                     )
                                 AsyncImage(
@@ -720,7 +719,7 @@ fun HomeScreen(
                             .asPaddingValues(),
                         modifier = Modifier.animateItem()
                     ) {
-                        items(section.items) { item ->
+                        items(it.items) { item ->
                             ytGridItem(item)
                         }
                     }
