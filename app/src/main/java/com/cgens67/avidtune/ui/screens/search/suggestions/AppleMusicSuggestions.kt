@@ -5,13 +5,11 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -35,6 +33,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -182,6 +181,11 @@ fun AppleMusicTrendingScreen(
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
+    // Setup animated region button state
+    val regionInteractionSource = remember { MutableInteractionSource() }
+    val isRegionPressed by regionInteractionSource.collectIsPressedAsState()
+    val regionScale by animateFloatAsState(targetValue = if (isRegionPressed) 0.95f else 1f, label = "region_scale")
+
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
@@ -195,24 +199,28 @@ fun AppleMusicTrendingScreen(
                 actions = {
                     Surface(
                         onClick = { showRegionSheet = true },
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.padding(end = 4.dp)
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f),
+                        interactionSource = regionInteractionSource,
+                        modifier = Modifier
+                            .padding(end = 12.dp)
+                            .scale(regionScale)
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                         ) {
                             Icon(
                                 painter = painterResource(R.drawable.language),
                                 contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
                                 modifier = Modifier.size(16.dp)
                             )
+                            Spacer(Modifier.width(6.dp))
                             Text(
                                 text = (SuggestionRegionSlugToName[regionCode] ?: "US").uppercase(),
                                 style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -236,55 +244,30 @@ fun AppleMusicTrendingScreen(
                 }
             }
 
-            AnimatedVisibility(
-                visible = !isLoading && tracks != null,
-                enter = fadeIn(tween(400)) + 
-                        scaleIn(
-                            initialScale = 0.92f, 
-                            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
-                        ) +
-                        slideInVertically(
-                            initialOffsetY = { 80 }, 
-                            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
-                        ),
-                exit = fadeOut(tween(200))
-            ) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    tracks?.let { t ->
-                        TrendingAppleMusicSection(t, onTrackClick = {
-                            Toast.makeText(context, context.getString(R.string.loading_item, it.title), Toast.LENGTH_SHORT).show()
-                            viewModel.playTrack(it, playerConnection)
-                        })
-                    }
+            tracks?.let { t ->
+                TrendingAppleMusicSection(t, onTrackClick = {
+                    Toast.makeText(context, context.getString(R.string.loading_item, it.title), Toast.LENGTH_SHORT).show()
+                    viewModel.playTrack(it, playerConnection)
+                })
+            }
 
-                    artists?.let { a ->
-                        TopArtistsSection(a, onArtistClick = {
-                            Toast.makeText(context, context.getString(R.string.loading_item, it.name), Toast.LENGTH_SHORT).show()
-                            viewModel.navigateToArtist(it, navController)
-                        })
-                    }
+            artists?.let { a ->
+                TopArtistsSection(a, onArtistClick = {
+                    Toast.makeText(context, context.getString(R.string.loading_item, it.name), Toast.LENGTH_SHORT).show()
+                    viewModel.navigateToArtist(it, navController)
+                })
+            }
 
-                    albums?.let { a ->
-                        TrendingAlbumsSection(a, onAlbumClick = {
-                            Toast.makeText(context, context.getString(R.string.loading_item, it.title), Toast.LENGTH_SHORT).show()
-                            viewModel.navigateToAlbum(it, navController)
-                        })
-                    }
+            albums?.let { a ->
+                TrendingAlbumsSection(a, onAlbumClick = {
+                    Toast.makeText(context, context.getString(R.string.loading_item, it.title), Toast.LENGTH_SHORT).show()
+                    viewModel.navigateToAlbum(it, navController)
+                })
+            }
 
-                    if (tracks != null) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 48.dp, bottom = 32.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                stringResource(R.string.data_from_apple_music),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                            )
-                        }
-                    }
+            if (tracks != null) {
+                Column(modifier = Modifier.fillMaxWidth().padding(top = 48.dp, bottom = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(stringResource(R.string.data_from_apple_music), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
                 }
             }
         }
@@ -320,6 +303,10 @@ fun AppleMusicTrendingScreen(
 fun TrendingAppleMusicSection(tracks: List<SuggestionTrack>, onTrackClick: (SuggestionTrack) -> Unit) {
     val displayTracks = tracks.take(30)
     val pagerState = rememberPagerState(pageCount = { (displayTracks.size + 4) / 5 })
+    
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { visible = true }
+    
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = stringResource(R.string.trending_songs),
@@ -338,15 +325,22 @@ fun TrendingAppleMusicSection(tracks: List<SuggestionTrack>, onTrackClick: (Sugg
                         isBottom -> RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp, bottomStart = 24.dp, bottomEnd = 24.dp)
                         else -> RoundedCornerShape(4.dp)
                     }
-                    Row(modifier = Modifier.fillMaxWidth().clip(shape).background(MaterialTheme.colorScheme.surfaceContainer).clickable { onTrackClick(track) }) {
-                        Column(Modifier.weight(1f).padding(start = 16.dp)) {
-                            Text(track.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp))
-                            Text(track.artist, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp, top = 4.dp)) {
-                                Text("#${track.rank}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(tween(400, delayMillis = (i % 5) * 80)) +
+                                slideInVertically(tween(400, delayMillis = (i % 5) * 80), initialOffsetY = { it / 4 })
+                    ) {
+                        Row(modifier = Modifier.fillMaxWidth().clip(shape).background(MaterialTheme.colorScheme.surfaceContainer).clickable { onTrackClick(track) }) {
+                            Column(Modifier.weight(1f).padding(start = 16.dp)) {
+                                Text(track.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp))
+                                Text(track.artist, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp, top = 4.dp)) {
+                                    Text("#${track.rank}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                }
                             }
+                            if (track.thumbnailUrl != null) AsyncImage(model = track.thumbnailUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.padding(16.dp).clip(MaterialTheme.shapes.large).size(80.dp))
                         }
-                        if (track.thumbnailUrl != null) AsyncImage(model = track.thumbnailUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.padding(16.dp).clip(MaterialTheme.shapes.large).size(80.dp))
                     }
                 }
             }
@@ -383,19 +377,28 @@ fun TrendingAppleMusicSection(tracks: List<SuggestionTrack>, onTrackClick: (Sugg
 
 @Composable
 fun TopArtistsSection(artists: List<SuggestionArtist>, onArtistClick: (SuggestionArtist) -> Unit) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { visible = true }
+    
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(stringResource(R.string.trending_artists), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 16.dp).padding(top = 16.dp))
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-            items(artists) { artist ->
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(100.dp).clickable { onArtistClick(artist) }) {
-                    Box(contentAlignment = Alignment.BottomEnd) {
-                        AsyncImage(model = artist.thumbnailUrl, contentDescription = artist.name, contentScale = ContentScale.Crop, modifier = Modifier.size(100.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant))
-                        Surface(modifier = Modifier.size(28.dp).offset((-4).dp, (-4).dp), shape = CircleShape, color = MaterialTheme.colorScheme.primary, shadowElevation = 4.dp) {
-                            Box(contentAlignment = Alignment.Center) { Text(artist.rank.toString(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold) }
+            itemsIndexed(artists) { index, artist ->
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(tween(400, delayMillis = index * 80)) +
+                            slideInHorizontally(tween(400, delayMillis = index * 80), initialOffsetX = { it / 4 })
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(100.dp).clickable { onArtistClick(artist) }) {
+                        Box(contentAlignment = Alignment.BottomEnd) {
+                            AsyncImage(model = artist.thumbnailUrl, contentDescription = artist.name, contentScale = ContentScale.Crop, modifier = Modifier.size(100.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant))
+                            Surface(modifier = Modifier.size(28.dp).offset((-4).dp, (-4).dp), shape = CircleShape, color = MaterialTheme.colorScheme.primary, shadowElevation = 4.dp) {
+                                Box(contentAlignment = Alignment.Center) { Text(artist.rank.toString(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold) }
+                            }
                         }
+                        Spacer(Modifier.height(8.dp))
+                        Text(artist.name, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth())
                     }
-                    Spacer(Modifier.height(8.dp))
-                    Text(artist.name, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth())
                 }
             }
         }
@@ -404,20 +407,29 @@ fun TopArtistsSection(artists: List<SuggestionArtist>, onArtistClick: (Suggestio
 
 @Composable
 fun TrendingAlbumsSection(albums: List<SuggestionAlbum>, onAlbumClick: (SuggestionAlbum) -> Unit) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { visible = true }
+    
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(stringResource(R.string.trending_albums), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 16.dp).padding(top = 16.dp))
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 16.dp)) {
-            items(albums) { album ->
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(120.dp).clickable { onAlbumClick(album) }) {
-                    Box(contentAlignment = Alignment.BottomEnd) {
-                        AsyncImage(model = album.thumbnailUrl, contentDescription = album.title, contentScale = ContentScale.Crop, modifier = Modifier.size(120.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant))
-                        Surface(modifier = Modifier.size(28.dp).offset((-4).dp, (-4).dp), shape = CircleShape, color = MaterialTheme.colorScheme.primary, shadowElevation = 4.dp) {
-                            Box(contentAlignment = Alignment.Center) { Text(album.rank.toString(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold) }
+            itemsIndexed(albums) { index, album ->
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(tween(400, delayMillis = index * 80)) +
+                            slideInHorizontally(tween(400, delayMillis = index * 80), initialOffsetX = { it / 4 })
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(120.dp).clickable { onAlbumClick(album) }) {
+                        Box(contentAlignment = Alignment.BottomEnd) {
+                            AsyncImage(model = album.thumbnailUrl, contentDescription = album.title, contentScale = ContentScale.Crop, modifier = Modifier.size(120.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant))
+                            Surface(modifier = Modifier.size(28.dp).offset((-4).dp, (-4).dp), shape = CircleShape, color = MaterialTheme.colorScheme.primary, shadowElevation = 4.dp) {
+                                Box(contentAlignment = Alignment.Center) { Text(album.rank.toString(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold) }
+                            }
                         }
+                        Spacer(Modifier.height(8.dp))
+                        Text(album.title, style = MaterialTheme.typography.titleSmall, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth())
+                        Text(album.artist, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth())
                     }
-                    Spacer(Modifier.height(8.dp))
-                    Text(album.title, style = MaterialTheme.typography.titleSmall, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth())
-                    Text(album.artist, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth())
                 }
             }
         }
