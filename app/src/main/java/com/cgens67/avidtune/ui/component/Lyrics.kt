@@ -963,28 +963,88 @@ fun Lyrics(
                     PlayerBackgroundStyle.LIVE_MESH -> {
                         currentMetadata?.let { metadata ->
                             val infiniteTransition = rememberInfiniteTransition(label = "live_mesh")
-                            val rotation by infiniteTransition.animateFloat(
-                                initialValue = 0f,
-                                targetValue = 360f,
-                                animationSpec = infiniteRepeatable(tween(60000, easing = LinearEasing)),
-                                label = "live_mesh_rot"
-                            )
-                            val saturationMatrix = remember { ColorMatrix().apply { setToSaturation(1.6f) } }
                             
-                            Box(modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = 1.5f; scaleY = 1.5f }) {
-                                AsyncImage(
-                                    model = ImageRequest.Builder(LocalContext.current)
+                            val anchorRotation by infiniteTransition.animateFloat(
+                                initialValue = 0f, targetValue = -360f,
+                                animationSpec = infiniteRepeatable(tween(80000, easing = LinearEasing), RepeatMode.Restart),
+                                label = "anchor"
+                            )
+                            val fastRotation by infiniteTransition.animateFloat(
+                                initialValue = 0f, targetValue = 360f,
+                                animationSpec = infiniteRepeatable(tween(40000, easing = LinearEasing), RepeatMode.Restart),
+                                label = "fast"
+                            )
+                            val slowRotation by infiniteTransition.animateFloat(
+                                initialValue = 0f, targetValue = 360f,
+                                animationSpec = infiniteRepeatable(tween(60000, easing = LinearEasing), RepeatMode.Restart),
+                                label = "slow"
+                            )
+
+                            val saturationMatrix = remember { ColorMatrix().apply { setToSaturation(1.8f) } }
+                            
+                            Box(modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = 3f; scaleY = 3f }) {
+                                val imageRequest = remember(metadata.thumbnailUrl) {
+                                    ImageRequest.Builder(context)
                                         .data(metadata.thumbnailUrl)
                                         .size(128, 128)
                                         .allowHardware(false)
-                                        .build(),
+                                        .build()
+                                }
+
+                                // Layer 1 (Anchor)
+                                AsyncImage(
+                                    model = imageRequest,
                                     contentDescription = null,
                                     contentScale = ContentScale.Crop,
                                     colorFilter = ColorFilter.colorMatrix(saturationMatrix),
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .blur(if (!disableBlur) 40.dp else 0.dp)
-                                        .graphicsLayer { rotationZ = rotation }
+                                        .blur(if (!disableBlur) 100.dp else 0.dp)
+                                        .graphicsLayer { rotationZ = anchorRotation }
+                                )
+
+                                // Layer 2 (Fast)
+                                AsyncImage(
+                                    model = imageRequest,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    alignment = Alignment.TopStart,
+                                    colorFilter = ColorFilter.colorMatrix(saturationMatrix),
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .blur(if (!disableBlur) 120.dp else 0.dp)
+                                        .graphicsLayer { 
+                                            rotationZ = fastRotation
+                                            alpha = 0.6f
+                                        }
+                                )
+
+                                // Layer 3 (Slow)
+                                AsyncImage(
+                                    model = imageRequest,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    alignment = Alignment.BottomEnd,
+                                    colorFilter = ColorFilter.colorMatrix(saturationMatrix),
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .blur(if (!disableBlur) 120.dp else 0.dp)
+                                        .graphicsLayer { 
+                                            rotationZ = slowRotation
+                                            alpha = 0.5f
+                                        }
+                                )
+                                
+                                // Depth & Contrast Overlays
+                                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.2f)))
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(
+                                            Brush.verticalGradient(
+                                                colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.25f))
+                                            )
+                                        )
                                 )
                             }
                         }
