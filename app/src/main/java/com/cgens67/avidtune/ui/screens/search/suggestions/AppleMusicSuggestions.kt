@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -37,6 +38,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.cgens67.avidtune.LocalPlayerConnection
+import com.cgens67.avidtune.R
 import com.cgens67.avidtune.models.toMediaMetadata
 import com.cgens67.avidtune.playback.PlayerConnection
 import com.cgens67.avidtune.playback.queues.YouTubeQueue
@@ -49,7 +51,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -152,7 +153,8 @@ class SuggestionsViewModel @Inject constructor() : ViewModel() {
 @Composable
 fun AppleMusicSuggestionsContent(
     navController: NavController,
-    onDismiss: () -> Unit,
+    onDismissBottomSheet: () -> Unit,
+    onDismissSearch: () -> Unit,
     viewModel: SuggestionsViewModel = hiltViewModel()
 ) {
     val tracks by viewModel.suggestionTracks.collectAsState()
@@ -173,7 +175,7 @@ fun AppleMusicSuggestionsContent(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Apple Music Trending", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+            Text(stringResource(R.string.apple_music_trending), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
             TextButton(onClick = { showRegionSheet = true }) { Text((SuggestionRegionSlugToName[regionCode] ?: "US").uppercase()) }
         }
 
@@ -183,31 +185,32 @@ fun AppleMusicSuggestionsContent(
 
         tracks?.let { t ->
             TrendingAppleMusicSection(t, onTrackClick = {
-                Toast.makeText(context, "Loading ${it.title}...", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.loading_item, it.title), Toast.LENGTH_SHORT).show()
                 viewModel.playTrack(it, playerConnection)
-                onDismiss()
+                onDismissBottomSheet()
+                onDismissSearch() // Close search screen completely for tracks
             })
         }
 
         artists?.let { a ->
             TopArtistsSection(a, onArtistClick = {
-                Toast.makeText(context, "Loading ${it.name}...", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.loading_item, it.name), Toast.LENGTH_SHORT).show()
                 viewModel.navigateToArtist(it, navController)
-                onDismiss()
+                onDismissBottomSheet() // Close only bottom sheet so search stays active
             })
         }
 
         albums?.let { a ->
             TrendingAlbumsSection(a, onAlbumClick = {
-                Toast.makeText(context, "Loading ${it.title}...", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.loading_item, it.title), Toast.LENGTH_SHORT).show()
                 viewModel.navigateToAlbum(it, navController)
-                onDismiss()
+                onDismissBottomSheet() // Close only bottom sheet so search stays active
             })
         }
 
         if (tracks != null) {
             Column(modifier = Modifier.fillMaxWidth().padding(top = 48.dp, bottom = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Data from Apple Music", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                Text(stringResource(R.string.data_from_apple_music), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
                 Text("M3-Play", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), fontWeight = FontWeight.Bold)
             }
         }
@@ -216,7 +219,7 @@ fun AppleMusicSuggestionsContent(
     if (showRegionSheet) {
         ModalBottomSheet(onDismissRequest = { showRegionSheet = false }) {
             LazyColumn(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), contentPadding = PaddingValues(bottom = 32.dp)) {
-                item { Text("Select Region", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(bottom = 16.dp, start = 8.dp)) }
+                item { Text(stringResource(R.string.select_region), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(bottom = 16.dp, start = 8.dp)) }
                 val regions = SuggestionRegionSlugToName.toList()
                 itemsIndexed(regions) { index, (slug, name) ->
                     val selected = slug == regionCode
@@ -275,7 +278,7 @@ fun TrendingAppleMusicSection(tracks: List<SuggestionTrack>, onTrackClick: (Sugg
 @Composable
 fun TopArtistsSection(artists: List<SuggestionArtist>, onArtistClick: (SuggestionArtist) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text("Trending Artists", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 16.dp).padding(top = 16.dp))
+        Text(stringResource(R.string.trending_artists), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 16.dp).padding(top = 16.dp))
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
             items(artists) { artist ->
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(100.dp).clickable { onArtistClick(artist) }) {
@@ -296,7 +299,7 @@ fun TopArtistsSection(artists: List<SuggestionArtist>, onArtistClick: (Suggestio
 @Composable
 fun TrendingAlbumsSection(albums: List<SuggestionAlbum>, onAlbumClick: (SuggestionAlbum) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text("Trending Albums", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 16.dp).padding(top = 16.dp))
+        Text(stringResource(R.string.trending_albums), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 16.dp).padding(top = 16.dp))
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 16.dp)) {
             items(albums) { album ->
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(120.dp).clickable { onAlbumClick(album) }) {
