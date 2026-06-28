@@ -1004,6 +1004,8 @@
     <string name="beta_version_name">Bêta %1$s</string>
     <string name="update_beta_version">Mettre à jour vers la Bêta %1$s ?</string>
     <string name="download_beta_update_prompt">Une nouvelle version bêta avec des fonctionnalités expérimentales est disponible. Voulez-vous la télécharger et l\'installer maintenant ?</string>
+    
+    <string name="live_mesh">Maillage animé</string>
 
     
 </resources>
