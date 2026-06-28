@@ -505,7 +505,7 @@ fun HomeScreen(
                                 contentDescription = null,
                                 modifier = Modifier
                                     .size(18.dp)
-                                    .offset(y = (-1.5).dp)
+                                    .offset(y = (-0.9).dp)
                             )
                         },
                         shape = RoundedCornerShape(16.dp),
