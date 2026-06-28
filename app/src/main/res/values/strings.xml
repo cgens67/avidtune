@@ -1029,4 +1029,11 @@
     
     <string name="live_mesh">Live Mesh</string>
     
+    <string name="apple_music_trending">Apple Music Trending</string>
+    <string name="data_from_apple_music">Data from Apple Music</string>
+    <string name="select_region">Select Region</string>
+    <string name="trending_artists">Trending Artists</string>
+    <string name="trending_albums">Trending Albums</string>
+    <string name="loading_item">Loading %1$s…</string>
+    
 </resources>
