@@ -132,7 +132,10 @@ fun OnlineSearchScreen(
 
         if (query.isEmpty()) {
             item {
-                AppleMusicSuggestionsContent(navController = navController)
+                AppleMusicSuggestionsContent(
+                    navController = navController,
+                    onDismiss = onDismiss
+                )
             }
         }
 
