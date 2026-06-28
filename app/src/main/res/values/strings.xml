@@ -1038,4 +1038,22 @@
     <string name="loading_item">Loading %1$s…</string>
     <string name="trending">Trending</string>
     
+    <!-- Changelog & Time -->
+    <string name="beta_releases">Beta Releases</string>
+    <string name="no_beta_releases">No beta releases available.</string>
+    <string name="no_stable_releases">No stable releases available.</string>
+    <string name="pre_release_for">Pre-release for %1$s</string>
+    <string name="just_now">Just now</string>
+    <string name="seconds_ago">%1$d seconds ago</string>
+    <string name="one_minute_ago">1 minute ago</string>
+    <string name="minutes_ago">%1$d minutes ago</string>
+    <string name="one_hour_ago">1 hour ago</string>
+    <string name="hours_ago">%1$d hours ago</string>
+    <string name="one_day_ago">1 day ago</string>
+    <string name="days_ago">%1$d days ago</string>
+    <string name="one_month_ago">1 month ago</string>
+    <string name="months_ago">%1$d months ago</string>
+    <string name="one_year_ago">1 year ago</string>
+    <string name="years_ago">%1$d years ago</string>
+    
 </resources>
