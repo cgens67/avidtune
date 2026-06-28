@@ -16,8 +16,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
@@ -25,8 +27,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -37,6 +41,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
 import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.models.toMediaMetadata
@@ -151,9 +156,8 @@ class SuggestionsViewModel @Inject constructor() : ViewModel() {
 // --- Composable UI ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppleMusicSuggestionsContent(
+fun AppleMusicTrendingScreen(
     navController: NavController,
-    onDismiss: () -> Unit,
     viewModel: SuggestionsViewModel = hiltViewModel()
 ) {
     val tracks by viewModel.suggestionTracks.collectAsState()
@@ -168,48 +172,67 @@ fun AppleMusicSuggestionsContent(
 
     LaunchedEffect(regionCode) { viewModel.refresh(regionCode) }
 
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+
+    Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            LargeTopAppBar(
+                title = { Text(stringResource(R.string.apple_music_trending)) },
+                navigationIcon = {
+                    IconButton(onClick = { navController.navigateUp() }) {
+                        Icon(painterResource(R.drawable.arrow_back), null)
+                    }
+                },
+                actions = {
+                    TextButton(onClick = { showRegionSheet = true }) { 
+                        Text((SuggestionRegionSlugToName[regionCode] ?: "US").uppercase()) 
+                    }
+                },
+                scrollBehavior = scrollBehavior
+            )
+        },
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom))
+                .verticalScroll(rememberScrollState())
         ) {
-            Text(stringResource(R.string.apple_music_trending), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-            TextButton(onClick = { showRegionSheet = true }) { Text((SuggestionRegionSlugToName[regionCode] ?: "US").uppercase()) }
-        }
+            if (isLoading && tracks == null) {
+                Box(modifier = Modifier.fillMaxWidth().height(300.dp), contentAlignment = Alignment.Center) { 
+                    CircularProgressIndicator() 
+                }
+            }
 
-        if (isLoading && tracks == null) {
-            Box(modifier = Modifier.fillMaxWidth().height(300.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-        }
+            tracks?.let { t ->
+                TrendingAppleMusicSection(t, onTrackClick = {
+                    Toast.makeText(context, context.getString(R.string.loading_item, it.title), Toast.LENGTH_SHORT).show()
+                    viewModel.playTrack(it, playerConnection)
+                })
+            }
 
-        tracks?.let { t ->
-            TrendingAppleMusicSection(t, onTrackClick = {
-                Toast.makeText(context, context.getString(R.string.loading_item, it.title), Toast.LENGTH_SHORT).show()
-                viewModel.playTrack(it, playerConnection)
-                onDismiss()
-            })
-        }
+            artists?.let { a ->
+                TopArtistsSection(a, onArtistClick = {
+                    Toast.makeText(context, context.getString(R.string.loading_item, it.name), Toast.LENGTH_SHORT).show()
+                    viewModel.navigateToArtist(it, navController)
+                })
+            }
 
-        artists?.let { a ->
-            TopArtistsSection(a, onArtistClick = {
-                Toast.makeText(context, context.getString(R.string.loading_item, it.name), Toast.LENGTH_SHORT).show()
-                viewModel.navigateToArtist(it, navController)
-                onDismiss()
-            })
-        }
+            albums?.let { a ->
+                TrendingAlbumsSection(a, onAlbumClick = {
+                    Toast.makeText(context, context.getString(R.string.loading_item, it.title), Toast.LENGTH_SHORT).show()
+                    viewModel.navigateToAlbum(it, navController)
+                })
+            }
 
-        albums?.let { a ->
-            TrendingAlbumsSection(a, onAlbumClick = {
-                Toast.makeText(context, context.getString(R.string.loading_item, it.title), Toast.LENGTH_SHORT).show()
-                viewModel.navigateToAlbum(it, navController)
-                onDismiss()
-            })
-        }
-
-        if (tracks != null) {
-            Column(modifier = Modifier.fillMaxWidth().padding(top = 48.dp, bottom = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(stringResource(R.string.data_from_apple_music), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
-                Text("M3-Play", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), fontWeight = FontWeight.Bold)
+            if (tracks != null) {
+                Column(modifier = Modifier.fillMaxWidth().padding(top = 48.dp, bottom = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(stringResource(R.string.data_from_apple_music), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                    Text("M3-Play", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), fontWeight = FontWeight.Bold)
+                }
             }
         }
     }
