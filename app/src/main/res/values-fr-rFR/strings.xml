@@ -1015,6 +1015,24 @@
     <string name="trending_albums">Albums tendances</string>
     <string name="loading_item">Chargement de %1$s…</string>
     <string name="trending">Tendances</string>
+    
+    <!-- Changelog & Time -->
+    <string name="beta_releases">Versions Bêta</string>
+    <string name="no_beta_releases">Aucune version bêta disponible.</string>
+    <string name="no_stable_releases">Aucune version stable disponible.</string>
+    <string name="pre_release_for">Pré-version pour %1$s</string>
+    <string name="just_now">À l\'instant</string>
+    <string name="seconds_ago">Il y a %1$d secondes</string>
+    <string name="one_minute_ago">Il y a 1 minute</string>
+    <string name="minutes_ago">Il y a %1$d minutes</string>
+    <string name="one_hour_ago">Il y a 1 heure</string>
+    <string name="hours_ago">Il y a %1$d heures</string>
+    <string name="one_day_ago">Il y a 1 jour</string>
+    <string name="days_ago">Il y a %1$d jours</string>
+    <string name="one_month_ago">Il y a 1 mois</string>
+    <string name="months_ago">Il y a %1$d mois</string>
+    <string name="one_year_ago">Il y a 1 an</string>
+    <string name="years_ago">Il y a %1$d ans</string>
 
     
 </resources>
