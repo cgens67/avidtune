@@ -153,8 +153,7 @@ class SuggestionsViewModel @Inject constructor() : ViewModel() {
 @Composable
 fun AppleMusicSuggestionsContent(
     navController: NavController,
-    onDismissBottomSheet: () -> Unit,
-    onDismissSearch: () -> Unit,
+    onDismiss: () -> Unit,
     viewModel: SuggestionsViewModel = hiltViewModel()
 ) {
     val tracks by viewModel.suggestionTracks.collectAsState()
@@ -187,8 +186,7 @@ fun AppleMusicSuggestionsContent(
             TrendingAppleMusicSection(t, onTrackClick = {
                 Toast.makeText(context, context.getString(R.string.loading_item, it.title), Toast.LENGTH_SHORT).show()
                 viewModel.playTrack(it, playerConnection)
-                onDismissBottomSheet()
-                onDismissSearch() // Close search screen completely for tracks
+                onDismiss()
             })
         }
 
@@ -196,7 +194,7 @@ fun AppleMusicSuggestionsContent(
             TopArtistsSection(a, onArtistClick = {
                 Toast.makeText(context, context.getString(R.string.loading_item, it.name), Toast.LENGTH_SHORT).show()
                 viewModel.navigateToArtist(it, navController)
-                onDismissBottomSheet() // Close only bottom sheet so search stays active
+                onDismiss()
             })
         }
 
@@ -204,7 +202,7 @@ fun AppleMusicSuggestionsContent(
             TrendingAlbumsSection(a, onAlbumClick = {
                 Toast.makeText(context, context.getString(R.string.loading_item, it.title), Toast.LENGTH_SHORT).show()
                 viewModel.navigateToAlbum(it, navController)
-                onDismissBottomSheet() // Close only bottom sheet so search stays active
+                onDismiss()
             })
         }
 
