@@ -150,7 +150,11 @@ class SuggestionsViewModel @Inject constructor() : ViewModel() {
 // --- Composable UI ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppleMusicSuggestionsContent(navController: NavController, viewModel: SuggestionsViewModel = hiltViewModel()) {
+fun AppleMusicSuggestionsContent(
+    navController: NavController,
+    onDismiss: () -> Unit,
+    viewModel: SuggestionsViewModel = hiltViewModel()
+) {
     val tracks by viewModel.suggestionTracks.collectAsState()
     val artists by viewModel.suggestionArtists.collectAsState()
     val albums by viewModel.suggestionAlbums.collectAsState()
@@ -181,6 +185,7 @@ fun AppleMusicSuggestionsContent(navController: NavController, viewModel: Sugges
             TrendingAppleMusicSection(t, onTrackClick = {
                 Toast.makeText(context, "Loading ${it.title}...", Toast.LENGTH_SHORT).show()
                 viewModel.playTrack(it, playerConnection)
+                onDismiss()
             })
         }
 
@@ -188,6 +193,7 @@ fun AppleMusicSuggestionsContent(navController: NavController, viewModel: Sugges
             TopArtistsSection(a, onArtistClick = {
                 Toast.makeText(context, "Loading ${it.name}...", Toast.LENGTH_SHORT).show()
                 viewModel.navigateToArtist(it, navController)
+                onDismiss()
             })
         }
 
@@ -195,6 +201,7 @@ fun AppleMusicSuggestionsContent(navController: NavController, viewModel: Sugges
             TrendingAlbumsSection(a, onAlbumClick = {
                 Toast.makeText(context, "Loading ${it.title}...", Toast.LENGTH_SHORT).show()
                 viewModel.navigateToAlbum(it, navController)
+                onDismiss()
             })
         }
 
