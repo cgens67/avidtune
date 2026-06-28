@@ -1027,6 +1027,7 @@
     <string name="apple_music_trending">Apple Music Trends</string>
     <string name="data_from_apple_music">Daten von Apple Music</string>
     <string name="select_region">Region auswählen</string>
+    <string name="trending_songs">Angesagte Songs</string>
     <string name="trending_artists">Angesagte Künstler</string>
     <string name="trending_albums">Angesagte Alben</string>
     <string name="loading_item">Lade %1$s…</string>
