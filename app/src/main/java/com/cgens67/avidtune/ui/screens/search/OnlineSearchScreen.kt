@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.draw.clip
@@ -70,6 +71,8 @@ fun OnlineSearchScreen(
     val viewState by viewModel.viewState.collectAsState()
 
     val lazyListState = rememberLazyListState()
+    
+    var showAppleMusicBottomSheet by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         snapshotFlow { lazyListState.firstVisibleItemScrollOffset }
@@ -81,6 +84,21 @@ fun OnlineSearchScreen(
 
     LaunchedEffect(query) {
         viewModel.query.value = query
+    }
+
+    if (showAppleMusicBottomSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showAppleMusicBottomSheet = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
+        ) {
+            AppleMusicSuggestionsContent(
+                navController = navController,
+                onDismissBottomSheet = { showAppleMusicBottomSheet = false },
+                onDismissSearch = onDismiss
+            )
+        }
     }
 
     LazyColumn(
@@ -132,10 +150,61 @@ fun OnlineSearchScreen(
 
         if (query.isEmpty()) {
             item {
-                AppleMusicSuggestionsContent(
-                    navController = navController,
-                    onDismiss = onDismiss
-                )
+                val iconContainerColor = if (pureBlack) {
+                    Color.White.copy(alpha = 0.08f)
+                } else {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                }
+
+                val iconTint = if (pureBlack) {
+                    Color.White.copy(alpha = 0.7f)
+                } else {
+                    MaterialTheme.colorScheme.primary
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusable()
+                        .clickable { showAppleMusicBottomSheet = true }
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(
+                                color = iconContainerColor,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.trending_up),
+                            contentDescription = null,
+                            tint = iconTint,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    Spacer(Modifier.width(14.dp))
+
+                    Text(
+                        text = stringResource(R.string.apple_music_trending),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = if (pureBlack) Color.White.copy(alpha = 0.9f) else MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+
+                    Icon(
+                        painter = painterResource(R.drawable.navigate_next),
+                        contentDescription = null,
+                        tint = if (pureBlack) Color.White.copy(alpha = 0.4f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
         }
 
