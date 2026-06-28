@@ -1424,7 +1424,6 @@ class MainActivity : ComponentActivity() {
                                 },
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .nestedScroll(searchBarScrollBehavior.nestedScrollConnection)
                                     .background(MaterialTheme.colorScheme.surface)
                             ) {
                                 var transitionDirection =
