@@ -120,8 +120,8 @@ data class CachedChangelogData(val sections: List<ChangelogSection>, val image: 
 
 // --- Utils ---
 
-fun getTimeAgo(dateString: String?): String {
-    if (dateString.isNullOrBlank()) return "Unknown date"
+fun getTimeAgo(context: Context, dateString: String?): String {
+    if (dateString.isNullOrBlank()) return context.getString(R.string.unknown)
     return try {
         val zdt = ZonedDateTime.parse(dateString)
         val now = ZonedDateTime.now(ZoneId.systemDefault())
@@ -129,21 +129,21 @@ fun getTimeAgo(dateString: String?): String {
         
         val seconds = duration.seconds
         when {
-            seconds < 0 -> "Just now"
-            seconds < 60 -> "$seconds seconds ago"
-            seconds < 120 -> "1 minute ago"
-            seconds < 3600 -> "${seconds / 60} minutes ago"
-            seconds < 7200 -> "1 hour ago"
-            seconds < 86400 -> "${seconds / 3600} hours ago"
-            seconds < 172800 -> "1 day ago"
-            seconds < 2592000 -> "${seconds / 86400} days ago"
-            seconds < 5184000 -> "1 month ago"
-            seconds < 31536000 -> "${seconds / 2592000} months ago"
-            seconds < 63072000 -> "1 year ago"
-            else -> "${seconds / 31536000} years ago"
+            seconds < 0 -> context.getString(R.string.just_now)
+            seconds < 60 -> context.getString(R.string.seconds_ago, seconds)
+            seconds < 120 -> context.getString(R.string.one_minute_ago)
+            seconds < 3600 -> context.getString(R.string.minutes_ago, seconds / 60)
+            seconds < 7200 -> context.getString(R.string.one_hour_ago)
+            seconds < 86400 -> context.getString(R.string.hours_ago, seconds / 3600)
+            seconds < 172800 -> context.getString(R.string.one_day_ago)
+            seconds < 2592000 -> context.getString(R.string.days_ago, seconds / 86400)
+            seconds < 5184000 -> context.getString(R.string.one_month_ago)
+            seconds < 31536000 -> context.getString(R.string.months_ago, seconds / 2592000)
+            seconds < 63072000 -> context.getString(R.string.one_year_ago)
+            else -> context.getString(R.string.years_ago, seconds / 31536000)
         }
     } catch (e: Exception) {
-        dateString
+        dateString ?: ""
     }
 }
 
@@ -218,7 +218,7 @@ fun ChangelogScreen(
                 Tab(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    text = { Text("Beta Releases", fontWeight = FontWeight.SemiBold) }
+                    text = { Text(stringResource(R.string.beta_releases), fontWeight = FontWeight.SemiBold) }
                 )
                 Tab(
                     selected = selectedTab == 2,
@@ -245,7 +245,7 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
     var updateImage by remember { mutableStateOf<String?>(null) }
     var updateDescription by remember { mutableStateOf<String?>(null) }
     var updateWarning by remember { mutableStateOf<String?>(null) }
-    var isLoading by remember { mutableStateOf(true) }
+    var isLoading by remember { mutableStateOf(false) }
     var hasError by remember { mutableStateOf(false) }
     var detailedError by remember { mutableStateOf<String?>(null) }
     var showingCached by remember { mutableStateOf(false) }
@@ -380,6 +380,8 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
     fun fetchOldReleases() {
         if (!isFetchingOldReleases && availableReleases.isNotEmpty()) return
         isFetchingOldReleases = true
+        hasError = false
+        detailedError = null
         coroutineScope.launch(Dispatchers.IO) {
             try {
                 val request = Request.Builder()
@@ -401,7 +403,7 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
                         val name = obj.optString("name", tagName)
                         val publishedAt = obj.getString("published_at")
                         val isPrerelease = obj.getBoolean("prerelease")
-                        val formattedDate = getTimeAgo(publishedAt)
+                        val formattedDate = getTimeAgo(context, publishedAt)
 
                         val assets = obj.getJSONArray("assets")
                         var changelogUrl: String? = null
@@ -422,11 +424,15 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
                 } else {
                     withContext(Dispatchers.Main) {
                         isFetchingOldReleases = false
+                        hasError = true
+                        detailedError = "HTTP ${response.code}: ${response.message}"
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     isFetchingOldReleases = false
+                    hasError = true
+                    detailedError = "Network Error: ${e.message}"
                 }
             }
         }
@@ -544,7 +550,7 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
                         )
                         if (currentRelease != null) {
                             Text(
-                                text = getTimeAgo(currentRelease.rawDate),
+                                text = getTimeAgo(context, currentRelease.rawDate),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -552,7 +558,7 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
                                 val target = getBetaTarget(currentRelease.tagName)
                                 if (target != null) {
                                     Text(
-                                        text = "Pre-release for $target",
+                                        text = stringResource(R.string.pre_release_for, target),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.secondary,
                                         fontWeight = FontWeight.Medium
@@ -567,88 +573,73 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
                         }
                     }
                 }
-            } else if (!isFetchingOldReleases && !isLoading) {
+            } else if (!isFetchingOldReleases && !isLoading && !hasError) {
                 Box(modifier = Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
                     Text(
-                        text = if (isBetaTab) "No beta releases available." else "No stable releases available.",
+                        text = if (isBetaTab) stringResource(R.string.no_beta_releases) else stringResource(R.string.no_stable_releases),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
-            if (filteredReleases.isNotEmpty()) {
-                if (hasError && !isLoading) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
-                            Icon(Icons.Default.Error, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp))
-                            Spacer(Modifier.height(16.dp))
-                            Text(stringResource(R.string.error_loading_changelog), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-                            
-                            detailedError?.let { detail ->
-                                Spacer(Modifier.height(8.dp))
-                                Surface(
-                                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Text(
-                                        text = detail, 
-                                        color = MaterialTheme.colorScheme.onErrorContainer,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        modifier = Modifier.padding(12.dp),
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
-                            }
-                            
-                            Spacer(Modifier.height(24.dp))
-                            Button(onClick = { fetchChangelog(currentVersionTag, bypassCache = true) }) {
-                                Text(stringResource(R.string.action_retry))
+            if (hasError && !isLoading && !isFetchingOldReleases) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
+                        Icon(Icons.Default.Error, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp))
+                        Spacer(Modifier.height(16.dp))
+                        Text(stringResource(R.string.error_loading_changelog), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                        
+                        detailedError?.let { detail ->
+                            Spacer(Modifier.height(8.dp))
+                            Surface(
+                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = detail, 
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(12.dp),
+                                    textAlign = TextAlign.Center
+                                )
                             }
                         }
+                        
+                        Spacer(Modifier.height(24.dp))
+                        Button(onClick = { 
+                            isFetchingOldReleases = true
+                            fetchOldReleases()
+                            if (currentVersionTag.isNotBlank()) fetchChangelog(currentVersionTag, bypassCache = true) 
+                        }) {
+                            Text(stringResource(R.string.action_retry))
+                        }
                     }
-                } else {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState())
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                    ) {
-                        updateImage?.let { imageUrl ->
-                            Spacer(modifier = Modifier.height(8.dp))
-                            ElevatedCard(
-                                shape = MaterialTheme.shapes.extraLarge,
-                                colors = CardDefaults.elevatedCardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                ),
-                                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                AsyncImage(
-                                    model = imageUrl,
-                                    contentDescription = null,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    contentScale = ContentScale.FillWidth
-                                )
-                                updateDescription?.let { desc ->
-                                    Text(
-                                        text = desc,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(16.dp)
-                                    )
-                                }
-                            }
-                        } ?: updateDescription?.let { desc ->
-                            Spacer(Modifier.height(8.dp))
-                            ElevatedCard(
-                                shape = MaterialTheme.shapes.extraLarge,
-                                colors = CardDefaults.elevatedCardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                ),
-                                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
+                }
+            } else if (filteredReleases.isNotEmpty()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    updateImage?.let { imageUrl ->
+                        Spacer(modifier = Modifier.height(8.dp))
+                        ElevatedCard(
+                            shape = MaterialTheme.shapes.extraLarge,
+                            colors = CardDefaults.elevatedCardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            ),
+                            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            AsyncImage(
+                                model = imageUrl,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxWidth(),
+                                contentScale = ContentScale.FillWidth
+                            )
+                            updateDescription?.let { desc ->
                                 Text(
                                     text = desc,
                                     style = MaterialTheme.typography.bodyLarge,
@@ -657,75 +648,92 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
                                 )
                             }
                         }
+                    } ?: updateDescription?.let { desc ->
+                        Spacer(Modifier.height(8.dp))
+                        ElevatedCard(
+                            shape = MaterialTheme.shapes.extraLarge,
+                            colors = CardDefaults.elevatedCardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            ),
+                            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = desc,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(16.dp)
+                            )
+                        }
+                    }
 
-                        if (changelogSections.isNotEmpty()) {
-                            changelogSections.forEach { section ->
-                                Spacer(Modifier.height(16.dp))
-                                ElevatedCard(
-                                    shape = MaterialTheme.shapes.extraLarge,
-                                    colors = CardDefaults.elevatedCardColors(
-                                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                    ),
-                                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Column(modifier = Modifier.padding(20.dp)) {
-                                        if (section.title.isNotBlank()) {
-                                            Text(
-                                                text = section.title,
-                                                style = MaterialTheme.typography.headlineSmall,
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.onSurface
-                                            )
-                                            Spacer(Modifier.height(12.dp))
+                    if (changelogSections.isNotEmpty()) {
+                        changelogSections.forEach { section ->
+                            Spacer(Modifier.height(16.dp))
+                            ElevatedCard(
+                                shape = MaterialTheme.shapes.extraLarge,
+                                colors = CardDefaults.elevatedCardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                ),
+                                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(20.dp)) {
+                                    if (section.title.isNotBlank()) {
+                                        Text(
+                                            text = section.title,
+                                            style = MaterialTheme.typography.headlineSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Spacer(Modifier.height(12.dp))
+                                    }
+
+                                    section.items.forEach { item ->
+                                        val urls = item.extractUrls()
+                                        val annotatedText = buildAnnotatedString {
+                                            append(item.trim())
+                                            urls.forEach { (range, url) ->
+                                                addStringAnnotation("URL", url, range.first, range.last + 1)
+                                                addStyle(SpanStyle(color = MaterialTheme.colorScheme.primary, textDecoration = TextDecoration.Underline), range.first, range.last + 1)
+                                            }
                                         }
-
-                                        section.items.forEach { item ->
-                                            val urls = item.extractUrls()
-                                            val annotatedText = buildAnnotatedString {
-                                                append(item.trim())
-                                                urls.forEach { (range, url) ->
-                                                    addStringAnnotation("URL", url, range.first, range.last + 1)
-                                                    addStyle(SpanStyle(color = MaterialTheme.colorScheme.primary, textDecoration = TextDecoration.Underline), range.first, range.last + 1)
-                                                }
-                                            }
-                                            Row(
-                                                modifier = Modifier.padding(vertical = 6.dp), 
-                                                verticalAlignment = Alignment.Top, 
-                                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                            ) {
-                                                Box(modifier = Modifier
-                                                    .padding(top = 8.dp)
-                                                    .size(6.dp)
-                                                    .background(MaterialTheme.colorScheme.primary, CircleShape))
-                                                ClickableText(
-                                                    text = annotatedText,
-                                                    onClick = { offset ->
-                                                        annotatedText.getStringAnnotations("URL", offset, offset).firstOrNull()?.let {
-                                                            ContextCompat.startActivity(context, Intent(Intent.ACTION_VIEW, Uri.parse(it.item)), null)
-                                                        }
-                                                    },
-                                                    style = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                )
-                                            }
+                                        Row(
+                                            modifier = Modifier.padding(vertical = 6.dp), 
+                                            verticalAlignment = Alignment.Top, 
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        ) {
+                                            Box(modifier = Modifier
+                                                .padding(top = 8.dp)
+                                                .size(6.dp)
+                                                .background(MaterialTheme.colorScheme.primary, CircleShape))
+                                            ClickableText(
+                                                text = annotatedText,
+                                                onClick = { offset ->
+                                                    annotatedText.getStringAnnotations("URL", offset, offset).firstOrNull()?.let {
+                                                        ContextCompat.startActivity(context, Intent(Intent.ACTION_VIEW, Uri.parse(it.item)), null)
+                                                    }
+                                                },
+                                                style = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            )
                                         }
                                     }
                                 }
                             }
                         }
+                    }
 
-                        updateWarning?.let { warning ->
-                            Spacer(Modifier.height(24.dp))
-                            Surface(color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f), shape = RoundedCornerShape(12.dp)) {
-                                Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Icon(Icons.Default.Error, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
-                                    Text(warning, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer)
-                                }
+                    updateWarning?.let { warning ->
+                        Spacer(Modifier.height(24.dp))
+                        Surface(color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f), shape = RoundedCornerShape(12.dp)) {
+                            Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Icon(Icons.Default.Error, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+                                Text(warning, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer)
                             }
                         }
-
-                        Spacer(Modifier.height(32.dp))
                     }
+
+                    Spacer(Modifier.height(32.dp))
                 }
             }
         }
@@ -801,7 +809,7 @@ fun CommitsContent(refreshTrigger: Int) {
                         val authorObj = commitObj.getJSONObject("author")
                         val authorName = authorObj.optString("name").takeIf { it.isNotEmpty() } ?: context.getString(R.string.unknown)
                         val rawDate = authorObj.optString("date", "")
-                        val formattedDate = getTimeAgo(rawDate)
+                        val formattedDate = getTimeAgo(context, rawDate)
 
                         val authorLogin = if (!obj.isNull("author")) {
                             obj.getJSONObject("author").optString("login", null)
