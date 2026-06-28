@@ -387,7 +387,8 @@ class MusicService :
         currentMediaMetadata.distinctUntilChangedBy { it?.id }.collectLatest(scope) { metadata ->
             currentSkipSegments.value = emptyList()
             lastSkippedSegment = null
-            if (metadata != null && sponsorBlockEnabled.value) {
+            // Check metadata.isVideo so SponsorBlock only skips segments on true Videos, not Songs
+            if (metadata != null && sponsorBlockEnabled.value && metadata.isVideo) {
                 val segments = withContext(Dispatchers.IO) {
                     com.cgens67.avidtune.models.SponsorBlock.getSkipSegments(metadata.id)
                 }
@@ -619,7 +620,7 @@ class MusicService :
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    @RequiresApi(Build.VERSION.CODES.O)
     private fun requestAudioFocus(): Boolean {
         if (hasAudioFocus) return true
 
@@ -631,7 +632,7 @@ class MusicService :
         return false
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    @RequiresApi(Build.VERSION.CODES.O)
     private fun abandonAudioFocus() {
         if (hasAudioFocus) {
             audioFocusRequest?.let { request ->
