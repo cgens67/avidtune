@@ -1023,5 +1023,12 @@
     <string name="beta_version_name">Beta %1$s</string>
     <string name="update_beta_version">Auf Beta %1$s aktualisieren?</string>
     <string name="download_beta_update_prompt">Eine neue Beta-Version mit experimentellen Funktionen ist verfügbar. Möchtest du sie jetzt herunterladen und installieren?</string>
+    
+    <string name="apple_music_trending">Apple Music Trends</string>
+    <string name="data_from_apple_music">Daten von Apple Music</string>
+    <string name="select_region">Region auswählen</string>
+    <string name="trending_artists">Angesagte Künstler</string>
+    <string name="trending_albums">Angesagte Alben</string>
+    <string name="loading_item">Lade %1$s…</string>
 
 </resources>
