@@ -1,6 +1,7 @@
 package com.cgens67.avidtune.ui.screens.search.suggestions
 
 import android.widget.Toast
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
@@ -231,7 +232,6 @@ fun AppleMusicTrendingScreen(
             if (tracks != null) {
                 Column(modifier = Modifier.fillMaxWidth().padding(top = 48.dp, bottom = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(stringResource(R.string.data_from_apple_music), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
-                    Text("M3-Play", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -268,8 +268,13 @@ fun TrendingAppleMusicSection(tracks: List<SuggestionTrack>, onTrackClick: (Sugg
     val displayTracks = tracks.take(30)
     val pagerState = rememberPagerState(pageCount = { (displayTracks.size + 4) / 5 })
     Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = stringResource(R.string.trending_songs),
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(horizontal = 16.dp).padding(top = 16.dp, bottom = 8.dp)
+        )
         HorizontalPager(state = pagerState, verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth().animateContentSize(tween(300, easing = FastOutSlowInEasing))) { page ->
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 val startIdx = page * 5; val endIdx = minOf(startIdx + 5, displayTracks.size)
                 for (i in startIdx until endIdx) {
                     val track = displayTracks[i]
@@ -291,6 +296,33 @@ fun TrendingAppleMusicSection(tracks: List<SuggestionTrack>, onTrackClick: (Sugg
                         if (track.thumbnailUrl != null) AsyncImage(model = track.thumbnailUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.padding(16.dp).clip(MaterialTheme.shapes.large).size(80.dp))
                     }
                 }
+            }
+        }
+        
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp, bottom = 8.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            repeat(pagerState.pageCount) { iteration ->
+                val isSelected = pagerState.currentPage == iteration
+                val color by animateColorAsState(
+                    targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                    label = "color"
+                )
+                val width by animateDpAsState(
+                    targetValue = if (isSelected) 18.dp else 7.dp,
+                    label = "width"
+                )
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 4.dp)
+                        .clip(CircleShape)
+                        .background(color)
+                        .size(width = width, height = 7.dp)
+                )
             }
         }
     }
