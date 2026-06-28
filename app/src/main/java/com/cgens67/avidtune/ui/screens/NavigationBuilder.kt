@@ -30,6 +30,7 @@ import com.cgens67.avidtune.ui.screens.playlist.LocalPlaylistScreen
 import com.cgens67.avidtune.ui.screens.playlist.OnlinePlaylistScreen
 import com.cgens67.avidtune.ui.screens.playlist.TopPlaylistScreen
 import com.cgens67.avidtune.ui.screens.search.OnlineSearchResult
+import com.cgens67.avidtune.ui.screens.search.suggestions.AppleMusicTrendingScreen
 import com.cgens67.avidtune.ui.screens.settings.AboutScreen
 import com.cgens67.avidtune.ui.screens.settings.AccountSettings
 import com.cgens67.avidtune.ui.screens.settings.AppearanceSettings
@@ -86,6 +87,10 @@ fun NavGraphBuilder.navigationBuilder(
         arguments = listOf(navArgument("newsId") { type = NavType.StringType })
     ) {
         ViewNewsScreen(navController)
+    }
+
+    composable("apple_music_trending") {
+        AppleMusicTrendingScreen(navController)
     }
 
     composable(
