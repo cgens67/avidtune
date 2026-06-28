@@ -85,7 +85,7 @@ fun OnlineSearchScreen(
     LazyColumn(
         state = lazyListState,
         contentPadding = PaddingValues(
-            top = 8.dp,
+            top = 0.dp,
             bottom = WindowInsets.systemBars.only(WindowInsetsSides.Bottom).asPaddingValues().calculateBottomPadding()
         ),
         modifier = Modifier
@@ -97,7 +97,7 @@ fun OnlineSearchScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+                        .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 4.dp)
                 ) {
                     FilterChip(
                         selected = false,
@@ -108,7 +108,7 @@ fun OnlineSearchScreen(
                         label = { Text(stringResource(R.string.apple_music_trending)) },
                         leadingIcon = {
                             Icon(
-                                painter = painterResource(R.drawable.music_note),
+                                painter = painterResource(R.drawable.apple),
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp)
                             )
