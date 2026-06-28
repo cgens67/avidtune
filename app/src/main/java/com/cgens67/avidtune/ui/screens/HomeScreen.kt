@@ -494,6 +494,7 @@ fun HomeScreen(
                             Pair("stats", stringResource(R.string.stats)),
                             Pair("liked", stringResource(R.string.liked)),
                             Pair("downloads", stringResource(R.string.offline)),
+                            Pair("apple_music_trending", stringResource(R.string.apple_music_trending)),
                             if (isLoggedIn) Pair(
                                 "account",
                                 stringResource(R.string.account)
@@ -506,6 +507,7 @@ fun HomeScreen(
                                 "stats" -> navController.navigate("stats")
                                 "liked" -> navController.navigate("auto_playlist/liked")
                                 "downloads" -> navController.navigate("auto_playlist/downloaded")
+                                "apple_music_trending" -> navController.navigate("apple_music_trending")
                                 "account" -> if (isLoggedIn) navController.navigate("account")
                             }
                         },
