@@ -1027,4 +1027,6 @@
     <string name="update_beta_version">Update to Beta %1$s?</string>
     <string name="download_beta_update_prompt">A new beta version is available with experimental features. Would you like to download and install it now?</string>
     
+    <string name="live_mesh">Live Mesh</string>
+    
 </resources>
