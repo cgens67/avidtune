@@ -1008,6 +1008,8 @@
     <string name="beta_version_name">Beta %1$s</string>
     <string name="update_beta_version">更新至 Beta %1$s？</string>
     <string name="download_beta_update_prompt">有包含实验性功能的新 Beta 版本可用。是否立即下载并安装？</string>
+    
+    <string name="live_mesh">动态网格</string>
 
     
 </resources>
