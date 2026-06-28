@@ -1017,6 +1017,7 @@
     <string name="trending_artists">热门歌手</string>
     <string name="trending_albums">热门专辑</string>
     <string name="loading_item">正在加载 %1$s…</string>
+    <string name="trending">热门</string>
 
     
 </resources>
