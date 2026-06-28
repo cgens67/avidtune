@@ -995,5 +995,33 @@
     <string name="mixed_for_you">Für dich gemixt</string>
     <string name="your_daily_discover">Dein täglicher Mix</string>
     <string name="featured_playlists_for_you">Vorgestellte Playlists für dich</string>
-    
+
+    <string name="moods_and_moments">Stimmungen &amp; Momente</string>
+    <string name="genres">Genres</string>
+
+    <string name="equalizer_and_effects">Equalizer und Effekte</string>
+    <string name="enable_audio_effects">Audioeffekte aktivieren</string>
+    <string name="enable_audio_effects_desc">Integrierten Equalizer, Bass-Boost und Hall aktivieren</string>
+    <string name="enhancements">Verbesserungen</string>
+    <string name="mega_bass">Mega-Bass</string>
+    <string name="panoramic_surround">Panorama-Surround</string>
+    <string name="environment_reverb">Umgebungs-Hall</string>
+    <string name="clear_voice">Klare Stimme</string>
+    <string name="reset_all_settings">Alle Einstellungen zurücksetzen</string>
+    <string name="no_system_equalizer_found">Kein System-Equalizer gefunden</string>
+    <string name="no_equalizer_bands_available">Keine Equalizer-Bänder verfügbar.</string>
+    <string name="equalizer_not_supported">Equalizer wird auf diesem Gerät nicht unterstützt.</string>
+    <string name="reverb_none">Keiner</string>
+    <string name="reverb_bathroom">Badezimmer</string>
+    <string name="reverb_living_room">Wohnzimmer</string>
+    <string name="reverb_concert_hall">Konzertsaal</string>
+    <string name="reverb_cave">Höhle / Platte</string>
+    <string name="reverb_device_support_warning">Dies funktioniert möglicherweise auf einigen Geräten nicht</string>
+    <string name="in_app_audio_effects_and_eq">In-App-Audioeffekte und EQ</string>
+
+    <string name="new_beta_version_available">Neue Beta-Version verfügbar!</string>
+    <string name="beta_version_name">Beta %1$s</string>
+    <string name="update_beta_version">Auf Beta %1$s aktualisieren?</string>
+    <string name="download_beta_update_prompt">Eine neue Beta-Version mit experimentellen Funktionen ist verfügbar. Möchtest du sie jetzt herunterladen und installieren?</string>
+
 </resources>
