@@ -145,6 +145,8 @@ import com.cgens67.avidtune.ui.menu.YouTubeArtistMenu
 import com.cgens67.avidtune.ui.menu.YouTubePlaylistMenu
 import com.cgens67.avidtune.ui.menu.YouTubeSongMenu
 import com.cgens67.avidtune.ui.utils.SnapLayoutInfoProvider
+import com.cgens67.avidtune.ui.utils.backToMain
+import com.cgens67.avidtune.ui.utils.resize
 import com.cgens67.avidtune.utils.rememberPreference
 import com.cgens67.avidtune.viewmodels.HomeViewModel
 import kotlinx.coroutines.Dispatchers
