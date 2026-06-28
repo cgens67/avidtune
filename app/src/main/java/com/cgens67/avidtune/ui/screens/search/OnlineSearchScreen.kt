@@ -94,34 +94,31 @@ fun OnlineSearchScreen(
     ) {
         if (query.isEmpty()) {
             item {
-                Surface(
-                    onClick = {
-                        onDismiss()
-                        navController.navigate("apple_music_trending")
-                    },
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.music_note),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    FilterChip(
+                        selected = false,
+                        onClick = {
+                            onDismiss()
+                            navController.navigate("apple_music_trending")
+                        },
+                        label = { Text(stringResource(R.string.apple_music_trending)) },
+                        leadingIcon = {
+                            Icon(
+                                painter = painterResource(R.drawable.music_note),
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        },
+                        shape = RoundedCornerShape(16.dp),
+                        border = null,
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
                         )
-                        Spacer(Modifier.width(12.dp))
-                        Text(
-                            text = stringResource(R.string.apple_music_trending),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    }
+                    )
                 }
             }
         }
