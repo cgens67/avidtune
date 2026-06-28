@@ -1014,6 +1014,7 @@
     <string name="apple_music_trending">Apple Music 流行趋势</string>
     <string name="data_from_apple_music">数据来自 Apple Music</string>
     <string name="select_region">选择地区</string>
+    <string name="trending_songs">热门歌曲</string>
     <string name="trending_artists">热门歌手</string>
     <string name="trending_albums">热门专辑</string>
     <string name="loading_item">正在加载 %1$s…</string>
