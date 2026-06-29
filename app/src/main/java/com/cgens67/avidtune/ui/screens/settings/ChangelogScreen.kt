@@ -95,9 +95,6 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.util.concurrent.TimeUnit
 
-// --- Constants ---
-private const val BROWSER_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-
 // --- Data Models ---
 
 data class CommitData(
@@ -301,7 +298,7 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
 
                     val request = Request.Builder()
                         .url(urlToFetch)
-                        .header("User-Agent", BROWSER_USER_AGENT)
+                        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
                         .build()
 
                     val response = httpClient.newCall(request).execute()
@@ -365,7 +362,7 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
                     } else {
                         withContext(Dispatchers.Main) { 
                             hasError = true
-                            detailedError = "HTTP ${response.code}: ${response.message}\nURL: $urlToFetch"
+                            detailedError = if (response.code == 403) "GitHub API Rate Limit Exceeded (HTTP 403). Please try again later." else "HTTP ${response.code}: ${response.message}\nURL: $urlToFetch"
                             isLoading = false 
                         }
                     }
@@ -380,56 +377,64 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
         }
     }
 
-    fun fetchOldReleases() {
-        if (!isFetchingOldReleases && availableReleases.isNotEmpty()) return
+    fun fetchOldReleases(bypassCache: Boolean = false) {
         isFetchingOldReleases = true
         hasError = false
         detailedError = null
         coroutineScope.launch(Dispatchers.IO) {
             try {
-                val request = Request.Builder()
-                    .url("https://api.github.com/repos/cgens67/AvidTune/releases?per_page=50")
-                    .header("User-Agent", BROWSER_USER_AGENT)
-                    .header("Accept", "application/vnd.github.v3+json")
-                    .build()
-
-                val response = httpClient.newCall(request).execute()
-
-                if (response.isSuccessful) {
-                    val json = response.body?.string() ?: "[]"
-                    val array = JSONArray(json)
-                    val list = mutableListOf<ReleaseMetadata>()
-
-                    for (i in 0 until array.length()) {
-                        val obj = array.getJSONObject(i)
-                        val tagName = obj.getString("tag_name")
-                        val name = obj.optString("name", tagName)
-                        val publishedAt = obj.getString("published_at")
-                        val isPrerelease = obj.getBoolean("prerelease")
-                        val formattedDate = getTimeAgo(context, publishedAt)
-
-                        val assets = obj.getJSONArray("assets")
-                        var changelogUrl: String? = null
-                        for (j in 0 until assets.length()) {
-                            val asset = assets.getJSONObject(j)
-                            if (asset.getString("name").equals("changelog.json", ignoreCase = true)) {
-                                changelogUrl = asset.getString("browser_download_url")
-                                break
-                            }
-                        }
-
-                        list.add(ReleaseMetadata(tagName, name, formattedDate, changelogUrl, isPrerelease, publishedAt))
-                    }
-                    withContext(Dispatchers.Main) {
-                        availableReleases = list
-                        isFetchingOldReleases = false
-                    }
+                val cachedJson = if (!bypassCache) loadReleasesFromCache(context) else null
+                val json = if (cachedJson != null) {
+                    cachedJson
                 } else {
-                    withContext(Dispatchers.Main) {
-                        isFetchingOldReleases = false
-                        hasError = true
-                        detailedError = "HTTP ${response.code}: ${response.message}"
+                    val request = Request.Builder()
+                        .url("https://api.github.com/repos/cgens67/AvidTune/releases?per_page=50")
+                        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                        .header("Accept", "application/vnd.github.v3+json")
+                        .build()
+
+                    val response = httpClient.newCall(request).execute()
+
+                    if (response.isSuccessful) {
+                        val bodyString = response.body?.string() ?: "[]"
+                        saveReleasesToCache(context, bodyString)
+                        bodyString
+                    } else {
+                        withContext(Dispatchers.Main) {
+                            isFetchingOldReleases = false
+                            hasError = true
+                            detailedError = if (response.code == 403) "GitHub API Rate Limit Exceeded (HTTP 403). Please try again later." else "HTTP ${response.code}: ${response.message}"
+                        }
+                        return@launch
                     }
+                }
+
+                val array = JSONArray(json)
+                val list = mutableListOf<ReleaseMetadata>()
+
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    val tagName = obj.getString("tag_name")
+                    val name = obj.optString("name", tagName)
+                    val publishedAt = obj.getString("published_at")
+                    val isPrerelease = obj.getBoolean("prerelease")
+                    val formattedDate = getTimeAgo(context, publishedAt)
+
+                    val assets = obj.getJSONArray("assets")
+                    var changelogUrl: String? = null
+                    for (j in 0 until assets.length()) {
+                        val asset = assets.getJSONObject(j)
+                        if (asset.getString("name").equals("changelog.json", ignoreCase = true)) {
+                            changelogUrl = asset.getString("browser_download_url")
+                            break
+                        }
+                    }
+
+                    list.add(ReleaseMetadata(tagName, name, formattedDate, changelogUrl, isPrerelease, publishedAt))
+                }
+                withContext(Dispatchers.Main) {
+                    availableReleases = list
+                    isFetchingOldReleases = false
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
@@ -442,7 +447,7 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
     }
 
     LaunchedEffect(Unit) {
-        fetchOldReleases()
+        fetchOldReleases(false)
     }
 
     LaunchedEffect(isBetaTab, availableReleases) {
@@ -468,7 +473,7 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
     LaunchedEffect(refreshTrigger) {
         if (refreshTrigger > 0) {
             isFetchingOldReleases = true
-            fetchOldReleases()
+            fetchOldReleases(bypassCache = true)
             if (currentVersionTag.isNotBlank()) {
                 fetchChangelog(currentVersionTag, bypassCache = true)
             }
@@ -483,7 +488,7 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
                 isRefreshing = isRefreshing,
                 onRefresh = { 
                     isFetchingOldReleases = true
-                    fetchOldReleases()
+                    fetchOldReleases(bypassCache = true)
                     if (currentVersionTag.isNotBlank()) fetchChangelog(currentVersionTag, bypassCache = true) 
                 }
             )
@@ -612,7 +617,7 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
                         Spacer(Modifier.height(24.dp))
                         Button(onClick = { 
                             isFetchingOldReleases = true
-                            fetchOldReleases()
+                            fetchOldReleases(bypassCache = true)
                             if (currentVersionTag.isNotBlank()) fetchChangelog(currentVersionTag, bypassCache = true) 
                         }) {
                             Text(stringResource(R.string.action_retry))
@@ -763,6 +768,7 @@ fun CommitsContent(refreshTrigger: Int) {
     var commits by remember { mutableStateOf<List<CommitData>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var hasError by remember { mutableStateOf(false) }
+    var detailedError by remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
 
     val pullToRefreshState = rememberPullToRefreshState()
@@ -781,64 +787,75 @@ fun CommitsContent(refreshTrigger: Int) {
             .build()
     }
 
-    fun fetchCommits() {
+    fun fetchCommits(bypassCache: Boolean = false) {
         isLoading = true
         hasError = false
+        detailedError = null
         coroutineScope.launch(Dispatchers.IO) {
             try {
-                // Pointing to AvidTune repo and main branch.
-                val request = Request.Builder()
-                    .url("https://api.github.com/repos/cgens67/AvidTune/commits?branch=main&per_page=50")
-                    .header("User-Agent", BROWSER_USER_AGENT)
-                    .header("Accept", "application/vnd.github.v3+json")
-                    .build()
-
-                val response = httpClient.newCall(request).execute()
-
-                if (response.isSuccessful) {
-                    val json = response.body?.string() ?: "[]"
-                    val array = JSONArray(json)
-
-                    val list = mutableListOf<CommitData>()
-                    for (i in 0 until array.length()) {
-                        val obj = array.getJSONObject(i)
-                        val sha = obj.getString("sha")
-                        val htmlUrl = obj.getString("html_url")
-
-                        val commitObj = obj.getJSONObject("commit")
-                        val fullMessage = commitObj.getString("message")
-                        val message = fullMessage.lines().firstOrNull { it.isNotBlank() } ?: fullMessage
-
-                        val authorObj = commitObj.getJSONObject("author")
-                        val authorName = authorObj.optString("name").takeIf { it.isNotEmpty() } ?: context.getString(R.string.unknown)
-                        val rawDate = authorObj.optString("date", "")
-                        val formattedDate = getTimeAgo(context, rawDate)
-
-                        val authorLogin = if (!obj.isNull("author")) {
-                            obj.getJSONObject("author").optString("login", null)
-                        } else null
-                        val authorAvatarUrl = if (!obj.isNull("author")) {
-                            obj.getJSONObject("author").optString("avatar_url", null)
-                        } else null
-
-                        list.add(CommitData(sha, message, authorName, authorAvatarUrl, authorLogin, formattedDate, htmlUrl))
-                    }
-
-                    withContext(Dispatchers.Main) {
-                        commits = list
-                        isLoading = false
-                        hasError = false
-                    }
+                val cachedJson = if (!bypassCache) loadCommitsFromCache(context) else null
+                val json = if (cachedJson != null) {
+                    cachedJson
                 } else {
-                    withContext(Dispatchers.Main) {
-                        hasError = true
-                        isLoading = false
+                    val request = Request.Builder()
+                        .url("https://api.github.com/repos/cgens67/AvidTune/commits?branch=main&per_page=50")
+                        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                        .header("Accept", "application/vnd.github.v3+json")
+                        .build()
+
+                    val response = httpClient.newCall(request).execute()
+
+                    if (response.isSuccessful) {
+                        val bodyString = response.body?.string() ?: "[]"
+                        saveCommitsToCache(context, bodyString)
+                        bodyString
+                    } else {
+                        withContext(Dispatchers.Main) {
+                            isLoading = false
+                            hasError = true
+                            detailedError = if (response.code == 403) "GitHub API Rate Limit Exceeded (HTTP 403). Please try again later." else "HTTP ${response.code}: ${response.message}"
+                        }
+                        return@launch
                     }
+                }
+
+                val array = JSONArray(json)
+
+                val list = mutableListOf<CommitData>()
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    val sha = obj.getString("sha")
+                    val htmlUrl = obj.getString("html_url")
+
+                    val commitObj = obj.getJSONObject("commit")
+                    val fullMessage = commitObj.getString("message")
+                    val message = fullMessage.lines().firstOrNull { it.isNotBlank() } ?: fullMessage
+
+                    val authorObj = commitObj.getJSONObject("author")
+                    val authorName = authorObj.optString("name").takeIf { it.isNotEmpty() } ?: context.getString(R.string.unknown)
+                    val rawDate = authorObj.optString("date", "")
+                    val formattedDate = getTimeAgo(context, rawDate)
+
+                    val authorLogin = if (!obj.isNull("author")) {
+                        obj.getJSONObject("author").optString("login", null)
+                    } else null
+                    val authorAvatarUrl = if (!obj.isNull("author")) {
+                        obj.getJSONObject("author").optString("avatar_url", null)
+                    } else null
+
+                    list.add(CommitData(sha, message, authorName, authorAvatarUrl, authorLogin, formattedDate, htmlUrl))
+                }
+
+                withContext(Dispatchers.Main) {
+                    commits = list
+                    isLoading = false
+                    hasError = false
                 }
             } catch (e: Exception) {
                 Log.e("CommitScreen", "Error fetching commits: ${e.message}")
                 withContext(Dispatchers.Main) {
                     hasError = true
+                    detailedError = "Network Error: ${e.message}"
                     isLoading = false
                 }
             }
@@ -846,12 +863,12 @@ fun CommitsContent(refreshTrigger: Int) {
     }
 
     LaunchedEffect(Unit) {
-        fetchCommits()
+        fetchCommits(false)
     }
 
     LaunchedEffect(refreshTrigger) {
         if (refreshTrigger > 0) {
-            fetchCommits()
+            fetchCommits(bypassCache = true)
         }
     }
 
@@ -861,14 +878,14 @@ fun CommitsContent(refreshTrigger: Int) {
             .pullToRefresh(
                 state = pullToRefreshState,
                 isRefreshing = isLoading,
-                onRefresh = { fetchCommits() }
+                onRefresh = { fetchCommits(bypassCache = true) }
             )
             .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom))
     ) {
         when {
             hasError && !isLoading -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
                         Icon(
                             Icons.Default.Error,
                             contentDescription = null,
@@ -878,8 +895,30 @@ fun CommitsContent(refreshTrigger: Int) {
                         Spacer(Modifier.height(16.dp))
                         Text(
                             text = stringResource(R.string.error_loading_commits),
-                            color = MaterialTheme.colorScheme.error
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Bold
                         )
+                        
+                        detailedError?.let { detail ->
+                            Spacer(Modifier.height(8.dp))
+                            Surface(
+                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = detail, 
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(12.dp),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                        
+                        Spacer(Modifier.height(24.dp))
+                        Button(onClick = { fetchCommits(bypassCache = true) }) {
+                            Text(stringResource(R.string.action_retry))
+                        }
                     }
                 }
             }
@@ -1043,7 +1082,43 @@ fun CommitItem(
     }
 }
 
-// --- Utils ---
+// --- Cache Utils ---
+
+private fun saveReleasesToCache(context: Context, json: String) {
+    try {
+        context.openFileOutput("releases_cache.json", Context.MODE_PRIVATE).use { it.write(json.toByteArray()) }
+        context.getSharedPreferences("changelog_prefs", Context.MODE_PRIVATE).edit().putLong("releases_cache_time", System.currentTimeMillis()).apply()
+    } catch (e: Exception) { Log.e("ChangelogCache", "Error saving releases cache", e) }
+}
+
+private fun loadReleasesFromCache(context: Context): String? {
+    val prefs = context.getSharedPreferences("changelog_prefs", Context.MODE_PRIVATE)
+    val time = prefs.getLong("releases_cache_time", 0)
+    if (System.currentTimeMillis() - time > 3600_000) return null // 1 hour expiration
+    return try {
+        val file = File(context.filesDir, "releases_cache.json")
+        if (!file.exists()) return null
+        context.openFileInput("releases_cache.json").use { it.bufferedReader().readText() }
+    } catch (e: Exception) { null }
+}
+
+private fun saveCommitsToCache(context: Context, json: String) {
+    try {
+        context.openFileOutput("commits_cache.json", Context.MODE_PRIVATE).use { it.write(json.toByteArray()) }
+        context.getSharedPreferences("changelog_prefs", Context.MODE_PRIVATE).edit().putLong("commits_cache_time", System.currentTimeMillis()).apply()
+    } catch (e: Exception) { Log.e("ChangelogCache", "Error saving commits cache", e) }
+}
+
+private fun loadCommitsFromCache(context: Context): String? {
+    val prefs = context.getSharedPreferences("changelog_prefs", Context.MODE_PRIVATE)
+    val time = prefs.getLong("commits_cache_time", 0)
+    if (System.currentTimeMillis() - time > 3600_000) return null // 1 hour expiration
+    return try {
+        val file = File(context.filesDir, "commits_cache.json")
+        if (!file.exists()) return null
+        context.openFileInput("commits_cache.json").use { it.bufferedReader().readText() }
+    } catch (e: Exception) { null }
+}
 
 private fun cleanupOldChangelogCache(context: Context, currentVersionTag: String) {
     try {
