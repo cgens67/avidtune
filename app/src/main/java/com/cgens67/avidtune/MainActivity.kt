@@ -1302,6 +1302,7 @@ class MainActivity : ComponentActivity() {
                                             FloatingNavigationToolbar(
                                                 items = navigationItems,
                                                 pureBlack = pureBlack,
+                                                slimNav = slimNav,
                                                 isSelected = { screen ->
                                                     navBackStackEntry?.destination?.hierarchy?.any {
                                                         it.route == screen.route
