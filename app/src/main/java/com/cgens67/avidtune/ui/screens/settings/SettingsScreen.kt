@@ -947,7 +947,7 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
             onClick = { resetSearch(); navController.navigate("settings/appearance") }
         ),
         SettingsItem(
-            icon = painterResource(R.drawable.format_align_left),
+            icon = painterResource(R.drawable.text_fields), // Changed from format_align_left
             title = stringResource(R.string.use_system_font),
             keywords = listOf("font", "system", "text", "typeface"),
             onClick = { resetSearch(); navController.navigate("settings/appearance") }
