@@ -376,7 +376,7 @@ fun AppearanceSettings(
                 {SwitchPreference(
                     title = { Text(stringResource(R.string.use_system_font)) },
                     description = stringResource(R.string.use_system_font_desc),
-                    icon = { Icon(painterResource(R.drawable.format_align_left), null) },
+                    icon = { Icon(painterResource(R.drawable.text_fields), null) },
                     checked = useSystemFont,
                     onCheckedChange = onUseSystemFontChange,
                 )},
