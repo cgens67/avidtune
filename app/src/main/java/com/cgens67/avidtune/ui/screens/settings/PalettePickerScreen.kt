@@ -786,6 +786,7 @@ fun CustomThemeBottomSheet(
     val hexString = String.format("#%06X", (0xFFFFFF and currentColor.toArgb()))
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val coroutineScope = rememberCoroutineScope()
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -866,15 +867,23 @@ fun CustomThemeBottomSheet(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 OutlinedButton(
-                    onClick = onDismiss,
+                    onClick = {
+                        coroutineScope.launch {
+                            sheetState.hide()
+                            onDismiss()
+                        }
+                    },
                     modifier = Modifier.weight(1f)
                 ) {
                     Text(stringResource(android.R.string.cancel))
                 }
                 Button(
                     onClick = {
-                        val palette = ThemeSeedPalette(currentColor, currentColor, currentColor, currentColor)
-                        onSave(palette)
+                        coroutineScope.launch {
+                            sheetState.hide()
+                            val palette = ThemeSeedPalette(currentColor, currentColor, currentColor, currentColor)
+                            onSave(palette)
+                        }
                     },
                     modifier = Modifier.weight(1f)
                 ) {
