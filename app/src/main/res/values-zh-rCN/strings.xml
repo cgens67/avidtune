@@ -1037,6 +1037,9 @@
     <string name="months_ago">%1$d 个月前</string>
     <string name="one_year_ago">1 年前</string>
     <string name="years_ago">%1$d 年前</string>
+    
+    <string name="export">导出</string>
+    <string name="random">随机</string>
 
     
 </resources>
