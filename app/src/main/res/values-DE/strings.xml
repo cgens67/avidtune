@@ -1050,5 +1050,8 @@
     <string name="months_ago">Vor %1$d Monaten</string>
     <string name="one_year_ago">Vor 1 Jahr</string>
     <string name="years_ago">Vor %1$d Jahren</string>
+    
+    <string name="export">Exportieren</string>
+    <string name="random">Zufällig</string>
 
 </resources>
