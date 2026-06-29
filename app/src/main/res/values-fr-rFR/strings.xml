@@ -1033,6 +1033,9 @@
     <string name="months_ago">Il y a %1$d mois</string>
     <string name="one_year_ago">Il y a 1 an</string>
     <string name="years_ago">Il y a %1$d ans</string>
+    
+    <string name="export">Exporter</string>
+    <string name="random">Aléatoire</string>
 
     
 </resources>
