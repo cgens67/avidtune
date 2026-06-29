@@ -57,6 +57,7 @@ fun FloatingNavigationToolbar(
     items: List<Screens>,
     pureBlack: Boolean,
     modifier: Modifier = Modifier,
+    slimNav: Boolean = false,
     onFabClick: (() -> Unit)? = null,
     fabIconRes: Int? = null,
     fabContentDescription: String = "",
@@ -79,7 +80,7 @@ fun FloatingNavigationToolbar(
         modifier = modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center,
     ) {
-        val showSelectedLabels = maxWidth >= 360.dp
+        val showSelectedLabels = !slimNav && maxWidth >= 360.dp
 
         if (hasOverflowAction) {
             HorizontalFloatingToolbar(
