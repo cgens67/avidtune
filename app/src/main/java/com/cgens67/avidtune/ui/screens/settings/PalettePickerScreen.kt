@@ -38,13 +38,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -53,6 +55,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -73,10 +76,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -755,45 +761,6 @@ object ThemePalettes {
     fun getRandomPalette(): ThemePalette {
         return allPalettes.random()
     }
-
-    fun generateRandomPalette(): ThemePalette {
-        // Generate random vibrant colors using HCT color space for better visual quality
-        val random = java.util.Random()
-
-        // Generate a random hue for primary color
-        val primaryHue = random.nextFloat() * 360f
-        val primarySaturation = 0.5f + random.nextFloat() * 0.4f // 50-90% saturation
-        val primaryLightness = 0.4f + random.nextFloat() * 0.25f // 40-65% lightness
-
-        val primary = hctToColor(primaryHue, primarySaturation, primaryLightness)
-
-        // Generate secondary color by shifting hue by 30-90 degrees
-        val secondaryHue = (primaryHue + 30f + random.nextFloat() * 60f) % 360f
-        val secondary = hctToColor(secondaryHue, primarySaturation * 0.9f, primaryLightness * 1.1f)
-
-        // Generate tertiary color by shifting hue in opposite direction
-        val tertiaryHue = (primaryHue - 30f - random.nextFloat() * 60f + 360f) % 360f
-        val tertiary = hctToColor(tertiaryHue, primarySaturation * 0.8f, primaryLightness * 0.95f)
-
-        // Generate neutral color with low saturation
-        val neutralHue = (primaryHue + random.nextFloat() * 20f - 10f) % 360f
-        val neutral = hctToColor(neutralHue, 0.1f, primaryLightness * 0.8f)
-
-        return ThemePalette(
-            id = "random_" + System.currentTimeMillis(),
-            name = "Custom",
-            primary = primary,
-            secondary = secondary,
-            tertiary = tertiary,
-            neutral = neutral
-        )
-    }
-
-    private fun hctToColor(hue: Float, saturation: Float, lightness: Float): Color {
-        val hsv = floatArrayOf(hue, saturation, lightness)
-        val argb = android.graphics.Color.HSVToColor(hsv)
-        return Color(argb)
-    }
 }
 
 private fun Color.toHexString(): String {
@@ -803,76 +770,132 @@ private fun Color.toHexString(): String {
     return String.format("#%02X%02X%02X", red, green, blue)
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CustomThemeDialog(
+fun CustomThemeBottomSheet(
+    initialColor: Color,
     onDismiss: () -> Unit,
-    onSave: (ThemeSeedPalette) -> Unit
+    onSave: (ThemeSeedPalette) -> Unit,
+    onExport: (ThemeSeedPalette) -> Unit
 ) {
-    var red by remember { mutableFloatStateOf(120f) }
-    var green by remember { mutableFloatStateOf(120f) }
-    var blue by remember { mutableFloatStateOf(120f) }
+    var red by remember { mutableFloatStateOf(initialColor.red * 255f) }
+    var green by remember { mutableFloatStateOf(initialColor.green * 255f) }
+    var blue by remember { mutableFloatStateOf(initialColor.blue * 255f) }
 
-    val color = Color(red / 255f, green / 255f, blue / 255f)
+    val currentColor = Color(red / 255f, green / 255f, blue / 255f)
+    val hexString = String.format("#%06X", (0xFFFFFF and currentColor.toArgb()))
 
-    AlertDialog(
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.custom_theme)) },
-        text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        contentWindowInsets = { androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0) }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Header
+            Text(
+                text = stringResource(R.string.custom_theme),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            // Color Preview
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(100.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(currentColor)
+                    .border(2.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp)),
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(80.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(color)
-                )
-
-                Text(stringResource(R.string.red_colon, red.toInt()))
-                Slider(
-                    value = red,
-                    onValueChange = { red = it },
-                    valueRange = 0f..255f,
-                    colors = SliderDefaults.colors(activeTrackColor = Color.Red, thumbColor = Color.Red)
-                )
-
-                Text(stringResource(R.string.green_colon, green.toInt()))
-                Slider(
-                    value = green,
-                    onValueChange = { green = it },
-                    valueRange = 0f..255f,
-                    colors = SliderDefaults.colors(activeTrackColor = Color.Green, thumbColor = Color.Green)
-                )
-
-                Text(stringResource(R.string.blue_colon, blue.toInt()))
-                Slider(
-                    value = blue,
-                    onValueChange = { blue = it },
-                    valueRange = 0f..255f,
-                    colors = SliderDefaults.colors(activeTrackColor = Color.Blue, thumbColor = Color.Blue)
+                Text(
+                    text = hexString,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = if (currentColor.luminance() > 0.5f) Color.Black else Color.White,
+                    fontWeight = FontWeight.Bold
                 )
             }
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                val palette = ThemeSeedPalette(
-                    primary = color,
-                    secondary = color,
-                    tertiary = color,
-                    neutral = color
-                )
-                onSave(palette)
-            }) {
-                Text(stringResource(android.R.string.ok))
+
+            // Sliders
+            ColorSlider(label = "Red: ${red.toInt()}", value = red, onValueChange = { red = it }, trackColor = Color.Red)
+            ColorSlider(label = "Green: ${green.toInt()}", value = green, onValueChange = { green = it }, trackColor = Color.Green)
+            ColorSlider(label = "Blue: ${blue.toInt()}", value = blue, onValueChange = { blue = it }, trackColor = Color.Blue)
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Actions: Reset, Random, Export
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                TextButton(onClick = {
+                    red = initialColor.red * 255f
+                    green = initialColor.green * 255f
+                    blue = initialColor.blue * 255f
+                }) {
+                    Text("Reset")
+                }
+                TextButton(onClick = {
+                    red = (0..255).random().toFloat()
+                    green = (0..255).random().toFloat()
+                    blue = (0..255).random().toFloat()
+                }) {
+                    Text("Random")
+                }
+                TextButton(onClick = {
+                    val palette = ThemeSeedPalette(currentColor, currentColor, currentColor, currentColor)
+                    onExport(palette)
+                }) {
+                    Text("Export")
+                }
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(android.R.string.cancel))
+
+            // Save & Cancel
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+                Button(
+                    onClick = {
+                        val palette = ThemeSeedPalette(currentColor, currentColor, currentColor, currentColor)
+                        onSave(palette)
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(stringResource(android.R.string.ok))
+                }
             }
         }
-    )
+    }
+}
+
+@Composable
+private fun ColorSlider(label: String, value: Float, onValueChange: (Float) -> Unit, trackColor: Color) {
+    Column {
+        Text(text = label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = 0f..255f,
+            colors = SliderDefaults.colors(activeTrackColor = trackColor, thumbColor = trackColor)
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -899,14 +922,39 @@ fun PalettePickerScreen(
 
     val isDarkTheme = isSystemInDarkTheme()
 
-    var showCustomThemeDialog by rememberSaveable { mutableStateOf(false) }
+    var showCustomThemeSheet by rememberSaveable { mutableStateOf(false) }
+    var paletteToExport by remember { mutableStateOf<ThemeSeedPalette?>(null) }
 
-    if (showCustomThemeDialog) {
-        CustomThemeDialog(
-            onDismiss = { showCustomThemeDialog = false },
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri == null || paletteToExport == null) return@rememberLauncherForActivityResult
+        scope.launch(Dispatchers.IO) {
+            try {
+                context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+                    val json = ThemeSeedPaletteCodec.encodeForPreference(paletteToExport!!, customThemeName)
+                    outputStream.write(json.toByteArray())
+                }
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Theme exported successfully", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Theme export failed", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    if (showCustomThemeSheet) {
+        CustomThemeBottomSheet(
+            initialColor = selectedPalette.primary,
+            onDismiss = { showCustomThemeSheet = false },
             onSave = { palette ->
                 onCustomThemeColorChange(ThemeSeedPaletteCodec.encodeForPreference(palette, customThemeName))
-                showCustomThemeDialog = false
+                showCustomThemeSheet = false
+            },
+            onExport = { palette ->
+                paletteToExport = palette
+                exportLauncher.launch("custom_theme_${System.currentTimeMillis()}.json")
             }
         )
     }
@@ -968,7 +1016,7 @@ fun PalettePickerScreen(
                             contentDescription = null
                         )
                     },
-                    onClick = { showCustomThemeDialog = true },
+                    onClick = { showCustomThemeSheet = true },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                 )
