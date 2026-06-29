@@ -95,6 +95,9 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.util.concurrent.TimeUnit
 
+// --- Constants ---
+private const val BROWSER_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
 // --- Data Models ---
 
 data class CommitData(
@@ -298,7 +301,7 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
 
                     val request = Request.Builder()
                         .url(urlToFetch)
-                        .header("User-Agent", "AvidTune-App")
+                        .header("User-Agent", BROWSER_USER_AGENT)
                         .build()
 
                     val response = httpClient.newCall(request).execute()
@@ -386,7 +389,7 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
             try {
                 val request = Request.Builder()
                     .url("https://api.github.com/repos/cgens67/AvidTune/releases?per_page=50")
-                    .header("User-Agent", "AvidTune-App")
+                    .header("User-Agent", BROWSER_USER_AGENT)
                     .header("Accept", "application/vnd.github.v3+json")
                     .build()
 
@@ -786,7 +789,7 @@ fun CommitsContent(refreshTrigger: Int) {
                 // Pointing to AvidTune repo and main branch.
                 val request = Request.Builder()
                     .url("https://api.github.com/repos/cgens67/AvidTune/commits?branch=main&per_page=50")
-                    .header("User-Agent", "AvidTune-App")
+                    .header("User-Agent", BROWSER_USER_AGENT)
                     .header("Accept", "application/vnd.github.v3+json")
                     .build()
 
