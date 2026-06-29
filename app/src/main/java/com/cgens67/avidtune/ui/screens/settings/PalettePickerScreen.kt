@@ -844,20 +844,20 @@ fun CustomThemeBottomSheet(
                     green = initialColor.green * 255f
                     blue = initialColor.blue * 255f
                 }) {
-                    Text("Reset")
+                    Text(stringResource(R.string.reset))
                 }
                 TextButton(onClick = {
                     red = (0..255).random().toFloat()
                     green = (0..255).random().toFloat()
                     blue = (0..255).random().toFloat()
                 }) {
-                    Text("Random")
+                    Text(stringResource(R.string.random))
                 }
                 TextButton(onClick = {
                     val palette = ThemeSeedPalette(currentColor, currentColor, currentColor, currentColor)
                     onExport(palette)
                 }) {
-                    Text("Export")
+                    Text(stringResource(R.string.export))
                 }
             }
 
@@ -870,6 +870,7 @@ fun CustomThemeBottomSheet(
                     onClick = {
                         coroutineScope.launch {
                             sheetState.hide()
+                        }.invokeOnCompletion {
                             onDismiss()
                         }
                     },
@@ -881,6 +882,7 @@ fun CustomThemeBottomSheet(
                     onClick = {
                         coroutineScope.launch {
                             sheetState.hide()
+                        }.invokeOnCompletion {
                             val palette = ThemeSeedPalette(currentColor, currentColor, currentColor, currentColor)
                             onSave(palette)
                         }
