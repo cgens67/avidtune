@@ -959,17 +959,25 @@ class MusicService :
     }
 
     private fun toggleLibrary() {
-        database.query {
-            currentSong.value?.let {
-                update(it.song.toggleLibrary())
+        database.transaction {
+            val metadata = currentMediaMetadata.value ?: return@transaction
+            val song = getSongById(metadata.id)
+            if (song != null) {
+                update(song.song.toggleLibrary())
+            } else {
+                insert(metadata) { it.toggleLibrary() }
             }
         }
     }
 
     fun toggleLike() {
-        database.query {
-            currentSong.value?.let {
-                update(it.song.toggleLike())
+        database.transaction {
+            val metadata = currentMediaMetadata.value ?: return@transaction
+            val song = getSongById(metadata.id)
+            if (song != null) {
+                update(song.song.toggleLike())
+            } else {
+                insert(metadata) { it.toggleLike() }
             }
         }
     }
