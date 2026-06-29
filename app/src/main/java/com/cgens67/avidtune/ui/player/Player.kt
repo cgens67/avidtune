@@ -832,8 +832,6 @@ fun PlayerBackground(
     backgroundAlpha: Float,
     disableBlur: Boolean
 ) {
-    val useDarkTheme = isSystemInDarkTheme()
-
     Box(modifier = Modifier.fillMaxSize()) {
         when (playerBackground) {
             PlayerBackgroundStyle.BLUR -> {
@@ -845,6 +843,7 @@ fun PlayerBackground(
                     label = "blurBackground"
                 ) { thumbnailUrl ->
                     if (thumbnailUrl != null) {
+                        val useDarkTheme = isSystemInDarkTheme()
                         Box(modifier = Modifier.alpha(backgroundAlpha)) {
                             AsyncImage(
                                 model = thumbnailUrl,
@@ -1005,7 +1004,7 @@ fun PlayerBackground(
                                 colorFilter = ColorFilter.colorMatrix(saturationMatrix),
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .blur(if (!disableBlur) 100.dp else 0.dp)
+                                    .blur(100.dp)
                                     .graphicsLayer { rotationZ = anchorRotation }
                             )
 
@@ -1018,7 +1017,7 @@ fun PlayerBackground(
                                 colorFilter = ColorFilter.colorMatrix(saturationMatrix),
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .blur(if (!disableBlur) 120.dp else 0.dp)
+                                    .blur(120.dp)
                                     .graphicsLayer { 
                                         rotationZ = fastRotation
                                         alpha = 0.6f
@@ -1034,7 +1033,7 @@ fun PlayerBackground(
                                 colorFilter = ColorFilter.colorMatrix(saturationMatrix),
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .blur(if (!disableBlur) 120.dp else 0.dp)
+                                    .blur(120.dp)
                                     .graphicsLayer { 
                                         rotationZ = slowRotation
                                         alpha = 0.5f
@@ -1059,14 +1058,6 @@ fun PlayerBackground(
             else -> {
                 // DEFAULT
             }
-        }
-
-        if (playerBackground != PlayerBackgroundStyle.DEFAULT) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = if (useDarkTheme) 0.3f else 0.45f))
-            )
         }
     }
 }
