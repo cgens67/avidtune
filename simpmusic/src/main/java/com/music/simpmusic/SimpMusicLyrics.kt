@@ -89,14 +89,17 @@ object SimpMusicLyrics {
     private fun processLyrics(rawLyrics: String): String {
         if (rawLyrics.isBlank()) return rawLyrics
 
-        // 1. Fix HTML entities (specifically &#x27; / &#39;)
+        // 1. Fix HTML entities (specifically double-encoded &#x27; / &#39;)
+        // Placing &amp; replacement first ensures that &amp;#x27; gets correctly decoded to '
         val processed = rawLyrics
+            .replace("&amp;", "&")
             .replace("&#x27;", "'")
             .replace("&#x27", "'")
             .replace("&#39;", "'")
             .replace("&#39", "'")
             .replace("&quot;", "\"")
-            .replace("&amp;", "&")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
 
         val lines = processed.lines()
         val result = StringBuilder()
@@ -105,7 +108,10 @@ object SimpMusicLyrics {
         val timeTagRegex = """^(\[\d{2,}:\d{2}\.\d{2,3}\])(.*)""".toRegex()
         
         // Regex for capturing trailing parentheses (backing vocals) and their preceding word-sync tag
-        val splitRegex = """^(.*?)(\s*<\d{2,}:\d{2}\.\d{2,3}>\s*)?(\([^)]+\))$""".toRegex()
+        // Group 1: Main text
+        // Group 2: Optional word-sync tag immediately before the parentheses
+        // Group 3: The text inside the parentheses
+        val splitRegex = """^(.*?)(\s*<\d{2,}:\d{2}\.\d{2,3}>\s*)?\(\s*(.*?)\s*\)\s*$""".toRegex()
 
         for (line in lines) {
             val match = timeTagRegex.matchEntire(line.trim())
@@ -124,7 +130,8 @@ object SimpMusicLyrics {
                     
                     if (cleanMain.isEmpty()) {
                         // 2A. Whole line is just background vocals
-                        result.append(timeTag).append("{bg}").append(content).append("\n")
+                        // We extract the parentheses out, leaving the text clean for our parser.
+                        result.append(timeTag).append("{bg}").append(mainPart).append(syncTag.trimStart()).append(bgPart).append("\n")
                     } else {
                         // 2B. Split main vocal and background vocal onto separate lines
                         result.append(timeTag).append(mainPart).append("\n")
