@@ -60,6 +60,7 @@ import com.cgens67.avidtune.constants.CountryCodeToName
 import com.cgens67.avidtune.constants.EnableKugouKey
 import com.cgens67.avidtune.constants.EnableLrcLibKey
 import com.cgens67.avidtune.constants.EnableBetterLyricsKey
+import com.cgens67.avidtune.constants.EnableSimpMusicKey
 import com.cgens67.avidtune.constants.EnableLyricsPlusKey
 import com.cgens67.avidtune.constants.EnablePaxsenixKey
 import com.cgens67.avidtune.constants.HideExplicitKey
@@ -147,6 +148,10 @@ fun ContentSettings(
         key = EnableBetterLyricsKey,
         defaultValue = true
     )
+    val (enableSimpMusic, onEnableSimpMusicChange) = rememberPreference(
+        key = EnableSimpMusicKey,
+        defaultValue = true
+    )
     val (enablePaxsenix, onEnablePaxsenixChange) = rememberPreference(
         key = EnablePaxsenixKey,
         defaultValue = true
@@ -156,7 +161,7 @@ fun ContentSettings(
         defaultValue = true
     )
 
-    val defaultOrder = listOf("LyricsPlus", "Paxsenix", "BetterLyrics", "LrcLib", "Kugou", "YouTube Subtitle", "YouTube Music")
+    val defaultOrder = listOf("LyricsPlus", "Paxsenix", "BetterLyrics", "SimpMusic", "LrcLib", "Kugou", "YouTube Subtitle", "YouTube Music")
     val (providerOrderStr, onProviderOrderChange) = rememberPreference(LyricsProviderOrderKey, defaultOrder.joinToString(","))
     val currentOrder = remember(providerOrderStr) {
         providerOrderStr.split(",").filter { it.isNotBlank() }.let { saved ->
@@ -271,6 +276,12 @@ fun ContentSettings(
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = enableBetterLyrics,
                     onCheckedChange = onEnableBetterLyricsChange,
+                )},
+                {SwitchPreference(
+                    title = { Text("Enable SimpMusic") },
+                    icon = { Icon(painterResource(R.drawable.lyrics), null) },
+                    checked = enableSimpMusic,
+                    onCheckedChange = onEnableSimpMusicChange,
                 )},
                 {SwitchPreference(
                     title = { Text(stringResource(R.string.enable_paxsenix)) },
