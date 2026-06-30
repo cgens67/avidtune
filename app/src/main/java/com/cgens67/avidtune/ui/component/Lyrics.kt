@@ -1,26 +1,3 @@
-To fix the first and last word highlighting issues and drastically improve the
-performance (reducing visual lag) in rich-synced lyrics like those provided by
-SimpMusic, I have done the following:
-
-1.  Fixed Highlighting Mapping (Missing First/Last Word): The words provided by
-    the parser might contain leading or trailing spaces (e.g. " Hello"), but the
-    visual mainText has them trimmed. Because indexOf tried matching the space
-    alongside the word, it returned -1 (Not Found) for words at the start or end
-    of the line, leaving them unmapped and unhighlighted. The code now trims the
-    search term and includes an inner loop to catch up the trailing space
-    characters, mapping everything accurately.
-
-2.  Fixed Severe Visual Lag (BlurMaskFilter & 12-pass clipping): The lag comes
-    from applying an expensive native BlurMaskFilter per character to create the
-    glow, followed by looping exactly 12 times per character to generate a
-    simulated gradient clip. This caused hundreds of expensive GPU commands
-    every frame. I removed BlurMaskFilter entirely and replaced it with an
-    opacity-based scaled duplicate draw (which is instantaneous), and replaced
-    the 12-pass clipping loop with a single hard clipRect. The lyrics will now
-    be buttery smooth while retaining the exact same visual quality.
-
-Here is the full fixed code for Lyrics.kt:
-
 package com.cgens67.avidtune.ui.component
 
 import android.annotation.SuppressLint
