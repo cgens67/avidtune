@@ -3,9 +3,10 @@ package com.cgens67.avidtune.lyrics
 import android.text.format.DateUtils
 
 object LyricsUtils {
-    val LINE_REGEX = "((\\[\\d\\d:\\d\\d\\.\\d{2,3}\\] ?)+)(.+)".toRegex()
+    val LINE_REGEX = "((\\[\\d\\d:\\d\\d\\.\\d{2,3}\\] ?)+)(.*)".toRegex()
     val TIME_REGEX = "\\[(\\d\\d):(\\d\\d)\\.(\\d{2,3})\\]".toRegex()
     val WORD_TIMING_REGEX = "^<(.+)>$".toRegex()
+    val SYNC_WORD_REGEX = "<(\\d\\d):(\\d\\d)\\.(\\d{2,3})>([^<]*)".toRegex()
 
     fun parseLyrics(lyrics: String): List<LyricsEntry> {
         val result = mutableListOf<LyricsEntry>()
@@ -18,7 +19,18 @@ object LyricsUtils {
             
             if (matchResult != null) {
                 val times = matchResult.groupValues[1]
-                val textRaw = matchResult.groupValues[3]
+                var textRaw = matchResult.groupValues[3]
+                
+                // Consume continuation lines that start with <mm:ss.xx> (SimpMusic wrapped format)
+                while (i + 1 < lines.size) {
+                    val nextLine = lines[i + 1]
+                    if (nextLine.matches(Regex("^<\\d\\d:\\d\\d\\.\\d{2,3}>.*"))) {
+                        textRaw += " " + nextLine
+                        i++
+                    } else {
+                        break
+                    }
+                }
                 
                 var isBackground = false
                 var agent: String? = null
@@ -37,7 +49,38 @@ object LyricsUtils {
                 }
                 
                 var words: List<WordTimestamp>? = null
-                if (i + 1 < lines.size) {
+                
+                // Parse SimpMusic Word Sync tags
+                if (text.contains(Regex("<\\d\\d:\\d\\d\\.\\d{2,3}>"))) {
+                    val wordMatches = SYNC_WORD_REGEX.findAll(text).toList()
+                    if (wordMatches.isNotEmpty()) {
+                        words = wordMatches.mapIndexed { index, match ->
+                            val min = match.groupValues[1].toLong()
+                            val sec = match.groupValues[2].toLong()
+                            val milString = match.groupValues[3]
+                            val mil = if (milString.length == 2) milString.toLong() * 10 else milString.toLong()
+                            val startTime = (min * 60 + sec) + mil / 1000.0
+
+                            val rawWordText = match.groupValues[4]
+                            // Strip extra metadata tags occasionally found inside
+                            val wordText = rawWordText.replace(Regex("\\[\\d\\d:\\d\\d\\.\\d{2,3}\\]"), "")
+                            
+                            val endTime = if (index < wordMatches.size - 1) {
+                                val nextMatch = wordMatches[index + 1]
+                                val nMin = nextMatch.groupValues[1].toLong()
+                                val nSec = nextMatch.groupValues[2].toLong()
+                                val nMilStr = nextMatch.groupValues[3]
+                                val nMil = if (nMilStr.length == 2) nMilStr.toLong() * 10 else nMilStr.toLong()
+                                (nMin * 60 + nSec) + nMil / 1000.0
+                            } else {
+                                startTime + 2.0 // Fallback duration for the last word
+                            }
+                            
+                            WordTimestamp(wordText, startTime, endTime, wordText.endsWith(" "))
+                        }
+                        text = words.joinToString("") { it.text }.trim()
+                    }
+                } else if (i + 1 < lines.size) {
                     val nextLine = lines[i + 1]
                     val wordMatch = WORD_TIMING_REGEX.matchEntire(nextLine)
                     if (wordMatch != null) {
