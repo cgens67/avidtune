@@ -21,6 +21,7 @@ constructor(
         LyricsPlusProvider,
         PaxsenixLyricsProvider,
         BetterLyricsProvider,
+        SimpMusicLyricsProvider,
         LrcLibLyricsProvider,
         KuGouLyricsProvider,
         YouTubeSubtitleLyricsProvider,
