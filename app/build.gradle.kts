@@ -165,6 +165,7 @@ dependencies {
     implementation(project(":jossredconnect"))
     implementation(project(":betterlyrics"))
     implementation(project(":paxsenix"))
+    implementation(project(":simpmusic"))
 
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.cio)
