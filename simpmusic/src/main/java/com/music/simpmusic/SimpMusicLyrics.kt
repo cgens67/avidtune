@@ -49,6 +49,94 @@ object SimpMusicLyrics {
         }
     }
 
+    private fun processLyrics(lyrics: String): String {
+        // Fix HTML entities
+        var processed = lyrics.replace("&#x27;", "'")
+            .replace("&#39;", "'")
+            .replace("&quot;", "\"")
+            .replace("&amp;", "&")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+
+        val result = StringBuilder()
+        val lines = processed.lines()
+
+        val timeTagRegex = Regex("^\\[\\d{2}:\\d{2}\\.\\d{2,3}\\]")
+        val chunkRegex = Regex("(<\\d{2}:\\d{2}\\.\\d{2,3}>)?([^<]*)")
+
+        for (line in lines) {
+            val timeMatch = timeTagRegex.find(line)
+            if (timeMatch != null) {
+                val timeTag = timeMatch.value
+                val textPart = line.substring(timeTag.length).trimStart()
+
+                val textWithoutSync = textPart.replace(Regex("<[^>]+>"), "").trim()
+                if (textWithoutSync.startsWith("(")) {
+                    // The whole line is background
+                    result.append(timeTag).append(" {bg}").append(textPart).append("\n")
+                } else if (textWithoutSync.contains("(")) {
+                    // Split main and background vocals
+                    val mainPart = java.lang.StringBuilder()
+                    val bgPart = java.lang.StringBuilder()
+                    var inBg = false
+                    var firstBgTimeTag: String? = null
+
+                    val matches = chunkRegex.findAll(textPart)
+                    for (match in matches) {
+                        val syncTag = match.groups[1]?.value
+                        val text = match.groups[2]?.value ?: ""
+                        if (syncTag == null && text.isEmpty()) continue
+                        
+                        val firstNonWhitespaceIdx = text.indexOfFirst { !it.isWhitespace() }
+                        val isFirstCharParen = firstNonWhitespaceIdx != -1 && text[firstNonWhitespaceIdx] == '('
+                        
+                        if (isFirstCharParen && !inBg) {
+                            inBg = true
+                            if (firstBgTimeTag == null && syncTag != null) {
+                                firstBgTimeTag = syncTag
+                            }
+                            if (syncTag != null) bgPart.append(syncTag)
+                        } else {
+                            if (syncTag != null) {
+                                if (inBg) bgPart.append(syncTag) else mainPart.append(syncTag)
+                            }
+                        }
+                        
+                        for (i in text.indices) {
+                            val c = text[i]
+                            if (c == '(') {
+                                inBg = true
+                            }
+                            
+                            if (inBg) bgPart.append(c) else mainPart.append(c)
+                            
+                            if (c == ')') {
+                                inBg = false
+                            }
+                        }
+                    }
+
+                    val mainStr = mainPart.toString().trim()
+                    val bgStr = bgPart.toString().trim()
+
+                    if (mainStr.isNotEmpty()) {
+                        result.append(timeTag).append(" ").append(mainStr.replace(Regex(" {2,}"), " ")).append("\n")
+                    }
+                    if (bgStr.isNotEmpty()) {
+                        // Inherit or adjust the time tag for the background vocal line
+                        val bgTimeTag = firstBgTimeTag?.replace("<", "[")?.replace(">", "]") ?: timeTag
+                        result.append(bgTimeTag).append(" {bg}").append(bgStr).append("\n")
+                    }
+                } else {
+                    result.append(line).append("\n")
+                }
+            } else {
+                result.append(line).append("\n")
+            }
+        }
+        return result.toString().trimEnd()
+    }
+
     suspend fun getLyricsByVideoId(videoId: String): List<LyricsData> {
         val primaryAttempt = runCatching {
             val response = client.get(BASE_URL + videoId)
@@ -123,7 +211,7 @@ object SimpMusicLyrics {
             ?: bestMatch?.plainLyrics?.takeIf { it.isNotBlank() }
             ?: throw IllegalStateException("Lyrics unavailable")
         
-        lyrics
+        processLyrics(lyrics)
     }
 
     suspend fun getAllLyrics(
@@ -149,15 +237,15 @@ object SimpMusicLyrics {
                 // Prioritize richSyncLyrics for word-by-word sync
                 if (track.richSyncLyrics != null && track.richSyncLyrics.isNotBlank() && durationMatch) {
                     count++
-                    callback(track.richSyncLyrics)
+                    callback(processLyrics(track.richSyncLyrics))
                 } else if (track.syncedLyrics != null && track.syncedLyrics.isNotBlank() && durationMatch) {
                     count++
-                    callback(track.syncedLyrics)
+                    callback(processLyrics(track.syncedLyrics))
                 }
                 if (track.plainLyrics != null && track.plainLyrics.isNotBlank() && durationMatch && plain == 0) {
                     count++
                     plain++
-                    callback(track.plainLyrics)
+                    callback(processLyrics(track.plainLyrics))
                 }
             }
         }
