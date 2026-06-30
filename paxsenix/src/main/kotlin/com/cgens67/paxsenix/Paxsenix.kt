@@ -374,7 +374,7 @@ object Paxsenix {
                 .map { line -> line.text.joinToString(" ") { it.text } }
                 .filter { it.isNotBlank() }
                 .joinToString("\n")
-            Timber.d("Generated plain (non-synced) lyrics: ${response.content.size} lines")
+            Timber.d("Generated plain (non-non-synced) lyrics: ${response.content.size} lines")
             return@runCatching plain
         }
 
@@ -493,7 +493,8 @@ object Paxsenix {
                 val indexJsResponse = httpClient.get("https://beta.music.apple.com$indexJsUri")
                 val indexJsBody = indexJsResponse.bodyAsText()
 
-                val tokenRegex = Regex("""eyJh([^"]*)""")
+                // FIX IS HERE: More robust JWT matching regex
+                val tokenRegex = Regex("""eyJ[A-Za-z0-9\-_=]+\.[A-Za-z0-9\-_=]+\.[A-Za-z0-9\-_=]+""")
                 val tokenMatch = tokenRegex.find(indexJsBody)
                     ?: throw Exception("Could not find token")
 
