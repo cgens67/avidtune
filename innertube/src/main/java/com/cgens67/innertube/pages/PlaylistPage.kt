@@ -37,13 +37,13 @@ data class PlaylistPage(
                         ?.text
                         ?.runs
                         ?.oddElements()
+                        ?.filter { it.text.parseTime() == null }
                         ?.map {
                             Artist(
                                 name = it.text,
                                 id = it.navigationEndpoint?.browseEndpoint?.browseId,
                             )
-                        }.orEmpty()
-                        .ifEmpty { return null },
+                        }.orEmpty(),
                 album =
                     renderer.flexColumns.getOrNull(2)?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.firstOrNull()?.let {
                         Album(
