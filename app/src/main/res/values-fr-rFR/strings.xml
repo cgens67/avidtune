@@ -1036,6 +1036,7 @@
     
     <string name="export">Exporter</string>
     <string name="random">Aléatoire</string>
+    <string name="github_api_rate_limit_exceeded">Limite de taux de l\'API GitHub dépassée (HTTP 403). Veuillez réessayer plus tard.</string>
 
     
 </resources>
