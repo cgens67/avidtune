@@ -362,7 +362,7 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
                     } else {
                         withContext(Dispatchers.Main) { 
                             hasError = true
-                            detailedError = if (response.code == 403) "GitHub API Rate Limit Exceeded (HTTP 403). Please try again later." else "HTTP ${response.code}: ${response.message}\nURL: $urlToFetch"
+                            detailedError = if (response.code == 403) context.getString(R.string.github_api_rate_limit_exceeded) else "HTTP ${response.code}: ${response.message}\nURL: $urlToFetch"
                             isLoading = false 
                         }
                     }
@@ -403,7 +403,7 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
                         withContext(Dispatchers.Main) {
                             isFetchingOldReleases = false
                             hasError = true
-                            detailedError = if (response.code == 403) "GitHub API Rate Limit Exceeded (HTTP 403). Please try again later." else "HTTP ${response.code}: ${response.message}"
+                            detailedError = if (response.code == 403) context.getString(R.string.github_api_rate_limit_exceeded) else "HTTP ${response.code}: ${response.message}"
                         }
                         return@launch
                     }
@@ -813,7 +813,7 @@ fun CommitsContent(refreshTrigger: Int) {
                         withContext(Dispatchers.Main) {
                             isLoading = false
                             hasError = true
-                            detailedError = if (response.code == 403) "GitHub API Rate Limit Exceeded (HTTP 403). Please try again later." else "HTTP ${response.code}: ${response.message}"
+                            detailedError = if (response.code == 403) context.getString(R.string.github_api_rate_limit_exceeded) else "HTTP ${response.code}: ${response.message}"
                         }
                         return@launch
                     }
