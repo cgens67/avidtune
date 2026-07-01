@@ -33,12 +33,12 @@ object NextPage {
                     ?.firstOrNull()
                     ?.text ?: return null,
             artists =
-                longByLineRuns.firstOrNull()?.oddElements()?.map {
+                longByLineRuns.firstOrNull()?.oddElements()?.filter { it.text.parseTime() == null }?.map {
                     Artist(
                         name = it.text,
                         id = it.navigationEndpoint?.browseEndpoint?.browseId,
                     )
-                } ?: return null,
+                } ?: emptyList(),
             album =
                 longByLineRuns
                     .getOrNull(1)
