@@ -10,6 +10,7 @@ import com.cgens67.innertube.models.PlaylistItem
 import com.cgens67.innertube.models.SongItem
 import com.cgens67.innertube.models.YTItem
 import com.cgens67.innertube.models.oddElements
+import com.cgens67.innertube.utils.parseTime
 
 data class RelatedPage(
     val songs: List<SongItem>,
