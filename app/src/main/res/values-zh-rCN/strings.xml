@@ -1040,6 +1040,7 @@
     
     <string name="export">导出</string>
     <string name="random">随机</string>
+    <string name="github_api_rate_limit_exceeded">超出 GitHub API 速率限制 (HTTP 403)。请稍后再试。</string>
 
     
 </resources>
