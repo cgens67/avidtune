@@ -86,9 +86,9 @@ object SearchPage {
                 SongItem(
                     id = renderer.videoId ?: return null,
                     title = renderer.flexColumns.firstOrNull()?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.firstOrNull()?.text ?: return null,
-                    artists = secondaryLine.getOrNull(fallbackIndex)?.oddElements()?.map {
+                    artists = secondaryLine.getOrNull(fallbackIndex)?.oddElements()?.filter { it.text.parseTime() == null }?.map {
                         Artist(name = it.text, id = it.navigationEndpoint?.browseEndpoint?.browseId)
-                    } ?: return null,
+                    } ?: emptyList(),
                     album = secondaryLine.getOrNull(fallbackIndex + 1)?.firstOrNull()?.takeIf { it.navigationEndpoint?.browseEndpoint != null }?.let {
                         Album(name = it.text, id = it.navigationEndpoint?.browseEndpoint?.browseId!!)
                     },
