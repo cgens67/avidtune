@@ -1,6 +1,7 @@
 package com.cgens67.innertube
 
 import com.cgens67.innertube.models.AccountInfo
+import com.cgens67.innertube.models.Album
 import com.cgens67.innertube.models.AlbumItem
 import com.cgens67.innertube.models.Artist
 import com.cgens67.innertube.models.ArtistItem
@@ -123,11 +124,34 @@ object YouTube {
 
         contents.forEach { content ->
             if (content.musicCardShelfRenderer != null) {
-                val items = listOfNotNull(SearchSummaryPage.fromMusicCardShelfRenderer(content.musicCardShelfRenderer))
+                val mainItem = SearchSummaryPage.fromMusicCardShelfRenderer(content.musicCardShelfRenderer)
+                val fallbackArtists = when (mainItem) {
+                    is ArtistItem -> listOf(Artist(name = mainItem.title, id = mainItem.id))
+                    is AlbumItem -> mainItem.artists
+                    is SongItem -> mainItem.artists
+                    else -> null
+                }
+                val fallbackAlbum = if (mainItem is AlbumItem) Album(name = mainItem.title, id = mainItem.id) else null
+
+                val items = listOfNotNull(mainItem)
                     .plus(
                         content.musicCardShelfRenderer.contents
                             ?.mapNotNull { it.musicResponsiveListItemRenderer }
-                            ?.mapNotNull(SearchSummaryPage.Companion::fromMusicResponsiveListItemRenderer)
+                            ?.mapNotNull { renderer ->
+                                val parsedItem = SearchSummaryPage.fromMusicResponsiveListItemRenderer(renderer)
+                                if (parsedItem is SongItem) {
+                                    var updatedItem = parsedItem
+                                    if (updatedItem.artists.isEmpty() && fallbackArtists != null) {
+                                        updatedItem = updatedItem.copy(artists = fallbackArtists)
+                                    }
+                                    if (updatedItem.album == null && fallbackAlbum != null) {
+                                        updatedItem = updatedItem.copy(album = fallbackAlbum)
+                                    }
+                                    updatedItem
+                                } else {
+                                    parsedItem
+                                }
+                            }
                             .orEmpty()
                     )
                     .distinctBy { it.id }
