@@ -209,9 +209,14 @@ data class SearchSummaryPage(
                         id = renderer.videoId ?: return null,
                         title = renderer.flexColumns.firstOrNull()?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.firstOrNull()?.text ?: return null,
                         artists = if (artist.isEmpty()) {
-                            secondaryLine.getOrNull(fallbackIndex)?.oddElements()?.map {
-                                Artist(name = it.text, id = it.navigationEndpoint?.browseEndpoint?.browseId)
-                            } ?: return null
+                            val fallbackRuns = secondaryLine.getOrNull(fallbackIndex)?.oddElements()
+                            if (fallbackRuns != null && fallbackRuns.firstOrNull()?.text?.parseTime() == null) {
+                                fallbackRuns.map {
+                                    Artist(name = it.text, id = it.navigationEndpoint?.browseEndpoint?.browseId)
+                                }
+                            } else {
+                                emptyList()
+                            }
                         } else {
                             artist
                         },
