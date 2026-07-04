@@ -1070,5 +1070,6 @@
     <string name="client_desc_ios">Standard iOS client.</string>
     <string name="client_desc_web">Standard web client.</string>
     <string name="client_desc_web_creator">Web creator studio client.</string>
+    <string name="playback_client">Playback client</string>
     
 </resources>
