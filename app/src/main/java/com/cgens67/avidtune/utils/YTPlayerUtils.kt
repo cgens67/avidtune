@@ -42,6 +42,7 @@ object YTPlayerUtils {
         val format: PlayerResponse.StreamingData.Format,
         val streamUrl: String,
         val streamExpiresInSeconds: Int,
+        val clientName: String,
     )
     /**
      * Custom player response intended to use for playback.
@@ -93,6 +94,8 @@ object YTPlayerUtils {
         var streamUrl: String? = null
         var streamExpiresInSeconds: Int? = null
         var streamPlayerResponse: PlayerResponse? = null
+
+        var successfulClient: YouTubeClient? = null
 
         for (clientIndex in (-1 until fallbackClients.size)) {
             // reset for each client
@@ -158,12 +161,14 @@ object YTPlayerUtils {
                 if (clientIndex == fallbackClients.size - 1) {
                     /** skip [validateStatus] for last client */
                     Timber.tag(logTag).d("Using last fallback client without validation: ${client.clientName}")
+                    successfulClient = client
                     break
                 }
 
                 if (validateStatus(streamUrl)) {
                     // working stream found
                     Timber.tag(logTag).d("Stream validated successfully with client: ${client.clientName}")
+                    successfulClient = client
                     break
                 } else {
                     Timber.tag(logTag).d("Stream validation failed for client: ${client.clientName}")
@@ -211,6 +216,7 @@ object YTPlayerUtils {
             format,
             streamUrl,
             streamExpiresInSeconds,
+            successfulClient?.clientName ?: mainClient.clientName
         )
     }
     /**
