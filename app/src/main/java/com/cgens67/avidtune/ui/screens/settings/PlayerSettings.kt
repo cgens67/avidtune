@@ -491,6 +491,7 @@ private fun NerdStatsSection(playerConnection: PlayerConnection?) {
 
     val currentFormat by playerConnection.currentFormat.collectAsState(initial = null)
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
+    val currentClient by playerConnection.currentClient.collectAsState()
     val player = playerConnection.player
 
     var bufferPercentage by remember { mutableIntStateOf(0) }
@@ -706,6 +707,18 @@ private fun NerdStatsSection(playerConnection: PlayerConnection?) {
                         label = stringResource(R.string.speed),
                         value = stringResource(R.string.format_speed, playbackSpeed),
                         modifier = Modifier.weight(1f)
+                    )
+                }
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    NerdStatChip(
+                        icon = R.drawable.link,
+                        label = stringResource(R.string.playback_client),
+                        value = currentClient ?: stringResource(R.string.unknown),
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
 
