@@ -638,7 +638,7 @@ class MusicService :
         return false
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    @RequiresApi(Build.VERSION.CODES.O)
     private fun abandonAudioFocus() {
         if (hasAudioFocus) {
             audioFocusRequest?.let { request ->
@@ -1295,7 +1295,13 @@ class MusicService :
         return ResolvingDataSource.Factory(createCacheDataSource()) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")
 
-            if (downloadCache.isCached(
+            val reqLength = if (dataSpec.length != C.LENGTH_UNSET.toLong()) dataSpec.length else Long.MAX_VALUE
+            val downloadCachedLen = downloadCache.getCachedLength(mediaId, dataSpec.position, reqLength)
+            val playerCachedLen = playerCache.getCachedLength(mediaId, dataSpec.position, reqLength)
+            val maxCachedLen = kotlin.math.max(downloadCachedLen, playerCachedLen)
+
+            if (maxCachedLen > 0 ||
+                downloadCache.isCached(
                     mediaId,
                     dataSpec.position,
                     if (dataSpec.length >= 0) dataSpec.length else 1
@@ -1312,7 +1318,7 @@ class MusicService :
                     }
                 }
                 
-                return@Factory dataSpec
+                return@Factory if (maxCachedLen > 0) dataSpec.subrange(0, maxCachedLen) else dataSpec
             }
 
             songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
