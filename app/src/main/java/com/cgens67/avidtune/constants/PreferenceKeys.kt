@@ -137,7 +137,6 @@ val PlaylistEditLockKey = booleanPreferencesKey("playlistEditLock")
 val QuickPicksKey = stringPreferencesKey("discover")
 val PreferredLyricsProviderKey = stringPreferencesKey("lyricsProvider")
 val LyricsProviderOrderKey = stringPreferencesKey("lyricsProviderOrder")
-val PlayerClientOrderKey = stringPreferencesKey("playerClientOrder")
 val QueueEditLockKey = booleanPreferencesKey("queueEditLock")
 
 val LyricFontSizeKey = intPreferencesKey("lyricFontSize")
