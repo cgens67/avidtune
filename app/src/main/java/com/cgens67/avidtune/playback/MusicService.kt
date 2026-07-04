@@ -1099,7 +1099,8 @@ class MusicService :
     ) {
         lastPlaybackSpeed = -1.0f
 
-        currentClient.value = mediaItem?.mediaId?.let { clientCache[it] }
+        val cacheKey = mediaItem?.localConfiguration?.customCacheKey ?: mediaItem?.mediaId
+        currentClient.value = cacheKey?.let { clientCache[it] }
 
         setupLoudnessEnhancer()
 
@@ -1302,12 +1303,29 @@ class MusicService :
                 playerCache.isCached(mediaId, dataSpec.position, CHUNK_LENGTH)
             ) {
                 scope.launch(Dispatchers.IO) { recoverSong(mediaId) }
+                
+                clientCache[mediaId] = "Cache"
+                scope.launch(Dispatchers.Main) {
+                    val currentCacheKey = player.currentMediaItem?.localConfiguration?.customCacheKey ?: player.currentMediaItem?.mediaId
+                    if (mediaId == currentCacheKey) {
+                        currentClient.value = "Cache"
+                    }
+                }
+                
                 return@Factory dataSpec
             }
 
             songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
                 scope.launch(Dispatchers.IO) { recoverSong(mediaId) }
                 val length = if (dataSpec.length == C.LENGTH_UNSET.toLong()) CHUNK_LENGTH else kotlin.math.min(dataSpec.length, CHUNK_LENGTH)
+                
+                scope.launch(Dispatchers.Main) {
+                    val currentCacheKey = player.currentMediaItem?.localConfiguration?.customCacheKey ?: player.currentMediaItem?.mediaId
+                    if (mediaId == currentCacheKey) {
+                        currentClient.value = clientCache[mediaId] ?: "Cache"
+                    }
+                }
+                
                 return@Factory dataSpec.withUri(it.first.toUri())
                     .subrange(0, length)
             }
@@ -1355,8 +1373,11 @@ class MusicService :
                 val format = playbackData.format
 
                 clientCache[mediaId] = playbackData.clientName
-                if (mediaId == player.currentMediaItem?.mediaId) {
-                    currentClient.update { playbackData.clientName }
+                scope.launch(Dispatchers.Main) {
+                    val currentCacheKey = player.currentMediaItem?.localConfiguration?.customCacheKey ?: player.currentMediaItem?.mediaId
+                    if (mediaId == currentCacheKey) {
+                        currentClient.value = playbackData.clientName
+                    }
                 }
 
                 database.query {
