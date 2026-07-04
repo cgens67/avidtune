@@ -79,6 +79,7 @@ import com.cgens67.avidtune.constants.MediaSessionConstants.CommandToggleRepeatM
 import com.cgens67.avidtune.constants.MediaSessionConstants.CommandToggleShuffle
 import com.cgens67.avidtune.constants.PauseListenHistoryKey
 import com.cgens67.avidtune.constants.PersistentQueueKey
+import com.cgens67.avidtune.constants.PlayerClientOrderKey
 import com.cgens67.avidtune.constants.PlayerVolumeKey
 import com.cgens67.avidtune.constants.RepeatModeKey
 import com.cgens67.avidtune.constants.ShowLyricsKey
@@ -620,7 +621,7 @@ class MusicService :
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    @RequiresApi(Build.VERSION.CODES.O)
     private fun requestAudioFocus(): Boolean {
         if (hasAudioFocus) return true
 
@@ -1306,11 +1307,15 @@ class MusicService :
 
             val ytLogTag = "YouTube"
             try {
+                val clientOrder = runBlocking(Dispatchers.IO) {
+                    dataStore.data.map { it[PlayerClientOrderKey] }.first()
+                }
                 val playbackData = runBlocking(Dispatchers.IO) {
                     YTPlayerUtils.playerResponseForPlayback(
                         mediaId,
                         audioQuality = audioQuality,
                         connectivityManager = connectivityManager,
+                        clientOrder = clientOrder
                     )
                 }.getOrElse { throwable ->
                     when (throwable) {
