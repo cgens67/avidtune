@@ -1,3 +1,5 @@
+--- START OF FILE avidtune-master/app/src/main/java/com/cgens67/avidtune/playback/DownloadUtil.kt ---
+
 package com.cgens67.avidtune.playback
 
 import android.content.Context
@@ -68,11 +70,12 @@ constructor(
             val length = if (dataSpec.length >= 0) dataSpec.length else 1
 
             if (playerCache.isCached(mediaId, dataSpec.position, length)) {
-                return@Factory dataSpec
+                val newLength = if (dataSpec.length == androidx.media3.common.C.LENGTH_UNSET.toLong()) MusicService.CHUNK_LENGTH else kotlin.math.min(dataSpec.length, MusicService.CHUNK_LENGTH)
+                return@Factory dataSpec.subrange(0, newLength)
             }
 
             songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
-                val newLength = if (dataSpec.length == androidx.media3.common.C.LENGTH_UNSET.toLong()) 512 * 1024L else kotlin.math.min(dataSpec.length, 512 * 1024L)
+                val newLength = if (dataSpec.length == androidx.media3.common.C.LENGTH_UNSET.toLong()) MusicService.CHUNK_LENGTH else kotlin.math.min(dataSpec.length, MusicService.CHUNK_LENGTH)
                 return@Factory dataSpec.withUri(it.first.toUri())
                     .subrange(0, newLength)
             }
@@ -112,7 +115,7 @@ constructor(
             songUrlCache[mediaId] =
                 streamUrl to System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L)
             
-            val newLength = if (dataSpec.length == androidx.media3.common.C.LENGTH_UNSET.toLong()) 512 * 1024L else kotlin.math.min(dataSpec.length, 512 * 1024L)
+            val newLength = if (dataSpec.length == androidx.media3.common.C.LENGTH_UNSET.toLong()) MusicService.CHUNK_LENGTH else kotlin.math.min(dataSpec.length, MusicService.CHUNK_LENGTH)
             dataSpec.withUri(streamUrl.toUri()).subrange(0, newLength)
         }
     val downloadNotificationHelper =
