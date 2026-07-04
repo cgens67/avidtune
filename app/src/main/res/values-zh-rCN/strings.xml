@@ -1041,6 +1041,14 @@
     <string name="export">导出</string>
     <string name="random">随机</string>
     <string name="github_api_rate_limit_exceeded">超出 GitHub API 速率限制 (HTTP 403)。请稍后再试。</string>
-
     
+    <string name="playback_fallback_priority">播放后备优先级</string>
+    <string name="playback_fallback_priority_desc">重新排序用于获取流的客户端以绕过限制。</string>
+    <string name="client_desc_web_remix">直接拉取流，无需签名解密。</string>
+    <string name="client_desc_android_vr">虚拟现实客户端，无身份验证。</string>
+    <string name="client_desc_android">标准移动客户端。</string>
+    <string name="client_desc_tv_embedded">嵌入式电视播放器客户端。</string>
+    <string name="client_desc_ios">标准 iOS 客户端。</string>
+    <string name="client_desc_web">标准网页客户端。</string>
+    <string name="client_desc_web_creator">网页创作者工作室客户端。</string>
 </resources>
