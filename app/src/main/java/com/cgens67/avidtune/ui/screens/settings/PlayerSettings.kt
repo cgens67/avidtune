@@ -3,6 +3,7 @@
 package com.cgens67.avidtune.ui.screens.settings
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -14,17 +15,25 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.background
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -33,11 +42,14 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -47,12 +59,17 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -72,6 +89,7 @@ import com.cgens67.avidtune.constants.AudioQuality
 import com.cgens67.avidtune.constants.AudioQualityKey
 import com.cgens67.avidtune.constants.AutoSkipNextOnErrorKey
 import com.cgens67.avidtune.constants.PersistentQueueKey
+import com.cgens67.avidtune.constants.PlayerClientOrderKey
 import com.cgens67.avidtune.constants.SkipSilenceKey
 import com.cgens67.avidtune.constants.SponsorBlockEnabledKey
 import com.cgens67.avidtune.constants.StopMusicOnTaskClearKey
@@ -79,15 +97,18 @@ import com.cgens67.avidtune.constants.SeekIncrementKey
 import com.cgens67.avidtune.playback.PlayerConnection
 import com.cgens67.avidtune.ui.component.EnumListPreference
 import com.cgens67.avidtune.ui.component.ListPreference
-import com.cgens67.avidtune.ui.component.IconButton
+import com.cgens67.avidtune.ui.component.PreferenceEntry
 import com.cgens67.avidtune.ui.component.SettingsGeneralCategory
 import com.cgens67.avidtune.ui.component.SettingsPage
 import com.cgens67.avidtune.ui.component.SwitchPreference
-import com.cgens67.avidtune.ui.utils.backToMain
+import com.cgens67.avidtune.ui.component.draggableHandle
 import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -138,6 +159,28 @@ fun PlayerSettings(
         defaultValue = false
     )
 
+    val defaultClientOrder = listOf("WEB_REMIX", "ANDROID_VR", "ANDROID", "TVHTML5_SIMPLY_EMBEDDED_PLAYER", "IOS", "WEB", "WEB_CREATOR")
+    val (clientOrderStr, onClientOrderChange) = rememberPreference(PlayerClientOrderKey, defaultClientOrder.joinToString(","))
+    val currentClientOrder = remember(clientOrderStr) {
+        clientOrderStr.split(",").filter { it.isNotBlank() }.let { saved ->
+            val missing = defaultClientOrder.filter { it !in saved }
+            saved + missing
+        }
+    }
+
+    var showClientReorderDialog by remember { mutableStateOf(false) }
+
+    if (showClientReorderDialog) {
+        ReorderPlayerClientsBottomSheet(
+            currentOrder = currentClientOrder,
+            onDismiss = { showClientReorderDialog = false },
+            onSave = { newOrder ->
+                onClientOrderChange(newOrder.joinToString(","))
+                showClientReorderDialog = false
+            }
+        )
+    }
+
     val playerConnection = LocalPlayerConnection.current
 
     SettingsPage(
@@ -160,6 +203,13 @@ fun PlayerSettings(
                             AudioQuality.LOW -> stringResource(R.string.audio_quality_low)
                         }
                     }
+                )},
+
+                {PreferenceEntry(
+                    title = { Text("Playback Fallback Clients") },
+                    description = "Reorder clients used for fetching streams to bypass restrictions",
+                    icon = { Icon(painterResource(R.drawable.list), null) },
+                    onClick = { showClientReorderDialog = true }
                 )},
                 
                 {ListPreference(
@@ -255,6 +305,162 @@ fun PlayerSettings(
             ) {
                 Spacer(modifier = Modifier.height(8.dp))
                 NerdStatsSection(playerConnection = playerConnection)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ReorderPlayerClientsBottomSheet(
+    currentOrder: List<String>,
+    onDismiss: () -> Unit,
+    onSave: (List<String>) -> Unit
+) {
+    val list = remember { currentOrder.toMutableStateList() }
+    val lazyListState = rememberLazyListState()
+    val reorderableState = rememberReorderableLazyListState(lazyListState) { from, to ->
+        val item = list.removeAt(from.index)
+        list.add(to.index, item)
+    }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val coroutineScope = rememberCoroutineScope()
+
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                return Offset(0f, available.y)
+            }
+        }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .nestedScroll(nestedScrollConnection)
+                .windowInsetsPadding(WindowInsets(bottom = 16.dp))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
+                    Text(
+                        text = "Fallback Priority",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Reorder clients used for fetching streams.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(
+                        onClick = {
+                            coroutineScope.launch {
+                                sheetState.hide()
+                                onDismiss()
+                            }
+                        }
+                    ) {
+                        Text(stringResource(android.R.string.cancel))
+                    }
+                    Button(
+                        onClick = {
+                            coroutineScope.launch {
+                                sheetState.hide()
+                                onSave(list)
+                            }
+                        }
+                    ) {
+                        Text(stringResource(R.string.save))
+                    }
+                }
+            }
+
+            HorizontalDivider()
+
+            LazyColumn(
+                state = lazyListState,
+                contentPadding = PaddingValues(bottom = 80.dp, top = 8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 400.dp)
+            ) {
+                items(list, key = { it }) { item ->
+                    ReorderableItem(reorderableState, key = item) { isDragging ->
+                        val elevation by animateDpAsState(if (isDragging) 8.dp else 0.dp, label = "elevation")
+                        
+                        val index = list.indexOf(item)
+                        
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
+                            tonalElevation = elevation,
+                            shadowElevation = elevation,
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isDragging) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surfaceContainer
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(16.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .background(
+                                            if (index == 0) MaterialTheme.colorScheme.primary 
+                                            else MaterialTheme.colorScheme.surfaceVariant,
+                                            CircleShape
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "${index + 1}",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = if (index == 0) MaterialTheme.colorScheme.onPrimary 
+                                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                
+                                Spacer(Modifier.width(16.dp))
+                                
+                                Text(
+                                    text = item,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = if (index == 0) FontWeight.Bold else FontWeight.Normal,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                
+                                Icon(
+                                    painter = painterResource(R.drawable.drag_handle),
+                                    contentDescription = "Drag",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier
+                                        .draggableHandle()
+                                        .padding(8.dp)
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }
