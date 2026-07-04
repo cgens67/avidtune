@@ -344,7 +344,6 @@ fun BottomSheetPlayer(
     val icBackgroundColor =
         when (playerBackground) {
             PlayerBackgroundStyle.DEFAULT -> MaterialTheme.colorScheme.surface
-            PlayerBackgroundStyle.LIVE_MESH -> Color.White
             else -> Color.Black
         }
 
@@ -626,7 +625,8 @@ fun BottomSheetPlayer(
                                     canSkipPrevious = canSkipPrevious,
                                     canSkipNext = canSkipNext,
                                     textBackgroundColor = TextBackgroundColor,
-                                    icBackgroundColor = icBackgroundColor,
+                                    textButtonColor = textButtonColor,
+                                    iconButtonColor = iconButtonColor,
                                     playerConnection = playerConnection,
                                     shuffleModeEnabled = playerConnection.player.shuffleModeEnabled
                                 )
@@ -786,7 +786,8 @@ fun BottomSheetPlayer(
                                 canSkipPrevious = canSkipPrevious,
                                 canSkipNext = canSkipNext,
                                 textBackgroundColor = TextBackgroundColor,
-                                icBackgroundColor = icBackgroundColor,
+                                textButtonColor = textButtonColor,
+                                iconButtonColor = iconButtonColor,
                                 playerConnection = playerConnection,
                                 shuffleModeEnabled = playerConnection.player.shuffleModeEnabled
                             )
@@ -1641,7 +1642,8 @@ fun PlayerPlaybackControlsV3(
     canSkipPrevious: Boolean,
     canSkipNext: Boolean,
     textBackgroundColor: Color,
-    icBackgroundColor: Color,
+    textButtonColor: Color,
+    iconButtonColor: Color,
     playerConnection: PlayerConnection,
     shuffleModeEnabled: Boolean
 ) {
@@ -1697,7 +1699,7 @@ fun PlayerPlaybackControlsV3(
                 modifier = Modifier
                     .size(70.dp)
                     .clip(RoundedCornerShape(50))
-                    .background(textBackgroundColor)
+                    .background(textButtonColor)
                     .clickable {
                         if (playbackState == STATE_ENDED) {
                             playerConnection.player.seekTo(0, 0)
@@ -1711,7 +1713,7 @@ fun PlayerPlaybackControlsV3(
                 if (isLoading) {
                     androidx.compose.material3.CircularProgressIndicator(
                         modifier = Modifier.size(32.dp),
-                        color = icBackgroundColor,
+                        color = iconButtonColor,
                         strokeWidth = 2.5.dp
                     )
                 } else {
@@ -1724,7 +1726,7 @@ fun PlayerPlaybackControlsV3(
                             }
                         ),
                         contentDescription = null,
-                        tint = icBackgroundColor,
+                        tint = iconButtonColor,
                         modifier = Modifier.size(34.dp)
                     )
                 }
