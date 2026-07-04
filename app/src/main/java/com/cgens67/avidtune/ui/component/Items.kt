@@ -975,6 +975,23 @@ fun AlbumGridItem(
             modifier = Modifier.fillMaxSize(),
         )
 
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 8.dp)
+                .size(24.dp)
+                .clip(CircleShape)
+                .background(Color.Black.copy(alpha = 0.6f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.album),
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(14.dp)
+            )
+        }
+
         AnimatedVisibility(
             visible = isActive,
             enter = fadeIn(tween(500)),
@@ -1062,6 +1079,23 @@ fun AlbumSmallGridItem(
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
             )
+
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 4.dp)
+                    .size(20.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.6f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.album),
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(12.dp)
+                )
+            }
 
             AnimatedVisibility(
                 visible = isActive,
@@ -1657,6 +1691,25 @@ fun YouTubeGridItem(
                         .clip(RoundedCornerShape(ThumbnailCornerRadius)),
             )
 
+            if (item is AlbumItem) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 8.dp)
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.6f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.album),
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
+
             androidx.compose.animation.AnimatedVisibility(
                 visible = item is AlbumItem && !isActive,
                 enter = fadeIn(),
@@ -1829,6 +1882,26 @@ fun YouTubeSmallGridItem(
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(ThumbnailCornerRadius)),
         )
+        
+        if (item is AlbumItem) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 4.dp)
+                    .size(20.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.6f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.album),
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(12.dp)
+                )
+            }
+        }
+
         if (item is SongItem) {
             AnimatedVisibility(
                 visible = isActive,
@@ -2070,6 +2143,23 @@ fun LocalAlbumsGrid(
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
         )
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 8.dp)
+                .size(24.dp)
+                .clip(CircleShape)
+                .background(Color.Black.copy(alpha = 0.6f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.album),
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(14.dp)
+            )
+        }
 
         AnimatedVisibility(
             visible = isActive,
