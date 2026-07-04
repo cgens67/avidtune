@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -494,7 +495,7 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
             )
             .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom))
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             if (filteredReleases.isNotEmpty()) {
                 Row(
                     modifier = Modifier
@@ -582,7 +583,7 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
                     }
                 }
             } else if (!isFetchingOldReleases && !isLoading && !hasError) {
-                Box(modifier = Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.fillMaxWidth().heightIn(min = 300.dp).padding(32.dp), contentAlignment = Alignment.Center) {
                     Text(
                         text = if (isBetaTab) stringResource(R.string.no_beta_releases) else stringResource(R.string.no_stable_releases),
                         style = MaterialTheme.typography.bodyLarge,
@@ -592,7 +593,7 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
             }
 
             if (hasError && !isLoading && !isFetchingOldReleases) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.fillMaxWidth().heightIn(min = 400.dp), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
                         Icon(Icons.Default.Error, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp))
                         Spacer(Modifier.height(16.dp))
@@ -627,8 +628,7 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
             } else if (filteredReleases.isNotEmpty()) {
                 Column(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
+                        .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
                     updateImage?.let { imageUrl ->
