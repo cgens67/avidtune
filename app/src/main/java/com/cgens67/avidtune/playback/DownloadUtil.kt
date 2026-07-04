@@ -67,8 +67,13 @@ constructor(
             val mediaId = dataSpec.key ?: error("No media id")
             val length = if (dataSpec.length >= 0) dataSpec.length else 1
 
-            if (playerCache.isCached(mediaId, dataSpec.position, length)) {
-                val newLength = if (dataSpec.length == androidx.media3.common.C.LENGTH_UNSET.toLong()) MusicService.CHUNK_LENGTH else kotlin.math.min(dataSpec.length, MusicService.CHUNK_LENGTH)
+            val reqLength = if (dataSpec.length != androidx.media3.common.C.LENGTH_UNSET.toLong()) dataSpec.length else Long.MAX_VALUE
+            val cachedLength = playerCache.getCachedLength(mediaId, dataSpec.position, reqLength)
+
+            if (cachedLength > 0 || playerCache.isCached(mediaId, dataSpec.position, length)) {
+                val newLength = if (cachedLength > 0) cachedLength else {
+                    if (dataSpec.length == androidx.media3.common.C.LENGTH_UNSET.toLong()) MusicService.CHUNK_LENGTH else kotlin.math.min(dataSpec.length, MusicService.CHUNK_LENGTH)
+                }
                 return@Factory dataSpec.subrange(0, newLength)
             }
 
