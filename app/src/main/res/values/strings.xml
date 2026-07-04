@@ -1061,6 +1061,8 @@
     <string name="random">Random</string>
     <string name="github_api_rate_limit_exceeded">GitHub API Rate Limit Exceeded (HTTP 403). Please try again later.</string>
     
+    
+    <!-- Currently unused playback fallback priority setting-->    
     <string name="playback_fallback_priority">Playback fallback priority</string>
     <string name="playback_fallback_priority_desc">Reorder clients used for fetching streams to bypass restrictions.</string>
     <string name="client_desc_web_remix">Streams directly without signature decryption.</string>
