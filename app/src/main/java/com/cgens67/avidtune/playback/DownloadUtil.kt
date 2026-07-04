@@ -1,5 +1,3 @@
---- START OF FILE avidtune-master/app/src/main/java/com/cgens67/avidtune/playback/DownloadUtil.kt ---
-
 package com.cgens67.avidtune.playback
 
 import android.content.Context
