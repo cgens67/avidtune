@@ -61,7 +61,9 @@ constructor(
                             .Builder()
                             .proxy(YouTube.proxy)
                             .build(),
-                    ),
+                    ).setContentTypePredicate { contentType ->
+                        contentType == null || !contentType.contains("text/html")
+                    },
                 ),
         ) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")
