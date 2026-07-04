@@ -1284,7 +1284,9 @@ class MusicService :
                                     .Builder()
                                     .proxy(YouTube.proxy)
                                     .build(),
-                            ),
+                            ).setContentTypePredicate { contentType ->
+                                contentType == null || !contentType.contains("text/html")
+                            },
                         ),
                     ),
             ).setCacheWriteDataSinkFactory(null)
