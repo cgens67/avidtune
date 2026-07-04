@@ -71,6 +71,8 @@ class PlayerConnection(
     val sponsorBlockEnabled: StateFlow<Boolean> = service.sponsorBlockEnabled.asStateFlow()
     val currentSkipSegments: StateFlow<List<Pair<Long, Long>>> = service.currentSkipSegments.asStateFlow()
 
+    val currentClient: StateFlow<String?> = service.currentClient.asStateFlow()
+
     // Estados básicos del reproductor
     private val _playbackState = MutableStateFlow(player.playbackState)
     val playbackState: StateFlow<Int> = _playbackState.asStateFlow()
