@@ -971,9 +971,9 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
             onClick = { resetSearch(); navController.navigate("settings/appearance") }
         ),
         SettingsItem(
-            icon = painterResource(R.drawable.scatter_plot),
-            title = "Shape Selector",
-            keywords = listOf("shape", "selector", "customize", "button", "corners"),
+            icon = painterResource(R.drawable.line_curve),
+            title = stringResource(R.string.shape_and_corners),
+            keywords = listOf("thumbnail", "corner", "radius", "shape", "curve"),
             onClick = { resetSearch(); navController.navigate("settings/appearance") }
         ),
         SettingsItem(
@@ -1188,6 +1188,12 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
         ),
         SettingsItem(
             icon = painterResource(R.drawable.lyrics),
+            title = "Enable SimpMusic",
+            keywords = listOf("simpmusic", "lyrics", "provider"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.lyrics),
             title = stringResource(R.string.enable_paxsenix),
             keywords = listOf("paxsenix", "lyrics", "provider"),
             onClick = { resetSearch(); navController.navigate("settings/content") }
@@ -1305,6 +1311,20 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
             title = stringResource(R.string.visitor_data_title),
             keywords = listOf("visitor", "data", "reset", "clear"),
             onClick = { resetSearch(); navController.navigate("settings/backup_restore") }
+        ),
+        
+        // Discord
+        SettingsItem(
+            icon = painterResource(R.drawable.discord),
+            title = stringResource(R.string.enable_discord_rpc),
+            keywords = listOf("discord", "rpc", "rich presence", "status"),
+            onClick = { resetSearch(); navController.navigate("settings/discord") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.info),
+            title = stringResource(R.string.discord_use_details),
+            keywords = listOf("discord", "details", "status"),
+            onClick = { resetSearch(); navController.navigate("settings/discord") }
         ),
         
         // General
