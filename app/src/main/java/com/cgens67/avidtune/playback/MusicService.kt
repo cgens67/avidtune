@@ -1268,17 +1268,46 @@ class MusicService :
         }
     }
 
+    private fun createCacheDataSource(): CacheDataSource.Factory =
+        CacheDataSource
+            .Factory()
+            .setCache(downloadCache)
+            .setUpstreamDataSourceFactory(
+                CacheDataSource
+                    .Factory()
+                    .setCache(playerCache)
+                    .setUpstreamDataSourceFactory(
+                        DefaultDataSource.Factory(
+                            this,
+                            OkHttpDataSource.Factory(
+                                OkHttpClient
+                                    .Builder()
+                                    .proxy(YouTube.proxy)
+                                    .build(),
+                            ),
+                        ),
+                    ),
+            ).setCacheWriteDataSinkFactory(null)
+            .setFlags(FLAG_IGNORE_CACHE_ON_ERROR)
+
     private fun createDataSourceFactory(): DataSource.Factory {
         val songUrlCache = HashMap<String, Pair<String, Long>>()
-        
-        val okHttpFactory = OkHttpDataSource.Factory(
-            OkHttpClient.Builder().proxy(YouTube.proxy).build()
-        )
-        
-        val resolvingFactory = ResolvingDataSource.Factory(okHttpFactory) { dataSpec ->
+        return ResolvingDataSource.Factory(createCacheDataSource()) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")
 
-            songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
+            val reqLength = if (dataSpec.length != C.LENGTH_UNSET.toLong()) dataSpec.length else Long.MAX_VALUE
+            val downloadCachedLen = downloadCache.getCachedLength(mediaId, dataSpec.position, reqLength)
+            val playerCachedLen = playerCache.getCachedLength(mediaId, dataSpec.position, reqLength)
+            val maxCachedLen = kotlin.math.max(downloadCachedLen, playerCachedLen)
+
+            if (maxCachedLen > 0 ||
+                downloadCache.isCached(
+                    mediaId,
+                    dataSpec.position,
+                    if (dataSpec.length >= 0) dataSpec.length else 1
+                ) ||
+                playerCache.isCached(mediaId, dataSpec.position, CHUNK_LENGTH)
+            ) {
                 scope.launch(Dispatchers.IO) { recoverSong(mediaId) }
                 
                 clientCache[mediaId] = "Cache"
@@ -1289,7 +1318,22 @@ class MusicService :
                     }
                 }
                 
+                return@Factory if (maxCachedLen > 0) dataSpec.subrange(0, maxCachedLen) else dataSpec
+            }
+
+            songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
+                scope.launch(Dispatchers.IO) { recoverSong(mediaId) }
+                val length = if (dataSpec.length == C.LENGTH_UNSET.toLong()) CHUNK_LENGTH else kotlin.math.min(dataSpec.length, CHUNK_LENGTH)
+                
+                scope.launch(Dispatchers.Main) {
+                    val currentCacheKey = player.currentMediaItem?.localConfiguration?.customCacheKey ?: player.currentMediaItem?.mediaId
+                    if (mediaId == currentCacheKey) {
+                        currentClient.value = clientCache[mediaId] ?: "Cache"
+                    }
+                }
+                
                 return@Factory dataSpec.withUri(it.first.toUri())
+                    .subrange(0, length)
             }
 
             val ytLogTag = "YouTube"
@@ -1304,7 +1348,34 @@ class MusicService :
                         connectivityManager = connectivityManager,
                         clientOrder = clientOrder
                     )
-                }.getOrThrow()
+                }.getOrElse { throwable ->
+                    when (throwable) {
+                        is PlaybackException -> throw throwable
+
+                        is ConnectException, is UnknownHostException -> {
+                            throw PlaybackException(
+                                getString(R.string.error_no_internet),
+                                throwable,
+                                PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED
+                            )
+                        }
+
+                        is SocketTimeoutException -> {
+                            throw PlaybackException(
+                                getString(R.string.error_timeout),
+                                throwable,
+                                PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT
+                            )
+                        }
+
+                        else -> throw PlaybackException(
+                            getString(R.string.error_unknown),
+                            throwable,
+                            PlaybackException.ERROR_CODE_REMOTE_ERROR
+                        )
+                    }
+                }
+
                 val format = playbackData.format
 
                 clientCache[mediaId] = playbackData.clientName
@@ -1337,7 +1408,9 @@ class MusicService :
                 songUrlCache[mediaId] =
                     streamUrl to System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L)
                 
+                val length = if (dataSpec.length == C.LENGTH_UNSET.toLong()) CHUNK_LENGTH else kotlin.math.min(dataSpec.length, CHUNK_LENGTH)
                 return@Factory dataSpec.withUri(streamUrl.toUri())
+                    .subrange(0, length)
             } catch (e: Exception) {
                 Timber.tag(ytLogTag).e(e, "YouTube playback error, trying JossRed as fallback")
 
@@ -1379,7 +1452,9 @@ class MusicService :
                                 Timber.tag(JRlogTag)
                                     .i("Using JossRed URL as fallback: $alternativeUrl")
                                 scope.launch(Dispatchers.IO) { recoverSong(mediaId) }
+                                val length = if (dataSpec.length == C.LENGTH_UNSET.toLong()) CHUNK_LENGTH else kotlin.math.min(dataSpec.length, CHUNK_LENGTH)
                                 return@Factory dataSpec.withUri(alternativeUrl.toUri())
+                                    .subrange(0, length)
                             } else {
                                 Timber.tag(JRlogTag)
                                     .w("JossRed URL unreachable (HTTP ${response.code}), throwing original error")
@@ -1415,20 +1490,6 @@ class MusicService :
                 }
             }
         }
-
-        val defaultDataSourceFactory = DefaultDataSource.Factory(this, resolvingFactory)
-
-        val playerCacheFactory = CacheDataSource.Factory()
-            .setCache(playerCache)
-            .setUpstreamDataSourceFactory(defaultDataSourceFactory)
-
-        val downloadCacheFactory = CacheDataSource.Factory()
-            .setCache(downloadCache)
-            .setUpstreamDataSourceFactory(playerCacheFactory)
-            .setCacheWriteDataSinkFactory(null)
-            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
-
-        return downloadCacheFactory
     }
 
     private fun createMediaSourceFactory() =
