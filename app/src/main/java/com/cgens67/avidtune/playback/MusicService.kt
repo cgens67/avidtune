@@ -86,6 +86,7 @@ import com.cgens67.avidtune.constants.ShowLyricsKey
 import com.cgens67.avidtune.constants.SimilarContent
 import com.cgens67.avidtune.constants.SkipSilenceKey
 import com.cgens67.avidtune.constants.SponsorBlockEnabledKey
+import com.cgens67.avidtune.constants.StopMusicOnTaskClearKey
 import com.cgens67.avidtune.constants.SeekIncrementKey
 import com.cgens67.avidtune.db.MusicDatabase
 import com.cgens67.avidtune.db.entities.Event
@@ -621,7 +622,7 @@ class MusicService :
         }
     }
 
-    @RequiresApi(Build.VERSION.CODES.O)
+    @RequiresApi(Build.VERSION_CODES.O)
     private fun requestAudioFocus(): Boolean {
         if (hasAudioFocus) return true
 
