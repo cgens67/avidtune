@@ -13,6 +13,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -47,8 +48,6 @@ import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -66,6 +65,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -101,7 +101,6 @@ import com.cgens67.avidtune.ui.component.PreferenceEntry
 import com.cgens67.avidtune.ui.component.SettingsGeneralCategory
 import com.cgens67.avidtune.ui.component.SettingsPage
 import com.cgens67.avidtune.ui.component.SwitchPreference
-import com.cgens67.avidtune.ui.component.draggableHandle
 import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
 import kotlinx.coroutines.delay
@@ -115,7 +114,7 @@ import kotlin.math.roundToInt
 @Composable
 fun PlayerSettings(
     navController: NavController,
-    scrollBehavior: TopAppBarScrollBehavior,
+    scrollBehavior: androidx.compose.material3.TopAppBarScrollBehavior,
 ) {
     val (audioQuality, onAudioQualityChange) = rememberEnumPreference(
         AudioQualityKey,
