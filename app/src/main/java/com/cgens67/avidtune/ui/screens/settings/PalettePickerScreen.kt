@@ -828,9 +828,9 @@ fun CustomThemeBottomSheet(
             }
 
             // Sliders
-            ColorSlider(label = "${stringResource(R.string.red_colon)} ${red.toInt()}", value = red, onValueChange = { red = it }, trackColor = Color.Red)
-            ColorSlider(label = "${stringResource(R.string.green_colon)} ${green.toInt()}", value = green, onValueChange = { green = it }, trackColor = Color.Green)
-            ColorSlider(label = "${stringResource(R.string.blue_colon)} ${blue.toInt()}", value = blue, onValueChange = { blue = it }, trackColor = Color.Blue)
+            ColorSlider(label = stringResource(R.string.red_colon, red.toInt()), value = red, onValueChange = { red = it }, trackColor = Color.Red)
+            ColorSlider(label = stringResource(R.string.green_colon, green.toInt()), value = green, onValueChange = { green = it }, trackColor = Color.Green)
+            ColorSlider(label = stringResource(R.string.blue_colon, blue.toInt()), value = blue, onValueChange = { blue = it }, trackColor = Color.Blue)
 
             Spacer(modifier = Modifier.height(8.dp))
 
