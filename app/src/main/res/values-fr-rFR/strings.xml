@@ -1047,6 +1047,7 @@
     <string name="client_desc_ios">Client iOS standard.</string>
     <string name="client_desc_web">Client web standard.</string>
     <string name="client_desc_web_creator">Client web pour créateurs.</string>
+    <string name="playback_client">Client de lecture</string>
 
     
 </resources>
