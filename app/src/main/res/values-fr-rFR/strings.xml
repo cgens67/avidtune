@@ -1037,6 +1037,16 @@
     <string name="export">Exporter</string>
     <string name="random">Aléatoire</string>
     <string name="github_api_rate_limit_exceeded">Limite de taux de l\'API GitHub dépassée (HTTP 403). Veuillez réessayer plus tard.</string>
+    
+    <string name="playback_fallback_priority">Priorité de secours de lecture</string>
+    <string name="playback_fallback_priority_desc">Réorganiser les clients utilisés pour récupérer les flux afin de contourner les restrictions.</string>
+    <string name="client_desc_web_remix">Diffuse directement sans décryptage de signature.</string>
+    <string name="client_desc_android_vr">Client de réalité virtuelle, aucune authentification.</string>
+    <string name="client_desc_android">Client mobile standard.</string>
+    <string name="client_desc_tv_embedded">Client lecteur TV intégré.</string>
+    <string name="client_desc_ios">Client iOS standard.</string>
+    <string name="client_desc_web">Client web standard.</string>
+    <string name="client_desc_web_creator">Client web pour créateurs.</string>
 
     
 </resources>
