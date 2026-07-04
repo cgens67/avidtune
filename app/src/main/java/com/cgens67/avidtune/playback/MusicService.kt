@@ -79,14 +79,12 @@ import com.cgens67.avidtune.constants.MediaSessionConstants.CommandToggleRepeatM
 import com.cgens67.avidtune.constants.MediaSessionConstants.CommandToggleShuffle
 import com.cgens67.avidtune.constants.PauseListenHistoryKey
 import com.cgens67.avidtune.constants.PersistentQueueKey
-import com.cgens67.avidtune.constants.PlayerClientOrderKey
 import com.cgens67.avidtune.constants.PlayerVolumeKey
 import com.cgens67.avidtune.constants.RepeatModeKey
 import com.cgens67.avidtune.constants.ShowLyricsKey
 import com.cgens67.avidtune.constants.SimilarContent
 import com.cgens67.avidtune.constants.SkipSilenceKey
 import com.cgens67.avidtune.constants.SponsorBlockEnabledKey
-import com.cgens67.avidtune.constants.StopMusicOnTaskClearKey
 import com.cgens67.avidtune.constants.SeekIncrementKey
 import com.cgens67.avidtune.db.MusicDatabase
 import com.cgens67.avidtune.db.entities.Event
@@ -141,7 +139,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
@@ -224,9 +221,6 @@ class MusicService :
     
     val sponsorBlockEnabled = MutableStateFlow(true)
     val currentSkipSegments = MutableStateFlow<List<Pair<Long, Long>>>(emptyList())
-
-    val clientCache = HashMap<String, String>()
-    val currentClient = MutableStateFlow<String?>(null)
 
     lateinit var sleepTimer: SleepTimer
 
@@ -1099,9 +1093,6 @@ class MusicService :
     ) {
         lastPlaybackSpeed = -1.0f
 
-        val cacheKey = mediaItem?.localConfiguration?.customCacheKey ?: mediaItem?.mediaId
-        currentClient.value = cacheKey?.let { clientCache[it] }
-
         setupLoudnessEnhancer()
 
         discordUpdateJob?.cancel()
@@ -1284,9 +1275,7 @@ class MusicService :
                                     .Builder()
                                     .proxy(YouTube.proxy)
                                     .build(),
-                            ).setContentTypePredicate { contentType ->
-                                contentType == null || !contentType.contains("text/html")
-                            },
+                            ),
                         ),
                     ),
             ).setCacheWriteDataSinkFactory(null)
@@ -1297,13 +1286,7 @@ class MusicService :
         return ResolvingDataSource.Factory(createCacheDataSource()) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")
 
-            val reqLength = if (dataSpec.length != C.LENGTH_UNSET.toLong()) dataSpec.length else Long.MAX_VALUE
-            val downloadCachedLen = downloadCache.getCachedLength(mediaId, dataSpec.position, reqLength)
-            val playerCachedLen = playerCache.getCachedLength(mediaId, dataSpec.position, reqLength)
-            val maxCachedLen = kotlin.math.max(downloadCachedLen, playerCachedLen)
-
-            if (maxCachedLen > 0 ||
-                downloadCache.isCached(
+            if (downloadCache.isCached(
                     mediaId,
                     dataSpec.position,
                     if (dataSpec.length >= 0) dataSpec.length else 1
@@ -1311,44 +1294,23 @@ class MusicService :
                 playerCache.isCached(mediaId, dataSpec.position, CHUNK_LENGTH)
             ) {
                 scope.launch(Dispatchers.IO) { recoverSong(mediaId) }
-                
-                clientCache[mediaId] = "Cache"
-                scope.launch(Dispatchers.Main) {
-                    val currentCacheKey = player.currentMediaItem?.localConfiguration?.customCacheKey ?: player.currentMediaItem?.mediaId
-                    if (mediaId == currentCacheKey) {
-                        currentClient.value = "Cache"
-                    }
-                }
-                
-                return@Factory if (maxCachedLen > 0) dataSpec.subrange(0, maxCachedLen) else dataSpec
+                return@Factory dataSpec
             }
 
             songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
                 scope.launch(Dispatchers.IO) { recoverSong(mediaId) }
                 val length = if (dataSpec.length == C.LENGTH_UNSET.toLong()) CHUNK_LENGTH else kotlin.math.min(dataSpec.length, CHUNK_LENGTH)
-                
-                scope.launch(Dispatchers.Main) {
-                    val currentCacheKey = player.currentMediaItem?.localConfiguration?.customCacheKey ?: player.currentMediaItem?.mediaId
-                    if (mediaId == currentCacheKey) {
-                        currentClient.value = clientCache[mediaId] ?: "Cache"
-                    }
-                }
-                
                 return@Factory dataSpec.withUri(it.first.toUri())
                     .subrange(0, length)
             }
 
             val ytLogTag = "YouTube"
             try {
-                val clientOrder = runBlocking(Dispatchers.IO) {
-                    dataStore.data.map { it[PlayerClientOrderKey] }.first()
-                }
                 val playbackData = runBlocking(Dispatchers.IO) {
                     YTPlayerUtils.playerResponseForPlayback(
                         mediaId,
                         audioQuality = audioQuality,
                         connectivityManager = connectivityManager,
-                        clientOrder = clientOrder
                     )
                 }.getOrElse { throwable ->
                     when (throwable) {
@@ -1379,14 +1341,6 @@ class MusicService :
                 }
 
                 val format = playbackData.format
-
-                clientCache[mediaId] = playbackData.clientName
-                scope.launch(Dispatchers.Main) {
-                    val currentCacheKey = player.currentMediaItem?.localConfiguration?.customCacheKey ?: player.currentMediaItem?.mediaId
-                    if (mediaId == currentCacheKey) {
-                        currentClient.value = playbackData.clientName
-                    }
-                }
 
                 database.query {
                     upsert(
