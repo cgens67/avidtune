@@ -15,11 +15,13 @@ import androidx.media3.exoplayer.offline.DownloadNotificationHelper
 import com.cgens67.innertube.YouTube
 import com.cgens67.avidtune.constants.AudioQuality
 import com.cgens67.avidtune.constants.AudioQualityKey
+import com.cgens67.avidtune.constants.PlayerClientOrderKey
 import com.cgens67.avidtune.db.MusicDatabase
 import com.cgens67.avidtune.db.entities.FormatEntity
 import com.cgens67.avidtune.di.DownloadCache
 import com.cgens67.avidtune.di.PlayerCache
 import com.cgens67.avidtune.utils.YTPlayerUtils
+import com.cgens67.avidtune.utils.dataStore
 import com.cgens67.avidtune.utils.enumPreference
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -76,11 +78,15 @@ constructor(
             }
 
             val playedFormat = runBlocking(Dispatchers.IO) { database.format(mediaId).first() }
+            val clientOrder = runBlocking(Dispatchers.IO) {
+                context.dataStore.data.map { it[PlayerClientOrderKey] }.first()
+            }
             val playbackData = runBlocking(Dispatchers.IO) {
                 YTPlayerUtils.playerResponseForPlayback(
                     mediaId,
                     audioQuality = audioQuality,
                     connectivityManager = connectivityManager,
+                    clientOrder = clientOrder
                 )
             }.getOrThrow()
             val format = playbackData.format
