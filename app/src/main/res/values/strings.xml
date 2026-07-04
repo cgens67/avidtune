@@ -1061,4 +1061,14 @@
     <string name="random">Random</string>
     <string name="github_api_rate_limit_exceeded">GitHub API Rate Limit Exceeded (HTTP 403). Please try again later.</string>
     
+    <string name="playback_fallback_priority">Playback fallback priority</string>
+    <string name="playback_fallback_priority_desc">Reorder clients used for fetching streams to bypass restrictions.</string>
+    <string name="client_desc_web_remix">Streams directly without signature decryption.</string>
+    <string name="client_desc_android_vr">Virtual Reality client, no authentication.</string>
+    <string name="client_desc_android">Standard mobile client.</string>
+    <string name="client_desc_tv_embedded">Embedded TV player client.</string>
+    <string name="client_desc_ios">Standard iOS client.</string>
+    <string name="client_desc_web">Standard web client.</string>
+    <string name="client_desc_web_creator">Web creator studio client.</string>
+    
 </resources>
