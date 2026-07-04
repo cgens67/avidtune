@@ -15,13 +15,11 @@ import androidx.media3.exoplayer.offline.DownloadNotificationHelper
 import com.cgens67.innertube.YouTube
 import com.cgens67.avidtune.constants.AudioQuality
 import com.cgens67.avidtune.constants.AudioQualityKey
-import com.cgens67.avidtune.constants.PlayerClientOrderKey
 import com.cgens67.avidtune.db.MusicDatabase
 import com.cgens67.avidtune.db.entities.FormatEntity
 import com.cgens67.avidtune.di.DownloadCache
 import com.cgens67.avidtune.di.PlayerCache
 import com.cgens67.avidtune.utils.YTPlayerUtils
-import com.cgens67.avidtune.utils.dataStore
 import com.cgens67.avidtune.utils.enumPreference
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -61,40 +59,28 @@ constructor(
                             .Builder()
                             .proxy(YouTube.proxy)
                             .build(),
-                    ).setContentTypePredicate { contentType ->
-                        contentType == null || !contentType.contains("text/html")
-                    },
+                    ),
                 ),
         ) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")
             val length = if (dataSpec.length >= 0) dataSpec.length else 1
 
-            val reqLength = if (dataSpec.length != androidx.media3.common.C.LENGTH_UNSET.toLong()) dataSpec.length else Long.MAX_VALUE
-            val cachedLength = playerCache.getCachedLength(mediaId, dataSpec.position, reqLength)
-
-            if (cachedLength > 0 || playerCache.isCached(mediaId, dataSpec.position, length)) {
-                val newLength = if (cachedLength > 0) cachedLength else {
-                    if (dataSpec.length == androidx.media3.common.C.LENGTH_UNSET.toLong()) MusicService.CHUNK_LENGTH else kotlin.math.min(dataSpec.length, MusicService.CHUNK_LENGTH)
-                }
-                return@Factory dataSpec.subrange(0, newLength)
+            if (playerCache.isCached(mediaId, dataSpec.position, length)) {
+                return@Factory dataSpec
             }
 
             songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
-                val newLength = if (dataSpec.length == androidx.media3.common.C.LENGTH_UNSET.toLong()) MusicService.CHUNK_LENGTH else kotlin.math.min(dataSpec.length, MusicService.CHUNK_LENGTH)
+                val newLength = if (dataSpec.length == androidx.media3.common.C.LENGTH_UNSET.toLong()) 512 * 1024L else kotlin.math.min(dataSpec.length, 512 * 1024L)
                 return@Factory dataSpec.withUri(it.first.toUri())
                     .subrange(0, newLength)
             }
 
             val playedFormat = runBlocking(Dispatchers.IO) { database.format(mediaId).first() }
-            val clientOrder = runBlocking(Dispatchers.IO) {
-                context.dataStore.data.map { it[PlayerClientOrderKey] }.first()
-            }
             val playbackData = runBlocking(Dispatchers.IO) {
                 YTPlayerUtils.playerResponseForPlayback(
                     mediaId,
                     audioQuality = audioQuality,
                     connectivityManager = connectivityManager,
-                    clientOrder = clientOrder
                 )
             }.getOrThrow()
             val format = playbackData.format
@@ -120,7 +106,7 @@ constructor(
             songUrlCache[mediaId] =
                 streamUrl to System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L)
             
-            val newLength = if (dataSpec.length == androidx.media3.common.C.LENGTH_UNSET.toLong()) MusicService.CHUNK_LENGTH else kotlin.math.min(dataSpec.length, MusicService.CHUNK_LENGTH)
+            val newLength = if (dataSpec.length == androidx.media3.common.C.LENGTH_UNSET.toLong()) 512 * 1024L else kotlin.math.min(dataSpec.length, 512 * 1024L)
             dataSpec.withUri(streamUrl.toUri()).subrange(0, newLength)
         }
     val downloadNotificationHelper =
