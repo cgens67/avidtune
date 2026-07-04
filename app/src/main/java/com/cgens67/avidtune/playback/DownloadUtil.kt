@@ -49,41 +49,19 @@ constructor(
     private val connectivityManager = context.getSystemService<ConnectivityManager>()!!
     private val audioQuality by enumPreference(context, AudioQualityKey, AudioQuality.AUTO)
     private val songUrlCache = HashMap<String, Pair<String, Long>>()
-    private val dataSourceFactory =
-        ResolvingDataSource.Factory(
-            CacheDataSource
-                .Factory()
-                .setCache(playerCache)
-                .setCacheWriteDataSinkFactory(null) // Prevent writing to playerCache during downloads
-                .setUpstreamDataSourceFactory(
-                    OkHttpDataSource.Factory(
-                        OkHttpClient
-                            .Builder()
-                            .proxy(YouTube.proxy)
-                            .build(),
-                    ),
-                ),
-        ) { dataSpec ->
+    
+    private val dataSourceFactory = run {
+        val okHttpFactory = OkHttpDataSource.Factory(
+            OkHttpClient.Builder().proxy(YouTube.proxy).build()
+        )
+        
+        val resolvingFactory = ResolvingDataSource.Factory(okHttpFactory) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")
-            val length = if (dataSpec.length >= 0) dataSpec.length else 1
-
-            val reqLength = if (dataSpec.length != androidx.media3.common.C.LENGTH_UNSET.toLong()) dataSpec.length else Long.MAX_VALUE
-            val cachedLength = playerCache.getCachedLength(mediaId, dataSpec.position, reqLength)
-
-            if (cachedLength > 0 || playerCache.isCached(mediaId, dataSpec.position, length)) {
-                val newLength = if (cachedLength > 0) cachedLength else {
-                    if (dataSpec.length == androidx.media3.common.C.LENGTH_UNSET.toLong()) MusicService.CHUNK_LENGTH else kotlin.math.min(dataSpec.length, MusicService.CHUNK_LENGTH)
-                }
-                return@Factory dataSpec.subrange(0, newLength)
-            }
-
+            
             songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
-                val newLength = if (dataSpec.length == androidx.media3.common.C.LENGTH_UNSET.toLong()) MusicService.CHUNK_LENGTH else kotlin.math.min(dataSpec.length, MusicService.CHUNK_LENGTH)
                 return@Factory dataSpec.withUri(it.first.toUri())
-                    .subrange(0, newLength)
             }
 
-            val playedFormat = runBlocking(Dispatchers.IO) { database.format(mediaId).first() }
             val clientOrder = runBlocking(Dispatchers.IO) {
                 context.dataStore.data.map { it[PlayerClientOrderKey] }.first()
             }
@@ -95,6 +73,7 @@ constructor(
                     clientOrder = clientOrder
                 )
             }.getOrThrow()
+            
             val format = playbackData.format
 
             database.query {
@@ -114,13 +93,17 @@ constructor(
             }
 
             val streamUrl = playbackData.streamUrl
-
-            songUrlCache[mediaId] =
-                streamUrl to System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L)
+            songUrlCache[mediaId] = streamUrl to System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L)
             
-            val newLength = if (dataSpec.length == androidx.media3.common.C.LENGTH_UNSET.toLong()) MusicService.CHUNK_LENGTH else kotlin.math.min(dataSpec.length, MusicService.CHUNK_LENGTH)
-            dataSpec.withUri(streamUrl.toUri()).subrange(0, newLength)
+            dataSpec.withUri(streamUrl.toUri())
         }
+
+        CacheDataSource.Factory()
+            .setCache(playerCache)
+            .setCacheWriteDataSinkFactory(null) // Prevent writing to playerCache during downloads
+            .setUpstreamDataSourceFactory(resolvingFactory)
+    }
+    
     val downloadNotificationHelper =
         DownloadNotificationHelper(context, ExoDownloadService.CHANNEL_ID)
     val downloadManager: DownloadManager =
