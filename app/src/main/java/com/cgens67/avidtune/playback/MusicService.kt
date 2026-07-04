@@ -141,6 +141,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
@@ -223,6 +224,9 @@ class MusicService :
     
     val sponsorBlockEnabled = MutableStateFlow(true)
     val currentSkipSegments = MutableStateFlow<List<Pair<Long, Long>>>(emptyList())
+
+    val clientCache = HashMap<String, String>()
+    val currentClient = MutableStateFlow<String?>(null)
 
     lateinit var sleepTimer: SleepTimer
 
@@ -1095,6 +1099,8 @@ class MusicService :
     ) {
         lastPlaybackSpeed = -1.0f
 
+        currentClient.value = mediaItem?.mediaId?.let { clientCache[it] }
+
         setupLoudnessEnhancer()
 
         discordUpdateJob?.cancel()
@@ -1347,6 +1353,11 @@ class MusicService :
                 }
 
                 val format = playbackData.format
+
+                clientCache[mediaId] = playbackData.clientName
+                if (mediaId == player.currentMediaItem?.mediaId) {
+                    currentClient.update { playbackData.clientName }
+                }
 
                 database.query {
                     upsert(
