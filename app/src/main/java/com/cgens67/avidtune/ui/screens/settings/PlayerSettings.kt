@@ -205,8 +205,8 @@ fun PlayerSettings(
                 )},
 
                 {PreferenceEntry(
-                    title = { Text("Playback Fallback Clients") },
-                    description = "Reorder clients used for fetching streams to bypass restrictions",
+                    title = { Text(stringResource(R.string.playback_fallback_priority)) },
+                    description = stringResource(R.string.playback_fallback_priority_desc),
                     icon = { Icon(painterResource(R.drawable.list), null) },
                     onClick = { showClientReorderDialog = true }
                 )},
@@ -309,6 +309,20 @@ fun PlayerSettings(
     }
 }
 
+@Composable
+fun getClientDescription(client: String): String {
+    return when (client) {
+        "WEB_REMIX" -> stringResource(R.string.client_desc_web_remix)
+        "ANDROID_VR" -> stringResource(R.string.client_desc_android_vr)
+        "ANDROID" -> stringResource(R.string.client_desc_android)
+        "TVHTML5_SIMPLY_EMBEDDED_PLAYER" -> stringResource(R.string.client_desc_tv_embedded)
+        "IOS" -> stringResource(R.string.client_desc_ios)
+        "WEB" -> stringResource(R.string.client_desc_web)
+        "WEB_CREATOR" -> stringResource(R.string.client_desc_web_creator)
+        else -> ""
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReorderPlayerClientsBottomSheet(
@@ -358,12 +372,12 @@ fun ReorderPlayerClientsBottomSheet(
             ) {
                 Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
                     Text(
-                        text = "Fallback Priority",
+                        text = stringResource(R.string.playback_fallback_priority),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Reorder clients used for fetching streams.",
+                        text = stringResource(R.string.playback_fallback_priority_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -441,12 +455,18 @@ fun ReorderPlayerClientsBottomSheet(
                                 
                                 Spacer(Modifier.width(16.dp))
                                 
-                                Text(
-                                    text = item,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = if (index == 0) FontWeight.Bold else FontWeight.Normal,
-                                    modifier = Modifier.weight(1f)
-                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = item,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = if (index == 0) FontWeight.Bold else FontWeight.Normal,
+                                    )
+                                    Text(
+                                        text = getClientDescription(item),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                                 
                                 Icon(
                                     painter = painterResource(R.drawable.drag_handle),
