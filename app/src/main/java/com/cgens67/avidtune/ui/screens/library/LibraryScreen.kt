@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -27,6 +28,8 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -67,6 +70,7 @@ import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
 import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.*
+import com.cgens67.avidtune.db.MusicDatabase
 import com.cgens67.avidtune.db.entities.*
 import com.cgens67.avidtune.extensions.toMediaItem
 import com.cgens67.avidtune.extensions.togglePlayPause
@@ -78,11 +82,18 @@ import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
 import com.cgens67.avidtune.viewmodels.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.Collator
 import java.time.LocalDateTime
 import java.util.*
+
+@dagger.hilt.EntryPoint
+@dagger.hilt.InstallIn(dagger.hilt.components.SingletonComponent::class)
+interface DatabaseEntryPoint {
+    fun database(): MusicDatabase
+}
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -521,7 +532,7 @@ fun PlaylistGridCard(playlist: Playlist, onClick: () -> Unit, onPlay: () -> Unit
                 modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp).size(32.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary).clickable(onClick = onPlay),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(painter = painterResource(id = R.drawable.play), contentDescription = null, tint = MaterialTheme.onPrimary, modifier = Modifier.size(16.dp))
+                Icon(painter = painterResource(id = R.drawable.play), contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(16.dp))
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
@@ -593,7 +604,7 @@ fun LibraryMixScreen(
                 else -> LocalDateTime.now()
             }
         }
-    }.reversed(sortDescending)
+    }.let { if (sortDescending) it.reversed() else it }
 
     val coroutineScope = rememberCoroutineScope()
     val lazyListState = rememberLazyListState()
@@ -764,6 +775,7 @@ fun LibraryMixScreen(
                                         .animateItem()
                                 )
                             }
+                            else -> {}
                         }
                     }
                 }
@@ -878,6 +890,7 @@ fun LibraryMixScreen(
                                         .animateItem(),
                                 )
                             }
+                            else -> {}
                         }
                     }
                 }
@@ -898,6 +911,15 @@ fun LibraryPlaylistsScreen(
     val menuState = LocalMenuState.current
     val haptic = LocalHapticFeedback.current
     val coroutineScope = rememberCoroutineScope()
+    val playerConnection = LocalPlayerConnection.current
+
+    val context = LocalContext.current
+    val database = remember(context) {
+        dagger.hilt.android.EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            DatabaseEntryPoint::class.java
+        ).database()
+    }
 
     var viewType by rememberEnumPreference(PlaylistViewTypeKey, LibraryViewType.GRID)
     val (sortType, onSortTypeChange) = rememberEnumPreference(PlaylistSortTypeKey, PlaylistSortType.CREATE_DATE)
@@ -988,10 +1010,17 @@ fun LibraryPlaylistsScreen(
                                 }
                             },
                             onPlay = {
-                                playerConnection = LocalPlayerConnection.current ?: return@PlaylistListCard
+                                val pc = playerConnection ?: return@PlaylistListCard
                                 coroutineScope.launch {
-                                    val db = LocalDatabase.current // Adjust if LocalDatabase is imported differently, else fall back to VM
-                                    // Custom Playback trigger logic matches original screen safely
+                                    val playlistSongs = database.playlistSongs(playlist.id).first()
+                                    if (playlistSongs.isNotEmpty()) {
+                                        pc.playQueue(
+                                            ListQueue(
+                                                title = playlist.playlist.name,
+                                                items = playlistSongs.map { it.toMediaItem() }
+                                            )
+                                        )
+                                    }
                                 }
                             },
                             onMenuClick = {
@@ -1023,7 +1052,20 @@ fun LibraryPlaylistsScreen(
                                     navController.navigate("local_playlist/${playlist.id}")
                                 }
                             },
-                            onPlay = { /* Trigger play */ },
+                            onPlay = {
+                                val pc = playerConnection ?: return@PlaylistGridCard
+                                coroutineScope.launch {
+                                    val playlistSongs = database.playlistSongs(playlist.id).first()
+                                    if (playlistSongs.isNotEmpty()) {
+                                        pc.playQueue(
+                                            ListQueue(
+                                                title = playlist.playlist.name,
+                                                items = playlistSongs.map { it.toMediaItem() }
+                                            )
+                                        )
+                                    }
+                                }
+                            },
                             onLongClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 menuState.show { PlaylistMenu(playlist = playlist, coroutineScope = coroutineScope, onDismiss = menuState::dismiss) }
@@ -1540,6 +1582,54 @@ fun LibraryArtistsScreen(
                         modifier = Modifier.animateItem()
                     )
                 }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CachePlaylistScreen(
+    navController: NavController,
+    scrollBehavior: TopAppBarScrollBehavior
+) {
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text(stringResource(R.string.cached_playlist)) },
+                navigationIcon = {
+                    IconButton(onClick = { navController.navigateUp() }) {
+                        Icon(imageVector = Icons.Default.ArrowBack, contentDescription = null)
+                    }
+                },
+                scrollBehavior = scrollBehavior
+            )
+        }
+    ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(
+                    painter = painterResource(R.drawable.music_note),
+                    contentDescription = null,
+                    modifier = Modifier.size(64.dp),
+                    tint = MaterialTheme.colorScheme.secondary
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = stringResource(R.string.cached_playlist),
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "No cached songs available",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
