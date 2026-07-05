@@ -1,6 +1,8 @@
-@file:OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 package com.cgens67.avidtune.ui.screens.library
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
@@ -45,35 +47,18 @@ import java.util.*
 fun dummyPlaylist(name: String) = Playlist(PlaylistEntity(UUID.randomUUID().toString(), name), 0, emptyList())
 
 @Composable fun LibraryScreen(navController: NavController) {
-    var filterType by rememberEnumPreference(ChipSortTypeKey, LibraryFilter.LIBRARY)
-    val lazyListState = rememberLazyListState()
-    val filterContent = @Composable {
-        Row {
-            ChipsRow(
-                chips = listOf(
-                    LibraryFilter.PLAYLISTS to stringResource(R.string.filter_playlists),
-                    LibraryFilter.SONGS to stringResource(R.string.filter_songs),
-                    LibraryFilter.ALBUMS to stringResource(R.string.filter_albums),
-                    LibraryFilter.ARTISTS to stringResource(R.string.filter_artists)
-                ),
-                currentValue = filterType,
-                onValueUpdate = { filterType = if (filterType == it) LibraryFilter.LIBRARY else it },
-                modifier = Modifier.weight(1f)
-            )
-        }
-    }
+    var filterType by rememberEnumPreference(ChipSortTypeKey, LibraryFilter.LIBRARY); val lazyListState = rememberLazyListState()
+    val filterContent = @Composable { Row { ChipsRow(listOf(LibraryFilter.PLAYLISTS to stringResource(R.string.filter_playlists), LibraryFilter.SONGS to stringResource(R.string.filter_songs), LibraryFilter.ALBUMS to stringResource(R.string.filter_albums), LibraryFilter.ARTISTS to stringResource(R.string.filter_artists)), filterType, { filterType = if (filterType == it) LibraryFilter.LIBRARY else it }, Modifier.weight(1f)) } }
     Box(Modifier.fillMaxSize()) {
-        VerticalFastScroller(
-            listState = lazyListState,
-            topContentPadding = 16.dp,
-            endContentPadding = 0.dp
-        ) {
-            when (filterType) {
-                LibraryFilter.LIBRARY -> LibraryMixScreen(navController = navController, filterContent = filterContent)
-                LibraryFilter.PLAYLISTS -> LibraryPlaylistsScreen(navController = navController, filterContent = filterContent)
-                LibraryFilter.SONGS -> LibrarySongsScreen(navController = navController, onDeselect = { filterType = LibraryFilter.LIBRARY })
-                LibraryFilter.ALBUMS -> LibraryAlbumsScreen(navController = navController, onDeselect = { filterType = LibraryFilter.LIBRARY })
-                LibraryFilter.ARTISTS -> LibraryArtistsScreen(navController = navController, onDeselect = { filterType = LibraryFilter.LIBRARY })
+        VerticalFastScroller(lazyListState, 16.dp, 0.dp) {
+            AnimatedContent(targetState = filterType, transitionSpec = { fadeIn(tween(400)) + slideInHorizontally(tween(400)) { 50 } togetherWith fadeOut(tween(400)) + slideOutHorizontally(tween(400)) { -50 } }, label = "") { type ->
+                when (type) {
+                    LibraryFilter.LIBRARY -> LibraryMixScreen(navController, filterContent)
+                    LibraryFilter.PLAYLISTS -> LibraryPlaylistsScreen(navController, filterContent)
+                    LibraryFilter.SONGS -> LibrarySongsScreen(navController, { filterType = LibraryFilter.LIBRARY })
+                    LibraryFilter.ALBUMS -> LibraryAlbumsScreen(navController, { filterType = LibraryFilter.LIBRARY })
+                    LibraryFilter.ARTISTS -> LibraryArtistsScreen(navController, { filterType = LibraryFilter.LIBRARY })
+                }
             }
         }
     }
@@ -88,45 +73,41 @@ fun dummyPlaylist(name: String) = Playlist(PlaylistEntity(UUID.randomUUID().toSt
     val likedPlaylist = dummyPlaylist(stringResource(R.string.liked)); val downloadPlaylist = dummyPlaylist(stringResource(R.string.offline)); val topPlaylist = dummyPlaylist(stringResource(R.string.my_top) + " $topSize"); val cachePlaylist = dummyPlaylist(stringResource(R.string.cached_playlist))
     var allItems = viewModel.albums.collectAsState().value + viewModel.artists.collectAsState().value + viewModel.playlists.collectAsState().value
     val collator = Collator.getInstance(Locale.getDefault()).apply { strength = Collator.PRIMARY }
-    allItems = when (sortType) {
-        MixSortType.CREATE_DATE -> allItems.sortedBy { when (it) { is Album -> it.album.bookmarkedAt; is Artist -> it.artist.bookmarkedAt; is Playlist -> it.playlist.createdAt; else -> LocalDateTime.now() } }
-        MixSortType.NAME -> allItems.sortedWith(compareBy(collator) { when (it) { is Album -> it.album.title; is Artist -> it.artist.name; is Playlist -> it.playlist.name; else -> "" } })
-        MixSortType.LAST_UPDATED -> allItems.sortedBy { when (it) { is Album -> it.album.lastUpdateTime; is Artist -> it.artist.lastUpdateTime; is Playlist -> it.playlist.lastUpdateTime; else -> LocalDateTime.now() } }
-    }.reversed(sortDescending)
+    allItems = when (sortType) { MixSortType.CREATE_DATE -> allItems.sortedBy { when (it) { is Album -> it.album.bookmarkedAt; is Artist -> it.artist.bookmarkedAt; is Playlist -> it.playlist.createdAt; else -> LocalDateTime.now() } }; MixSortType.NAME -> allItems.sortedWith(compareBy(collator) { when (it) { is Album -> it.album.title; is Artist -> it.artist.name; is Playlist -> it.playlist.name; else -> "" } }); MixSortType.LAST_UPDATED -> allItems.sortedBy { when (it) { is Album -> it.album.lastUpdateTime; is Artist -> it.artist.lastUpdateTime; is Playlist -> it.playlist.lastUpdateTime; else -> LocalDateTime.now() } } }.reversed(sortDescending)
     val coroutineScope = rememberCoroutineScope(); val lazyListState = rememberLazyListState(); val lazyGridState = rememberLazyGridState()
     val backStackEntry by navController.currentBackStackEntryAsState(); val scrollToTop = backStackEntry?.savedStateHandle?.getStateFlow("scrollToTop", false)?.collectAsState()
     LaunchedEffect(scrollToTop?.value) { if (scrollToTop?.value == true) { if (viewType == LibraryViewType.LIST) lazyListState.animateScrollToItem(0) else lazyGridState.animateScrollToItem(0); backStackEntry?.savedStateHandle?.set("scrollToTop", false) } }
-    val headerContent = @Composable { Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 16.dp)) { SortHeader(sortType = sortType, sortDescending = sortDescending, onSortTypeChange = onSortTypeChange, onSortDescendingChange = onSortDescendingChange, sortTypeText = { when (it as MixSortType) { MixSortType.CREATE_DATE -> R.string.sort_by_create_date; MixSortType.LAST_UPDATED -> R.string.sort_by_last_updated; MixSortType.NAME -> R.string.sort_by_name } }); Spacer(Modifier.weight(1f)); IconButton({ viewType = viewType.toggle() }, Modifier.padding(start = 6.dp, end = 6.dp)) { Icon(painterResource(if (viewType == LibraryViewType.LIST) R.drawable.list else R.drawable.grid_view), null) } } }
+    val headerContent = @Composable { Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 16.dp)) { SortHeader(sortType, sortDescending, onSortTypeChange, onSortDescendingChange, { when (it as MixSortType) { MixSortType.CREATE_DATE -> R.string.sort_by_create_date; MixSortType.LAST_UPDATED -> R.string.sort_by_last_updated; MixSortType.NAME -> R.string.sort_by_name } }); Spacer(Modifier.weight(1f)); IconButton({ viewType = viewType.toggle() }, Modifier.padding(start = 6.dp, end = 6.dp)) { AnimatedContent(targetState = viewType, transitionSpec = { scaleIn(tween(300)) togetherWith scaleOut(tween(300)) }, label = "") { vt -> Icon(painterResource(if (vt == LibraryViewType.LIST) R.drawable.list else R.drawable.grid_view), null) } } } }
     Box(Modifier.fillMaxSize()) {
-        if (viewType == LibraryViewType.LIST) {
-            LazyColumn(state = lazyListState, contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()) {
-                item(key = "filter", contentType = CONTENT_TYPE_HEADER) { filterContent() }; item(key = "header", contentType = CONTENT_TYPE_HEADER) { headerContent() }
-                item(key = "likedPlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistListItem(playlist = likedPlaylist, autoPlaylist = true, modifier = Modifier.fillMaxWidth().clickable { navController.navigate("auto_playlist/liked") }.animateItem()) }
-                item(key = "downloadedPlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistListItem(playlist = downloadPlaylist, autoPlaylist = true, modifier = Modifier.fillMaxWidth().clickable { navController.navigate("auto_playlist/downloaded") }.animateItem()) }
-                item(key = "TopPlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistListItem(playlist = topPlaylist, autoPlaylist = true, modifier = Modifier.fillMaxWidth().clickable { navController.navigate("top_playlist/$topSize") }.animateItem()) }
-                item(key = "cachePlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistListItem(playlist = cachePlaylist, autoPlaylist = true, modifier = Modifier.fillMaxWidth().clickable { navController.navigate("cache_playlist/cached") }.animateItem()) }
-                items(items = allItems, key = { it.id }, contentType = { CONTENT_TYPE_PLAYLIST }) { item ->
-                    when (item) {
-                        is Playlist -> PlaylistListItem(playlist = item, trailingContent = { IconButton({ menuState.show { PlaylistMenu(playlist = item, coroutineScope = coroutineScope, onDismiss = menuState::dismiss) } }) { Icon(painterResource(R.drawable.more_vert), null) } }, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { navController.navigate("local_playlist/${item.id}") }, onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); menuState.show { PlaylistMenu(playlist = item, coroutineScope = coroutineScope, onDismiss = menuState::dismiss) } }).animateItem())
-                        is Artist -> ArtistListItem(artist = item, trailingContent = { IconButton({ menuState.show { ArtistMenu(originalArtist = item, coroutineScope = coroutineScope, onDismiss = menuState::dismiss) } }) { Icon(painterResource(R.drawable.more_vert), null) } }, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { navController.navigate("artist/${item.id}") }, onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); menuState.show { ArtistMenu(originalArtist = item, coroutineScope = coroutineScope, onDismiss = menuState::dismiss) } }).animateItem())
-                        is Album -> AlbumListItem(album = item, isActive = item.id == mediaMetadata?.album?.id, isPlaying = isPlaying, trailingContent = { IconButton({ menuState.show { AlbumMenu(originalAlbum = item, navController = navController, onDismiss = menuState::dismiss) } }) { Icon(painterResource(R.drawable.more_vert), null) } }, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { navController.navigate("album/${item.id}") }, onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); menuState.show { AlbumMenu(originalAlbum = item, navController = navController, onDismiss = menuState::dismiss) } }).animateItem())
-                        else -> {}
+        AnimatedContent(targetState = viewType, transitionSpec = { fadeIn(tween(400)) togetherWith fadeOut(tween(400)) }, label = "") { vt ->
+            if (vt == LibraryViewType.LIST) {
+                LazyColumn(state = lazyListState, contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()) {
+                    item(key = "filter", contentType = CONTENT_TYPE_HEADER) { filterContent() }; item(key = "header", contentType = CONTENT_TYPE_HEADER) { headerContent() }
+                    item(key = "likedPlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistListItem(likedPlaylist, autoPlaylist = true, modifier = Modifier.fillMaxWidth().clickable { navController.navigate("auto_playlist/liked") }.animateItem()) }
+                    item(key = "downloadedPlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistListItem(downloadPlaylist, autoPlaylist = true, modifier = Modifier.fillMaxWidth().clickable { navController.navigate("auto_playlist/downloaded") }.animateItem()) }
+                    item(key = "TopPlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistListItem(topPlaylist, autoPlaylist = true, modifier = Modifier.fillMaxWidth().clickable { navController.navigate("top_playlist/$topSize") }.animateItem()) }
+                    item(key = "cachePlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistListItem(cachePlaylist, autoPlaylist = true, modifier = Modifier.fillMaxWidth().clickable { navController.navigate("cache_playlist/cached") }.animateItem()) }
+                    items(allItems, key = { it.id }, contentType = { CONTENT_TYPE_PLAYLIST }) { item ->
+                        when (item) {
+                            is Playlist -> PlaylistListItem(item, trailingContent = { IconButton({ menuState.show { PlaylistMenu(item, coroutineScope, menuState::dismiss) } }) { Icon(painterResource(R.drawable.more_vert), null) } }, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { navController.navigate("local_playlist/${item.id}") }, onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); menuState.show { PlaylistMenu(item, coroutineScope, menuState::dismiss) } }).animateItem())
+                            is Artist -> ArtistListItem(item, trailingContent = { IconButton({ menuState.show { ArtistMenu(item, coroutineScope, menuState::dismiss) } }) { Icon(painterResource(R.drawable.more_vert), null) } }, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { navController.navigate("artist/${item.id}") }, onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); menuState.show { ArtistMenu(item, coroutineScope, menuState::dismiss) } }).animateItem())
+                            is Album -> AlbumListItem(item, item.id == mediaMetadata?.album?.id, isPlaying, trailingContent = { IconButton({ menuState.show { AlbumMenu(item, navController, menuState::dismiss) } }) { Icon(painterResource(R.drawable.more_vert), null) } }, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { navController.navigate("album/${item.id}") }, onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); menuState.show { AlbumMenu(item, navController, menuState::dismiss) } }).animateItem())
+                        }
                     }
                 }
-            }
-        } else {
-            LazyVerticalGrid(state = lazyGridState, columns = GridCells.Adaptive(GridThumbnailHeight + if (gridItemSize == GridItemSize.BIG) 24.dp else (-24).dp), contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()) {
-                item(key = "filter", span = { GridItemSpan(maxLineSpan) }, contentType = CONTENT_TYPE_HEADER) { filterContent() }; item(key = "header", span = { GridItemSpan(maxLineSpan) }, contentType = CONTENT_TYPE_HEADER) { headerContent() }
-                item(key = "likedPlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistGridItem(playlist = likedPlaylist, fillMaxWidth = true, autoPlaylist = true, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { navController.navigate("auto_playlist/liked") }).animateItem(), context = LocalContext.current) }
-                item(key = "downloadedPlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistGridItem(playlist = downloadPlaylist, fillMaxWidth = true, autoPlaylist = true, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { navController.navigate("auto_playlist/downloaded") }).animateItem(), context = LocalContext.current) }
-                item(key = "TopPlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistGridItem(playlist = topPlaylist, fillMaxWidth = true, autoPlaylist = true, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { navController.navigate("top_playlist/$topSize") }).animateItem(), context = LocalContext.current) }
-                item(key = "cachePlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistGridItem(playlist = cachePlaylist, fillMaxWidth = true, autoPlaylist = true, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { navController.navigate("cache_playlist/cached") }).animateItem(), context = LocalContext.current) }
-                items(items = allItems, key = { it.id }, contentType = { CONTENT_TYPE_PLAYLIST }) { item ->
-                    when (item) {
-                        is Playlist -> PlaylistGridItem(playlist = item, fillMaxWidth = true, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { navController.navigate("local_playlist/${item.id}") }, onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); menuState.show { PlaylistMenu(playlist = item, coroutineScope = coroutineScope, onDismiss = menuState::dismiss) } }).animateItem(), context = LocalContext.current)
-                        is Artist -> ArtistGridItem(artist = item, fillMaxWidth = true, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { navController.navigate("artist/${item.id}") }, onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); menuState.show { ArtistMenu(originalArtist = item, coroutineScope = coroutineScope, onDismiss = menuState::dismiss) } }).animateItem())
-                        is Album -> AlbumGridItem(album = item, isActive = item.id == mediaMetadata?.album?.id, isPlaying = isPlaying, coroutineScope = coroutineScope, fillMaxWidth = true, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { navController.navigate("album/${item.id}") }, onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); menuState.show { AlbumMenu(originalAlbum = item, navController = navController, onDismiss = menuState::dismiss) } }).animateItem())
-                        else -> {}
+            } else {
+                LazyVerticalGrid(state = lazyGridState, columns = GridCells.Adaptive(GridThumbnailHeight + if (gridItemSize == GridItemSize.BIG) 24.dp else (-24).dp), contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()) {
+                    item(key = "filter", span = { GridItemSpan(maxLineSpan) }, contentType = CONTENT_TYPE_HEADER) { filterContent() }; item(key = "header", span = { GridItemSpan(maxLineSpan) }, contentType = CONTENT_TYPE_HEADER) { headerContent() }
+                    item(key = "likedPlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistGridItem(likedPlaylist, fillMaxWidth = true, autoPlaylist = true, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { navController.navigate("auto_playlist/liked") }).animateItem(), context = LocalContext.current) }
+                    item(key = "downloadedPlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistGridItem(downloadPlaylist, fillMaxWidth = true, autoPlaylist = true, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { navController.navigate("auto_playlist/downloaded") }).animateItem(), context = LocalContext.current) }
+                    item(key = "TopPlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistGridItem(topPlaylist, fillMaxWidth = true, autoPlaylist = true, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { navController.navigate("top_playlist/$topSize") }).animateItem(), context = LocalContext.current) }
+                    item(key = "cachePlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistGridItem(cachePlaylist, fillMaxWidth = true, autoPlaylist = true, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { navController.navigate("cache_playlist/cached") }).animateItem(), context = LocalContext.current) }
+                    items(allItems, key = { it.id }, contentType = { CONTENT_TYPE_PLAYLIST }) { item ->
+                        when (item) {
+                            is Playlist -> PlaylistGridItem(item, fillMaxWidth = true, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { navController.navigate("local_playlist/${item.id}") }, onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); menuState.show { PlaylistMenu(item, coroutineScope, menuState::dismiss) } }).animateItem(), context = LocalContext.current)
+                            is Artist -> ArtistGridItem(item, fillMaxWidth = true, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { navController.navigate("artist/${item.id}") }, onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); menuState.show { ArtistMenu(item, coroutineScope, menuState::dismiss) } }).animateItem())
+                            is Album -> AlbumGridItem(item, item.id == mediaMetadata?.album?.id, isPlaying, coroutineScope, fillMaxWidth = true, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { navController.navigate("album/${item.id}") }, onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); menuState.show { AlbumMenu(item, navController, menuState::dismiss) } }).animateItem())
+                        }
                     }
                 }
             }
@@ -144,31 +125,33 @@ fun dummyPlaylist(name: String) = Playlist(PlaylistEntity(UUID.randomUUID().toSt
     val (innerTubeCookie) = rememberPreference(InnerTubeCookieKey, ""); remember(innerTubeCookie) { "SAPISID" in parseCookieString(innerTubeCookie) }; val (ytmSync) = rememberPreference(YtmSyncKey, true)
     LaunchedEffect(Unit) { if (ytmSync) withContext(Dispatchers.IO) { viewModel.sync() } }
     LaunchedEffect(scrollToTop?.value) { if (scrollToTop?.value == true) { if (viewType == LibraryViewType.LIST) lazyListState.animateScrollToItem(0) else lazyGridState.animateScrollToItem(0); backStackEntry?.savedStateHandle?.set("scrollToTop", false) } }
-    var showCreatePlaylistDialog by rememberSaveable { mutableStateOf(false) }; if (showCreatePlaylistDialog) CreatePlaylistDialog(onDismiss = { showCreatePlaylistDialog = false }, initialTextFieldValue = initialTextFieldValue, allowSyncing = allowSyncing)
-    val headerContent = @Composable { Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 16.dp)) { SortHeader(sortType = sortType, sortDescending = sortDescending, onSortTypeChange = onSortTypeChange, onSortDescendingChange = onSortDescendingChange, sortTypeText = { when (it as PlaylistSortType) { PlaylistSortType.CREATE_DATE -> R.string.sort_by_create_date; PlaylistSortType.NAME -> R.string.sort_by_name; PlaylistSortType.SONG_COUNT -> R.string.sort_by_song_count; PlaylistSortType.LAST_UPDATED -> R.string.sort_by_last_updated } }); Spacer(Modifier.weight(1f)); Text(pluralStringResource(R.plurals.n_playlist, playlists.size, playlists.size), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.secondary); IconButton({ viewType = viewType.toggle() }, Modifier.padding(start = 6.dp, end = 6.dp)) { Icon(painterResource(if (viewType == LibraryViewType.LIST) R.drawable.list else R.drawable.grid_view), null) } } }
+    var showCreatePlaylistDialog by rememberSaveable { mutableStateOf(false) }; if (showCreatePlaylistDialog) CreatePlaylistDialog({ showCreatePlaylistDialog = false }, initialTextFieldValue, allowSyncing)
+    val headerContent = @Composable { Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 16.dp)) { SortHeader(sortType, sortDescending, onSortTypeChange, onSortDescendingChange, { when (it as PlaylistSortType) { PlaylistSortType.CREATE_DATE -> R.string.sort_by_create_date; PlaylistSortType.NAME -> R.string.sort_by_name; PlaylistSortType.SONG_COUNT -> R.string.sort_by_song_count; PlaylistSortType.LAST_UPDATED -> R.string.sort_by_last_updated } }); Spacer(Modifier.weight(1f)); Text(pluralStringResource(R.plurals.n_playlist, playlists.size, playlists.size), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.secondary); IconButton({ viewType = viewType.toggle() }, Modifier.padding(start = 6.dp, end = 6.dp)) { AnimatedContent(targetState = viewType, transitionSpec = { scaleIn(tween(300)) togetherWith scaleOut(tween(300)) }, label = "") { vt -> Icon(painterResource(if (vt == LibraryViewType.LIST) R.drawable.list else R.drawable.grid_view), null) } } } }
     Box(Modifier.fillMaxSize()) {
-        if (viewType == LibraryViewType.LIST) {
-            LazyColumn(state = lazyListState, contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()) {
-                item(key = "filter", contentType = CONTENT_TYPE_HEADER) { filterContent() }; item(key = "header", contentType = CONTENT_TYPE_HEADER) { headerContent() }
-                item(key = "likedPlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistListItem(playlist = likedPlaylist, autoPlaylist = true, modifier = Modifier.fillMaxWidth().clickable { navController.navigate("auto_playlist/liked") }.animateItem()) }
-                item(key = "downloadedPlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistListItem(playlist = downloadPlaylist, autoPlaylist = true, modifier = Modifier.fillMaxWidth().clickable { navController.navigate("auto_playlist/downloaded") }.animateItem()) }
-                item(key = "TopPlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistListItem(playlist = topPlaylist, autoPlaylist = true, modifier = Modifier.fillMaxWidth().clickable { navController.navigate("top_playlist/$topSize") }.animateItem()) }
-                item(key = "cachePlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistGridItem(playlist = cachePlaylist, fillMaxWidth = true, autoPlaylist = true, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { navController.navigate("cache_playlist/cached") }).animateItem(), context = LocalContext.current) }
-                if (playlists.isEmpty()) item { }
-                items(items = playlists, key = { it.id }, contentType = { CONTENT_TYPE_PLAYLIST }) { LibraryPlaylistListItem(navController = navController, menuState = menuState, coroutineScope = coroutineScope, playlist = it, modifier = Modifier.animateItem()) }
+        AnimatedContent(targetState = viewType, transitionSpec = { fadeIn(tween(400)) togetherWith fadeOut(tween(400)) }, label = "") { vt ->
+            if (vt == LibraryViewType.LIST) {
+                LazyColumn(state = lazyListState, contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()) {
+                    item(key = "filter", contentType = CONTENT_TYPE_HEADER) { filterContent() }; item(key = "header", contentType = CONTENT_TYPE_HEADER) { headerContent() }
+                    item(key = "likedPlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistListItem(likedPlaylist, autoPlaylist = true, modifier = Modifier.fillMaxWidth().clickable { navController.navigate("auto_playlist/liked") }.animateItem()) }
+                    item(key = "downloadedPlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistListItem(downloadPlaylist, autoPlaylist = true, modifier = Modifier.fillMaxWidth().clickable { navController.navigate("auto_playlist/downloaded") }.animateItem()) }
+                    item(key = "TopPlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistListItem(topPlaylist, autoPlaylist = true, modifier = Modifier.fillMaxWidth().clickable { navController.navigate("top_playlist/$topSize") }.animateItem()) }
+                    item(key = "cachePlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistGridItem(cachePlaylist, fillMaxWidth = true, autoPlaylist = true, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { navController.navigate("cache_playlist/cached") }).animateItem(), context = LocalContext.current) }
+                    if (playlists.isEmpty()) item { }
+                    items(playlists, key = { it.id }, contentType = { CONTENT_TYPE_PLAYLIST }) { LibraryPlaylistListItem(navController, menuState, coroutineScope, it, Modifier.animateItem()) }
+                }
+                HideOnScrollFAB(lazyListState, R.drawable.add) { showCreatePlaylistDialog = true }
+            } else {
+                LazyVerticalGrid(state = lazyGridState, columns = GridCells.Adaptive(GridThumbnailHeight + if (gridItemSize == GridItemSize.BIG) 24.dp else (-24).dp), contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()) {
+                    item(key = "filter", span = { GridItemSpan(maxLineSpan) }, contentType = CONTENT_TYPE_HEADER) { filterContent() }; item(key = "header", span = { GridItemSpan(maxLineSpan) }, contentType = CONTENT_TYPE_HEADER) { headerContent() }
+                    item(key = "likedPlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistGridItem(likedPlaylist, fillMaxWidth = true, autoPlaylist = true, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { navController.navigate("auto_playlist/liked") }).animateItem(), context = LocalContext.current) }
+                    item(key = "downloadedPlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistGridItem(downloadPlaylist, fillMaxWidth = true, autoPlaylist = true, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { navController.navigate("auto_playlist/downloaded") }).animateItem(), context = LocalContext.current) }
+                    item(key = "TopPlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistGridItem(topPlaylist, fillMaxWidth = true, autoPlaylist = true, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { navController.navigate("top_playlist/$topSize") }).animateItem(), context = LocalContext.current) }
+                    item(key = "cachePlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistGridItem(cachePlaylist, fillMaxWidth = true, autoPlaylist = true, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { navController.navigate("cache_playlist/cached") }).animateItem(), context = LocalContext.current) }
+                    if (playlists.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) { }
+                    items(playlists, key = { it.id }, contentType = { CONTENT_TYPE_PLAYLIST }) { LibraryPlaylistGridItem(navController, menuState, coroutineScope, it, Modifier.animateItem(), LocalContext.current) }
+                }
+                HideOnScrollFAB(lazyGridState, R.drawable.add) { showCreatePlaylistDialog = true }
             }
-            HideOnScrollFAB(lazyListState = lazyListState, icon = R.drawable.add, onClick = { showCreatePlaylistDialog = true })
-        } else {
-            LazyVerticalGrid(state = lazyGridState, columns = GridCells.Adaptive(GridThumbnailHeight + if (gridItemSize == GridItemSize.BIG) 24.dp else (-24).dp), contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()) {
-                item(key = "filter", span = { GridItemSpan(maxLineSpan) }, contentType = CONTENT_TYPE_HEADER) { filterContent() }; item(key = "header", span = { GridItemSpan(maxLineSpan) }, contentType = CONTENT_TYPE_HEADER) { headerContent() }
-                item(key = "likedPlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistGridItem(playlist = likedPlaylist, fillMaxWidth = true, autoPlaylist = true, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { navController.navigate("auto_playlist/liked") }).animateItem(), context = LocalContext.current) }
-                item(key = "downloadedPlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistGridItem(playlist = downloadPlaylist, fillMaxWidth = true, autoPlaylist = true, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { navController.navigate("auto_playlist/downloaded") }).animateItem(), context = LocalContext.current) }
-                item(key = "TopPlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistGridItem(playlist = topPlaylist, fillMaxWidth = true, autoPlaylist = true, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { navController.navigate("top_playlist/$topSize") }).animateItem(), context = LocalContext.current) }
-                item(key = "cachePlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistGridItem(playlist = cachePlaylist, fillMaxWidth = true, autoPlaylist = true, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { navController.navigate("cache_playlist/cached") }).animateItem(), context = LocalContext.current) }
-                if (playlists.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) { }
-                items(items = playlists, key = { it.id }, contentType = { CONTENT_TYPE_PLAYLIST }) { LibraryPlaylistGridItem(navController = navController, menuState = menuState, coroutineScope = coroutineScope, playlist = it, modifier = Modifier.animateItem(), context = LocalContext.current) }
-            }
-            HideOnScrollFAB(lazyListState = lazyGridState, icon = R.drawable.add, onClick = { showCreatePlaylistDialog = true })
         }
     }
 }
@@ -183,21 +166,19 @@ fun dummyPlaylist(name: String) = Playlist(PlaylistEntity(UUID.randomUUID().toSt
     val lazyListState = rememberLazyListState(); val backStackEntry by navController.currentBackStackEntryAsState(); val scrollToTop = backStackEntry?.savedStateHandle?.getStateFlow("scrollToTop", false)?.collectAsState()
     LaunchedEffect(scrollToTop?.value) { if (scrollToTop?.value == true) { lazyListState.animateScrollToItem(0); backStackEntry?.savedStateHandle?.set("scrollToTop", false) } }
     Box(Modifier.fillMaxSize()) {
-        VerticalFastScroller(
-            listState = lazyListState,
-            topContentPadding = 16.dp,
-            endContentPadding = 0.dp
-        ) {
+        VerticalFastScroller(lazyListState, 16.dp, 0.dp) {
             LazyColumn(state = lazyListState, contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()) {
-                item(key = "filter", contentType = CONTENT_TYPE_HEADER) { Row { Spacer(Modifier.width(12.dp)); FilterChip(label = { Text(stringResource(R.string.songs)) }, selected = true, colors = FilterChipDefaults.filterChipColors(containerColor = MaterialTheme.colorScheme.surface), onClick = onDeselect, shape = RoundedCornerShape(16.dp), leadingIcon = { Icon(painterResource(R.drawable.close), "") }); ChipsRow(chips = listOf(SongFilter.LIKED to stringResource(R.string.filter_liked), SongFilter.LIBRARY to stringResource(R.string.filter_library), SongFilter.DOWNLOADED to stringResource(R.string.filter_downloaded)), currentValue = filter, onValueUpdate = { filter = it }, modifier = Modifier.weight(1f)) } }
+                item(key = "filter", contentType = CONTENT_TYPE_HEADER) { Row { Spacer(Modifier.width(12.dp)); FilterChip(label = { Text(stringResource(R.string.songs)) }, selected = true, colors = FilterChipDefaults.filterChipColors(containerColor = MaterialTheme.colorScheme.surface), onClick = onDeselect, shape = RoundedCornerShape(16.dp), leadingIcon = { Icon(painterResource(R.drawable.close), "") }); ChipsRow(listOf(SongFilter.LIKED to stringResource(R.string.filter_liked), SongFilter.LIBRARY to stringResource(R.string.filter_library), SongFilter.DOWNLOADED to stringResource(R.string.filter_downloaded)), filter, { filter = it }, Modifier.weight(1f)) } }
                 item(key = "header", contentType = CONTENT_TYPE_HEADER) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (selection) { val count = wrappedSongs.count { it.isSelected }; IconButton({ selection = false }) { Icon(painterResource(R.drawable.close), null) }; Text(pluralStringResource(R.plurals.n_song, count, count), Modifier.weight(1f)); IconButton({ if (count == wrappedSongs.size) wrappedSongs.forEach { it.isSelected = false } else wrappedSongs.forEach { it.isSelected = true } }) { Icon(painterResource(if (count == wrappedSongs.size) R.drawable.deselect else R.drawable.select_all), null) }; IconButton({ menuState.show { SelectionSongMenu(songSelection = wrappedSongs.filter { it.isSelected }.map { it.item }, onDismiss = menuState::dismiss, clearAction = { selection = false }) } }) { Icon(painterResource(R.drawable.more_vert), null) } }
-                        else Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp)) { SortHeader(sortType = sortType, sortDescending = sortDescending, onSortTypeChange = onSortTypeChange, onSortDescendingChange = onSortDescendingChange, sortTypeText = { when (it as SongSortType) { SongSortType.CREATE_DATE -> R.string.sort_by_create_date; SongSortType.NAME -> R.string.sort_by_name; SongSortType.ARTIST -> R.string.sort_by_artist; SongSortType.PLAY_TIME -> R.string.sort_by_play_time } }); Spacer(Modifier.weight(1f)); Text(pluralStringResource(R.plurals.n_song, songs.size, songs.size), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.secondary) }
+                    AnimatedContent(targetState = selection, transitionSpec = { fadeIn(tween(300)) + slideInVertically(tween(300)) { -it } togetherWith fadeOut(tween(300)) + slideOutVertically(tween(300)) { it } }, label = "") { sel ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (sel) { val count = wrappedSongs.count { it.isSelected }; IconButton({ selection = false }) { Icon(painterResource(R.drawable.close), null) }; Text(pluralStringResource(R.plurals.n_song, count, count), Modifier.weight(1f)); IconButton({ if (count == wrappedSongs.size) wrappedSongs.forEach { it.isSelected = false } else wrappedSongs.forEach { it.isSelected = true } }) { Icon(painterResource(if (count == wrappedSongs.size) R.drawable.deselect else R.drawable.select_all), null) }; IconButton({ menuState.show { SelectionSongMenu(wrappedSongs.filter { it.isSelected }.map { it.item }, menuState::dismiss, { selection = false }) } }) { Icon(painterResource(R.drawable.more_vert), null) } }
+                            else Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp)) { SortHeader(sortType, sortDescending, onSortTypeChange, onSortDescendingChange, { when (it as SongSortType) { SongSortType.CREATE_DATE -> R.string.sort_by_create_date; SongSortType.NAME -> R.string.sort_by_name; SongSortType.ARTIST -> R.string.sort_by_artist; SongSortType.PLAY_TIME -> R.string.sort_by_play_time } }); Spacer(Modifier.weight(1f)); Text(pluralStringResource(R.plurals.n_song, songs.size, songs.size), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.secondary) }
+                        }
                     }
                 }
-                itemsIndexed(items = wrappedSongs, key = { _, s -> s.item.song.id }, contentType = { _, _ -> CONTENT_TYPE_SONG }) { index, s ->
-                    SongListItem(song = s.item, showInLibraryIcon = true, isActive = s.item.id == mediaMetadata?.id, isPlaying = isPlaying, trailingContent = { IconButton({ menuState.show { SongMenu(originalSong = s.item, navController = navController, onDismiss = menuState::dismiss) } }) { Icon(painterResource(R.drawable.more_vert), null) } }, isSelected = s.isSelected && selection, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { if (!selection) { if (s.item.id == mediaMetadata?.id) playerConnection.player.togglePlayPause() else playerConnection.playQueue(ListQueue(context.getString(R.string.queue_all_songs), songs.map { it.toMediaItem() }, index)) } else s.isSelected = !s.isSelected }, onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); if (!selection) selection = true; wrappedSongs.forEach { it.isSelected = false }; s.isSelected = true }).animateItem())
+                itemsIndexed(wrappedSongs, key = { _, s -> s.item.song.id }, contentType = { _, _ -> CONTENT_TYPE_SONG }) { index, s ->
+                    SongListItem(song = s.item, showInLibraryIcon = true, isActive = s.item.id == mediaMetadata?.id, isPlaying = isPlaying, trailingContent = { IconButton({ menuState.show { SongMenu(s.item, navController, menuState::dismiss) } }) { Icon(painterResource(R.drawable.more_vert), null) } }, isSelected = s.isSelected && selection, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { if (!selection) { if (s.item.id == mediaMetadata?.id) playerConnection.player.togglePlayPause() else playerConnection.playQueue(ListQueue(context.getString(R.string.queue_all_songs), songs.map { it.toMediaItem() }, index)) } else s.isSelected = !s.isSelected }, onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); if (!selection) selection = true; wrappedSongs.forEach { it.isSelected = false }; s.isSelected = true }).animateItem())
                 }
             }
         }
@@ -211,24 +192,26 @@ fun dummyPlaylist(name: String) = Playlist(PlaylistEntity(UUID.randomUUID().toSt
     var viewType by rememberEnumPreference(AlbumViewTypeKey, LibraryViewType.GRID); var filter by rememberEnumPreference(AlbumFilterKey, AlbumFilter.LIKED)
     val (sortType, onSortTypeChange) = rememberEnumPreference(AlbumSortTypeKey, AlbumSortType.CREATE_DATE); val (sortDescending, onSortDescendingChange) = rememberPreference(AlbumSortDescendingKey, true)
     val gridItemSize by rememberEnumPreference(GridItemsSizeKey, GridItemSize.BIG); val (ytmSync) = rememberPreference(YtmSyncKey, true)
-    val filterContent = @Composable { Row { Spacer(Modifier.width(12.dp)); FilterChip(label = { Text(stringResource(R.string.albums)) }, selected = true, colors = FilterChipDefaults.filterChipColors(containerColor = MaterialTheme.colorScheme.surface), onClick = onDeselect, shape = RoundedCornerShape(16.dp), leadingIcon = { Icon(painterResource(R.drawable.close), "") }); ChipsRow(chips = listOf(AlbumFilter.LIKED to stringResource(R.string.filter_liked), AlbumFilter.LIBRARY to stringResource(R.string.filter_library)), currentValue = filter, onValueUpdate = { filter = it }, modifier = Modifier.weight(1f)) } }
+    val filterContent = @Composable { Row { Spacer(Modifier.width(12.dp)); FilterChip(label = { Text(stringResource(R.string.albums)) }, selected = true, colors = FilterChipDefaults.filterChipColors(containerColor = MaterialTheme.colorScheme.surface), onClick = onDeselect, shape = RoundedCornerShape(16.dp), leadingIcon = { Icon(painterResource(R.drawable.close), "") }); ChipsRow(listOf(AlbumFilter.LIKED to stringResource(R.string.filter_liked), AlbumFilter.LIBRARY to stringResource(R.string.filter_library)), filter, { filter = it }, Modifier.weight(1f)) } }
     LaunchedEffect(filter) { if (ytmSync && filter == AlbumFilter.LIKED) withContext(Dispatchers.IO) { viewModel.sync() } }
     val albums by viewModel.allAlbums.collectAsState(); val coroutineScope = rememberCoroutineScope(); val lazyListState = rememberLazyListState(); val lazyGridState = rememberLazyGridState()
     val backStackEntry by navController.currentBackStackEntryAsState(); val scrollToTop = backStackEntry?.savedStateHandle?.getStateFlow("scrollToTop", false)?.collectAsState()
     LaunchedEffect(scrollToTop?.value) { if (scrollToTop?.value == true) { if (viewType == LibraryViewType.LIST) lazyListState.animateScrollToItem(0) else lazyGridState.animateScrollToItem(0); backStackEntry?.savedStateHandle?.set("scrollToTop", false) } }
-    val headerContent = @Composable { Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 16.dp)) { SortHeader(sortType = sortType, sortDescending = sortDescending, onSortTypeChange = onSortTypeChange, onSortDescendingChange = onSortDescendingChange, sortTypeText = { when (it as AlbumSortType) { AlbumSortType.CREATE_DATE -> R.string.sort_by_create_date; AlbumSortType.NAME -> R.string.sort_by_name; AlbumSortType.ARTIST -> R.string.sort_by_artist; AlbumSortType.YEAR -> R.string.sort_by_year; AlbumSortType.SONG_COUNT -> R.string.sort_by_song_count; AlbumSortType.LENGTH -> R.string.sort_by_length; AlbumSortType.PLAY_TIME -> R.string.sort_by_play_time } }); Spacer(Modifier.weight(1f)); Text(pluralStringResource(R.plurals.n_album, albums.size, albums.size), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.secondary); IconButton({ viewType = viewType.toggle() }, Modifier.padding(start = 6.dp, end = 6.dp)) { Icon(painterResource(if (viewType == LibraryViewType.LIST) R.drawable.list else R.drawable.grid_view), null) } } }
+    val headerContent = @Composable { Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 16.dp)) { SortHeader(sortType, sortDescending, onSortTypeChange, onSortDescendingChange, { when (it as AlbumSortType) { AlbumSortType.CREATE_DATE -> R.string.sort_by_create_date; AlbumSortType.NAME -> R.string.sort_by_name; AlbumSortType.ARTIST -> R.string.sort_by_artist; AlbumSortType.YEAR -> R.string.sort_by_year; AlbumSortType.SONG_COUNT -> R.string.sort_by_song_count; AlbumSortType.LENGTH -> R.string.sort_by_length; AlbumSortType.PLAY_TIME -> R.string.sort_by_play_time } }); Spacer(Modifier.weight(1f)); Text(pluralStringResource(R.plurals.n_album, albums.size, albums.size), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.secondary); IconButton({ viewType = viewType.toggle() }, Modifier.padding(start = 6.dp, end = 6.dp)) { AnimatedContent(targetState = viewType, transitionSpec = { scaleIn(tween(300)) togetherWith scaleOut(tween(300)) }, label = "") { vt -> Icon(painterResource(if (vt == LibraryViewType.LIST) R.drawable.list else R.drawable.grid_view), null) } } } }
     Box(Modifier.fillMaxSize()) {
-        if (viewType == LibraryViewType.LIST) {
-            LazyColumn(state = lazyListState, contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()) {
-                item(key = "filter", contentType = CONTENT_TYPE_HEADER) { filterContent() }; item(key = "header", contentType = CONTENT_TYPE_HEADER) { headerContent() }
-                if (albums.isEmpty()) item { EmptyPlaceholder(icon = R.drawable.album, text = stringResource(R.string.library_album_empty), modifier = Modifier.animateItem()) }
-                items(items = albums, key = { it.id }, contentType = { CONTENT_TYPE_ALBUM }) { LibraryAlbumListItem(navController = navController, menuState = menuState, album = it, isActive = it.id == mediaMetadata?.album?.id, isPlaying = isPlaying, modifier = Modifier.animateItem()) }
-            }
-        } else {
-            LazyVerticalGrid(state = lazyGridState, columns = GridCells.Adaptive(GridThumbnailHeight + if (gridItemSize == GridItemSize.BIG) 24.dp else (-24).dp), contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()) {
-                item(key = "filter", span = { GridItemSpan(maxLineSpan) }, contentType = CONTENT_TYPE_HEADER) { filterContent() }; item(key = "header", span = { GridItemSpan(maxLineSpan) }, contentType = CONTENT_TYPE_HEADER) { headerContent() }
-                if (albums.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) { EmptyPlaceholder(icon = R.drawable.album, text = stringResource(R.string.library_album_empty), modifier = Modifier.animateItem()) }
-                items(items = albums, key = { it.id }, contentType = { CONTENT_TYPE_ALBUM }) { LibraryAlbumGridItem(navController = navController, menuState = menuState, coroutineScope = coroutineScope, album = it, isActive = it.id == mediaMetadata?.album?.id, isPlaying = isPlaying, modifier = Modifier.animateItem()) }
+        AnimatedContent(targetState = viewType, transitionSpec = { fadeIn(tween(400)) togetherWith fadeOut(tween(400)) }, label = "") { vt ->
+            if (vt == LibraryViewType.LIST) {
+                LazyColumn(state = lazyListState, contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()) {
+                    item(key = "filter", contentType = CONTENT_TYPE_HEADER) { filterContent() }; item(key = "header", contentType = CONTENT_TYPE_HEADER) { headerContent() }
+                    if (albums.isEmpty()) item { var show by remember { mutableStateOf(false) }; LaunchedEffect(Unit) { show = true }; AnimatedVisibility(visible = show, enter = fadeIn(tween(400)) + expandVertically(tween(400))) { EmptyPlaceholder(R.drawable.album, stringResource(R.string.library_album_empty), Modifier.animateItem()) } }
+                    items(albums, key = { it.id }, contentType = { CONTENT_TYPE_ALBUM }) { LibraryAlbumListItem(navController, menuState, it, it.id == mediaMetadata?.album?.id, isPlaying, Modifier.animateItem()) }
+                }
+            } else {
+                LazyVerticalGrid(state = lazyGridState, columns = GridCells.Adaptive(GridThumbnailHeight + if (gridItemSize == GridItemSize.BIG) 24.dp else (-24).dp), contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()) {
+                    item(key = "filter", span = { GridItemSpan(maxLineSpan) }, contentType = CONTENT_TYPE_HEADER) { filterContent() }; item(key = "header", span = { GridItemSpan(maxLineSpan) }, contentType = CONTENT_TYPE_HEADER) { headerContent() }
+                    if (albums.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) { var show by remember { mutableStateOf(false) }; LaunchedEffect(Unit) { show = true }; AnimatedVisibility(visible = show, enter = fadeIn(tween(400)) + expandVertically(tween(400))) { EmptyPlaceholder(R.drawable.album, stringResource(R.string.library_album_empty), Modifier.animateItem()) } }
+                    items(albums, key = { it.id }, contentType = { CONTENT_TYPE_ALBUM }) { LibraryAlbumGridItem(navController, menuState, coroutineScope, it, it.id == mediaMetadata?.album?.id, isPlaying, Modifier.animateItem()) }
+                }
             }
         }
     }
@@ -238,24 +221,26 @@ fun dummyPlaylist(name: String) = Playlist(PlaylistEntity(UUID.randomUUID().toSt
     val menuState = LocalMenuState.current; var viewType by rememberEnumPreference(ArtistViewTypeKey, LibraryViewType.GRID); var filter by rememberEnumPreference(ArtistFilterKey, ArtistFilter.LIKED)
     val (sortType, onSortTypeChange) = rememberEnumPreference(ArtistSortTypeKey, ArtistSortType.CREATE_DATE); val (sortDescending, onSortDescendingChange) = rememberPreference(ArtistSortDescendingKey, true)
     val gridItemSize by rememberEnumPreference(GridItemsSizeKey, GridItemSize.BIG); val (ytmSync) = rememberPreference(YtmSyncKey, true)
-    val filterContent = @Composable { Row { Spacer(Modifier.width(12.dp)); FilterChip(label = { Text(stringResource(R.string.artists)) }, selected = true, colors = FilterChipDefaults.filterChipColors(containerColor = MaterialTheme.colorScheme.surface), onClick = onDeselect, shape = RoundedCornerShape(16.dp), leadingIcon = { Icon(painterResource(R.drawable.close), "") }); ChipsRow(chips = listOf(ArtistFilter.LIKED to stringResource(R.string.filter_liked), ArtistFilter.LIBRARY to stringResource(R.string.filter_library)), currentValue = filter, onValueUpdate = { filter = it }, modifier = Modifier.weight(1f)) } }
+    val filterContent = @Composable { Row { Spacer(Modifier.width(12.dp)); FilterChip(label = { Text(stringResource(R.string.artists)) }, selected = true, colors = FilterChipDefaults.filterChipColors(containerColor = MaterialTheme.colorScheme.surface), onClick = onDeselect, shape = RoundedCornerShape(16.dp), leadingIcon = { Icon(painterResource(R.drawable.close), "") }); ChipsRow(listOf(ArtistFilter.LIKED to stringResource(R.string.filter_liked), ArtistFilter.LIBRARY to stringResource(R.string.filter_library)), filter, { filter = it }, Modifier.weight(1f)) } }
     LaunchedEffect(filter) { if (ytmSync && filter == ArtistFilter.LIKED) withContext(Dispatchers.IO) { viewModel.sync() } }
     val artists by viewModel.allArtists.collectAsState(); val coroutineScope = rememberCoroutineScope(); val lazyListState = rememberLazyListState(); val lazyGridState = rememberLazyGridState()
     val backStackEntry by navController.currentBackStackEntryAsState(); val scrollToTop = backStackEntry?.savedStateHandle?.getStateFlow("scrollToTop", false)?.collectAsState()
     LaunchedEffect(scrollToTop?.value) { if (scrollToTop?.value == true) { if (viewType == LibraryViewType.LIST) lazyListState.animateScrollToItem(0) else lazyGridState.animateScrollToItem(0); backStackEntry?.savedStateHandle?.set("scrollToTop", false) } }
-    val headerContent = @Composable { Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 16.dp)) { SortHeader(sortType = sortType, sortDescending = sortDescending, onSortTypeChange = onSortTypeChange, onSortDescendingChange = onSortDescendingChange, sortTypeText = { when (it as ArtistSortType) { ArtistSortType.CREATE_DATE -> R.string.sort_by_create_date; ArtistSortType.NAME -> R.string.sort_by_name; ArtistSortType.SONG_COUNT -> R.string.sort_by_song_count; ArtistSortType.PLAY_TIME -> R.string.sort_by_play_time } }); Spacer(Modifier.weight(1f)); Text(pluralStringResource(R.plurals.n_artist, artists.size, artists.size), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.secondary); IconButton({ viewType = viewType.toggle() }, Modifier.padding(start = 6.dp, end = 6.dp)) { Icon(painterResource(if (viewType == LibraryViewType.LIST) R.drawable.list else R.drawable.grid_view), null) } } }
+    val headerContent = @Composable { Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 16.dp)) { SortHeader(sortType, sortDescending, onSortTypeChange, onSortDescendingChange, { when (it as ArtistSortType) { ArtistSortType.CREATE_DATE -> R.string.sort_by_create_date; ArtistSortType.NAME -> R.string.sort_by_name; ArtistSortType.SONG_COUNT -> R.string.sort_by_song_count; ArtistSortType.PLAY_TIME -> R.string.sort_by_play_time } }); Spacer(Modifier.weight(1f)); Text(pluralStringResource(R.plurals.n_artist, artists.size, artists.size), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.secondary); IconButton({ viewType = viewType.toggle() }, Modifier.padding(start = 6.dp, end = 6.dp)) { AnimatedContent(targetState = viewType, transitionSpec = { scaleIn(tween(300)) togetherWith scaleOut(tween(300)) }, label = "") { vt -> Icon(painterResource(if (vt == LibraryViewType.LIST) R.drawable.list else R.drawable.grid_view), null) } } } }
     Box(Modifier.fillMaxSize()) {
-        if (viewType == LibraryViewType.LIST) {
-            LazyColumn(state = lazyListState, contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()) {
-                item(key = "filter", contentType = CONTENT_TYPE_HEADER) { filterContent() }; item(key = "header", contentType = CONTENT_TYPE_HEADER) { headerContent() }
-                if (artists.isEmpty()) item { EmptyPlaceholder(icon = R.drawable.artist, text = stringResource(R.string.library_artist_empty), modifier = Modifier.animateItem()) }
-                items(items = artists, key = { it.id }, contentType = { CONTENT_TYPE_ARTIST }) { LibraryArtistListItem(navController = navController, menuState = menuState, coroutineScope = coroutineScope, modifier = Modifier.animateItem(), artist = it) }
-            }
-        } else {
-            LazyVerticalGrid(state = lazyGridState, columns = GridCells.Adaptive(GridThumbnailHeight + if (gridItemSize == GridItemSize.BIG) 24.dp else (-24).dp), contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()) {
-                item(key = "filter", span = { GridItemSpan(maxLineSpan) }, contentType = CONTENT_TYPE_HEADER) { filterContent() }; item(key = "header", span = { GridItemSpan(maxLineSpan) }, contentType = CONTENT_TYPE_HEADER) { headerContent() }
-                if (artists.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) { EmptyPlaceholder(icon = R.drawable.artist, text = stringResource(R.string.library_artist_empty), modifier = Modifier.animateItem()) }
-                items(items = artists, key = { it.id }, contentType = { CONTENT_TYPE_ARTIST }) { LibraryArtistGridItem(navController = navController, menuState = menuState, coroutineScope = coroutineScope, modifier = Modifier.animateItem(), artist = it) }
+        AnimatedContent(targetState = viewType, transitionSpec = { fadeIn(tween(400)) togetherWith fadeOut(tween(400)) }, label = "") { vt ->
+            if (vt == LibraryViewType.LIST) {
+                LazyColumn(state = lazyListState, contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()) {
+                    item(key = "filter", contentType = CONTENT_TYPE_HEADER) { filterContent() }; item(key = "header", contentType = CONTENT_TYPE_HEADER) { headerContent() }
+                    if (artists.isEmpty()) item { var show by remember { mutableStateOf(false) }; LaunchedEffect(Unit) { show = true }; AnimatedVisibility(visible = show, enter = fadeIn(tween(400)) + expandVertically(tween(400))) { EmptyPlaceholder(R.drawable.artist, stringResource(R.string.library_artist_empty), Modifier.animateItem()) } }
+                    items(artists, key = { it.id }, contentType = { CONTENT_TYPE_ARTIST }) { LibraryArtistListItem(navController, menuState, coroutineScope, Modifier.animateItem(), it) }
+                }
+            } else {
+                LazyVerticalGrid(state = lazyGridState, columns = GridCells.Adaptive(GridThumbnailHeight + if (gridItemSize == GridItemSize.BIG) 24.dp else (-24).dp), contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()) {
+                    item(key = "filter", span = { GridItemSpan(maxLineSpan) }, contentType = CONTENT_TYPE_HEADER) { filterContent() }; item(key = "header", span = { GridItemSpan(maxLineSpan) }, contentType = CONTENT_TYPE_HEADER) { headerContent() }
+                    if (artists.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) { var show by remember { mutableStateOf(false) }; LaunchedEffect(Unit) { show = true }; AnimatedVisibility(visible = show, enter = fadeIn(tween(400)) + expandVertically(tween(400))) { EmptyPlaceholder(R.drawable.artist, stringResource(R.string.library_artist_empty), Modifier.animateItem()) } }
+                    items(artists, key = { it.id }, contentType = { CONTENT_TYPE_ARTIST }) { LibraryArtistGridItem(navController, menuState, coroutineScope, Modifier.animateItem(), it) }
+                }
             }
         }
     }
@@ -273,7 +258,7 @@ fun dummyPlaylist(name: String) = Playlist(PlaylistEntity(UUID.randomUUID().toSt
     val filteredSongs = remember(wrappedSongs, query) { if (query.text.isEmpty()) wrappedSongs else wrappedSongs.filter { s -> s.item.title.contains(query.text, true) || s.item.artists.any { it.name.contains(query.text, true) } } }
     Box(Modifier.fillMaxSize()) {
         LazyColumn(state = lazyListState, contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()) {
-            if (filteredSongs.isEmpty()) item { EmptyPlaceholder(icon = R.drawable.music_note, text = stringResource(R.string.playlist_is_empty)) }
+            if (filteredSongs.isEmpty()) item { var show by remember { mutableStateOf(false) }; LaunchedEffect(Unit) { show = true }; AnimatedVisibility(visible = show, enter = fadeIn(tween(400)) + expandVertically(tween(400))) { EmptyPlaceholder(R.drawable.music_note, stringResource(R.string.playlist_is_empty)) } }
             else {
                 if (!isSearching) item {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(12.dp)) {
@@ -287,20 +272,26 @@ fun dummyPlaylist(name: String) = Playlist(PlaylistEntity(UUID.randomUUID().toSt
                         }
                     }
                 }
-                itemsIndexed(items = filteredSongs, key = { _, s -> s.item.id }) { index, s ->
-                    SongListItem(song = s.item, isActive = s.item.id == mediaMetadata?.id, isPlaying = isPlaying, isSelected = s.isSelected && selection, showInLibraryIcon = true, trailingContent = { IconButton({ menuState.show { SongMenu(originalSong = s.item, navController = navController, onDismiss = menuState::dismiss) } }) { Icon(painterResource(R.drawable.more_vert), null) } }, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { if (!selection) { if (s.item.id == mediaMetadata?.id) playerConnection.player.togglePlayPause() else playerConnection.playQueue(ListQueue("Cache Songs", filteredSongs.map { it.item.toMediaItem() }, index)) } else s.isSelected = !s.isSelected }, onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); if (!selection) selection = true; wrappedSongs.forEach { it.isSelected = false }; s.isSelected = true }).animateItem())
+                itemsIndexed(filteredSongs, key = { _, s -> s.item.id }) { index, s ->
+                    SongListItem(song = s.item, isActive = s.item.id == mediaMetadata?.id, isPlaying = isPlaying, isSelected = s.isSelected && selection, showInLibraryIcon = true, trailingContent = { IconButton({ menuState.show { SongMenu(s.item, navController, menuState::dismiss) } }) { Icon(painterResource(R.drawable.more_vert), null) } }, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { if (!selection) { if (s.item.id == mediaMetadata?.id) playerConnection.player.togglePlayPause() else playerConnection.playQueue(ListQueue("Cache Songs", filteredSongs.map { it.item.toMediaItem() }, index)) } else s.isSelected = !s.isSelected }, onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); if (!selection) selection = true; wrappedSongs.forEach { it.isSelected = false }; s.isSelected = true }).animateItem())
                 }
             }
         }
         TopAppBar(title = {
-            when {
-                selection -> { val count = wrappedSongs.count { it.isSelected }; Text(pluralStringResource(R.plurals.n_song, count, count), style = MaterialTheme.typography.titleLarge) }
-                isSearching -> TextField(value = query, onValueChange = { query = it }, placeholder = { Text(stringResource(R.string.search), style = MaterialTheme.typography.titleLarge) }, singleLine = true, textStyle = MaterialTheme.typography.titleLarge, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent, focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent, disabledIndicatorColor = Color.Transparent), modifier = Modifier.fillMaxWidth().focusRequester(focusRequester))
-                else -> Text(stringResource(R.string.cached_playlist), style = MaterialTheme.typography.titleLarge)
+            AnimatedContent(targetState = Triple(selection, isSearching, wrappedSongs.count { it.isSelected }), transitionSpec = { fadeIn(tween(300)) + slideInVertically(tween(300)) { 50 } togetherWith fadeOut(tween(300)) + slideOutVertically(tween(300)) { -50 } }, label = "") { (sel, search, count) ->
+                when {
+                    sel -> Text(pluralStringResource(R.plurals.n_song, count, count), style = MaterialTheme.typography.titleLarge)
+                    search -> TextField(value = query, onValueChange = { query = it }, placeholder = { Text(stringResource(R.string.search), style = MaterialTheme.typography.titleLarge) }, singleLine = true, textStyle = MaterialTheme.typography.titleLarge, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent, focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent, disabledIndicatorColor = Color.Transparent), modifier = Modifier.fillMaxWidth().focusRequester(focusRequester))
+                    else -> Text(stringResource(R.string.cached_playlist), style = MaterialTheme.typography.titleLarge)
+                }
             }
-        }, navigationIcon = { IconButton(onClick = { when { isSearching -> { isSearching = false; query = TextFieldValue(); focusManager.clearFocus() }; selection -> selection = false; else -> navController.navigateUp() } }, onLongClick = { if (!isSearching && !selection) navController.backToMain() }) { Icon(painterResource(if (selection) R.drawable.close else R.drawable.arrow_back), null) } }, actions = {
-            if (selection) { val count = wrappedSongs.count { it.isSelected }; IconButton({ if (count == wrappedSongs.size) wrappedSongs.forEach { it.isSelected = false } else wrappedSongs.forEach { it.isSelected = true } }) { Icon(painterResource(if (count == wrappedSongs.size) R.drawable.deselect else R.drawable.select_all), null) }; IconButton({ menuState.show { SelectionSongMenu(songSelection = wrappedSongs.filter { it.isSelected }.map { it.item }, onDismiss = menuState::dismiss, clearAction = { selection = false }) } }) { Icon(painterResource(R.drawable.more_vert), null) } }
-            else if (!isSearching) IconButton({ isSearching = true }) { Icon(painterResource(R.drawable.search), null) }
+        }, navigationIcon = { AnimatedContent(targetState = selection, transitionSpec = { scaleIn(tween(300)) togetherWith scaleOut(tween(300)) }, label = "") { sel -> IconButton(onClick = { when { isSearching -> { isSearching = false; query = TextFieldValue(); focusManager.clearFocus() }; selection -> selection = false; else -> navController.navigateUp() } }, onLongClick = { if (!isSearching && !selection) navController.backToMain() }) { Icon(painterResource(if (sel) R.drawable.close else R.drawable.arrow_back), null) } } }, actions = {
+            AnimatedContent(targetState = Pair(selection, isSearching), transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(300)) }, label = "") { (sel, search) ->
+                Row {
+                    if (sel) { val count = wrappedSongs.count { it.isSelected }; IconButton({ if (count == wrappedSongs.size) wrappedSongs.forEach { it.isSelected = false } else wrappedSongs.forEach { it.isSelected = true } }) { Icon(painterResource(if (count == wrappedSongs.size) R.drawable.deselect else R.drawable.select_all), null) }; IconButton({ menuState.show { SelectionSongMenu(wrappedSongs.filter { it.isSelected }.map { it.item }, menuState::dismiss, { selection = false }) } }) { Icon(painterResource(R.drawable.more_vert), null) } }
+                    else if (!search) IconButton({ isSearching = true }) { Icon(painterResource(R.drawable.search), null) }
+                }
+            }
         })
     }
 }
