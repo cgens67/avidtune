@@ -984,37 +984,38 @@ fun LibraryPlaylistsScreen(
     }
 
     val handlePlaylistPlay: (Playlist) -> Unit = { playlist ->
-        val pc = playerConnection ?: return@let
-        coroutineScope.launch(Dispatchers.IO) {
-            try {
-                val anyList = database.playlistSongs(playlist.id).first() as? List<Any> ?: emptyList()
-                val mediaItems = anyList.mapNotNull { item ->
-                    val itemClass = item::class.java
-                    when (itemClass.simpleName) {
-                        "Song", "SongItem", "MediaMetadata" -> {
-                            itemClass.methods.find { it.name == "toMediaItem" }?.invoke(item) as? androidx.media3.common.MediaItem
-                        }
-                        else -> {
-                            val songMethod = itemClass.methods.find { it.name == "getSong" || it.name == "getSongItem" }
-                            val songObj = songMethod?.invoke(item)
-                            songObj?.let { obj ->
-                                obj::class.java.methods.find { it.name == "toMediaItem" }?.invoke(obj) as? androidx.media3.common.MediaItem
+        playerConnection?.let { pc ->
+            coroutineScope.launch(Dispatchers.IO) {
+                try {
+                    val anyList = database.playlistSongs(playlist.id).first() as? List<Any> ?: emptyList()
+                    val mediaItems = anyList.mapNotNull { item ->
+                        val itemClass = item::class.java
+                        when (itemClass.simpleName) {
+                            "Song", "SongItem", "MediaMetadata" -> {
+                                itemClass.methods.find { it.name == "toMediaItem" }?.invoke(item) as? androidx.media3.common.MediaItem
+                            }
+                            else -> {
+                                val songMethod = itemClass.methods.find { it.name == "getSong" || it.name == "getSongItem" }
+                                val songObj = songMethod?.invoke(item)
+                                songObj?.let { obj ->
+                                    obj::class.java.methods.find { it.name == "toMediaItem" }?.invoke(obj) as? androidx.media3.common.MediaItem
+                                }
                             }
                         }
                     }
-                }
-                if (mediaItems.isNotEmpty()) {
-                    withContext(Dispatchers.Main) {
-                        pc.playQueue(
-                            ListQueue(
-                                title = playlist.playlist.name,
-                                items = mediaItems
+                    if (mediaItems.isNotEmpty()) {
+                        withContext(Dispatchers.Main) {
+                            pc.playQueue(
+                                ListQueue(
+                                    title = playlist.playlist.name,
+                                    items = mediaItems
+                                )
                             )
-                        )
+                        }
                     }
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
             }
         }
     }
