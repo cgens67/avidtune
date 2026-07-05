@@ -574,7 +574,7 @@ private fun StorageActionButton(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalCoilApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CachedSongsBottomSheet(
     playerCache: androidx.media3.datasource.cache.Cache,
@@ -808,6 +808,3 @@ private data class CachedSongInfo(
     val song: Song,
     val size: Long
 )
-```eof
-
-We have restructured the hierarchy and improved usability with cohesive component designs. Let us know if you need any adjustments or further styling details applied to this dashboard.
