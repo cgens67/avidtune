@@ -28,8 +28,6 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -135,7 +133,7 @@ fun LibraryScreen(navController: NavController) {
 
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current
-    val maxHeaderHeight = 90.dp
+    val maxHeaderHeight = 110.dp
     val maxHeaderOffsetPx = with(density) { maxHeaderHeight.toPx() }
     var headerOffsetPx by rememberSaveable { mutableStateOf(0f) }
 
@@ -184,8 +182,7 @@ fun LibraryScreen(navController: NavController) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.statusBars)
-                .padding(top = 16.dp)
+                .padding(top = 56.dp) // Offset clear of the global Top App Bar
                 .nestedScroll(nestedScrollConnection)
         ) {
             Column(
@@ -195,8 +192,8 @@ fun LibraryScreen(navController: NavController) {
                     .clipToBounds()
                     .graphicsLayer { alpha = progress }
                     .padding(horizontal = 24.dp)
-                    .padding(top = 16.dp, bottom = 4.dp),
-                verticalArrangement = Arrangement.Center
+                    .padding(bottom = 8.dp),
+                verticalArrangement = Arrangement.Bottom // Keep text attached to bottom when shrinking to avoid top cut-off
             ) {
                 Text(
                     text = headerTitle,
@@ -986,11 +983,47 @@ fun LibraryPlaylistsScreen(
         }
     }
 
+    val handlePlaylistPlay: (Playlist) -> Unit = { playlist ->
+        val pc = playerConnection ?: return@let
+        coroutineScope.launch(Dispatchers.IO) {
+            try {
+                val anyList = database.playlistSongs(playlist.id).first() as? List<Any> ?: emptyList()
+                val mediaItems = anyList.mapNotNull { item ->
+                    val itemClass = item::class.java
+                    when (itemClass.simpleName) {
+                        "Song", "SongItem", "MediaMetadata" -> {
+                            itemClass.methods.find { it.name == "toMediaItem" }?.invoke(item) as? androidx.media3.common.MediaItem
+                        }
+                        else -> {
+                            val songMethod = itemClass.methods.find { it.name == "getSong" || it.name == "getSongItem" }
+                            val songObj = songMethod?.invoke(item)
+                            songObj?.let { obj ->
+                                obj::class.java.methods.find { it.name == "toMediaItem" }?.invoke(obj) as? androidx.media3.common.MediaItem
+                            }
+                        }
+                    }
+                }
+                if (mediaItems.isNotEmpty()) {
+                    withContext(Dispatchers.Main) {
+                        pc.playQueue(
+                            ListQueue(
+                                title = playlist.playlist.name,
+                                items = mediaItems
+                            )
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         VerticalFastScroller(
             listState = if (viewType == LibraryViewType.LIST) lazyListState else rememberLazyListState(),
             topContentPadding = 16.dp,
-            endContentPadding = 0.dp
+            endContentPadding = 80.dp // Extra padding at bottom so items are not hidden behind FAB
         ) {
             if (viewType == LibraryViewType.LIST) {
                 LazyColumn(
@@ -1009,43 +1042,13 @@ fun LibraryPlaylistsScreen(
                                     navController.navigate("local_playlist/${playlist.id}")
                                 }
                             },
-                            onPlay = {
-                                val pc = playerConnection ?: return@PlaylistListCard
-                                coroutineScope.launch {
-                                    val anyList = database.playlistSongs(playlist.id).first() as List<Any>
-                                    val mediaItems = anyList.mapNotNull { item ->
-                                        if (item is Song) {
-                                            item.toMediaItem()
-                                        } else {
-                                            val songProp = runCatching { item.javaClass.getMethod("getSong").invoke(item) }.getOrNull()
-                                            if (songProp is Song) {
-                                                songProp.toMediaItem()
-                                            } else {
-                                                null
-                                            }
-                                        }
-                                    }
-                                    if (mediaItems.isNotEmpty()) {
-                                        pc.playQueue(
-                                            ListQueue(
-                                                title = playlist.playlist.name,
-                                                items = mediaItems
-                                            )
-                                        )
-                                    }
-                                }
-                            },
+                            onPlay = { handlePlaylistPlay(playlist) },
                             onMenuClick = {
                                 menuState.show { PlaylistMenu(playlist = playlist, coroutineScope = coroutineScope, onDismiss = menuState::dismiss) }
                             }
                         )
                     }
                 }
-                HideOnScrollFAB(
-                    lazyListState = lazyListState,
-                    icon = R.drawable.add,
-                    onClick = { showCreatePlaylistDialog = true }
-                )
             } else {
                 LazyVerticalGrid(
                     state = lazyGridState,
@@ -1064,32 +1067,7 @@ fun LibraryPlaylistsScreen(
                                     navController.navigate("local_playlist/${playlist.id}")
                                 }
                             },
-                            onPlay = {
-                                val pc = playerConnection ?: return@PlaylistGridCard
-                                coroutineScope.launch {
-                                    val anyList = database.playlistSongs(playlist.id).first() as List<Any>
-                                    val mediaItems = anyList.mapNotNull { item ->
-                                        if (item is Song) {
-                                            item.toMediaItem()
-                                        } else {
-                                            val songProp = runCatching { item.javaClass.getMethod("getSong").invoke(item) }.getOrNull()
-                                            if (songProp is Song) {
-                                                songProp.toMediaItem()
-                                            } else {
-                                                null
-                                            }
-                                        }
-                                    }
-                                    if (mediaItems.isNotEmpty()) {
-                                        pc.playQueue(
-                                            ListQueue(
-                                                title = playlist.playlist.name,
-                                                items = mediaItems
-                                            )
-                                        )
-                                    }
-                                }
-                            },
+                            onPlay = { handlePlaylistPlay(playlist) },
                             onLongClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 menuState.show { PlaylistMenu(playlist = playlist, coroutineScope = coroutineScope, onDismiss = menuState::dismiss) }
@@ -1097,12 +1075,22 @@ fun LibraryPlaylistsScreen(
                         )
                     }
                 }
-                HideOnScrollFAB(
-                    lazyListState = lazyGridState,
-                    icon = R.drawable.add,
-                    onClick = { showCreatePlaylistDialog = true }
-                )
             }
+        }
+        
+        // Permanent FAB anchored to the bottom instead of disappearing
+        FloatingActionButton(
+            onClick = { showCreatePlaylistDialog = true },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(24.dp),
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.add), 
+                contentDescription = stringResource(R.string.create_playlist)
+            )
         }
     }
 }
@@ -1606,54 +1594,6 @@ fun LibraryArtistsScreen(
                         modifier = Modifier.animateItem()
                     )
                 }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun CachePlaylistScreen(
-    navController: NavController,
-    scrollBehavior: TopAppBarScrollBehavior
-) {
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text(stringResource(R.string.cached_playlist)) },
-                navigationIcon = {
-                    IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(imageVector = Icons.Default.ArrowBack, contentDescription = null)
-                    }
-                },
-                scrollBehavior = scrollBehavior
-            )
-        }
-    ) { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(
-                    painter = painterResource(R.drawable.music_note),
-                    contentDescription = null,
-                    modifier = Modifier.size(64.dp),
-                    tint = MaterialTheme.colorScheme.secondary
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = stringResource(R.string.cached_playlist),
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "No cached songs available",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
         }
     }
