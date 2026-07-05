@@ -78,6 +78,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import coil.imageLoader
 import coil.annotation.ExperimentalCoilApi
 import coil.compose.AsyncImage
 import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
