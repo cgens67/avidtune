@@ -1009,7 +1009,7 @@ fun AlbumGridItem(
                     Modifier
                         .fillMaxSize()
                         .background(
-                            color = Color.Black.copy(alpha = 0.4f),
+                            color = Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f),
                             shape = RoundedCornerShape(ThumbnailCornerRadius),
                         ),
             ) {
@@ -1018,13 +1018,28 @@ fun AlbumGridItem(
                         color = Color.White,
                         modifier = Modifier.height(24.dp),
                     )
-                } else {
-                    Icon(
-                        painter = painterResource(R.drawable.play),
-                        contentDescription = null,
-                        tint = Color.White,
-                    )
                 }
+            }
+        }
+
+        AnimatedVisibility(
+            visible = isActive && !isPlaying,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.align(Alignment.Center).padding(8.dp),
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.6f))
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.play),
+                    contentDescription = null,
+                    tint = Color.White,
+                )
             }
         }
 
@@ -1120,7 +1135,7 @@ fun AlbumSmallGridItem(
                         Modifier
                             .fillMaxSize()
                             .background(
-                                color = Color.Black.copy(alpha = 0.4f),
+                                color = Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f),
                                 shape = RoundedCornerShape(ThumbnailCornerRadius),
                             ),
                 ) {
@@ -1129,13 +1144,28 @@ fun AlbumSmallGridItem(
                             color = Color.White,
                             modifier = Modifier.height(24.dp),
                         )
-                    } else {
-                        Icon(
-                            painter = painterResource(R.drawable.play),
-                            contentDescription = null,
-                            tint = Color.White,
-                        )
                     }
+                }
+            }
+
+            AnimatedVisibility(
+                visible = isActive && !isPlaying,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier.align(Alignment.Center).padding(8.dp),
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.6f))
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.play),
+                        contentDescription = null,
+                        tint = Color.White,
+                    )
                 }
             }
         },
@@ -1795,7 +1825,7 @@ fun YouTubeGridItem(
                         Modifier
                             .fillMaxSize()
                             .background(
-                                color = Color.Black.copy(alpha = if (isPlaying || item !is SongItem) 0.4f else 0f),
+                                color = Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f),
                                 shape = thumbnailShape,
                             ),
                 ) {
@@ -1804,30 +1834,26 @@ fun YouTubeGridItem(
                             color = Color.White,
                             modifier = Modifier.height(24.dp),
                         )
-                    } else if (item !is SongItem) {
-                        Icon(
-                            painter = painterResource(R.drawable.play),
-                            contentDescription = null,
-                            tint = Color.White,
-                        )
                     }
                 }
             }
 
             androidx.compose.animation.AnimatedVisibility(
-                visible = item is SongItem && !(isActive && isPlaying),
+                visible = (item is SongItem && !(isActive && isPlaying)) || (item is AlbumItem && isActive && !isPlaying) || (item is ArtistItem && isActive && !isPlaying) || (item is PlaylistItem && isActive && !isPlaying),
                 enter = fadeIn(),
                 exit = fadeOut(),
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .padding(8.dp),
+                modifier =
+                    Modifier
+                        .align(Alignment.Center)
+                        .padding(8.dp),
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.6f)),
+                    modifier =
+                        Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.6f)),
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.play),
@@ -1941,7 +1967,7 @@ fun YouTubeSmallGridItem(
                     Modifier
                         .fillMaxSize()
                         .background(
-                            color = Color.Black.copy(alpha = if (isPlaying || item !is SongItem) 0.4f else 0f),
+                            color = Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f),
                             shape = RoundedCornerShape(ThumbnailCornerRadius),
                         ),
             ) {
@@ -1950,30 +1976,26 @@ fun YouTubeSmallGridItem(
                         color = Color.White,
                         modifier = Modifier.height(24.dp),
                     )
-                } else if (item !is SongItem) {
-                    Icon(
-                        painter = painterResource(R.drawable.play),
-                        contentDescription = null,
-                        tint = Color.White,
-                    )
                 }
             }
         }
 
         AnimatedVisibility(
-            visible = item is SongItem && !(isActive && isPlaying),
+            visible = if (item is SongItem) !(isActive && isPlaying) else (isActive && !isPlaying),
             enter = fadeIn(),
             exit = fadeOut(),
-            modifier = Modifier
-                .align(Alignment.Center)
-                .padding(8.dp),
+            modifier =
+                Modifier
+                    .align(Alignment.Center)
+                    .padding(8.dp),
         ) {
             Box(
                 contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(Color.Black.copy(alpha = 0.6f)),
+                modifier =
+                    Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.6f)),
             ) {
                 Icon(
                     painter = painterResource(R.drawable.play),
@@ -2053,9 +2075,10 @@ fun LocalSongsGrid(
                 visible = !(isActive && isPlaying),
                 enter = fadeIn(),
                 exit = fadeOut(),
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .padding(8.dp),
+                modifier =
+                    Modifier
+                        .align(Alignment.Center)
+                        .padding(8.dp),
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
@@ -2119,7 +2142,7 @@ fun LocalArtistsGrid(
                         Modifier
                             .fillMaxSize()
                             .background(
-                                color = Color.Black.copy(alpha = 0.4f),
+                                color = Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f),
                                 shape = CircleShape,
                             ),
                 ) {
@@ -2128,13 +2151,28 @@ fun LocalArtistsGrid(
                             color = Color.White,
                             modifier = Modifier.height(24.dp),
                         )
-                    } else {
-                        Icon(
-                            painter = painterResource(R.drawable.play),
-                            contentDescription = null,
-                            tint = Color.White,
-                        )
                     }
+                }
+            }
+
+            AnimatedVisibility(
+                visible = isActive && !isPlaying,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier.align(Alignment.Center).padding(8.dp),
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.6f)),
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.play),
+                        contentDescription = null,
+                        tint = Color.White,
+                    )
                 }
             }
         }
@@ -2201,7 +2239,7 @@ fun LocalAlbumsGrid(
                     Modifier
                         .fillMaxSize()
                         .background(
-                            color = Color.Black.copy(alpha = 0.4f),
+                            color = Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f),
                             shape = RoundedCornerShape(ThumbnailCornerRadius),
                         ),
             ) {
@@ -2210,13 +2248,28 @@ fun LocalAlbumsGrid(
                         color = Color.White,
                         modifier = Modifier.height(24.dp),
                     )
-                } else {
-                    Icon(
-                        painter = painterResource(R.drawable.play),
-                        contentDescription = null,
-                        tint = Color.White,
-                    )
                 }
+            }
+        }
+
+        AnimatedVisibility(
+            visible = isActive && !isPlaying,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.align(Alignment.Center).padding(8.dp),
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.6f)),
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.play),
+                    contentDescription = null,
+                    tint = Color.White,
+                )
             }
         }
     },
