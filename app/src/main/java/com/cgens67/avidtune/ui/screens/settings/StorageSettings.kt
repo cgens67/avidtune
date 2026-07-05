@@ -412,7 +412,7 @@ private fun AnimatedDonutChart(
         label = "iWeight"
     )
 
-    // Highlight segments by animatings their widths on selection
+    // Highlight segments by animating their widths on selection
     val dStroke by animateFloatAsState(
         targetValue = if (selectedSegmentIndex == 0) 22f else 14f,
         animationSpec = tween(350, easing = CubicBezierEasing(0.2f, 0.8f, 0.2f, 1.0f)),
@@ -460,11 +460,18 @@ private fun AnimatedDonutChart(
 
     val rotationAngle = entryRotation + idleRotationAngle
 
+    // Extract colors outside Canvas scope to prevent @Composable context compilation errors [1]
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val secondaryColor = MaterialTheme.colorScheme.secondary
+    val tertiaryColor = MaterialTheme.colorScheme.tertiary
+    val outlineVariantColor = MaterialTheme.colorScheme.outlineVariant
+    val onSurfaceColor = MaterialTheme.colorScheme.onSurface
+
     val centerText = when (selectedSegmentIndex) {
         0 -> stringResource(R.string.downloaded_songs)
         1 -> stringResource(R.string.song_cache)
         2 -> stringResource(R.string.image_cache)
-        else -> stringResource(R.string.used)
+        else -> "Used"
     }
     val centerValue = when (selectedSegmentIndex) {
         0 -> formatFileSize(downloadSize)
@@ -534,7 +541,7 @@ private fun AnimatedDonutChart(
 
             if (totalW == 0f) {
                 drawArc(
-                    color = MaterialTheme.colorScheme.outlineVariant,
+                    color = outlineVariantColor,
                     startAngle = 0f,
                     sweepAngle = 360f,
                     useCenter = false,
@@ -542,9 +549,9 @@ private fun AnimatedDonutChart(
                 )
             } else {
                 val activeSegments = listOf(
-                    Triple(MaterialTheme.colorScheme.primary, dWeight, dStroke),
-                    Triple(MaterialTheme.colorScheme.secondary, sWeight, sStroke),
-                    Triple(MaterialTheme.colorScheme.tertiary, iWeight, iStroke)
+                    Triple(primaryColor, dWeight, dStroke),
+                    Triple(secondaryColor, sWeight, sStroke),
+                    Triple(tertiaryColor, iWeight, iStroke)
                 ).filter { it.second > 0f }
 
                 val numSegments = activeSegments.size
@@ -589,10 +596,10 @@ private fun AnimatedDonutChart(
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold,
                 color = when (selectedSegmentIndex) {
-                    0 -> MaterialTheme.colorScheme.primary
-                    1 -> MaterialTheme.colorScheme.secondary
-                    2 -> MaterialTheme.colorScheme.tertiary
-                    else -> MaterialTheme.colorScheme.onSurface
+                    0 -> primaryColor
+                    1 -> secondaryColor
+                    2 -> tertiaryColor
+                    else -> onSurfaceColor
                 },
                 maxLines = 1,
                 textAlign = TextAlign.Center
