@@ -2,8 +2,13 @@ package com.cgens67.avidtune.ui.screens.settings
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -14,8 +19,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -67,11 +71,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -81,6 +83,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -107,6 +111,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.atan2
+import kotlin.math.sqrt
 
 @OptIn(ExperimentalCoilApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -157,40 +163,15 @@ fun StorageSettings(
 
     val totalUsedBytes = downloadCacheSize + playerCacheSize + imageCacheSize
 
-    // Entrance Animation State
-    var animateEntrance by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        animateEntrance = true
-    }
-
-    val entranceOffset by animateFloatAsState(
-        targetValue = if (animateEntrance) 0f else 100f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioLowBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
-        label = "entranceOffset"
-    )
-
-    val entranceAlpha by animateFloatAsState(
-        targetValue = if (animateEntrance) 1f else 0f,
-        animationSpec = spring(stiffness = Spring.StiffnessLow),
-        label = "entranceAlpha"
-    )
-
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
                 .windowInsetsPadding(LocalPlayerAwareWindowInsets.current)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-                .graphicsLayer {
-                    translationY = entranceOffset
-                    alpha = entranceAlpha
-                },
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Updated Dashboard Card with dynamic Donut/Pie Chart
+            // New Dashboard Card with fluid animated pie chart
             StorageDashboardCard(
                 totalUsedBytes = totalUsedBytes,
                 downloadCacheSize = downloadCacheSize,
@@ -325,9 +306,7 @@ private fun StorageDashboardCard(
     imageCacheSize: Long
 ) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessLow)),
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer
@@ -336,28 +315,52 @@ private fun StorageDashboardCard(
     ) {
         Column(
             modifier = Modifier.padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            Text(
-                text = stringResource(R.string.total_managed_space),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.align(Alignment.Start)
-            )
-
-            AnimatedDonutChart(
-                downloadSize = downloadCacheSize,
-                songCacheSize = playerCacheSize,
-                imageCacheSize = imageCacheSize,
-                total = totalUsedBytes
-            )
-
-            Column(
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                // Interactive and smooth Canvas Pie Chart
+                Box(
+                    modifier = Modifier.size(130.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    AnimatedDonutChart(
+                        downloadSize = downloadCacheSize,
+                        songCacheSize = playerCacheSize,
+                        imageCacheSize = imageCacheSize
+                    )
+                }
+
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.total_managed_space),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Text(
+                        text = formatFileSize(totalUsedBytes),
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 28.sp
+                    )
+                }
+            }
+
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                thickness = 1.dp
+            )
+
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 LegendRow(
                     label = stringResource(R.string.downloaded_songs),
                     size = downloadCacheSize,
@@ -383,147 +386,275 @@ private fun AnimatedDonutChart(
     downloadSize: Long,
     songCacheSize: Long,
     imageCacheSize: Long,
-    total: Long,
     modifier: Modifier = Modifier
 ) {
-    val dPct = if (total > 0L) downloadSize.toFloat() / total else 0f
-    val sPct = if (total > 0L) songCacheSize.toFloat() / total else 0f
-    val iPct = if (total > 0L) imageCacheSize.toFloat() / total else 0f
+    var selectedSegmentIndex by remember { mutableStateOf(-1) }
 
-    // Spring animations on each segment target sweep percentage
-    val animatedDPct by animateFloatAsState(
-        targetValue = dPct,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow),
-        label = "downloadPercent"
-    )
-    val animatedSPct by animateFloatAsState(
-        targetValue = sPct,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow),
-        label = "songPercent"
-    )
-    val animatedIPct by animateFloatAsState(
-        targetValue = iPct,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow),
-        label = "imagePercent"
-    )
+    val total = downloadSize + songCacheSize + imageCacheSize
+    val dTarget = if (total > 0L) downloadSize.toFloat() / total else 0f
+    val sTarget = if (total > 0L) songCacheSize.toFloat() / total else 0f
+    val iTarget = if (total > 0L) imageCacheSize.toFloat() / total else 0f
 
-    // Animated byte count internally
-    val animatedTotalBytes by animateFloatAsState(
-        targetValue = total.toFloat(),
-        animationSpec = spring(stiffness = Spring.StiffnessLow),
-        label = "totalBytes"
+    // Morph sizes smoothly without bounce on updates
+    val dWeight by animateFloatAsState(
+        targetValue = dTarget,
+        animationSpec = tween(1200, easing = CubicBezierEasing(0.2f, 0.8f, 0.2f, 1.0f)),
+        label = "dWeight"
+    )
+    val sWeight by animateFloatAsState(
+        targetValue = sTarget,
+        animationSpec = tween(1200, easing = CubicBezierEasing(0.2f, 0.8f, 0.2f, 1.0f)),
+        label = "sWeight"
+    )
+    val iWeight by animateFloatAsState(
+        targetValue = iTarget,
+        animationSpec = tween(1200, easing = CubicBezierEasing(0.2f, 0.8f, 0.2f, 1.0f)),
+        label = "iWeight"
     )
 
-    var isMounted by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        isMounted = true
-    }
+    // Highlight segments by animatings their widths on selection
+    val dStroke by animateFloatAsState(
+        targetValue = if (selectedSegmentIndex == 0) 22f else 14f,
+        animationSpec = tween(350, easing = CubicBezierEasing(0.2f, 0.8f, 0.2f, 1.0f)),
+        label = "dStroke"
+    )
+    val sStroke by animateFloatAsState(
+        targetValue = if (selectedSegmentIndex == 1) 22f else 14f,
+        animationSpec = tween(350, easing = CubicBezierEasing(0.2f, 0.8f, 0.2f, 1.0f)),
+        label = "sStroke"
+    )
+    val iStroke by animateFloatAsState(
+        targetValue = if (selectedSegmentIndex == 2) 22f else 14f,
+        animationSpec = tween(350, easing = CubicBezierEasing(0.2f, 0.8f, 0.2f, 1.0f)),
+        label = "iStroke"
+    )
 
-    // Chart entry transitions (scale and rotation)
-    val scale by animateFloatAsState(
-        targetValue = if (isMounted) 1f else 0.7f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-        label = "chartScale"
+    // Entry transition states
+    var animationPlayed by remember { mutableStateOf(false) }
+    val sweepProgress by animateFloatAsState(
+        targetValue = if (animationPlayed) 1f else 0f,
+        animationSpec = tween(durationMillis = 1500, easing = CubicBezierEasing(0.1f, 0.9f, 0.2f, 1.0f)),
+        label = "sweepProgress"
     )
     val entryRotation by animateFloatAsState(
-        targetValue = if (isMounted) 0f else -90f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-        label = "chartRotation"
+        targetValue = if (animationPlayed) 0f else -180f,
+        animationSpec = tween(durationMillis = 1500, easing = CubicBezierEasing(0.1f, 0.9f, 0.2f, 1.0f)),
+        label = "entryRotation"
     )
 
-    val primaryColor = MaterialTheme.colorScheme.primary
-    val secondaryColor = MaterialTheme.colorScheme.secondary
-    val tertiaryColor = MaterialTheme.colorScheme.tertiary
-    val outlineColor = MaterialTheme.colorScheme.outlineVariant
+    LaunchedEffect(Unit) {
+        animationPlayed = true
+    }
+
+    // Gentle continuous slow rotation to keep the dashboard dynamic
+    val infiniteTransition = rememberInfiniteTransition(label = "pieRotation")
+    val idleRotationAngle by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 40000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "idleRotation"
+    )
+
+    val rotationAngle = entryRotation + idleRotationAngle
+
+    val centerText = when (selectedSegmentIndex) {
+        0 -> stringResource(R.string.downloaded_songs)
+        1 -> stringResource(R.string.song_cache)
+        2 -> stringResource(R.string.image_cache)
+        else -> stringResource(R.string.used)
+    }
+    val centerValue = when (selectedSegmentIndex) {
+        0 -> formatFileSize(downloadSize)
+        1 -> formatFileSize(songCacheSize)
+        2 -> formatFileSize(imageCacheSize)
+        else -> formatFileSize(total)
+    }
 
     Box(
-        modifier = modifier
-            .size(200.dp)
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-                rotationZ = entryRotation
-            },
+        modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val strokeWidth = 20.dp.toPx()
-            val radius = (size.minDimension - strokeWidth) / 2
-            val center = Offset(size.width / 2, size.height / 2)
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(rotationAngle, dWeight, sWeight, iWeight) {
+                    detectTapGestures { offset ->
+                        val centerX = size.width / 2f
+                        val centerY = size.height / 2f
+                        val x = offset.x
+                        val y = offset.y
 
-            if (total == 0L) {
-                drawCircle(
-                    color = outlineColor,
-                    radius = radius,
-                    center = center,
-                    style = Stroke(width = strokeWidth)
+                        val distance = sqrt((x - centerX) * (x - centerX) + (y - centerY) * (y - centerY))
+                        val outerRadius = size.width / 2f
+                        val innerRadius = outerRadius - 40.dp.toPx()
+
+                        if (distance in innerRadius..outerRadius) {
+                            val rawAngle = Math.toDegrees(atan2((y - centerY).toDouble(), (x - centerX).toDouble())).toFloat()
+                            val angle = (rawAngle + 360f) % 360f
+                            val adjustedAngle = (angle - rotationAngle % 360f + 360f) % 360f
+
+                            val totalW = dWeight + sWeight + iWeight
+                            if (totalW > 0f) {
+                                val activeSegments = listOf(
+                                    Triple(0, dWeight, dStroke),
+                                    Triple(1, sWeight, sStroke),
+                                    Triple(2, iWeight, iStroke)
+                                ).filter { it.second > 0f }
+
+                                val numSegments = activeSegments.size
+                                val gapAngle = if (numSegments > 1) 14f else 0f
+                                val availableSweep = 360f - (numSegments * gapAngle)
+
+                                var currentAngle = 0f
+                                var clickedIndex = -1
+
+                                for (segment in activeSegments) {
+                                    val sweep = (segment.second / totalW) * availableSweep
+                                    val start = currentAngle + (gapAngle / 2f)
+                                    val end = start + sweep
+                                    if (adjustedAngle in start..end) {
+                                        clickedIndex = segment.first
+                                        break
+                                    }
+                                    currentAngle += sweep + gapAngle
+                                }
+
+                                selectedSegmentIndex = if (selectedSegmentIndex == clickedIndex) -1 else clickedIndex
+                            }
+                        } else {
+                            selectedSegmentIndex = -1
+                        }
+                    }
+                }
+        ) {
+            val totalW = dWeight + sWeight + iWeight
+
+            if (totalW == 0f) {
+                drawArc(
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                    startAngle = 0f,
+                    sweepAngle = 360f,
+                    useCenter = false,
+                    style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round)
                 )
             } else {
-                var startAngle = -90f
+                val activeSegments = listOf(
+                    Triple(MaterialTheme.colorScheme.primary, dWeight, dStroke),
+                    Triple(MaterialTheme.colorScheme.secondary, sWeight, sStroke),
+                    Triple(MaterialTheme.colorScheme.tertiary, iWeight, iStroke)
+                ).filter { it.second > 0f }
 
-                // Draw Arcs with round caps
-                val sweep1 = animatedDPct * 360f
-                if (sweep1 > 0f) {
-                    drawArc(
-                        color = primaryColor,
-                        startAngle = startAngle,
-                        sweepAngle = sweep1,
-                        useCenter = false,
-                        topLeft = Offset(center.x - radius, center.y - radius),
-                        size = Size(radius * 2, radius * 2),
-                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-                    )
-                    startAngle += sweep1
-                }
+                val numSegments = activeSegments.size
+                val gapAngle = if (numSegments > 1) 14f else 0f
+                val availableSweep = 360f - (numSegments * gapAngle)
 
-                val sweep2 = animatedSPct * 360f
-                if (sweep2 > 0f) {
-                    drawArc(
-                        color = secondaryColor,
-                        startAngle = startAngle,
-                        sweepAngle = sweep2,
-                        useCenter = false,
-                        topLeft = Offset(center.x - radius, center.y - radius),
-                        size = Size(radius * 2, radius * 2),
-                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-                    )
-                    startAngle += sweep2
-                }
+                var currentAngle = rotationAngle
 
-                val sweep3 = animatedIPct * 360f
-                if (sweep3 > 0f) {
+                activeSegments.forEach { (color, weight, strokeWidth) ->
+                    val sweepAngle = (weight / totalW) * availableSweep * sweepProgress
+                    val drawStartAngle = currentAngle + (gapAngle / 2f)
+
                     drawArc(
-                        color = tertiaryColor,
-                        startAngle = startAngle,
-                        sweepAngle = sweep3,
+                        color = color,
+                        startAngle = drawStartAngle,
+                        sweepAngle = sweepAngle,
                         useCenter = false,
-                        topLeft = Offset(center.x - radius, center.y - radius),
-                        size = Size(radius * 2, radius * 2),
-                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                        style = Stroke(width = strokeWidth.dp.toPx(), cap = StrokeCap.Round)
                     )
+
+                    currentAngle += sweepAngle + gapAngle
                 }
             }
         }
 
-        // Inner label
+        // Center Details Column
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
-            modifier = Modifier.padding(32.dp)
+            modifier = Modifier.padding(24.dp)
         ) {
             Text(
-                text = stringResource(R.string.total_managed_space),
+                text = centerText,
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Medium
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                maxLines = 1,
+                textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = formatFileSize(animatedTotalBytes.toLong()),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Black,
-                color = MaterialTheme.colorScheme.onSurface
+                text = centerValue,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                color = when (selectedSegmentIndex) {
+                    0 -> MaterialTheme.colorScheme.primary
+                    1 -> MaterialTheme.colorScheme.secondary
+                    2 -> MaterialTheme.colorScheme.tertiary
+                    else -> MaterialTheme.colorScheme.onSurface
+                },
+                maxLines = 1,
+                textAlign = TextAlign.Center
             )
+        }
+    }
+}
+
+@Composable
+private fun SegmentedStorageBar(
+    downloadSize: Long,
+    songCacheSize: Long,
+    imageCacheSize: Long,
+    modifier: Modifier = Modifier
+) {
+    val total = downloadSize + songCacheSize + imageCacheSize
+    val dWeight = if (total > 0L) downloadSize.toFloat() / total else 0f
+    val sWeight = if (total > 0L) songCacheSize.toFloat() / total else 0f
+    val iWeight = if (total > 0L) imageCacheSize.toFloat() / total else 0f
+
+    val dWeightAnimated by animateFloatAsState(targetValue = dWeight, label = "dWeight")
+    val sWeightAnimated by animateFloatAsState(targetValue = sWeight, label = "sWeight")
+    val iWeightAnimated by animateFloatAsState(targetValue = iWeight, label = "iWeight")
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(16.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        if (total == 0L) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.outlineVariant)
+            )
+        } else {
+            if (dWeightAnimated > 0f) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .weight(dWeightAnimated)
+                        .background(MaterialTheme.colorScheme.primary)
+                )
+            }
+            if (sWeightAnimated > 0f) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .weight(sWeightAnimated)
+                        .background(MaterialTheme.colorScheme.secondary)
+                )
+            }
+            if (iWeightAnimated > 0f) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .weight(iWeightAnimated)
+                        .background(MaterialTheme.colorScheme.tertiary)
+                )
+            }
         }
     }
 }
@@ -577,9 +708,7 @@ private fun ModernStorageCard(
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
@@ -673,29 +802,11 @@ private fun StorageActionButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-
-    // Bouncy scale feedback when clicked or pressed
-    val buttonScale by animateFloatAsState(
-        targetValue = if (isPressed) 0.94f else 1f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessHigh),
-        label = "actionButtonScale"
-    )
-
     Box(
         modifier = modifier
-            .graphicsLayer {
-                scaleX = buttonScale
-                scaleY = buttonScale
-            }
             .clip(RoundedCornerShape(14.dp))
             .background(color.copy(alpha = 0.12f))
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null, // Custom scale handling provides the visual feedback
-                onClick = onClick
-            )
+            .clickable(onClick = onClick)
             .padding(vertical = 12.dp, horizontal = 16.dp),
         contentAlignment = Alignment.Center
     ) {
