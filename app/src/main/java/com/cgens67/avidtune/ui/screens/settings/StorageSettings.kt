@@ -1,13 +1,25 @@
 package com.cgens67.avidtune.ui.screens.settings
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -18,21 +30,28 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -45,20 +64,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.annotation.ExperimentalCoilApi
 import coil.compose.AsyncImage
-import coil.imageLoader
 import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
 import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
@@ -67,7 +88,7 @@ import com.cgens67.avidtune.constants.MaxSongCacheSizeKey
 import com.cgens67.avidtune.constants.ThumbnailCornerRadius
 import com.cgens67.avidtune.db.entities.Song
 import com.cgens67.avidtune.extensions.tryOrNull
-import com.cgens67.avidtune.ui.component.IconButton
+import com.cgens67.avidtune.ui.component.IconButton as AppIconButton
 import com.cgens67.avidtune.ui.component.ListPreference
 import com.cgens67.avidtune.ui.utils.backToMain
 import com.cgens67.avidtune.ui.utils.formatFileSize
@@ -102,24 +123,8 @@ fun StorageSettings(
     )
 
     var imageCacheSize by remember { mutableLongStateOf(imageDiskCache.size) }
-    var playerCacheSize by remember { mutableLongStateOf(tryOrNull { playerCache.cacheSpace } ?: 0) }
-    var downloadCacheSize by remember { mutableLongStateOf(tryOrNull { downloadCache.cacheSpace } ?: 0) }
-
-    val animatedImageCacheSize by animateFloatAsState(
-        targetValue = if (maxImageCacheSize == -1) 0f
-        else (imageCacheSize.toFloat() / (maxImageCacheSize * 1024 * 1024L)).coerceIn(0f, 1f),
-        label = "imageCacheProgress",
-    )
-
-    val animatedPlayerCacheSize by animateFloatAsState(
-        targetValue = if (maxSongCacheSize == -1) 0f
-        else (playerCacheSize.toFloat() / (maxSongCacheSize * 1024 * 1024L)).coerceIn(0f, 1f),
-        label = "playerCacheProgress",
-    )
-    val animatedDownloadCacheSize by animateFloatAsState(
-        targetValue = if (downloadCacheSize == 0L) 0f else 1f,
-        label = "downloadCacheProgress",
-    )
+    var playerCacheSize by remember { mutableLongStateOf(tryOrNull { playerCache.cacheSpace } ?: 0L) }
+    var downloadCacheSize by remember { mutableLongStateOf(tryOrNull { downloadCache.cacheSpace } ?: 0L) }
 
     var showCachedSongsSheet by remember { mutableStateOf(false) }
 
@@ -132,15 +137,17 @@ fun StorageSettings(
     LaunchedEffect(playerCache) {
         while (isActive) {
             delay(500)
-            playerCacheSize = tryOrNull { playerCache.cacheSpace } ?: 0
+            playerCacheSize = tryOrNull { playerCache.cacheSpace } ?: 0L
         }
     }
     LaunchedEffect(downloadCache) {
         while (isActive) {
             delay(500)
-            downloadCacheSize = tryOrNull { downloadCache.cacheSpace } ?: 0
+            downloadCacheSize = tryOrNull { downloadCache.cacheSpace } ?: 0L
         }
     }
+
+    val totalUsedBytes = downloadCacheSize + playerCacheSize + imageCacheSize
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -150,13 +157,29 @@ fun StorageSettings(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Descargas
-            StorageCard(
+            // New Dashboard Card
+            StorageDashboardCard(
+                totalUsedBytes = totalUsedBytes,
+                downloadCacheSize = downloadCacheSize,
+                playerCacheSize = playerCacheSize,
+                imageCacheSize = imageCacheSize
+            )
+
+            Text(
+                text = stringResource(R.string.manage_storage_categories),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(start = 4.dp, top = 8.dp)
+            )
+
+            // Downloads Category Card
+            ModernStorageCard(
                 title = stringResource(R.string.downloaded_songs),
                 icon = R.drawable.download,
                 usedSize = downloadCacheSize,
                 maxSize = null,
-                progress = if (downloadCacheSize > 0) animatedDownloadCacheSize else 0f,
+                indicatorColor = MaterialTheme.colorScheme.primary,
                 onClearClick = {
                     coroutineScope.launch(Dispatchers.IO) {
                         try {
@@ -171,13 +194,13 @@ fun StorageSettings(
                 onManageClick = null
             )
 
-            // Caché de canciones
-            StorageCard(
+            // Song Cache Category Card
+            ModernStorageCard(
                 title = stringResource(R.string.song_cache),
                 icon = R.drawable.music_note,
                 usedSize = playerCacheSize,
                 maxSize = if (maxSongCacheSize == -1) -1L else maxSongCacheSize * 1024 * 1024L,
-                progress = animatedPlayerCacheSize,
+                indicatorColor = MaterialTheme.colorScheme.secondary,
                 onClearClick = {
                     coroutineScope.launch(Dispatchers.IO) {
                         try {
@@ -190,7 +213,7 @@ fun StorageSettings(
                     }
                 },
                 onManageClick = { showCachedSongsSheet = true },
-                extraContent = {
+                limitSelectionContent = {
                     ListPreference(
                         title = { Text(stringResource(R.string.max_cache_size)) },
                         selectedValue = maxSongCacheSize,
@@ -204,13 +227,13 @@ fun StorageSettings(
                 }
             )
 
-            // Caché de imágenes
-            StorageCard(
+            // Image Cache Category Card
+            ModernStorageCard(
                 title = stringResource(R.string.image_cache),
                 icon = R.drawable.image,
                 usedSize = imageCacheSize,
                 maxSize = if (maxImageCacheSize == -1) -1L else maxImageCacheSize * 1024 * 1024L,
-                progress = animatedImageCacheSize,
+                indicatorColor = MaterialTheme.colorScheme.tertiary,
                 onClearClick = {
                     coroutineScope.launch(Dispatchers.IO) {
                         try {
@@ -221,7 +244,7 @@ fun StorageSettings(
                     }
                 },
                 onManageClick = null,
-                extraContent = {
+                limitSelectionContent = {
                     ListPreference(
                         title = { Text(stringResource(R.string.max_cache_size)) },
                         selectedValue = maxImageCacheSize,
@@ -239,7 +262,7 @@ fun StorageSettings(
         TopAppBar(
             title = { Text(stringResource(R.string.storage)) },
             navigationIcon = {
-                IconButton(
+                AppIconButton(
                     onClick = navController::navigateUp,
                     onLongClick = navController::backToMain,
                 ) {
@@ -252,7 +275,6 @@ fun StorageSettings(
         )
     }
 
-    // Bottom Sheet para gestionar canciones en caché
     if (showCachedSongsSheet) {
         CachedSongsBottomSheet(
             playerCache = playerCache,
@@ -263,19 +285,174 @@ fun StorageSettings(
 }
 
 @Composable
-private fun StorageCard(
+private fun StorageDashboardCard(
+    totalUsedBytes: Long,
+    downloadCacheSize: Long,
+    playerCacheSize: Long,
+    imageCacheSize: Long
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.total_managed_space),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Text(
+                text = formatFileSize(totalUsedBytes),
+                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.Black,
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            SegmentedStorageBar(
+                downloadSize = downloadCacheSize,
+                songCacheSize = playerCacheSize,
+                imageCacheSize = imageCacheSize
+            )
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                LegendRow(
+                    label = stringResource(R.string.downloaded_songs),
+                    size = downloadCacheSize,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                LegendRow(
+                    label = stringResource(R.string.song_cache),
+                    size = playerCacheSize,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+                LegendRow(
+                    label = stringResource(R.string.image_cache),
+                    size = imageCacheSize,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SegmentedStorageBar(
+    downloadSize: Long,
+    songCacheSize: Long,
+    imageCacheSize: Long,
+    modifier: Modifier = Modifier
+) {
+    val total = downloadSize + songCacheSize + imageCacheSize
+    val dWeight = if (total > 0L) downloadSize.toFloat() / total else 0f
+    val sWeight = if (total > 0L) songCacheSize.toFloat() / total else 0f
+    val iWeight = if (total > 0L) imageCacheSize.toFloat() / total else 0f
+
+    val dWeightAnimated by animateFloatAsState(targetValue = dWeight, label = "dWeight")
+    val sWeightAnimated by animateFloatAsState(targetValue = sWeight, label = "sWeight")
+    val iWeightAnimated by animateFloatAsState(targetValue = iWeight, label = "iWeight")
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(16.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        if (total == 0L) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.outlineVariant)
+            )
+        } else {
+            if (dWeightAnimated > 0f) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .weight(dWeightAnimated)
+                        .background(MaterialTheme.colorScheme.primary)
+                )
+            }
+            if (sWeightAnimated > 0f) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .weight(sWeightAnimated)
+                        .background(MaterialTheme.colorScheme.secondary)
+                )
+            }
+            if (iWeightAnimated > 0f) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .weight(iWeightAnimated)
+                        .background(MaterialTheme.colorScheme.tertiary)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LegendRow(
+    label: String,
+    size: Long,
+    color: Color
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .clip(CircleShape)
+                    .background(color)
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+        Text(
+            text = formatFileSize(size),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun ModernStorageCard(
     title: String,
     icon: Int,
     usedSize: Long,
     maxSize: Long?,
-    progress: Float,
+    indicatorColor: Color,
     onClearClick: () -> Unit,
-    onManageClick: (() -> Unit)?,
-    extraContent: (@Composable () -> Unit)? = null
+    onManageClick: (() -> Unit)? = null,
+    limitSelectionContent: (@Composable () -> Unit)? = null,
+    modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
         ),
@@ -285,7 +462,6 @@ private fun StorageCard(
             modifier = Modifier.padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Header con icono y título
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -294,13 +470,13 @@ private fun StorageCard(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                        .background(indicatorColor.copy(alpha = 0.12f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         painter = painterResource(icon),
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = indicatorColor,
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -309,129 +485,90 @@ private fun StorageCard(
                     Text(
                         text = title,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = if (maxSize != null && maxSize > 0) {
+                            stringResource(R.string.limit_info, formatFileSize(usedSize), formatFileSize(maxSize))
+                        } else {
+                            formatFileSize(usedSize)
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
-            // Barra de progreso
-            if (usedSize > 0) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    LinearProgressIndicator(
-                        progress = { progress },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(8.dp)
-                            .clip(RoundedCornerShape(4.dp)),
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = formatFileSize(usedSize),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        if (maxSize != null) {
-                            Text(
-                                text = if (maxSize == -1L) stringResource(R.string.unlimited)
-                                else formatFileSize(maxSize),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            } else {
-                Text(
-                    text = stringResource(R.string.size_used, formatFileSize(0)),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            // Contenido extra (ListPreference)
-            extraContent?.invoke()
-
-            // Botones de acción
-            if (usedSize > 0) {
-                HorizontalDivider(
-                    thickness = 0.5.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+            limitSelectionContent?.let {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.5f))
                 ) {
-                    if (onManageClick != null) {
-                        ActionButton(
-                            text = stringResource(R.string.manage),
-                            icon = R.drawable.settings,
-                            onClick = onManageClick,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
+                    it()
+                }
+            }
 
-                    ActionButton(
-                        text = stringResource(R.string.clear),
-                        icon = R.drawable.delete,
-                        onClick = onClearClick,
-                        modifier = Modifier.weight(1f),
-                        isDestructive = true
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                if (onManageClick != null) {
+                    StorageActionButton(
+                        text = stringResource(R.string.manage),
+                        icon = R.drawable.settings,
+                        color = MaterialTheme.colorScheme.primary,
+                        onClick = onManageClick,
+                        modifier = Modifier.weight(1f)
                     )
                 }
+
+                StorageActionButton(
+                    text = stringResource(R.string.clear),
+                    icon = R.drawable.delete,
+                    color = MaterialTheme.colorScheme.error,
+                    onClick = onClearClick,
+                    modifier = Modifier.weight(1f)
+                )
             }
         }
     }
 }
 
 @Composable
-private fun ActionButton(
+private fun StorageActionButton(
     text: String,
     icon: Int,
+    color: Color,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    isDestructive: Boolean = false
+    modifier: Modifier = Modifier
 ) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(
-                if (isDestructive)
-                    MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
-                else
-                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-            )
+            .clip(RoundedCornerShape(14.dp))
+            .background(color.copy(alpha = 0.12f))
             .clickable(onClick = onClick)
             .padding(vertical = 12.dp, horizontal = 16.dp),
         contentAlignment = Alignment.Center
     ) {
         Row(
             horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 painter = painterResource(icon),
                 contentDescription = null,
-                tint = if (isDestructive)
-                    MaterialTheme.colorScheme.error
-                else
-                    MaterialTheme.colorScheme.primary,
+                tint = color,
                 modifier = Modifier.size(18.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = text,
                 style = MaterialTheme.typography.labelLarge,
-                color = if (isDestructive)
-                    MaterialTheme.colorScheme.error
-                else
-                    MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Medium
+                color = color,
+                fontWeight = FontWeight.SemiBold
             )
         }
     }
@@ -448,12 +585,10 @@ private fun CachedSongsBottomSheet(
     val coroutineScope = rememberCoroutineScope()
     val events by viewModel.events.collectAsState()
 
-    // Obtener IDs de canciones en caché
     val cachedSongIds = remember(playerCache) {
         playerCache.keys.map { it.toString() }.toSet()
     }
 
-    // Obtener canciones completas desde el historial (similar a CachePlaylistScreen)
     val cachedSongs = remember(events, cachedSongIds) {
         events.values.flatten()
             .map { it.song }
@@ -461,7 +596,6 @@ private fun CachedSongsBottomSheet(
             .filter { it.id in cachedSongIds }
     }
 
-    // Obtener tamaños de caché - MEJORA: Filtrar canciones con tamaño 0
     val cachedSongsWithSize = remember(cachedSongs, playerCache) {
         cachedSongs.mapNotNull { song ->
             val size = tryOrNull {
@@ -480,7 +614,6 @@ private fun CachedSongsBottomSheet(
         displayedSongs = cachedSongsWithSize
     }
 
-    // Consumes ALL vertical overscroll to prevent the sheet from dragging and snapping back
     val nestedScrollConnection = remember {
         object : NestedScrollConnection {
             override fun onPostScroll(
@@ -519,7 +652,6 @@ private fun CachedSongsBottomSheet(
                 .nestedScroll(nestedScrollConnection)
                 .padding(horizontal = 16.dp)
         ) {
-            // Header
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -549,11 +681,9 @@ private fun CachedSongsBottomSheet(
                         onClick = {
                             coroutineScope.launch(Dispatchers.IO) {
                                 try {
-                                    // MEJORA: Conversión a lista antes de iterar
                                     playerCache.keys.toList().forEach { key ->
                                         tryOrNull { playerCache.removeResource(key) }
                                     }
-                                    // MEJORA: Actualización del UI con withContext
                                     withContext(Dispatchers.Main) {
                                         displayedSongs = emptyList()
                                     }
@@ -561,8 +691,7 @@ private fun CachedSongsBottomSheet(
                                     e.printStackTrace()
                                 }
                             }
-                        },
-                        onLongClick = { /* No action on long click */ }
+                        }
                     ) {
                         Icon(
                             painter = painterResource(R.drawable.delete),
@@ -573,7 +702,6 @@ private fun CachedSongsBottomSheet(
                 }
             }
 
-            // Lista de canciones
             LazyColumn(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -584,7 +712,6 @@ private fun CachedSongsBottomSheet(
                         onDeleteClick = {
                             coroutineScope.launch(Dispatchers.IO) {
                                 try {
-                                    // MEJORA: Búsqueda correcta de keys por canción
                                     val keysToRemove = playerCache.keys.filter { key ->
                                         key.contains(songInfo.song.id)
                                     }
@@ -593,7 +720,6 @@ private fun CachedSongsBottomSheet(
                                         tryOrNull { playerCache.removeResource(key) }
                                     }
 
-                                    // MEJORA: Actualización del UI con withContext
                                     withContext(Dispatchers.Main) {
                                         displayedSongs = displayedSongs.filter {
                                             it.song.id != songInfo.song.id
@@ -635,7 +761,6 @@ private fun CachedSongItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Thumbnail
             AsyncImage(
                 model = songInfo.song.thumbnailUrl,
                 contentDescription = null,
@@ -644,7 +769,6 @@ private fun CachedSongItem(
                     .clip(RoundedCornerShape(ThumbnailCornerRadius))
             )
 
-            // Info
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
@@ -668,11 +792,7 @@ private fun CachedSongItem(
                 )
             }
 
-            // Delete button
-            IconButton(
-                onClick = onDeleteClick,
-                onLongClick = { /* No action on long click */ }
-            ) {
+            IconButton(onClick = onDeleteClick) {
                 Icon(
                     painter = painterResource(R.drawable.delete),
                     contentDescription = stringResource(R.string.clear_song_cache),
@@ -688,3 +808,6 @@ private data class CachedSongInfo(
     val song: Song,
     val size: Long
 )
+```eof
+
+We have restructured the hierarchy and improved usability with cohesive component designs. Let us know if you need any adjustments or further styling details applied to this dashboard.
