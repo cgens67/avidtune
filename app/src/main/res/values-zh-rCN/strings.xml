@@ -1052,4 +1052,9 @@
     <string name="client_desc_web">标准网页客户端。</string>
     <string name="client_desc_web_creator">网页创作者工作室客户端。</string>
     <string name="playback_client">播放客户端</string>
+    
+    <!-- Storage Settings -->
+    <string name="manage_storage_categories">管理存储类别</string>
+    <string name="total_managed_space">总已管理空间</string>
+    <string name="limit_info">%1$s / %2$s</string>
 </resources>
