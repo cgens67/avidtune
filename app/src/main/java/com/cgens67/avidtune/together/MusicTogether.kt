@@ -16,6 +16,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -47,14 +49,49 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.cgens67.avidtune.App
 import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
 import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
-import com.cgens67.avidtune.ui.component.IconButton as AtIconButton
+import com.cgens67.avidtune.ui.component.AvatarPreferenceManager
+import com.cgens67.avidtune.ui.component.AvatarSelection
+import com.cgens67.avidtune.ui.component.BottomSheetMenu
+import com.cgens67.avidtune.ui.component.FloatingNavigationToolbar
+import com.cgens67.avidtune.ui.component.LocalMenuState
+import com.cgens67.avidtune.ui.component.LocaleManager
+import com.cgens67.avidtune.ui.component.Lyrics
+import com.cgens67.avidtune.ui.component.SwitchPreference
 import com.cgens67.avidtune.ui.component.TextFieldDialog
+import com.cgens67.avidtune.ui.component.TopSearch
+import com.cgens67.avidtune.ui.component.rememberBottomSheetState
+import com.cgens67.avidtune.ui.component.shimmer.ShimmerTheme
+import com.cgens67.avidtune.ui.menu.YouTubeSongMenu
+import com.cgens67.avidtune.ui.player.BottomSheetPlayer
+import com.cgens67.avidtune.ui.screens.Screens
+import com.cgens67.avidtune.ui.screens.navigationBuilder
+import com.cgens67.avidtune.ui.screens.search.LocalSearchScreen
+import com.cgens67.avidtune.ui.screens.search.OnlineSearchScreen
+import com.cgens67.avidtune.ui.screens.settings.DarkMode
+import com.cgens67.avidtune.ui.screens.settings.NavigationTab
+import com.cgens67.avidtune.ui.screens.settings.ThemePalettes
+import com.cgens67.avidtune.ui.theme.ColorSaver
+import com.cgens67.avidtune.ui.theme.DefaultThemeColor
+import com.cgens67.avidtune.ui.theme.AvidTuneTheme
+import com.cgens67.avidtune.ui.theme.ThemeSeedPaletteCodec
+import com.cgens67.avidtune.ui.theme.extractThemeColor
+import com.cgens67.avidtune.ui.utils.appBarScrollBehavior
 import com.cgens67.avidtune.ui.utils.backToMain
+import com.cgens67.avidtune.ui.utils.resetHeightOffset
+import com.cgens67.avidtune.utils.SyncUtils
+import com.cgens67.avidtune.utils.Updater
+import com.cgens67.avidtune.utils.dataStore
+import com.cgens67.avidtune.utils.get
+import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
+import com.cgens67.avidtune.utils.reportException
+import com.valentinilk.shimmer.LocalShimmerTheme
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO as ClientCIO
 import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
@@ -72,7 +109,6 @@ import io.ktor.websocket.close
 import io.ktor.websocket.readText
 import io.ktor.websocket.send
 import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.*
 import kotlinx.serialization.json.Json
@@ -80,7 +116,8 @@ import java.net.URI
 import java.net.URLDecoder
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.coroutines.resume
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.atomic.AtomicBoolean
 
 // --- PREFERENCES ---
 val TogetherAllowGuestsToAddTracksKey = booleanPreferencesKey("TogetherAllowGuestsToAddTracks")
@@ -111,6 +148,16 @@ const val TogetherProtocolVersion: Int = 1
 @Serializable @SerialName("host_command") data class HostCommand(val command: String, val args: String = "") : TogetherMessage
 @Serializable enum class ServerRole { HOST, GUEST }
 
+data class DiscoveredSession(
+    val hostIp: String,
+    val port: Int,
+    val sessionId: String,
+    val sessionKey: String,
+    val hostName: String
+) {
+    fun toJoinLink(): String = TogetherLink.encode(TogetherJoinInfo(hostIp, port, sessionId, sessionKey))
+}
+
 // --- LINK & JSON ---
 object TogetherJson { val json = Json { ignoreUnknownKeys = true; explicitNulls = false; encodeDefaults = true; classDiscriminator = "type" } }
 data class TogetherJoinInfo(val host: String, val port: Int, val sessionId: String, val sessionKey: String) {
@@ -133,18 +180,11 @@ object TogetherLink {
     }
 }
 
-// --- NSD MODEL ---
-data class LanSession(
-    val name: String,
-    val host: String,
-    val port: Int,
-    val sid: String,
-    val key: String
-)
-
 // --- MANAGER ---
 class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
     val sessionState = MutableStateFlow<TogetherSessionState>(TogetherSessionState.Idle)
+    val discoveredSessions = MutableStateFlow<List<DiscoveredSession>>(emptyList())
+    
     private var serverEngine: EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>? = null
     private var clientSession: DefaultClientWebSocketSession? = null
     private val httpClient = HttpClient(ClientCIO) {
@@ -159,9 +199,13 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
     private var isHost = false
     private var broadcastJob: Job? = null
 
-    // NSD properties for LAN discovery
+    // NSD Management
+    private val SERVICE_TYPE = "_avidtune._tcp."
     private var nsdManager: NsdManager? = null
     private var registrationListener: NsdManager.RegistrationListener? = null
+    private var discoveryListener: NsdManager.DiscoveryListener? = null
+    private val resolveQueue = ConcurrentLinkedQueue<NsdServiceInfo>()
+    private val resolveBusy = AtomicBoolean(false)
 
     @Volatile private var isSyncing = false
 
@@ -243,7 +287,6 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
         }
     }
 
-    // IMPORTANT: Call this ONLY from the Main thread because ExoPlayer is accessed here
     private fun getCurrentRoomState(sId: String): TogetherRoomState {
         val currentItem = player.currentMediaItem
         val customMeta = currentItem?.localConfiguration?.tag as? com.cgens67.avidtune.models.MediaMetadata
@@ -281,7 +324,6 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
     private fun broadcastRoomState() {
         val currentState = sessionState.value
         if (currentState is TogetherSessionState.Hosting) {
-            // Guarantee we jump to Main before reading the player state
             scope.launch(Dispatchers.Main) {
                 try {
                     val roomState = getCurrentRoomState(currentState.sessionId)
@@ -293,7 +335,6 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                             try {
                                 session.send(msg)
                             } catch (e: Exception) {
-                                // ignore
                             }
                         }
                     }
@@ -312,6 +353,118 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                 if (isHost && player.isPlaying) {
                     broadcastRoomState()
                 }
+            }
+        }
+    }
+
+    private fun registerService(port: Int, displayName: String, sId: String, sKey: String) {
+        unregisterService()
+        try {
+            val manager = App.instance.getSystemService(Context.NSD_SERVICE) as NsdManager
+            nsdManager = manager
+            val serviceInfo = NsdServiceInfo().apply {
+                serviceName = "AvidTune-$displayName-${java.util.UUID.randomUUID().toString().take(4)}"
+                serviceType = SERVICE_TYPE
+                this.port = port
+                setAttribute("sid", sId)
+                setAttribute("key", sKey)
+                setAttribute("name", displayName)
+            }
+            registrationListener = object : NsdManager.RegistrationListener {
+                override fun onServiceRegistered(nsdServiceInfo: NsdServiceInfo) {}
+                override fun onRegistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {}
+                override fun onServiceUnregistered(arg0: NsdServiceInfo) {}
+                override fun onUnregistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {}
+            }
+            manager.registerService(serviceInfo, NsdManager.PROTOCOL_DNS_SD, registrationListener)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun unregisterService() {
+        try {
+            registrationListener?.let { nsdManager?.unregisterService(it) }
+        } catch (e: Exception) {}
+        registrationListener = null
+    }
+
+    fun startDiscovery() {
+        stopDiscovery()
+        discoveredSessions.value = emptyList()
+        resolveQueue.clear()
+        resolveBusy.set(false)
+        try {
+            val manager = App.instance.getSystemService(Context.NSD_SERVICE) as NsdManager
+            nsdManager = manager
+            discoveryListener = object : NsdManager.DiscoveryListener {
+                override fun onDiscoveryStarted(regType: String) {}
+                override fun onServiceFound(service: NsdServiceInfo) {
+                    if (service.serviceType.contains("_avidtune._tcp")) {
+                        resolveQueue.add(service)
+                        resolveNext()
+                    }
+                }
+                override fun onServiceLost(service: NsdServiceInfo) {
+                    val lostName = service.serviceName ?: return
+                    discoveredSessions.update { list -> 
+                        list.filter { !lostName.contains(it.hostName) } 
+                    }
+                }
+                override fun onDiscoveryStopped(serviceType: String) {}
+                override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) { stopDiscovery() }
+                override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {}
+            }
+            manager.discoverServices(SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, discoveryListener)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun stopDiscovery() {
+        try {
+            discoveryListener?.let { nsdManager?.stopServiceDiscovery(it) }
+        } catch (e: Exception) {}
+        discoveryListener = null
+    }
+
+    private fun resolveNext() {
+        if (resolveBusy.compareAndSet(false, true)) {
+            val service = resolveQueue.poll()
+            if (service != null) {
+                try {
+                    nsdManager?.resolveService(service, object : NsdManager.ResolveListener {
+                        override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
+                            resolveBusy.set(false)
+                            resolveNext()
+                        }
+                        override fun onServiceResolved(serviceInfo: NsdServiceInfo) {
+                            val sidBytes = serviceInfo.attributes["sid"]
+                            val keyBytes = serviceInfo.attributes["key"]
+                            val nameBytes = serviceInfo.attributes["name"]
+                            
+                            if (sidBytes != null && keyBytes != null && nameBytes != null) {
+                                val sid = String(sidBytes, Charsets.UTF_8)
+                                val key = String(keyBytes, Charsets.UTF_8)
+                                val name = String(nameBytes, Charsets.UTF_8)
+                                val ip = serviceInfo.host?.hostAddress
+                                if (ip != null) {
+                                    val ds = DiscoveredSession(ip, serviceInfo.port, sid, key, name)
+                                    discoveredSessions.update { list -> 
+                                        list.filter { it.sessionId != sid } + ds 
+                                    }
+                                }
+                            }
+                            resolveBusy.set(false)
+                            resolveNext()
+                        }
+                    })
+                } catch (e: Exception) {
+                    resolveBusy.set(false)
+                    resolveNext()
+                }
+            } else {
+                resolveBusy.set(false)
             }
         }
     }
@@ -457,26 +610,10 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                 serverEngine = engine
 
                 val link = TogetherLink.encode(TogetherJoinInfo(hostIp, port, sId, sKey))
-
-                // Start NSD for LAN discovery
-                try {
-                    nsdManager = App.instance.getSystemService(Context.NSD_SERVICE) as NsdManager
-                    val serviceInfo = NsdServiceInfo().apply {
-                        serviceName = "AvidTune-$displayName"
-                        serviceType = "_avidtune._tcp."
-                        setPort(port)
-                        setAttribute("sid", sId)
-                        setAttribute("key", sKey)
-                    }
-                    registrationListener = object : NsdManager.RegistrationListener {
-                        override fun onServiceRegistered(NsdServiceInfo: NsdServiceInfo) {}
-                        override fun onRegistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {}
-                        override fun onServiceUnregistered(arg0: NsdServiceInfo) {}
-                        override fun onUnregistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {}
-                    }
-                    nsdManager?.registerService(serviceInfo, NsdManager.PROTOCOL_DNS_SD, registrationListener)
-                } catch (e: Exception) { e.printStackTrace() }
-
+                
+                // Publish our LAN service
+                registerService(port, displayName, sId, sKey)
+                
                 withContext(Dispatchers.Main) {
                     val rs = getCurrentRoomState(sId)
                     sessionState.value = TogetherSessionState.Hosting(sId, link, hostIp, port, settings, rs)
@@ -644,17 +781,13 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
     }
 
     fun leaveTogether() {
+        unregisterService()
         broadcastJob?.cancel()
         val engineToStop = serverEngine
         serverEngine = null
         val sessionToClose = clientSession
         clientSession = null
         
-        try {
-            registrationListener?.let { nsdManager?.unregisterService(it) }
-        } catch (e: Exception) { e.printStackTrace() }
-        registrationListener = null
-
         sessionState.value = TogetherSessionState.Idle
         
         scope.launch(Dispatchers.IO) {
@@ -717,8 +850,51 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
 }
 
 // --- UI SCREEN ---
-@SuppressLint("LocalContextGetResourceValueCall")
+
 @OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DiscoveredSessionCard(session: DiscoveredSession, onJoinClick: () -> Unit) {
+    Card(
+        onClick = onJoinClick,
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+        modifier = Modifier.width(240.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(painterResource(R.drawable.wifi_proxy), null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(20.dp))
+            }
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Text(
+                    text = session.hostName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = stringResource(R.string.join),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@SuppressLint("LocalContextGetResourceValueCall")
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun MusicTogetherScreen(
     navController: NavController,
@@ -776,8 +952,23 @@ fun MusicTogetherScreen(
     val (requireApproval, setRequireApprovalRaw) = rememberPreference(TogetherRequireHostApprovalToJoinKey, defaultValue = false)
     val (lastJoinLink, setLastJoinLink) = rememberPreference(TogetherLastJoinLinkKey, defaultValue = "")
 
-    val sessionStateFlow = remember(playerConnection) { playerConnection?.service?.togetherSessionState ?: MutableStateFlow(TogetherSessionState.Idle) }
+    val sessionStateFlow = remember(playerConnection) { playerConnection?.service?.togetherManager?.sessionState ?: MutableStateFlow(TogetherSessionState.Idle) }
     val sessionState by sessionStateFlow.collectAsState()
+    val discoveredSessions by playerConnection?.service?.togetherManager?.discoveredSessions?.collectAsState(emptyList()) ?: mutableStateOf(emptyList())
+
+    LaunchedEffect(sessionState) {
+        if (sessionState is TogetherSessionState.Idle) {
+            playerConnection?.service?.togetherManager?.startDiscovery()
+        } else {
+            playerConnection?.service?.togetherManager?.stopDiscovery()
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            playerConnection?.service?.togetherManager?.stopDiscovery()
+        }
+    }
 
     val isHosting = sessionState is TogetherSessionState.Hosting
     val isJoining = sessionState is TogetherSessionState.Joining
@@ -805,74 +996,6 @@ fun MusicTogetherScreen(
     var confirmBanParticipantId  by rememberSaveable { mutableStateOf<String?>(null) }
     val confirmKickName = lanParticipants.firstOrNull { it.id == confirmKickParticipantId }?.name
     val confirmBanName  = lanParticipants.firstOrNull { it.id == confirmBanParticipantId  }?.name
-
-    // NSD LAN Session Discovery Setup
-    val discoveredSessions = remember { mutableStateListOf<LanSession>() }
-    val resolveQueue = remember { Channel<NsdServiceInfo>(Channel.UNLIMITED) }
-    val nsdManager = remember { context.getSystemService(Context.NSD_SERVICE) as NsdManager }
-
-    LaunchedEffect(Unit) {
-        for (service in resolveQueue) {
-            suspendCancellableCoroutine<Unit> { cont ->
-                try {
-                    nsdManager.resolveService(service, object : NsdManager.ResolveListener {
-                        override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
-                            if (cont.isActive) cont.resume(Unit)
-                        }
-                        override fun onServiceResolved(serviceInfo: NsdServiceInfo) {
-                            val host = serviceInfo.host?.hostAddress
-                            val discoveredPort = serviceInfo.port
-                            val sidBytes = serviceInfo.attributes["sid"]
-                            val keyBytes = serviceInfo.attributes["key"]
-                            if (host != null && sidBytes != null && keyBytes != null) {
-                                val sid = String(sidBytes, Charsets.UTF_8)
-                                val key = String(keyBytes, Charsets.UTF_8)
-                                val discoveredName = serviceInfo.serviceName.removePrefix("AvidTune-")
-                                val session = LanSession(discoveredName, host, discoveredPort, sid, key)
-                                if (!discoveredSessions.any { it.sid == sid }) {
-                                    discoveredSessions.add(session)
-                                }
-                            }
-                            if (cont.isActive) cont.resume(Unit)
-                        }
-                    })
-                } catch(e: Exception) {
-                    if (cont.isActive) cont.resume(Unit)
-                }
-            }
-        }
-    }
-
-    DisposableEffect(Unit) {
-        val discoveryListener = object : NsdManager.DiscoveryListener {
-            override fun onDiscoveryStarted(regType: String) {}
-            override fun onServiceFound(service: NsdServiceInfo) {
-                if (service.serviceType == "_avidtune._tcp." && service.serviceName.startsWith("AvidTune-")) {
-                    resolveQueue.trySend(service)
-                }
-            }
-            override fun onServiceLost(service: NsdServiceInfo) {
-                val lostName = service.serviceName.removePrefix("AvidTune-")
-                discoveredSessions.removeAll { it.name == lostName }
-            }
-            override fun onDiscoveryStopped(serviceType: String) {}
-            override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {
-                try { nsdManager.stopServiceDiscovery(this) } catch(e: Exception) {}
-            }
-            override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {
-                try { nsdManager.stopServiceDiscovery(this) } catch(e: Exception) {}
-            }
-        }
-
-        try {
-            nsdManager.discoverServices("_avidtune._tcp.", NsdManager.PROTOCOL_DNS_SD, discoveryListener)
-        } catch (e: Exception) { e.printStackTrace() }
-
-        onDispose {
-            try { nsdManager.stopServiceDiscovery(discoveryListener) } catch(e: Exception) {}
-            discoveredSessions.clear()
-        }
-    }
 
     LaunchedEffect(disableJoinUi, isJoining, isHosting) {
         if (disableJoinUi || isJoining || isHosting) showJoinDialog = false
@@ -960,26 +1083,39 @@ fun MusicTogetherScreen(
                 }
 
                 JoinSectionCard(joinInput = joinInput, onJoinInputChange = { joinInput = it }, canJoin = canJoin, disableJoinUi = disableJoinUi, isJoined = isJoinedAsAcceptedGuest, isWaitingApproval = isWaitingApproval, isJoining = isJoining, onShowJoinDialog = { showJoinDialog = true }, onPasteFromClipboard = { val text = clipboard.getText()?.text?.trim() ?: ""; if (text.isNotBlank()) { joinInput = text; haptic.performHapticFeedback(HapticFeedbackType.LongPress); if (TogetherLink.decode(text) != null) { setLastJoinLink(text); playerConnection?.service?.joinTogether(text, displayName) } } }, onJoin = { val trimmed = joinInput.trim(); setLastJoinLink(trimmed); playerConnection?.service?.joinTogether(trimmed, displayName) }, modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp))
-
-                if (!disableJoinUi && discoveredSessions.isNotEmpty()) {
-                    DiscoveredSessionsCard(
-                        sessions = discoveredSessions,
-                        onJoin = { session ->
-                            val link = TogetherLink.encode(TogetherJoinInfo(session.host, session.port, session.sid, session.key))
-                            val trimmed = link.trim()
-                            joinInput = trimmed
-                            setLastJoinLink(trimmed)
-                            playerConnection?.service?.joinTogether(trimmed, displayName)
-                        },
-                        modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp)
+            
+                if (discoveredSessions.isNotEmpty() && !disableJoinUi && !isJoining && !isJoinedAsAcceptedGuest) {
+                    Text(
+                        text = stringResource(R.string.local_network_discover),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 12.dp)
                     )
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.padding(bottom = 24.dp)
+                    ) {
+                        items(discoveredSessions) { session ->
+                            DiscoveredSessionCard(
+                                session = session,
+                                onJoinClick = {
+                                    val link = session.toJoinLink()
+                                    joinInput = link
+                                    setLastJoinLink(link)
+                                    playerConnection?.service?.joinTogether(link, displayName)
+                                }
+                            )
+                        }
+                    }
                 }
             }
 
             TopAppBar(
                 title = { Text(stringResource(R.string.music_together)) },
                 navigationIcon = {
-                    AtIconButton(onClick = handleBack, onLongClick = { handleBack(); navController.backToMain() }) {
+                    com.cgens67.avidtune.ui.component.IconButton(onClick = handleBack, onLongClick = { handleBack(); navController.backToMain() }) {
                         Icon(painterResource(R.drawable.arrow_back), null)
                     }
                 },
@@ -988,50 +1124,6 @@ fun MusicTogetherScreen(
                     containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
                 )
             )
-        }
-    }
-}
-
-@Composable
-private fun DiscoveredSessionsCard(
-    sessions: List<LanSession>,
-    onJoin: (LanSession) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier.fillMaxWidth().animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)),
-        shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(modifier = Modifier.padding(vertical = 8.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Box(
-                    modifier = Modifier.size(40.dp).clip(RoundedCornerShape(14.dp))
-                        .background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f), MaterialTheme.colorScheme.secondary.copy(alpha = 0.08f)))),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(painterResource(R.drawable.wifi_proxy), contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(22.dp))
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Local Sessions", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text("Tap to join a session on your network", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-
-            sessions.forEachIndexed { index, session ->
-                if (index > 0) Divider()
-                SettingsItemRow(
-                    icon = R.drawable.person,
-                    title = session.name,
-                    subtitle = "${session.host}:${session.port}",
-                    onClick = { onJoin(session) }
-                )
-            }
         }
     }
 }
