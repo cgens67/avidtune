@@ -1079,4 +1079,15 @@
     <string name="total_managed_space">Total managed space</string>
     <string name="limit_info">%1$s of %2$s</string>
     
+    <!-- Premium Collapsing Header Titles -->
+    <string name="library_title">Library</string>
+    <string name="library_subtitle">Your musical collection, offline &amp; synced</string>
+    <string name="library_playlists_subtitle">Your custom mixes &amp; playlists</string>
+    <string name="library_songs_subtitle">All your saved &amp; offline tracks</string>
+    <string name="library_artists_subtitle">Subscribed &amp; local creators</string>
+    <string name="library_albums_subtitle">Full records in your collection</string>
+
+    <!-- Shortcut Descriptions -->
+    <string name="instant_playback">Instant offline cache</string>
+    
 </resources>
