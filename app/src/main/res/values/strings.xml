@@ -1090,4 +1090,6 @@
     <!-- Shortcut Descriptions -->
     <string name="instant_playback">Instant offline cache</string>
     
+    <string name="most_played_sort">Most played</string>
+    
 </resources>
