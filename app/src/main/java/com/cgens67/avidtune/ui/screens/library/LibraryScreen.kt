@@ -1012,12 +1012,24 @@ fun LibraryPlaylistsScreen(
                             onPlay = {
                                 val pc = playerConnection ?: return@PlaylistListCard
                                 coroutineScope.launch {
-                                    val playlistSongs = database.playlistSongs(playlist.id).first()
-                                    if (playlistSongs.isNotEmpty()) {
+                                    val anyList = database.playlistSongs(playlist.id).first() as List<Any>
+                                    val mediaItems = anyList.mapNotNull { item ->
+                                        if (item is Song) {
+                                            item.toMediaItem()
+                                        } else {
+                                            val songProp = runCatching { item.javaClass.getMethod("getSong").invoke(item) }.getOrNull()
+                                            if (songProp is Song) {
+                                                songProp.toMediaItem()
+                                            } else {
+                                                null
+                                            }
+                                        }
+                                    }
+                                    if (mediaItems.isNotEmpty()) {
                                         pc.playQueue(
                                             ListQueue(
                                                 title = playlist.playlist.name,
-                                                items = playlistSongs.map { it.toMediaItem() }
+                                                items = mediaItems
                                             )
                                         )
                                     }
@@ -1055,12 +1067,24 @@ fun LibraryPlaylistsScreen(
                             onPlay = {
                                 val pc = playerConnection ?: return@PlaylistGridCard
                                 coroutineScope.launch {
-                                    val playlistSongs = database.playlistSongs(playlist.id).first()
-                                    if (playlistSongs.isNotEmpty()) {
+                                    val anyList = database.playlistSongs(playlist.id).first() as List<Any>
+                                    val mediaItems = anyList.mapNotNull { item ->
+                                        if (item is Song) {
+                                            item.toMediaItem()
+                                        } else {
+                                            val songProp = runCatching { item.javaClass.getMethod("getSong").invoke(item) }.getOrNull()
+                                            if (songProp is Song) {
+                                                songProp.toMediaItem()
+                                            } else {
+                                                null
+                                            }
+                                        }
+                                    }
+                                    if (mediaItems.isNotEmpty()) {
                                         pc.playQueue(
                                             ListQueue(
                                                 title = playlist.playlist.name,
-                                                items = playlistSongs.map { it.toMediaItem() }
+                                                items = mediaItems
                                             )
                                         )
                                     }
