@@ -1795,7 +1795,7 @@ fun YouTubeGridItem(
                         Modifier
                             .fillMaxSize()
                             .background(
-                                color = Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f),
+                                color = Color.Black.copy(alpha = if (isPlaying || item !is SongItem) 0.4f else 0f),
                                 shape = thumbnailShape,
                             ),
                 ) {
@@ -1803,6 +1803,12 @@ fun YouTubeGridItem(
                         PlayingIndicator(
                             color = Color.White,
                             modifier = Modifier.height(24.dp),
+                        )
+                    } else if (item !is SongItem) {
+                        Icon(
+                            painter = painterResource(R.drawable.play),
+                            contentDescription = null,
+                            tint = Color.White,
                         )
                     }
                 }
@@ -1812,18 +1818,16 @@ fun YouTubeGridItem(
                 visible = item is SongItem && !(isActive && isPlaying),
                 enter = fadeIn(),
                 exit = fadeOut(),
-                modifier =
-                    Modifier
-                        .align(Alignment.Center)
-                        .padding(8.dp),
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(8.dp),
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
-                    modifier =
-                        Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(Color.Black.copy(alpha = 0.6f)),
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.6f)),
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.play),
@@ -1926,54 +1930,56 @@ fun YouTubeSmallGridItem(
             }
         }
 
-        if (item is SongItem) {
-            AnimatedVisibility(
-                visible = isActive,
-                enter = fadeIn(tween(500)),
-                exit = fadeOut(tween(500)),
-            ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .background(
-                                color = Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f),
-                                shape = RoundedCornerShape(ThumbnailCornerRadius),
-                            ),
-                ) {
-                    if (isPlaying) {
-                        PlayingIndicator(
-                            color = Color.White,
-                            modifier = Modifier.height(24.dp),
-                        )
-                    }
-                }
-            }
-
-            AnimatedVisibility(
-                visible = !(isActive && isPlaying),
-                enter = fadeIn(),
-                exit = fadeOut(),
+        AnimatedVisibility(
+            visible = isActive,
+            enter = fadeIn(tween(500)),
+            exit = fadeOut(tween(500)),
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
                 modifier =
                     Modifier
-                        .align(Alignment.Center)
-                        .padding(8.dp),
+                        .fillMaxSize()
+                        .background(
+                            color = Color.Black.copy(alpha = if (isPlaying || item !is SongItem) 0.4f else 0f),
+                            shape = RoundedCornerShape(ThumbnailCornerRadius),
+                        ),
             ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier =
-                        Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(Color.Black.copy(alpha = 0.6f)),
-                ) {
+                if (isPlaying) {
+                    PlayingIndicator(
+                        color = Color.White,
+                        modifier = Modifier.height(24.dp),
+                    )
+                } else if (item !is SongItem) {
                     Icon(
                         painter = painterResource(R.drawable.play),
                         contentDescription = null,
                         tint = Color.White,
                     )
                 }
+            }
+        }
+
+        AnimatedVisibility(
+            visible = item is SongItem && !(isActive && isPlaying),
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier
+                .align(Alignment.Center)
+                .padding(8.dp),
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.6f)),
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.play),
+                    contentDescription = null,
+                    tint = Color.White,
+                )
             }
         }
     },
@@ -2030,7 +2036,7 @@ fun LocalSongsGrid(
                         Modifier
                             .fillMaxSize()
                             .background(
-                                color = Color.Black.copy(alpha = 0.4f),
+                                color = Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f),
                                 shape = RoundedCornerShape(ThumbnailCornerRadius),
                             ),
                 ) {
@@ -2038,12 +2044,6 @@ fun LocalSongsGrid(
                         PlayingIndicator(
                             color = Color.White,
                             modifier = Modifier.height(24.dp),
-                        )
-                    } else {
-                        Icon(
-                            painter = painterResource(R.drawable.play),
-                            contentDescription = null,
-                            tint = Color.White,
                         )
                     }
                 }
@@ -2053,10 +2053,9 @@ fun LocalSongsGrid(
                 visible = !(isActive && isPlaying),
                 enter = fadeIn(),
                 exit = fadeOut(),
-                modifier =
-                    Modifier
-                        .align(Alignment.Center)
-                        .padding(8.dp),
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(8.dp),
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
