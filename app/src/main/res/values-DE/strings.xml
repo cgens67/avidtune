@@ -1070,5 +1070,32 @@
     <string name="manage_storage_categories">Speicherkategorien verwalten</string>
     <string name="total_managed_space">Verwalteter Speicherplatz insgesamt</string>
     <string name="limit_info">%1$s von %2$s</string>
+    
+    <!-- Unused library header titles -->
+    <string name="library_title">Mediathek</string>
+    <string name="library_subtitle">Deine Musiksammlung, offline &amp; synchronisiert</string>
+    <string name="library_playlists_subtitle">Deine eigenen Mixe &amp; Playlists</string>
+    <string name="library_songs_subtitle">Alle deine gespeicherten &amp; Offline-Titel</string>
+    <string name="library_artists_subtitle">Abonnierte &amp; lokale Künstler</string>
+    <string name="library_albums_subtitle">Vollständige Alben in deiner Sammlung</string>
+
+    <!-- Shortcut Descriptions -->
+    <string name="instant_playback">Sofortiger Offline-Cache</string>
+    
+    <string name="most_played_sort">Am häufigsten gespielt</string>
+    
+    <string name="together_ongoing_sessions_title">Laufende Sitzungen</string>
+    <string name="together_ongoing_sessions_desc">In deinem lokalen Netzwerk gefunden</string>
+    <string name="together_local_network">Lokales Netzwerk</string>
+    <string name="together_lan_badge">LAN</string>
+    <string name="together_enter_pin_or_link">PIN oder Link eingeben</string>
+    <string name="together_session_id_format">Sitzung: %s…</string>
+    <string name="together_join_with_pin">Mit PIN beitreten</string>
+    <string name="together_join_via_pin">Über PIN beitreten</string>
+    <string name="together_join_via_link">Über Link beitreten</string>
+    <string name="together_pin">PIN</string>
+    <string name="together_link">Link</string>
+    <string name="together_paste_link_placeholder">Füge deinen Sitzungs-Link hier ein...</string>
+
 
 </resources>
