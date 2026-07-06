@@ -1239,15 +1239,15 @@ private fun HostSectionCard(displayName: String, port: Int, allowAddTracks: Bool
                 Column(modifier = Modifier.weight(1f)) { Text(stringResource(R.string.together_host_section), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold); Text(stringResource(R.string.together_lan), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 Surface(shape = RoundedCornerShape(50.dp), color = MaterialTheme.colorScheme.secondaryContainer) { Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) { Icon(painterResource(R.drawable.wifi_proxy), contentDescription = null, modifier = Modifier.size(13.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer); Text(stringResource(R.string.together_lan_badge), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer) } }
             }
-            com.cgens67.avidtune.ui.component.SettingsItemRow(icon = R.drawable.person, title = stringResource(R.string.together_display_name), subtitle = displayName, onClick = onShowNameDialog)
-            com.cgens67.avidtune.ui.component.Divider()
-            com.cgens67.avidtune.ui.component.SettingsItemRow(icon = R.drawable.link, title = stringResource(R.string.together_port), subtitle = port.toString(), onClick = onShowPortDialog)
-            com.cgens67.avidtune.ui.component.Divider()
-            com.cgens67.avidtune.ui.component.ToggleRow(icon = R.drawable.playlist_add, title = stringResource(R.string.together_allow_guests_add), checked = allowAddTracks, onCheckedChange = onAllowAddTracksChange)
-            com.cgens67.avidtune.ui.component.Divider()
-            com.cgens67.avidtune.ui.component.ToggleRow(icon = R.drawable.play, title = stringResource(R.string.together_allow_guests_control), checked = allowControlPlayback, onCheckedChange = onAllowControlPlaybackChange)
-            com.cgens67.avidtune.ui.component.Divider()
-            com.cgens67.avidtune.ui.component.ToggleRow(icon = R.drawable.lock, title = stringResource(R.string.together_require_approval), checked = requireApproval, onCheckedChange = onRequireApprovalChange)
+            SettingsItemRow(icon = R.drawable.person, title = stringResource(R.string.together_display_name), subtitle = displayName, onClick = onShowNameDialog)
+            SettingsDivider()
+            SettingsItemRow(icon = R.drawable.link, title = stringResource(R.string.together_port), subtitle = port.toString(), onClick = onShowPortDialog)
+            SettingsDivider()
+            ToggleRow(icon = R.drawable.playlist_add, title = stringResource(R.string.together_allow_guests_add), checked = allowAddTracks, onCheckedChange = onAllowAddTracksChange)
+            SettingsDivider()
+            ToggleRow(icon = R.drawable.play, title = stringResource(R.string.together_allow_guests_control), checked = allowControlPlayback, onCheckedChange = onAllowControlPlaybackChange)
+            SettingsDivider()
+            ToggleRow(icon = R.drawable.lock, title = stringResource(R.string.together_require_approval), checked = requireApproval, onCheckedChange = onRequireApprovalChange)
             Spacer(Modifier.height(8.dp))
             val interactionSource = remember { MutableInteractionSource() }
             val isPressed by interactionSource.collectIsPressedAsState()
@@ -1634,5 +1634,181 @@ private fun ParticipantsCard(participants: List<TogetherParticipant>) {
 @Composable
 private fun WelcomeDialog(onGotIt: (Boolean) -> Unit, onDismiss: () -> Unit) {
     var dontShowAgain by rememberSaveable { mutableStateOf(true) }
-    AlertDialog(onDismissRequest = onDismiss, shape = RoundedCornerShape(28.dp), containerColor = MaterialTheme.colorScheme.surface, title = { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) { Box(modifier = Modifier.size(40.dp).clip(RoundedCornerShape(14.dp)).background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f), MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)))), contentAlignment = Alignment.Center) { Icon(painterResource(R.drawable.auto_awesome), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp)) }; Text(stringResource(R.string.together_welcome_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold) } }, text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { Text(stringResource(R.string.together_welcome_body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant); Card(shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp), modifier = Modifier.fillMaxWidth()) { Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) { com.cgens67.avidtune.ui.component.InstructionRow(R.drawable.auto_awesome, MaterialTheme.colorScheme.primary, stringResource(R.string.together_welcome_host_title), stringResource(R.string.together_welcome_host_body)); com.cgens67.avidtune.ui.component.InstructionRow(R.drawable.link, MaterialTheme.colorScheme.tertiary, stringResource(R.string.together_welcome_join_title), stringResource(R.string.together_welcome_join_body)); com.cgens67.avidtune.ui.component.InstructionRow(R.drawable.lock, MaterialTheme.colorScheme.secondary, stringResource(R.string.together_welcome_permissions_title), stringResource(R.string.together_welcome_permissions_body)) } }; com.cgens67.avidtune.ui.component.CheckboxRow(checked = dontShowAgain, onCheckedChange = { dontShowAgain = it }, label = stringResource(R.string.together_dont_show_again)) } }, confirmButton = { Button(onClick = { onGotIt(dontShowAgain) }, shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)) { Icon(painterResource(R.drawable.check), null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.got_it), fontWeight = FontWeight.SemiBold) } })
+    AlertDialog(
+        onDismissRequest = onDismiss, 
+        shape = RoundedCornerShape(28.dp), 
+        containerColor = MaterialTheme.colorScheme.surface, 
+        title = { 
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) { 
+                Box(modifier = Modifier.size(40.dp).clip(RoundedCornerShape(14.dp)).background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f), MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)))), contentAlignment = Alignment.Center) { 
+                    Icon(painterResource(R.drawable.auto_awesome), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp)) 
+                } 
+                Text(stringResource(R.string.together_welcome_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold) 
+            } 
+        }, 
+        text = { 
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { 
+                Text(stringResource(R.string.together_welcome_body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) 
+                Card(shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp), modifier = Modifier.fillMaxWidth()) { 
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) { 
+                        InstructionRow(R.drawable.auto_awesome, MaterialTheme.colorScheme.primary, stringResource(R.string.together_welcome_host_title), stringResource(R.string.together_welcome_host_body)) 
+                        InstructionRow(R.drawable.link, MaterialTheme.colorScheme.tertiary, stringResource(R.string.together_welcome_join_title), stringResource(R.string.together_welcome_join_body)) 
+                        InstructionRow(R.drawable.lock, MaterialTheme.colorScheme.secondary, stringResource(R.string.together_welcome_permissions_title), stringResource(R.string.together_welcome_permissions_body)) 
+                    } 
+                } 
+                CheckboxRow(checked = dontShowAgain, onCheckedChange = { dontShowAgain = it }, label = stringResource(R.string.together_dont_show_again)) 
+            } 
+        }, 
+        confirmButton = { 
+            Button(onClick = { onGotIt(dontShowAgain) }, shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)) { 
+                Icon(painterResource(R.drawable.check), null, modifier = Modifier.size(18.dp)) 
+                Spacer(Modifier.width(8.dp)) 
+                Text(stringResource(R.string.got_it), fontWeight = FontWeight.SemiBold) 
+            } 
+        }
+    )
+}
+
+@Composable
+private fun SettingsItemRow(
+    icon: Int,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(horizontal = 18.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Icon(
+            painter = painterResource(id = icon),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(24.dp)
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsDivider() {
+    HorizontalDivider(
+        modifier = Modifier.padding(horizontal = 18.dp),
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+    )
+}
+
+@Composable
+private fun ToggleRow(
+    icon: Int,
+    title: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) }
+            .padding(horizontal = 18.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Icon(
+            painter = painterResource(id = icon),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(24.dp)
+        )
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f)
+        )
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange
+        )
+    }
+}
+
+@Composable
+private fun InstructionRow(
+    icon: Int,
+    tint: Color,
+    title: String,
+    body: String
+) {
+    Row(
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(CircleShape)
+                .background(tint.copy(alpha = 0.15f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(id = icon),
+                contentDescription = null,
+                tint = tint,
+                modifier = Modifier.size(16.dp)
+            )
+        }
+        Column {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = body,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun CheckboxRow(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    label: String
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onCheckedChange(!checked) }
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Checkbox(
+            checked = checked,
+            onCheckedChange = null
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
 }
