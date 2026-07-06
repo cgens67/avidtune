@@ -1,10 +1,7 @@
 package com.cgens67.avidtune.together
 
 import android.annotation.SuppressLint
-import android.content.Context
 import android.content.Intent
-import android.net.nsd.NsdManager
-import android.net.nsd.NsdServiceInfo
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -39,15 +36,16 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.datastore.preferences.core.*
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.navigation.NavController
-import com.cgens67.avidtune.App
 import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
 import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
@@ -75,6 +73,10 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.*
 import kotlinx.serialization.json.Json
+import java.net.DatagramPacket
+import java.net.DatagramSocket
+import java.net.InetAddress
+import java.net.SocketTimeoutException
 import java.net.URI
 import java.net.URLDecoder
 import java.util.UUID
@@ -94,9 +96,10 @@ val TogetherWelcomeShownKey = booleanPreferencesKey("TogetherWelcomeShown")
 @Serializable data class TogetherParticipant(val id: String, val name: String, val isHost: Boolean = false, val isPending: Boolean = false, val isConnected: Boolean = true)
 @Serializable data class TogetherRoomSettings(val allowGuestsToAddTracks: Boolean = true, val allowGuestsToControlPlayback: Boolean = false, val requireHostApprovalToJoin: Boolean = false)
 @Serializable data class TogetherRoomState(val sessionId: String, val hostId: String, val participants: List<TogetherParticipant> = emptyList(), val settings: TogetherRoomSettings = TogetherRoomSettings(), val queue: List<TogetherTrack> = emptyList(), val queueHash: String = "", val currentIndex: Int = 0, val isPlaying: Boolean = false, val positionMs: Long = 0L, val repeatMode: Int = 0, val shuffleEnabled: Boolean = false, val sentAtMs: Long = 0L)
+@Serializable data class DiscoveredSession(val pin: String, val hostName: String, val joinInfo: TogetherJoinInfo)
 
 @Serializable sealed class TogetherRole { @Serializable data object Host : TogetherRole(); @Serializable data object Guest : TogetherRole() }
-sealed class TogetherSessionState { data object Idle : TogetherSessionState(); data class Hosting(val sessionId: String, val joinLink: String, val localAddressHint: String?, val port: Int, val settings: TogetherRoomSettings, val roomState: TogetherRoomState?) : TogetherSessionState(); data class Joining(val joinLink: String) : TogetherSessionState(); data class Joined(val role: TogetherRole, val sessionId: String, val selfParticipantId: String, val roomState: TogetherRoomState) : TogetherSessionState(); data class Error(val message: String, val recoverable: Boolean = true) : TogetherSessionState() }
+sealed class TogetherSessionState { data object Idle : TogetherSessionState(); data class Hosting(val sessionId: String, val joinLink: String, val pin: String, val localAddressHint: String?, val port: Int, val settings: TogetherRoomSettings, val roomState: TogetherRoomState?) : TogetherSessionState(); data class Joining(val joinLink: String) : TogetherSessionState(); data class Joined(val role: TogetherRole, val sessionId: String, val selfParticipantId: String, val roomState: TogetherRoomState) : TogetherSessionState(); data class Error(val message: String, val recoverable: Boolean = true) : TogetherSessionState() }
 
 const val TogetherProtocolVersion: Int = 1
 @Serializable sealed interface TogetherMessage
@@ -109,20 +112,9 @@ const val TogetherProtocolVersion: Int = 1
 @Serializable @SerialName("host_command") data class HostCommand(val command: String, val args: String = "") : TogetherMessage
 @Serializable enum class ServerRole { HOST, GUEST }
 
-// --- LAN DISCOVERY MODEL ---
-data class DiscoveredSession(
-    val serviceName: String,
-    val hostName: String,
-    val hostAddress: String,
-    val port: Int,
-    val sessionId: String,
-    val sessionKey: String,
-    val joinLink: String
-)
-
 // --- LINK & JSON ---
 object TogetherJson { val json = Json { ignoreUnknownKeys = true; explicitNulls = false; encodeDefaults = true; classDiscriminator = "type" } }
-data class TogetherJoinInfo(val host: String, val port: Int, val sessionId: String, val sessionKey: String) {
+@Serializable data class TogetherJoinInfo(val host: String, val port: Int, val sessionId: String, val sessionKey: String) {
     fun toWebSocketUrl() = "ws://$host:$port/together"
     fun toDeepLink() = "AvidTune://together?host=$host&port=$port&sid=$sessionId&key=$sessionKey"
 }
@@ -158,12 +150,13 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
     private val hostParticipants = ConcurrentHashMap<String, TogetherParticipant>()
     private var isHost = false
     private var broadcastJob: Job? = null
-
-    // LAN Discovery
-    val discoveredSessions = MutableStateFlow<List<DiscoveredSession>>(emptyList())
-    private var nsdManager: NsdManager? = null
-    private var registrationListener: NsdManager.RegistrationListener? = null
-    private var discoveryListener: NsdManager.DiscoveryListener? = null
+    
+    // UDP Discovery features
+    private var discoverySocket: DatagramSocket? = null
+    private var discoveryJob: Job? = null
+    private var currentPin: String = ""
+    private var currentHostName: String = ""
+    private var currentJoinInfo: TogetherJoinInfo? = null
 
     @Volatile private var isSyncing = false
 
@@ -201,104 +194,105 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
         player.addListener(playerListener)
     }
 
-    private fun getAvailableNsdManager(): NsdManager? {
-        if (nsdManager == null) {
-            nsdManager = App.instance.getSystemService(Context.NSD_SERVICE) as? NsdManager
-        }
-        return nsdManager
-    }
-
-    private fun registerNsdService(port: Int, displayName: String, sessionId: String, sessionKey: String) {
+    private fun getBroadcastAddresses(): List<InetAddress> {
+        val addresses = mutableListOf<InetAddress>()
         try {
-            val serviceInfo = NsdServiceInfo().apply {
-                serviceName = "AvidTune-$displayName"
-                serviceType = "_avidtune._tcp."
-                this.port = port
-                setAttribute("name", displayName)
-                setAttribute("sid", sessionId)
-                setAttribute("key", sessionKey)
+            addresses.add(InetAddress.getByName("255.255.255.255"))
+            val interfaces = java.net.NetworkInterface.getNetworkInterfaces()
+            while (interfaces.hasMoreElements()) {
+                val networkInterface = interfaces.nextElement()
+                if (networkInterface.isLoopback || !networkInterface.isUp) continue
+                for (address in networkInterface.interfaceAddresses) {
+                    address.broadcast?.let { addresses.add(it) }
+                }
             }
-
-            registrationListener = object : NsdManager.RegistrationListener {
-                override fun onServiceRegistered(NsdServiceInfo: NsdServiceInfo) {}
-                override fun onRegistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {}
-                override fun onServiceUnregistered(arg0: NsdServiceInfo) {}
-                override fun onUnregistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {}
-            }
-
-            getAvailableNsdManager()?.registerService(serviceInfo, NsdManager.PROTOCOL_DNS_SD, registrationListener)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        } catch (e: Exception) { e.printStackTrace() }
+        return addresses
     }
 
-    private fun unregisterNsdService() {
-        try {
-            registrationListener?.let { getAvailableNsdManager()?.unregisterService(it) }
-        } catch(e: Exception) {}
-        registrationListener = null
-    }
-
-    fun startDiscovery() {
-        if (discoveryListener != null) return
-        discoveredSessions.value = emptyList()
-
-        try {
-            discoveryListener = object : NsdManager.DiscoveryListener {
-                override fun onDiscoveryStarted(regType: String) {}
-                override fun onServiceFound(service: NsdServiceInfo) {
-                    if (service.serviceType == "_avidtune._tcp." || service.serviceType == "_avidtune._tcp") {
-                        try {
-                            getAvailableNsdManager()?.resolveService(service, object : NsdManager.ResolveListener {
-                                override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {}
-                                override fun onServiceResolved(serviceInfo: NsdServiceInfo) {
-                                    val nameAttr = serviceInfo.attributes["name"]
-                                    val sidAttr = serviceInfo.attributes["sid"]
-                                    val keyAttr = serviceInfo.attributes["key"]
-                                    
-                                    val name = if (nameAttr != null) String(nameAttr) else serviceInfo.serviceName.removePrefix("AvidTune-")
-                                    val sid = if (sidAttr != null) String(sidAttr) else return
-                                    val key = if (keyAttr != null) String(keyAttr) else return
-                                    val host = serviceInfo.host?.hostAddress ?: return
-                                    val port = serviceInfo.port
-                                    
-                                    val link = TogetherLink.encode(TogetherJoinInfo(host, port, sid, key))
-                                    val session = DiscoveredSession(serviceInfo.serviceName, name, host, port, sid, key, link)
-
-                                    val current = discoveredSessions.value.toMutableList()
-                                    if (current.none { it.sessionId == sid }) {
-                                        current.add(session)
-                                        discoveredSessions.value = current
-                                    }
-                                }
-                            })
-                        } catch (e: Exception) { e.printStackTrace() }
+    private fun startUdpDiscoveryServer() {
+        discoveryJob?.cancel()
+        discoverySocket?.close()
+        discoveryJob = scope.launch(Dispatchers.IO) {
+            try {
+                discoverySocket = DatagramSocket(42118).apply { broadcast = true }
+                val buffer = ByteArray(1024)
+                while (isActive) {
+                    val packet = DatagramPacket(buffer, buffer.size)
+                    discoverySocket?.receive(packet)
+                    val msg = String(packet.data, 0, packet.length, Charsets.UTF_8)
+                    if (msg == "AVIDTUNE_DISCOVER_ALL" || msg == "AVIDTUNE_DISCOVER_PIN:$currentPin") {
+                        val info = currentJoinInfo ?: continue
+                        val replyInfo = DiscoveredSession(currentPin, currentHostName, info)
+                        val replyStr = TogetherJson.json.encodeToString(DiscoveredSession.serializer(), replyInfo)
+                        val replyData = replyStr.toByteArray(Charsets.UTF_8)
+                        val replyPacket = DatagramPacket(replyData, replyData.size, packet.address, packet.port)
+                        discoverySocket?.send(replyPacket)
                     }
                 }
-                override fun onServiceLost(service: NsdServiceInfo) {
-                    val current = discoveredSessions.value.toMutableList()
-                    current.removeAll { it.serviceName == service.serviceName }
-                    discoveredSessions.value = current
-                }
-                override fun onDiscoveryStopped(serviceType: String) {}
-                override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {
-                    stopDiscovery()
-                }
-                override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {}
+            } catch (e: Exception) {
+                // Ignore socket closed exceptions
             }
-            getAvailableNsdManager()?.discoverServices("_avidtune._tcp.", NsdManager.PROTOCOL_DNS_SD, discoveryListener)
-        } catch(e: Exception) {
-            e.printStackTrace()
-            discoveryListener = null
         }
     }
 
-    fun stopDiscovery() {
+    suspend fun discoverSessions(): List<DiscoveredSession> = withContext(Dispatchers.IO) {
+        val results = mutableListOf<DiscoveredSession>()
+        var socket: DatagramSocket? = null
         try {
-            discoveryListener?.let { getAvailableNsdManager()?.stopServiceDiscovery(it) }
-        } catch(e: Exception) {}
-        discoveryListener = null
-        discoveredSessions.value = emptyList()
+            socket = DatagramSocket().apply {
+                broadcast = true
+                soTimeout = 2000
+            }
+            val msg = "AVIDTUNE_DISCOVER_ALL".toByteArray(Charsets.UTF_8)
+            for (address in getBroadcastAddresses()) {
+                try { socket.send(DatagramPacket(msg, msg.size, address, 42118)) } catch(e: Exception){}
+            }
+            val buffer = ByteArray(2048)
+            val end = System.currentTimeMillis() + 2000
+            while (System.currentTimeMillis() < end) {
+                try {
+                    val packet = DatagramPacket(buffer, buffer.size)
+                    socket.receive(packet)
+                    val replyStr = String(packet.data, 0, packet.length, Charsets.UTF_8)
+                    val session = TogetherJson.json.decodeFromString(DiscoveredSession.serializer(), replyStr)
+                    if (results.none { it.pin == session.pin }) {
+                        results.add(session)
+                    }
+                } catch (e: SocketTimeoutException) {
+                    break
+                } catch (e: Exception) {}
+            }
+        } catch (e: Exception) {
+        } finally {
+            socket?.close()
+        }
+        results
+    }
+
+    suspend fun resolvePin(pin: String): DiscoveredSession? = withContext(Dispatchers.IO) {
+        var result: DiscoveredSession? = null
+        var socket: DatagramSocket? = null
+        try {
+            socket = DatagramSocket().apply {
+                broadcast = true
+                soTimeout = 2000
+            }
+            val msg = "AVIDTUNE_DISCOVER_PIN:$pin".toByteArray(Charsets.UTF_8)
+            for (address in getBroadcastAddresses()) {
+                try { socket.send(DatagramPacket(msg, msg.size, address, 42118)) } catch(e: Exception){}
+            }
+            val buffer = ByteArray(2048)
+            try {
+                val packet = DatagramPacket(buffer, buffer.size)
+                socket.receive(packet)
+                val replyStr = String(packet.data, 0, packet.length, Charsets.UTF_8)
+                result = TogetherJson.json.decodeFromString(DiscoveredSession.serializer(), replyStr)
+            } catch (e: Exception) {}
+        } finally {
+            socket?.close()
+        }
+        result
     }
 
     private fun sendGuestUpdate() {
@@ -427,6 +421,10 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                 val sId = UUID.randomUUID().toString()
                 val sKey = UUID.randomUUID().toString()
                 val hostIp = getIpAddress() ?: "127.0.0.1"
+                
+                currentPin = (100000..999999).random().toString()
+                currentHostName = displayName
+                currentJoinInfo = TogetherJoinInfo(hostIp, port, sId, sKey)
 
                 hostParticipants.clear()
                 hostConnections.clear()
@@ -558,14 +556,12 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                 engine.start(wait = false)
                 serverEngine = engine
 
-                val link = TogetherLink.encode(TogetherJoinInfo(hostIp, port, sId, sKey))
-                
-                // Register NSD for LAN discovery
-                registerNsdService(port, displayName, sId, sKey)
+                val link = TogetherLink.encode(currentJoinInfo!!)
+                startUdpDiscoveryServer()
                 
                 withContext(Dispatchers.Main) {
                     val rs = getCurrentRoomState(sId)
-                    sessionState.value = TogetherSessionState.Hosting(sId, link, hostIp, port, settings, rs)
+                    sessionState.value = TogetherSessionState.Hosting(sId, link, currentPin, hostIp, port, settings, rs)
                 }
                 startPeriodicBroadcast()
             } catch (e: Exception) {
@@ -577,19 +573,20 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
         }
     }
 
-    fun joinTogether(joinLink: String, displayName: String) {
+    fun joinTogether(inputLink: String, displayName: String) {
         leaveTogether()
         isHost = false
         val joinJob = scope.launch(Dispatchers.IO) {
-            val info = TogetherLink.decode(joinLink)
+            val input = inputLink.trim()
+            val info = TogetherLink.decode(input) ?: resolvePin(input)?.joinInfo
             if (info == null) {
                 withContext(Dispatchers.Main) {
-                    sessionState.value = TogetherSessionState.Error("Invalid link")
+                    sessionState.value = TogetherSessionState.Error("Invalid link or PIN not found on LAN.")
                 }
                 return@launch
             }
             withContext(Dispatchers.Main) {
-                sessionState.value = TogetherSessionState.Joining(joinLink)
+                sessionState.value = TogetherSessionState.Joining(inputLink)
             }
             try {
                 httpClient.webSocket(info.toWebSocketUrl()) {
@@ -730,8 +727,9 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
     }
 
     fun leaveTogether() {
-        unregisterNsdService()
         broadcastJob?.cancel()
+        discoveryJob?.cancel()
+        discoverySocket?.close()
         val engineToStop = serverEngine
         serverEngine = null
         val sessionToClose = clientSession
@@ -834,17 +832,6 @@ fun MusicTogetherScreen(
         handleBack()
     }
 
-    val discoveredSessions by remember(playerConnection) {
-        playerConnection?.service?.togetherManager?.discoveredSessions ?: MutableStateFlow(emptyList())
-    }.collectAsState()
-
-    DisposableEffect(Unit) {
-        playerConnection?.service?.togetherManager?.startDiscovery()
-        onDispose {
-            playerConnection?.service?.togetherManager?.stopDiscovery()
-        }
-    }
-
     val (welcomeShown, setWelcomeShown) = rememberPreference(TogetherWelcomeShownKey, false)
     var welcomeDismissedThisSession by rememberSaveable { mutableStateOf(false) }
     val showWelcome = !welcomeShown && !welcomeDismissedThisSession
@@ -874,6 +861,7 @@ fun MusicTogetherScreen(
 
     val isHosting = sessionState is TogetherSessionState.Hosting
     val isJoining = sessionState is TogetherSessionState.Joining
+    val isIdle = sessionState is TogetherSessionState.Idle || sessionState is TogetherSessionState.Error
     val isHostRole = when (val state = sessionState) {
         is TogetherSessionState.Hosting -> true
         is TogetherSessionState.Joined  -> state.role is TogetherRole.Host
@@ -899,6 +887,20 @@ fun MusicTogetherScreen(
     val confirmKickName = lanParticipants.firstOrNull { it.id == confirmKickParticipantId }?.name
     val confirmBanName  = lanParticipants.firstOrNull { it.id == confirmBanParticipantId  }?.name
 
+    var discoveredSessions by remember { mutableStateOf<List<DiscoveredSession>>(emptyList()) }
+
+    LaunchedEffect(isIdle) {
+        if (isIdle) {
+            while(isActive) {
+                val sessions = playerConnection?.service?.togetherManager?.discoverSessions() ?: emptyList()
+                discoveredSessions = sessions
+                delay(5000)
+            }
+        } else {
+            discoveredSessions = emptyList()
+        }
+    }
+
     LaunchedEffect(disableJoinUi, isJoining, isHosting) {
         if (disableJoinUi || isJoining || isHosting) showJoinDialog = false
     }
@@ -922,10 +924,10 @@ fun MusicTogetherScreen(
     }
 
     var joinInput by rememberSaveable { mutableStateOf(lastJoinLink) }
-    val canJoin = remember(joinInput) { TogetherLink.decode(joinInput) != null }
+    val canJoin = remember(joinInput) { joinInput.trim().isNotEmpty() }
 
     if (showJoinDialog) {
-        TextFieldDialog(title = { Text(stringResource(R.string.join_session)) }, placeholder = { Text(stringResource(R.string.together_join_link_hint)) }, singleLine = false, maxLines = 8, isInputValid = { TogetherLink.decode(it) != null }, onDone = { raw -> val trimmed = raw.trim(); joinInput = trimmed; setLastJoinLink(trimmed); playerConnection?.service?.joinTogether(trimmed, displayName) }, onDismiss = { showJoinDialog = false })
+        TextFieldDialog(title = { Text(stringResource(R.string.join_session)) }, placeholder = { Text("Enter 6-digit PIN or Link") }, singleLine = false, maxLines = 8, isInputValid = { it.trim().isNotEmpty() }, onDone = { raw -> val trimmed = raw.trim(); joinInput = trimmed; setLastJoinLink(trimmed); playerConnection?.service?.joinTogether(trimmed, displayName) }, onDismiss = { showJoinDialog = false })
     }
 
     if (confirmKickParticipantId != null) {
@@ -980,33 +982,24 @@ fun MusicTogetherScreen(
                     OnlineParticipantsCard(participants = hostingLan.roomState.participants, hostApprovalEnabled = hostingLan.settings.requireHostApprovalToJoin, onApprove = { pid, approved -> playerConnection?.service?.approveTogetherParticipant(pid, approved) }, onKick = { confirmKickParticipantId = it }, onBan  = { confirmBanParticipantId  = it }, modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp))
                 }
 
-                if (!isJoinedAsGuest) {
+                if (!isJoinedAsGuest && !isHostRole) {
+                    if (discoveredSessions.isNotEmpty()) {
+                        OngoingSessionsCard(
+                            sessions = discoveredSessions,
+                            onJoin = { pin ->
+                                joinInput = pin
+                                setLastJoinLink(pin)
+                                playerConnection?.service?.joinTogether(pin, displayName)
+                            },
+                            modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)
+                        )
+                    }
+
                     HostSectionCard(displayName = displayName, port = port, allowAddTracks = allowAddTracks, allowControlPlayback = allowControlPlayback, requireApproval = requireApproval, onShowNameDialog = { showNameDialog = true }, onShowPortDialog = { showPortDialog = true }, onAllowAddTracksChange = setAllowAddTracks, onAllowControlPlaybackChange = setAllowControlPlayback, onRequireApprovalChange = setRequireApproval, isStartEnabled = !isCreatingSessionLoading && !isJoining && !isHosting && sessionState !is TogetherSessionState.Joined, isLoading = isCreatingSessionLoading, onStartSession = { playerConnection?.service?.startTogetherHost(port = port, displayName = displayName, settings = TogetherRoomSettings(allowGuestsToAddTracks = allowAddTracks, allowGuestsToControlPlayback = allowControlPlayback, requireHostApprovalToJoin = requireApproval)) }, modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp))
                 }
 
-                JoinSectionCard(joinInput = joinInput, onJoinInputChange = { joinInput = it }, canJoin = canJoin, disableJoinUi = disableJoinUi, isJoined = isJoinedAsAcceptedGuest, isWaitingApproval = isWaitingApproval, isJoining = isJoining, onShowJoinDialog = { showJoinDialog = true }, onPasteFromClipboard = { val text = clipboard.getText()?.text?.trim() ?: ""; if (text.isNotBlank()) { joinInput = text; haptic.performHapticFeedback(HapticFeedbackType.LongPress); if (TogetherLink.decode(text) != null) { setLastJoinLink(text); playerConnection?.service?.joinTogether(text, displayName) } } }, onJoin = { val trimmed = joinInput.trim(); setLastJoinLink(trimmed); playerConnection?.service?.joinTogether(trimmed, displayName) }, modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp))
-                
-                if (!disableJoinUi && discoveredSessions.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Discovered on LAN", 
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
-                    )
-                    discoveredSessions.forEach { session ->
-                        DiscoveredSessionCard(
-                            session = session,
-                            onJoin = {
-                                val trimmed = session.joinLink.trim()
-                                joinInput = trimmed
-                                setLastJoinLink(trimmed)
-                                playerConnection?.service?.joinTogether(trimmed, displayName)
-                            },
-                            modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp)
-                        )
-                    }
+                if (!isHostRole) {
+                    JoinSectionCard(joinInput = joinInput, onJoinInputChange = { joinInput = it }, canJoin = canJoin, disableJoinUi = disableJoinUi, isJoined = isJoinedAsAcceptedGuest, isWaitingApproval = isWaitingApproval, isJoining = isJoining, onShowJoinDialog = { showJoinDialog = true }, onPasteFromClipboard = { val text = clipboard.getText()?.text?.trim() ?: ""; if (text.isNotBlank()) { joinInput = text; haptic.performHapticFeedback(HapticFeedbackType.LongPress); setLastJoinLink(text); playerConnection?.service?.joinTogether(text, displayName) } }, onJoin = { val trimmed = joinInput.trim(); setLastJoinLink(trimmed); playerConnection?.service?.joinTogether(trimmed, displayName) }, modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp))
                 }
             }
 
@@ -1027,65 +1020,63 @@ fun MusicTogetherScreen(
 }
 
 @Composable
-private fun DiscoveredSessionCard(
-    session: DiscoveredSession,
-    onJoin: () -> Unit,
+private fun OngoingSessionsCard(
+    sessions: List<DiscoveredSession>,
+    onJoin: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable { onJoin() },
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        modifier = modifier.fillMaxWidth().animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)),
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
+        Column(modifier = Modifier.padding(vertical = 8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Icon(
-                    painterResource(R.drawable.wifi_proxy), 
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(20.dp)
-                )
+                Box(
+                    modifier = Modifier.size(40.dp).clip(RoundedCornerShape(14.dp)).background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f), MaterialTheme.colorScheme.secondary.copy(alpha = 0.08f)))),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(painterResource(R.drawable.wifi_proxy), contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(22.dp))
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Ongoing Sessions", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("Found on your local network", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = session.hostName,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = "${session.hostAddress}:${session.port}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+            
+            sessions.forEach { session ->
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).clickable { onJoin(session.pin) }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
+                            Text(session.hostName.take(1).uppercase(), color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(session.hostName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                            Text("PIN: ${session.pin}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        FilledTonalButton(onClick = { onJoin(session.pin) }, contentPadding = PaddingValues(horizontal = 16.dp)) {
+                            Text(stringResource(R.string.join), fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
             }
-            FilledTonalButton(
-                onClick = onJoin,
-                shape = RoundedCornerShape(14.dp)
-            ) {
-                Text(stringResource(R.string.join), fontWeight = FontWeight.SemiBold)
-            }
+            Spacer(Modifier.height(8.dp))
         }
     }
 }
-
 
 @Composable
 private fun HostSectionCard(displayName: String, port: Int, allowAddTracks: Boolean, allowControlPlayback: Boolean, requireApproval: Boolean, onShowNameDialog: () -> Unit, onShowPortDialog: () -> Unit, onAllowAddTracksChange: (Boolean) -> Unit, onAllowControlPlaybackChange: (Boolean) -> Unit, onRequireApprovalChange: (Boolean) -> Unit, isStartEnabled: Boolean, isLoading: Boolean, onStartSession: () -> Unit, modifier: Modifier = Modifier) {
@@ -1129,7 +1120,7 @@ private fun JoinSectionCard(joinInput: String, onJoinInputChange: (String) -> Un
                 Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f), modifier = Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).clickable(enabled = !disableJoinUi && !isJoining && !isJoined && !isWaitingApproval, onClick = onShowJoinDialog)) {
                     Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Icon(painterResource(R.drawable.link), contentDescription = null, tint = if (canJoin) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
-                        Text(text = if (joinInput.isBlank()) stringResource(R.string.together_join_link_hint) else joinInput.trim(), style = MaterialTheme.typography.bodySmall.copy(fontFamily = if (joinInput.isNotBlank()) FontFamily.Monospace else FontFamily.Default), color = if (joinInput.isNotBlank()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                        Text(text = if (joinInput.isBlank()) "Enter PIN or Link" else joinInput.trim(), style = MaterialTheme.typography.bodySmall.copy(fontFamily = if (joinInput.isNotBlank()) FontFamily.Monospace else FontFamily.Default), color = if (joinInput.isNotBlank()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                         if (joinInput.isNotBlank() && !disableJoinUi) { Icon(painterResource(R.drawable.close), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.size(16.dp).clip(CircleShape).clickable { onJoinInputChange("") }) }
                     }
                 }
@@ -1191,7 +1182,7 @@ private fun StatusCard(state: TogetherSessionState, onCopyLink: (String) -> Unit
                     if (isActive) { FilledTonalButton(onClick = onLeave, shape = RoundedCornerShape(14.dp)) { Icon(painterResource(R.drawable.arrow_back), null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.leave), fontWeight = FontWeight.SemiBold) } }
                 }
                 when (state) {
-                    is TogetherSessionState.Hosting -> { LanSessionLinkCard(link = state.joinLink, localAddressHint = state.localAddressHint, port = state.port, onCopy  = { onCopyLink(state.joinLink) }, onShare = { onShareLink(state.joinLink) }) }
+                    is TogetherSessionState.Hosting -> { LanSessionLinkCard(link = state.joinLink, pin = state.pin, localAddressHint = state.localAddressHint, port = state.port, onCopy  = { onCopyLink(state.joinLink) }, onShare = { onShareLink(state.joinLink) }) }
                     is TogetherSessionState.Joined -> { if (!isWaitingApproval) { ParticipantsCard(participants = state.roomState.participants) } }
                     is TogetherSessionState.Error -> { Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) { Text(text = state.message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.padding(14.dp)) } }
                     else -> Unit
@@ -1202,9 +1193,14 @@ private fun StatusCard(state: TogetherSessionState, onCopyLink: (String) -> Unit
 }
 
 @Composable
-private fun LanSessionLinkCard(link: String, localAddressHint: String?, port: Int, onCopy: () -> Unit, onShare: () -> Unit) {
+private fun LanSessionLinkCard(link: String, pin: String, localAddressHint: String?, port: Int, onCopy: () -> Unit, onShare: () -> Unit) {
     Card(shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.7f)), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp), modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("Join with PIN", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(pin, style = MaterialTheme.typography.displayMedium.copy(fontFamily = FontFamily.Monospace, letterSpacing = 8.sp), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            
             if (localAddressHint != null) { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { Surface(shape = RoundedCornerShape(50.dp), color = MaterialTheme.colorScheme.primaryContainer) { Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) { Icon(painterResource(R.drawable.wifi_proxy), contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(13.dp)); Text(text = "$localAddressHint:$port", style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer) } }; Text(stringResource(R.string.session_link), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold) } }
             Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f), modifier = Modifier.fillMaxWidth()) { Box(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 10.dp)) { Text(text = link, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace), color = MaterialTheme.colorScheme.primary, maxLines = 2) } }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { Button(onClick = onCopy, shape = RoundedCornerShape(14.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary), modifier = Modifier.weight(1f)) { Icon(painterResource(R.drawable.content_copy), contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.copy_link), fontWeight = FontWeight.SemiBold) }; FilledTonalButton(onClick = onShare, shape = RoundedCornerShape(14.dp), modifier = Modifier.weight(1f)) { Icon(painterResource(R.drawable.share), contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.share), fontWeight = FontWeight.SemiBold) } }
