@@ -986,10 +986,11 @@ fun MusicTogetherScreen(
                     if (discoveredSessions.isNotEmpty()) {
                         OngoingSessionsCard(
                             sessions = discoveredSessions,
-                            onJoin = { pin ->
-                                joinInput = pin
-                                setLastJoinLink(pin)
-                                playerConnection?.service?.joinTogether(pin, displayName)
+                            onJoin = { session ->
+                                val link = TogetherLink.encode(session.joinInfo)
+                                joinInput = link
+                                setLastJoinLink(link)
+                                playerConnection?.service?.joinTogether(link, displayName)
                             },
                             modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)
                         )
@@ -1022,7 +1023,7 @@ fun MusicTogetherScreen(
 @Composable
 private fun OngoingSessionsCard(
     sessions: List<DiscoveredSession>,
-    onJoin: (String) -> Unit,
+    onJoin: (DiscoveredSession) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -1053,7 +1054,7 @@ private fun OngoingSessionsCard(
                 Surface(
                     shape = RoundedCornerShape(16.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).clickable { onJoin(session.pin) }
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).clickable { onJoin(session) }
                 ) {
                     Row(
                         modifier = Modifier.padding(16.dp),
@@ -1065,9 +1066,9 @@ private fun OngoingSessionsCard(
                         Spacer(Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(session.hostName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-                            Text("PIN: ${session.pin}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Local Network", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        FilledTonalButton(onClick = { onJoin(session.pin) }, contentPadding = PaddingValues(horizontal = 16.dp)) {
+                        FilledTonalButton(onClick = { onJoin(session) }, contentPadding = PaddingValues(horizontal = 16.dp)) {
                             Text(stringResource(R.string.join), fontWeight = FontWeight.SemiBold)
                         }
                     }
