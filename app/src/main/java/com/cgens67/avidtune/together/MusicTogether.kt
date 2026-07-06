@@ -150,7 +150,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
     private val hostParticipants = ConcurrentHashMap<String, TogetherParticipant>()
     private var isHost = false
     private var broadcastJob: Job? = null
-
+    
     // UDP Discovery features
     private var discoverySocket: DatagramSocket? = null
     private var discoveryJob: Job? = null
@@ -300,7 +300,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
         scope.launch(Dispatchers.Main) {
             val currentState = sessionState.value as? TogetherSessionState.Joined ?: return@launch
             if (!currentState.roomState.settings.allowGuestsToControlPlayback) return@launch
-
+            
             val msg = TogetherJson.json.encodeToString(
                 TogetherMessage.serializer(),
                 UpdatePlayback(
@@ -319,7 +319,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
         scope.launch(Dispatchers.Main) {
             val currentState = sessionState.value as? TogetherSessionState.Joined ?: return@launch
             if (!currentState.roomState.settings.allowGuestsToAddTracks) return@launch
-
+            
             val customMeta = mediaItem.localConfiguration?.tag as? com.cgens67.avidtune.models.MediaMetadata
             val trackId = mediaItem.mediaId
             val trackTitle = customMeta?.title ?: mediaItem.mediaMetadata.title?.toString() ?: ""
@@ -328,7 +328,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
             val durationSec = customMeta?.duration ?: -1
 
             val track = TogetherTrack(trackId, trackTitle, trackArtists, durationSec, trackArt)
-
+            
             val msg = TogetherJson.json.encodeToString(
                 TogetherMessage.serializer(),
                 UpdateTrack(track)
@@ -343,7 +343,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
     private fun getCurrentRoomState(sId: String): TogetherRoomState {
         val currentItem = player.currentMediaItem
         val customMeta = currentItem?.localConfiguration?.tag as? com.cgens67.avidtune.models.MediaMetadata
-
+        
         val trackId = currentItem?.mediaId ?: ""
         val trackTitle = customMeta?.title ?: currentItem?.mediaMetadata?.title?.toString() ?: ""
         val trackArtists = customMeta?.artists?.map { it.name } ?: listOf(currentItem?.mediaMetadata?.artist?.toString() ?: "")
@@ -421,7 +421,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                 val sId = UUID.randomUUID().toString()
                 val sKey = UUID.randomUUID().toString()
                 val hostIp = getIpAddress() ?: "127.0.0.1"
-
+                
                 currentPin = (100000..999999).random().toString()
                 currentHostName = displayName
                 currentJoinInfo = TogetherJoinInfo(hostIp, port, sId, sKey)
@@ -451,10 +451,10 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                                 for (frame in incoming) {
                                     if (frame !is Frame.Text) continue
                                     val txt = frame.readText()
-                                    val msg = try {
-                                        TogetherJson.json.decodeFromString<TogetherMessage>(txt)
+                                    val msg = try { 
+                                        TogetherJson.json.decodeFromString<TogetherMessage>(txt) 
                                     } catch (e: Exception) { null }
-
+                                    
                                     when (msg) {
                                         is ClientHello -> {
                                             val isPending = roomSettings.requireHostApprovalToJoin
@@ -467,15 +467,15 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                                                 isPending = isPending
                                             )
                                             hostConnections[pId] = this@webSocket
-
+                                            
                                             send(TogetherJson.json.encodeToString(
-                                                TogetherMessage.serializer(),
+                                                TogetherMessage.serializer(), 
                                                 ServerWelcome(
-                                                    protocolVersion = TogetherProtocolVersion,
-                                                    sessionId = sId,
-                                                    participantId = pId,
-                                                    role = ServerRole.GUEST,
-                                                    isPending = isPending,
+                                                    protocolVersion = TogetherProtocolVersion, 
+                                                    sessionId = sId, 
+                                                    participantId = pId, 
+                                                    role = ServerRole.GUEST, 
+                                                    isPending = isPending, 
                                                     settings = roomSettings
                                                 )
                                             ))
@@ -489,7 +489,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                                                         isSyncing = true
                                                         if (msg.isPlaying && !player.isPlaying) player.play()
                                                         else if (!msg.isPlaying && player.isPlaying) player.pause()
-
+                                                        
                                                         if (kotlin.math.abs(player.currentPosition - msg.positionMs) > 1000L) {
                                                             player.seekTo(msg.positionMs)
                                                         }
@@ -558,7 +558,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
 
                 val link = TogetherLink.encode(currentJoinInfo!!)
                 startUdpDiscoveryServer()
-
+                
                 withContext(Dispatchers.Main) {
                     val rs = getCurrentRoomState(sId)
                     sessionState.value = TogetherSessionState.Hosting(sId, link, currentPin, hostIp, port, settings, rs)
@@ -571,21 +571,6 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                 }
             }
         }
-    }
-
-    /**
-     * Join automatically from discovered info without requiring user to type PIN
-     */
-    fun joinTogetherDirect(info: TogetherJoinInfo, displayName: String) {
-        leaveTogether()
-        isHost = false
-        val joinJob = scope.launch(Dispatchers.IO) {
-            withContext(Dispatchers.Main) {
-                sessionState.value = TogetherSessionState.Joining("LAN Session")
-            }
-            performWebsocketConnection(info, displayName)
-        }
-        startWatchdog(joinJob)
     }
 
     fun joinTogether(inputLink: String, displayName: String) {
@@ -603,82 +588,76 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
             withContext(Dispatchers.Main) {
                 sessionState.value = TogetherSessionState.Joining(inputLink)
             }
-            performWebsocketConnection(info, displayName)
-        }
-        startWatchdog(joinJob)
-    }
+            try {
+                httpClient.webSocket(info.toWebSocketUrl()) {
+                    clientSession = this
+                    val myClientId = UUID.randomUUID().toString()
+                    send(TogetherJson.json.encodeToString(TogetherMessage.serializer(), ClientHello(TogetherProtocolVersion, info.sessionId, info.sessionKey, myClientId, displayName)))
+                    
+                    var selfPId = "guest"
 
-    private suspend fun performWebsocketConnection(info: TogetherJoinInfo, displayName: String) {
-        try {
-            httpClient.webSocket(info.toWebSocketUrl()) {
-                clientSession = this
-                val myClientId = UUID.randomUUID().toString()
-                send(TogetherJson.json.encodeToString(TogetherMessage.serializer(), ClientHello(TogetherProtocolVersion, info.sessionId, info.sessionKey, myClientId, displayName)))
-
-                var selfPId = "guest"
-
-                try {
-                    for (frame in incoming) {
-                        if (frame !is Frame.Text) continue
-                        val msgText = frame.readText()
-                        try {
-                            when (val msg = TogetherJson.json.decodeFromString<TogetherMessage>(msgText)) {
-                                is ServerWelcome -> {
-                                    selfPId = msg.participantId
-                                }
-                                is RoomStateMessage -> {
-                                    val rs = msg.state
-                                    withContext(Dispatchers.Main) {
-                                        sessionState.value = TogetherSessionState.Joined(TogetherRole.Guest, info.sessionId, selfPId, rs)
-                                        val isPending = rs.participants.find { it.id == selfPId }?.isPending == true
-                                        if (!isPending) {
-                                            syncPlayerToState(rs)
-                                        }
+                    try {
+                        for (frame in incoming) {
+                            if (frame !is Frame.Text) continue
+                            val msgText = frame.readText()
+                            try {
+                                when (val msg = TogetherJson.json.decodeFromString<TogetherMessage>(msgText)) {
+                                    is ServerWelcome -> {
+                                        selfPId = msg.participantId
                                     }
-                                }
-                                is HostCommand -> {
-                                    if (msg.command == "KICK") {
+                                    is RoomStateMessage -> {
+                                        val rs = msg.state
                                         withContext(Dispatchers.Main) {
-                                            sessionState.value = TogetherSessionState.Error("You have been disconnected from the session.")
+                                            sessionState.value = TogetherSessionState.Joined(TogetherRole.Guest, info.sessionId, selfPId, rs)
+                                            val isPending = rs.participants.find { it.id == selfPId }?.isPending == true
+                                            if (!isPending) {
+                                                syncPlayerToState(rs)
+                                            }
                                         }
-                                        close()
                                     }
-                                }
-                                is JoinDecision -> {
-                                    if (!msg.approved) {
-                                        withContext(Dispatchers.Main) {
-                                            sessionState.value = TogetherSessionState.Error("Your request to join was denied.")
+                                    is HostCommand -> {
+                                        if (msg.command == "KICK") {
+                                            withContext(Dispatchers.Main) {
+                                                sessionState.value = TogetherSessionState.Error("You have been disconnected from the session.")
+                                            }
+                                            close()
                                         }
-                                        close()
                                     }
+                                    is JoinDecision -> {
+                                        if (!msg.approved) {
+                                            withContext(Dispatchers.Main) {
+                                                sessionState.value = TogetherSessionState.Error("Your request to join was denied.")
+                                            }
+                                            close()
+                                        }
+                                    }
+                                    else -> {}
                                 }
-                                else -> {}
+                            } catch (e: Exception) {
+                                e.printStackTrace()
                             }
-                        } catch (e: Exception) {
-                            e.printStackTrace()
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+
+                    // Loop ended, connection closed by host/server
+                    withContext(Dispatchers.Main) {
+                        val curr = sessionState.value
+                        if (curr is TogetherSessionState.Joined || curr is TogetherSessionState.Joining) {
+                            sessionState.value = TogetherSessionState.Error("Connection closed by host")
                         }
                     }
-                } catch (e: Exception) {
-                    e.printStackTrace()
                 }
-
-                // Loop ended, connection closed by host/server
+            } catch (e: Exception) {
+                e.printStackTrace()
                 withContext(Dispatchers.Main) {
-                    val curr = sessionState.value
-                    if (curr is TogetherSessionState.Joined || curr is TogetherSessionState.Joining) {
-                        sessionState.value = TogetherSessionState.Error("Connection closed by host")
-                    }
+                    sessionState.value = TogetherSessionState.Error("Failed to connect: ${e.message}")
                 }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            withContext(Dispatchers.Main) {
-                sessionState.value = TogetherSessionState.Error("Failed to connect: ${e.message}")
             }
         }
-    }
 
-    private fun startWatchdog(joinJob: Job) {
+        // Connection watchdog
         scope.launch {
             delay(10_000L)
             if (sessionState.value is TogetherSessionState.Joining) {
@@ -704,7 +683,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                 explicit = false,
                 liked = false
             )
-
+            
             val mediaItem = MediaItem.Builder()
                 .setMediaId(currentTrack.id)
                 .setUri(currentTrack.id)
@@ -755,9 +734,9 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
         serverEngine = null
         val sessionToClose = clientSession
         clientSession = null
-
+        
         sessionState.value = TogetherSessionState.Idle
-
+        
         scope.launch(Dispatchers.IO) {
             try {
                 engineToStop?.stop(100, 500)
@@ -1007,9 +986,11 @@ fun MusicTogetherScreen(
                     if (discoveredSessions.isNotEmpty()) {
                         OngoingSessionsCard(
                             sessions = discoveredSessions,
-                            onJoin = { info ->
-                                joinInput = "" // Optionally clear manually typed stuff
-                                playerConnection?.service?.joinTogetherDirect(info, displayName)
+                            onJoin = { session ->
+                                val link = TogetherLink.encode(session.joinInfo)
+                                joinInput = link
+                                setLastJoinLink(link)
+                                playerConnection?.service?.joinTogether(link, displayName)
                             },
                             modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)
                         )
@@ -1042,7 +1023,7 @@ fun MusicTogetherScreen(
 @Composable
 private fun OngoingSessionsCard(
     sessions: List<DiscoveredSession>,
-    onJoin: (TogetherJoinInfo) -> Unit,
+    onJoin: (DiscoveredSession) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -1068,12 +1049,12 @@ private fun OngoingSessionsCard(
                     Text("Found on your local network", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-
+            
             sessions.forEach { session ->
                 Surface(
                     shape = RoundedCornerShape(16.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).clickable { onJoin(session.joinInfo) }
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).clickable { onJoin(session) }
                 ) {
                     Row(
                         modifier = Modifier.padding(16.dp),
@@ -1085,9 +1066,9 @@ private fun OngoingSessionsCard(
                         Spacer(Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(session.hostName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-                            Text("Local Network • ${session.joinInfo.host}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Local Network", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        FilledTonalButton(onClick = { onJoin(session.joinInfo) }, contentPadding = PaddingValues(horizontal = 16.dp)) {
+                        FilledTonalButton(onClick = { onJoin(session) }, contentPadding = PaddingValues(horizontal = 16.dp)) {
                             Text(stringResource(R.string.join), fontWeight = FontWeight.SemiBold)
                         }
                     }
@@ -1181,7 +1162,7 @@ private fun StatusCard(state: TogetherSessionState, onCopyLink: (String) -> Unit
                     Column(modifier = Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { Text(stringResource(R.string.together_status), style = MaterialTheme.typography.labelLarge, color = statusColor); if (isActive && !isError) { Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary)) } }
                         Text(text = when (state) { TogetherSessionState.Idle -> stringResource(R.string.together_idle); is TogetherSessionState.Hosting -> stringResource(R.string.together_hosting); is TogetherSessionState.Joining -> stringResource(R.string.together_joining); is TogetherSessionState.Joined -> if (isWaitingApproval) stringResource(R.string.together_waiting_approval) else stringResource(R.string.together_connected); is TogetherSessionState.Error -> stringResource(R.string.together_error_state); else -> "" }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-
+                        
                         // Add track playing indicator inside the status card if active and not pending
                         if (isActive && !isError && !isWaitingApproval) {
                             val trackTitle = when (state) {
@@ -1218,9 +1199,9 @@ private fun LanSessionLinkCard(link: String, pin: String, localAddressHint: Stri
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Join with PIN", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(pin, style = MaterialTheme.typography.displayMedium.copy(fontFamily = FontFamily.Monospace, letterSpacing = 8.sp), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-
+            
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
+            
             if (localAddressHint != null) { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { Surface(shape = RoundedCornerShape(50.dp), color = MaterialTheme.colorScheme.primaryContainer) { Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) { Icon(painterResource(R.drawable.wifi_proxy), contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(13.dp)); Text(text = "$localAddressHint:$port", style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer) } }; Text(stringResource(R.string.session_link), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold) } }
             Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f), modifier = Modifier.fillMaxWidth()) { Box(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 10.dp)) { Text(text = link, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace), color = MaterialTheme.colorScheme.primary, maxLines = 2) } }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { Button(onClick = onCopy, shape = RoundedCornerShape(14.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary), modifier = Modifier.weight(1f)) { Icon(painterResource(R.drawable.content_copy), contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.copy_link), fontWeight = FontWeight.SemiBold) }; FilledTonalButton(onClick = onShare, shape = RoundedCornerShape(14.dp), modifier = Modifier.weight(1f)) { Icon(painterResource(R.drawable.share), contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.share), fontWeight = FontWeight.SemiBold) } }
@@ -1287,13 +1268,13 @@ private fun OnlineParticipantsCard(
                     )
                 }
             }
-
+            
             Spacer(modifier = Modifier.height(8.dp))
 
             participants.forEachIndexed { index, participant ->
                 key(participant.id) {
                     val accent = if (participant.isHost) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
-
+                    
                     Surface(
                         color = Color.Transparent,
                         modifier = Modifier.fillMaxWidth()
@@ -1320,7 +1301,7 @@ private fun OnlineParticipantsCard(
                                     color = accent
                                 )
                             }
-
+                            
                             // Name & Role
                             Column(
                                 modifier = Modifier.weight(1f),
@@ -1345,7 +1326,7 @@ private fun OnlineParticipantsCard(
                                     overflow = TextOverflow.Ellipsis
                                 )
                             }
-
+                            
                             // Actions
                             if (!participant.isHost) {
                                 Row(
@@ -1443,7 +1424,7 @@ private fun ParticipantsCard(participants: List<TogetherParticipant>) {
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
-
+            
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -1453,7 +1434,7 @@ private fun ParticipantsCard(participants: List<TogetherParticipant>) {
                     val isHost = participant.isHost
                     val bgColor = if (isHost) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer
                     val contentColor = if (isHost) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
-
+                    
                     Surface(
                         shape = RoundedCornerShape(12.dp),
                         color = bgColor,
