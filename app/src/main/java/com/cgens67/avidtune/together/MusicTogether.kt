@@ -832,7 +832,7 @@ fun MusicTogetherScreen(
         if (isVisible) {
             isVisible = false
             coroutineScope.launch {
-                delay(300) // Match exit animation duration
+                delay(350) // Match exit animation duration
                 onBack()
             }
         }
@@ -976,16 +976,14 @@ fun MusicTogetherScreen(
 
     AnimatedVisibility(
         visible = isVisible,
-        enter = fadeIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) +
-                slideInHorizontally(
-                    initialOffsetX = { it },
-                    animationSpec = spring(stiffness = Spring.StiffnessLow)
-                ),
-        exit = fadeOut(spring(dampingRatio = Spring.DampingRatioLowBouncy)) +
-                slideOutHorizontally(
-                    targetOffsetX = { it },
-                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
-                ),
+        enter = slideInHorizontally(
+            initialOffsetX = { it },
+            animationSpec = tween(350, easing = FastOutSlowInEasing)
+        ) + fadeIn(animationSpec = tween(300, easing = LinearEasing)),
+        exit = slideOutHorizontally(
+            targetOffsetX = { it },
+            animationSpec = tween(350, easing = FastOutSlowInEasing)
+        ) + fadeOut(animationSpec = tween(200, easing = LinearEasing)),
         modifier = Modifier.fillMaxSize().zIndex(100f)
     ) {
         Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
