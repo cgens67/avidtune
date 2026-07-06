@@ -1054,4 +1054,31 @@
     <string name="total_managed_space">Espace géré total</string>
     <string name="limit_info">%1$s sur %2$s</string>
     
+    <!-- Unused library header titles -->
+    <string name="library_title">Bibliothèque</string>
+    <string name="library_subtitle">Votre collection musicale, hors ligne et synchronisée</string>
+    <string name="library_playlists_subtitle">Vos mix personnalisés et playlists</string>
+    <string name="library_songs_subtitle">Tous vos titres enregistrés et hors ligne</string>
+    <string name="library_artists_subtitle">Créateurs abonnés et locaux</string>
+    <string name="library_albums_subtitle">Albums complets de votre collection</string>
+
+    <!-- Shortcut Descriptions -->
+    <string name="instant_playback">Cache hors ligne instantané</string>
+    
+    <string name="most_played_sort">Les plus écoutés</string>
+    
+    <string name="together_ongoing_sessions_title">Sessions en cours</string>
+    <string name="together_ongoing_sessions_desc">Trouvées sur votre réseau local</string>
+    <string name="together_local_network">Réseau local</string>
+    <string name="together_lan_badge">LAN</string>
+    <string name="together_enter_pin_or_link">Saisir le code PIN ou le lien</string>
+    <string name="together_session_id_format">Session : %s…</string>
+    <string name="together_join_with_pin">Rejoindre avec un code PIN</string>
+    <string name="together_join_via_pin">Rejoindre via un code PIN</string>
+    <string name="together_join_via_link">Rejoindre via un lien</string>
+    <string name="together_pin">Code PIN</string>
+    <string name="together_link">Lien</string>
+    <string name="together_paste_link_placeholder">Collez le lien de votre session ici...</string>
+
+    
 </resources>
