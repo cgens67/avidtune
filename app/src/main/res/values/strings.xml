@@ -1092,4 +1092,17 @@
     
     <string name="most_played_sort">Most played</string>
     
+    <string name="together_ongoing_sessions_title">Ongoing Sessions</string>
+    <string name="together_ongoing_sessions_desc">Found on your local network</string>
+    <string name="together_local_network">Local Network</string>
+    <string name="together_lan_badge">LAN</string>
+    <string name="together_enter_pin_or_link">Enter PIN or Link</string>
+    <string name="together_session_id_format">Session: %s…</string>
+    <string name="together_join_with_pin">Join with PIN</string>
+    <string name="together_join_via_pin">Join via PIN</string>
+    <string name="together_join_via_link">Join via Link</string>
+    <string name="together_pin">PIN</string>
+    <string name="together_link">Link</string>
+    <string name="together_paste_link_placeholder">Paste your session link here...</string>
+    
 </resources>
