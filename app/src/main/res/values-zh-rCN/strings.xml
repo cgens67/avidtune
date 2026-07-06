@@ -1057,4 +1057,31 @@
     <string name="manage_storage_categories">管理存储类别</string>
     <string name="total_managed_space">总已管理空间</string>
     <string name="limit_info">%1$s / %2$s</string>
+    
+    <!-- Unused library header titles -->
+    <string name="library_title">媒体库</string>
+    <string name="library_subtitle">您的音乐收藏，包含离线和已同步的内容</string>
+    <string name="library_playlists_subtitle">您的自定混合曲目与播放列表</string>
+    <string name="library_songs_subtitle">您所有已保存和离线的曲目</string>
+    <string name="library_artists_subtitle">已订阅和本地的创作者</string>
+    <string name="library_albums_subtitle">您收藏中的完整专辑</string>
+
+    <!-- Shortcut Descriptions -->
+    <string name="instant_playback">即时离线缓存</string>
+    
+    <string name="most_played_sort">最多播放</string>
+    
+    <string name="together_ongoing_sessions_title">进行中的群组</string>
+    <string name="together_ongoing_sessions_desc">在您的局域网中发现</string>
+    <string name="together_local_network">局域网</string>
+    <string name="together_lan_badge">LAN</string>
+    <string name="together_enter_pin_or_link">输入 PIN 码或链接</string>
+    <string name="together_session_id_format">群组：%s…</string>
+    <string name="together_join_with_pin">使用 PIN 码加入</string>
+    <string name="together_join_via_pin">通过 PIN 码加入</string>
+    <string name="together_join_via_link">通过链接加入</string>
+    <string name="together_pin">PIN 码</string>
+    <string name="together_link">链接</string>
+    <string name="together_paste_link_placeholder">在此粘贴您的群组链接...</string>
+
 </resources>
