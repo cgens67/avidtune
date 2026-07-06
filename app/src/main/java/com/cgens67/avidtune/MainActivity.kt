@@ -350,6 +350,7 @@ class MainActivity : ComponentActivity() {
             }
 
             var showFullscreenLyrics by remember { mutableStateOf(false) }
+            var showTogetherScreen by rememberSaveable { mutableStateOf(false) }
 
             val enableDynamicTheme by rememberPreference(DynamicThemeKey, defaultValue = true)
             val (customThemeColor) = rememberPreference(CustomThemeColorKey, defaultValue = ThemePalettes.Default.id)
@@ -1016,6 +1017,27 @@ class MainActivity : ComponentActivity() {
                                                             }
                                                         }
 
+                                                        val togetherInteractionSource = remember { MutableInteractionSource() }
+                                                        val isTogetherPressed by togetherInteractionSource.collectIsPressedAsState()
+                                                        val togetherScale by animateFloatAsState(
+                                                            targetValue = if (isTogetherPressed) 0.8f else 1f,
+                                                            animationSpec = spring<Float>(stiffness = Spring.StiffnessMedium),
+                                                            label = "together_scale"
+                                                        )
+
+                                                        IconButton(
+                                                            onClick = { showTogetherScreen = true },
+                                                            onLongClick = {},
+                                                            interactionSource = togetherInteractionSource,
+                                                            modifier = Modifier.scale(togetherScale)
+                                                        ) {
+                                                            Icon(
+                                                                painter = painterResource(R.drawable.group),
+                                                                contentDescription = stringResource(R.string.music_together),
+                                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                                            )
+                                                        }
+
                                                         val searchInteractionSource = remember { MutableInteractionSource() }
                                                         val isSearchPressed by searchInteractionSource.collectIsPressedAsState()
                                                         val searchScale by animateFloatAsState(
@@ -1552,6 +1574,14 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
                                 }
+                            }
+
+                            if (showTogetherScreen) {
+                                com.cgens67.avidtune.together.MusicTogetherScreen(
+                                    navController = navController,
+                                    scrollBehavior = topAppBarScrollBehavior,
+                                    onBack = { showTogetherScreen = false }
+                                )
                             }
                         }
 
