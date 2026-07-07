@@ -580,10 +580,10 @@ class MainActivity : ComponentActivity() {
                             }
 
                         val shouldShowNavigationBar =
-                            remember(navBackStackEntry, active) {
-                                navBackStackEntry?.destination?.route == null ||
+                            remember(navBackStackEntry, active, showTogetherScreen) {
+                                (navBackStackEntry?.destination?.route == null ||
                                         navigationItems.fastAny { it.route == navBackStackEntry?.destination?.route } &&
-                                        !active
+                                        !active) && !showTogetherScreen
                             }
 
                         val navigationBarHeight by animateDpAsState(
@@ -721,9 +721,9 @@ class MainActivity : ComponentActivity() {
 
                         var shouldShowTopBar by rememberSaveable { mutableStateOf(false) }
 
-                        LaunchedEffect(navBackStackEntry) {
+                        LaunchedEffect(navBackStackEntry, active, showTogetherScreen) {
                             shouldShowTopBar =
-                                !active && navBackStackEntry?.destination?.route in topLevelScreens && navBackStackEntry?.destination?.route != "settings"
+                                !active && navBackStackEntry?.destination?.route in topLevelScreens && navBackStackEntry?.destination?.route != "settings" && !showTogetherScreen
                         }
 
                         val coroutineScope = rememberCoroutineScope()
@@ -1543,6 +1543,13 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
 
+                                if (showTogetherScreen) {
+                                    com.cgens67.avidtune.together.MusicTogetherScreen(
+                                        navController = navController,
+                                        scrollBehavior = topAppBarScrollBehavior,
+                                        onBack = { showTogetherScreen = false }
+                                    )
+                                }
                             }
 
                             BottomSheetMenu(
@@ -1574,14 +1581,6 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
                                 }
-                            }
-
-                            if (showTogetherScreen) {
-                                com.cgens67.avidtune.together.MusicTogetherScreen(
-                                    navController = navController,
-                                    scrollBehavior = topAppBarScrollBehavior,
-                                    onBack = { showTogetherScreen = false }
-                                )
                             }
                         }
 
