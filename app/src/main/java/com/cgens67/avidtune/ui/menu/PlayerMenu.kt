@@ -2,11 +2,17 @@
 
 package com.cgens67.avidtune.ui.menu
 
+import android.content.ContentValues
+import android.content.Context
 import android.content.Intent
-import android.media.audiofx.AudioEffect
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.DrawableRes
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -28,16 +34,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -61,6 +71,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -90,12 +102,10 @@ import com.cgens67.avidtune.db.entities.AlbumEntity
 import com.cgens67.avidtune.db.entities.ArtistEntity
 import com.cgens67.avidtune.db.entities.Song
 import com.cgens67.avidtune.models.MediaMetadata
+import com.cgens67.avidtune.models.toMediaMetadata
 import com.cgens67.avidtune.playback.ExoDownloadService
 import com.cgens67.avidtune.playback.queues.YouTubeQueue
 import com.cgens67.avidtune.ui.component.BottomSheetState
-import com.cgens67.avidtune.ui.component.DownloadGridMenu
-import com.cgens67.avidtune.ui.component.GridMenu
-import com.cgens67.avidtune.ui.component.GridMenuItem
 import com.cgens67.avidtune.ui.component.ListDialog
 import com.cgens67.avidtune.ui.component.ListItem
 import com.cgens67.avidtune.ui.component.MenuItemData
@@ -104,10 +114,24 @@ import com.cgens67.avidtune.ui.component.NewAction
 import com.cgens67.avidtune.ui.component.NewActionGrid
 import com.cgens67.avidtune.utils.joinByBullet
 import com.cgens67.avidtune.utils.makeTimeString
+import io.ktor.client.HttpClient
+import io.ktor.client.call.body
+import io.ktor.client.engine.cio.CIO
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.request.header
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.http.HttpHeaders
+import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import java.time.LocalDateTime
 import kotlin.math.roundToInt
 
@@ -1070,6 +1094,371 @@ fun ContinuousValueAdjuster(
                     contentDescription = "+",
                     tint = MaterialTheme.colorScheme.onSurface
                 )
+            }
+        }
+    }
+}
+
+enum class ExportState {
+    IDLE, FETCHING, DOWNLOADING, SUCCESS, ERROR
+}
+
+@Serializable
+data class CobaltRequest(
+    val url: String,
+    val downloadMode: String = "audio",
+    val aFormat: String = "mp3",
+    val aQuality: String = "320",
+    val audioFormat: String = "mp3",
+    val audioBitrate: String = "320"
+)
+
+@Serializable
+data class CobaltResponse(
+    val status: String,
+    val url: String? = null,
+    val text: String? = null
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ExportAudioBottomSheet(
+    song: Song,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    
+    var state by remember { mutableStateOf(ExportState.IDLE) }
+    var progress by remember { mutableFloatStateOf(0f) }
+    var errorMessage by remember { mutableStateOf("") }
+    var selectedBitrate by remember { mutableStateOf("320") }
+    var selectedFormat by remember { mutableStateOf("mp3") }
+    
+    ModalBottomSheet(onDismissRequest = { if (state != ExportState.FETCHING && state != ExportState.DOWNLOADING) onDismiss() }) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Header
+            Text(
+                text = stringResource(R.string.export_to_device),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            
+            Spacer(Modifier.height(24.dp))
+            
+            // Track Info Card
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    AsyncImage(
+                        model = song.song.thumbnailUrl,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(RoundedCornerShape(8.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                    Spacer(Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = song.song.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = song.artists.joinToString { it.name },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+            
+            Spacer(Modifier.height(24.dp))
+            
+            AnimatedContent(targetState = state, label = "export_state") { currentState ->
+                when (currentState) {
+                    ExportState.IDLE -> {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Text(
+                                text = "Audio Format",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf("mp3", "wav", "opus").forEach { format ->
+                                    FilterChip(
+                                        selected = selectedFormat == format,
+                                        onClick = { selectedFormat = format },
+                                        label = { Text(format.uppercase()) }
+                                    )
+                                }
+                            }
+                            
+                            Spacer(Modifier.height(16.dp))
+                            
+                            Text(
+                                text = "Audio Quality (kbps)",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf("128", "256", "320").forEach { bitrate ->
+                                    FilterChip(
+                                        selected = selectedBitrate == bitrate,
+                                        onClick = { selectedBitrate = bitrate },
+                                        label = { Text(bitrate) },
+                                        enabled = selectedFormat != "wav" // WAV is lossless, bitrate doesn't matter
+                                    )
+                                }
+                            }
+                            
+                            Spacer(Modifier.height(32.dp))
+                            
+                            Button(
+                                onClick = {
+                                    state = ExportState.FETCHING
+                                    coroutineScope.launch(Dispatchers.IO) {
+                                        try {
+                                            // Fetch Cobalt link
+                                            val client = HttpClient(CIO) {
+                                                install(ContentNegotiation) {
+                                                    json(Json { ignoreUnknownKeys = true })
+                                                }
+                                            }
+                                            val request = CobaltRequest(
+                                                url = "https://music.youtube.com/watch?v=${song.song.id}",
+                                                downloadMode = "audio",
+                                                aFormat = selectedFormat,
+                                                aQuality = selectedBitrate
+                                            )
+                                            val response = client.post("https://api.cobalt.tools/") {
+                                                header(HttpHeaders.Accept, "application/json")
+                                                header(HttpHeaders.ContentType, "application/json")
+                                                header("Origin", "https://cobalt.tools")
+                                                header("Referer", "https://cobalt.tools/")
+                                                header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+                                                setBody(request)
+                                            }.body<CobaltResponse>()
+                                            
+                                            if (response.status == "error" || response.status == "rate-limit") {
+                                                errorMessage = response.text ?: "Unknown Cobalt error"
+                                                state = ExportState.ERROR
+                                                return@launch
+                                            }
+                                            
+                                            val downloadUrl = response.url
+                                            if (downloadUrl == null) {
+                                                errorMessage = "Could not parse download URL"
+                                                state = ExportState.ERROR
+                                                return@launch
+                                            }
+                                            
+                                            state = ExportState.DOWNLOADING
+                                            
+                                            // Download File
+                                            val okHttpClient = OkHttpClient()
+                                            val downloadReq = Request.Builder().url(downloadUrl).build()
+                                            val downloadRes = okHttpClient.newCall(downloadReq).execute()
+                                            
+                                            if (!downloadRes.isSuccessful) {
+                                                errorMessage = "Download server returned ${downloadRes.code}"
+                                                state = ExportState.ERROR
+                                                return@launch
+                                            }
+                                            
+                                            val body = downloadRes.body ?: throw Exception("Empty response body")
+                                            val contentLength = body.contentLength()
+                                            val inputStream = body.byteStream()
+                                            
+                                            val cleanTitle = song.song.title.replace(Regex("[\\\\/:*?\"<>|]"), "_")
+                                            val cleanArtist = song.artists.joinToString { it.name }.replace(Regex("[\\\\/:*?\"<>|]"), "_")
+                                            val fileName = "$cleanTitle - $cleanArtist.$selectedFormat"
+                                            
+                                            val contentValues = ContentValues().apply {
+                                                put(MediaStore.Audio.Media.DISPLAY_NAME, fileName)
+                                                put(MediaStore.Audio.Media.MIME_TYPE, "audio/${if(selectedFormat=="mp3") "mpeg" else selectedFormat}")
+                                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                                    put(MediaStore.Audio.Media.RELATIVE_PATH, Environment.DIRECTORY_MUSIC + "/AvidTune")
+                                                    put(MediaStore.Audio.Media.IS_PENDING, 1)
+                                                }
+                                            }
+                                            val resolver = context.contentResolver
+                                            val uri = resolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, contentValues)
+                                            
+                                            if (uri != null) {
+                                                val outputStream = resolver.openOutputStream(uri)
+                                                if (outputStream != null) {
+                                                    val buffer = ByteArray(8192)
+                                                    var bytesRead: Int
+                                                    var totalBytesRead = 0L
+                                                    while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                                                        outputStream.write(buffer, 0, bytesRead)
+                                                        totalBytesRead += bytesRead
+                                                        if (contentLength > 0) {
+                                                            progress = totalBytesRead.toFloat() / contentLength.toFloat()
+                                                        }
+                                                    }
+                                                    outputStream.flush()
+                                                    outputStream.close()
+                                                }
+                                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                                    contentValues.clear()
+                                                    contentValues.put(MediaStore.Audio.Media.IS_PENDING, 0)
+                                                    resolver.update(uri, contentValues, null, null)
+                                                }
+                                                state = ExportState.SUCCESS
+                                            } else {
+                                                errorMessage = "Could not create file in MediaStore"
+                                                state = ExportState.ERROR
+                                            }
+                                            
+                                        } catch (e: Exception) {
+                                            errorMessage = e.message ?: "Network error"
+                                            state = ExportState.ERROR
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().height(50.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                            ) {
+                                Icon(painterResource(R.drawable.download), contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Export", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                    ExportState.FETCHING -> {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            modifier = Modifier.fillMaxWidth().padding(32.dp)
+                        ) {
+                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                            Text("Connecting to server...", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    ExportState.DOWNLOADING -> {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            modifier = Modifier.fillMaxWidth().padding(32.dp)
+                        ) {
+                            Text(
+                                "Downloading...", 
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            LinearProgressIndicator(
+                                progress = { progress },
+                                modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+                                color = MaterialTheme.colorScheme.primary,
+                                trackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                            Text(
+                                "${(progress * 100).toInt()}%",
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                    ExportState.SUCCESS -> {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            modifier = Modifier.fillMaxWidth().padding(16.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(64.dp)
+                                    .background(Color(0xFF4CAF50).copy(alpha = 0.2f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painterResource(R.drawable.check), 
+                                    contentDescription = null,
+                                    tint = Color(0xFF4CAF50),
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+                            Text(
+                                "Successfully saved to Music folder!",
+                                style = MaterialTheme.typography.titleMedium,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Button(
+                                onClick = onDismiss,
+                                modifier = Modifier.fillMaxWidth().height(50.dp)
+                            ) {
+                                Text("Done")
+                            }
+                        }
+                    }
+                    ExportState.ERROR -> {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            modifier = Modifier.fillMaxWidth().padding(16.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(64.dp)
+                                    .background(MaterialTheme.colorScheme.errorContainer, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painterResource(R.drawable.error), 
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+                            Text(
+                                "Export Failed",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                            Text(
+                                errorMessage,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f)) {
+                                    Text("Cancel")
+                                }
+                                Button(
+                                    onClick = { state = ExportState.IDLE },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Retry")
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
