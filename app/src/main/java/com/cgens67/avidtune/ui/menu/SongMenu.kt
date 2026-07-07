@@ -1,11 +1,8 @@
 package com.cgens67.avidtune.ui.menu
 
 import android.annotation.SuppressLint
-import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
-import android.os.Environment
-import android.widget.Toast
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -32,7 +29,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -86,20 +82,8 @@ import com.cgens67.avidtune.ui.component.MenuItemData
 import com.cgens67.avidtune.ui.component.MenuGroup
 import com.cgens67.avidtune.ui.component.NewAction
 import com.cgens67.avidtune.ui.component.NewActionGrid
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.engine.cio.CIO
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.request.header
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.http.HttpHeaders
-import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import java.time.LocalDateTime
 
 @Composable
@@ -698,115 +682,3 @@ fun SongMenu(
         }
     }
 }
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ExportAudioBottomSheet(
-    song: Song,
-    onDismiss: () -> Unit
-) {
-    val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-    
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Text(
-                text = "Export to Device (MP3)",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-            
-            val options = listOf(
-                "96 kbps" to "96",
-                "128 kbps" to "128",
-                "256 kbps" to "256",
-                "320 kbps" to "320",
-                "Highest Quality" to "320"
-            )
-            
-            options.forEach { (label, bitrate) ->
-                Text(
-                    text = label,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            onDismiss()
-                            Toast.makeText(context, "Fetching download link...", Toast.LENGTH_SHORT).show()
-                            coroutineScope.launch(Dispatchers.IO) {
-                                try {
-                                    val client = HttpClient(CIO) {
-                                        install(ContentNegotiation) {
-                                            json(Json { ignoreUnknownKeys = true })
-                                        }
-                                    }
-                                    
-                                    val request = CobaltRequest(
-                                        url = "https://music.youtube.com/watch?v=${song.id}",
-                                        downloadMode = "audio",
-                                        audioFormat = "mp3",
-                                        audioBitrate = bitrate
-                                    )
-                                    
-                                    val response = client.post("https://api.cobalt.tools/") {
-                                        header(HttpHeaders.Accept, "application/json")
-                                        header(HttpHeaders.ContentType, "application/json")
-                                        setBody(request)
-                                    }.body<CobaltResponse>()
-                                    
-                                    if (response.status == "redirect" || response.status == "stream" || response.status == "success") {
-                                        val downloadUrl = response.url
-                                        if (downloadUrl != null) {
-                                            val cleanTitle = song.song.title.replace(Regex("[\\\\/:*?\"<>|]"), "_")
-                                            val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-                                            val req = DownloadManager.Request(android.net.Uri.parse(downloadUrl)).apply {
-                                                setTitle("$cleanTitle.mp3")
-                                                setDescription("Downloading from Cobalt")
-                                                setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                                                setDestinationInExternalPublicDir(Environment.DIRECTORY_MUSIC, "$cleanTitle.mp3")
-                                            }
-                                            dm.enqueue(req)
-                                            withContext(Dispatchers.Main) {
-                                                Toast.makeText(context, "Download started...", Toast.LENGTH_SHORT).show()
-                                            }
-                                        }
-                                    } else {
-                                        withContext(Dispatchers.Main) {
-                                            Toast.makeText(context, "Cobalt Error: ${response.text}", Toast.LENGTH_LONG).show()
-                                        }
-                                    }
-                                    client.close()
-                                } catch (e: Exception) {
-                                    withContext(Dispatchers.Main) {
-                                        Toast.makeText(context, "Network Error", Toast.LENGTH_SHORT).show()
-                                    }
-                                }
-                            }
-                        }
-                        .padding(16.dp),
-                    style = MaterialTheme.typography.bodyLarge
-                )
-            }
-            Spacer(modifier = Modifier.height(32.dp))
-        }
-    }
-}
-
-@Serializable
-data class CobaltRequest(
-    val url: String,
-    val downloadMode: String = "audio",
-    val audioFormat: String = "mp3",
-    val audioBitrate: String = "320"
-)
-
-@Serializable
-data class CobaltResponse(
-    val status: String,
-    val url: String? = null,
-    val text: String? = null
-)
