@@ -86,6 +86,9 @@ import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.ListItemHeight
 import com.cgens67.avidtune.constants.ListThumbnailSize
 import com.cgens67.avidtune.constants.ThumbnailCornerRadius
+import com.cgens67.avidtune.db.entities.AlbumEntity
+import com.cgens67.avidtune.db.entities.ArtistEntity
+import com.cgens67.avidtune.db.entities.Song
 import com.cgens67.avidtune.models.MediaMetadata
 import com.cgens67.avidtune.playback.ExoDownloadService
 import com.cgens67.avidtune.playback.queues.YouTubeQueue
@@ -184,6 +187,22 @@ fun ColumnScope.PlayerMenu(
     if (showInAppEqualizer) {
         com.cgens67.avidtune.playback.InAppEqualizerBottomSheet(
             onDismiss = { showInAppEqualizer = false }
+        )
+    }
+
+    var showExportSheet by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    if (showExportSheet) {
+        val dummySong = librarySong ?: Song(
+            song = mediaMetadata.toSongEntity(),
+            artists = mediaMetadata.artists.map { ArtistEntity(it.id ?: "", it.name) },
+            album = mediaMetadata.album?.let { AlbumEntity(id = it.id, title = it.title, duration = 0, songCount = 0) }
+        )
+        ExportAudioBottomSheet(
+            song = dummySong,
+            onDismiss = { showExportSheet = false }
         )
     }
 
@@ -656,6 +675,7 @@ fun ColumnScope.PlayerMenu(
                                         mediaMetadata.id,
                                         false,
                                     )
+                                    onDismiss()
                                 }
                             )
                         }
@@ -677,6 +697,7 @@ fun ColumnScope.PlayerMenu(
                                         mediaMetadata.id,
                                         false,
                                     )
+                                    onDismiss()
                                 }
                             )
                         }
@@ -707,10 +728,23 @@ fun ColumnScope.PlayerMenu(
                                         downloadRequest,
                                         false,
                                     )
+                                    onDismiss()
                                 }
                             )
                         }
-                    }
+                    },
+                    MenuItemData(
+                        title = { Text(text = "Export to Device") },
+                        description = { Text(text = "Download as MP3 file") },
+                        icon = {
+                            Icon(
+                                painter = painterResource(R.drawable.download),
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        },
+                        onClick = { showExportSheet = true }
+                    )
                 )
             )
         }
