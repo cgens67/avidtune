@@ -976,29 +976,6 @@ fun AlbumGridItem(
         )
 
         AnimatedVisibility(
-            visible = !isActive,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 8.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(Color.Black.copy(alpha = 0.6f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.album),
-                    contentDescription = null,
-                    tint = Color.White,
-                )
-            }
-        }
-
-        AnimatedVisibility(
             visible = isActive,
             enter = fadeIn(tween(500)),
             exit = fadeOut(tween(500)),
@@ -1009,7 +986,7 @@ fun AlbumGridItem(
                     Modifier
                         .fillMaxSize()
                         .background(
-                            color = Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f),
+                            color = Color.Black.copy(alpha = 0.4f),
                             shape = RoundedCornerShape(ThumbnailCornerRadius),
                         ),
             ) {
@@ -1018,28 +995,13 @@ fun AlbumGridItem(
                         color = Color.White,
                         modifier = Modifier.height(24.dp),
                     )
+                } else {
+                    Icon(
+                        painter = painterResource(R.drawable.play),
+                        contentDescription = null,
+                        tint = Color.White,
+                    )
                 }
-            }
-        }
-
-        AnimatedVisibility(
-            visible = isActive && !isPlaying,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier.align(Alignment.Center).padding(8.dp),
-        ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(Color.Black.copy(alpha = 0.6f))
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.play),
-                    contentDescription = null,
-                    tint = Color.White,
-                )
             }
         }
 
@@ -1102,29 +1064,6 @@ fun AlbumSmallGridItem(
             )
 
             AnimatedVisibility(
-                visible = !isActive,
-                enter = fadeIn(),
-                exit = fadeOut(),
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 4.dp),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.6f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.album),
-                        contentDescription = null,
-                        tint = Color.White,
-                    )
-                }
-            }
-
-            AnimatedVisibility(
                 visible = isActive,
                 enter = fadeIn(tween(500)),
                 exit = fadeOut(tween(500)),
@@ -1135,7 +1074,7 @@ fun AlbumSmallGridItem(
                         Modifier
                             .fillMaxSize()
                             .background(
-                                color = Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f),
+                                color = Color.Black.copy(alpha = 0.4f),
                                 shape = RoundedCornerShape(ThumbnailCornerRadius),
                             ),
                 ) {
@@ -1144,28 +1083,13 @@ fun AlbumSmallGridItem(
                             color = Color.White,
                             modifier = Modifier.height(24.dp),
                         )
+                    } else {
+                        Icon(
+                            painter = painterResource(R.drawable.play),
+                            contentDescription = null,
+                            tint = Color.White,
+                        )
                     }
-                }
-            }
-
-            AnimatedVisibility(
-                visible = isActive && !isPlaying,
-                enter = fadeIn(),
-                exit = fadeOut(),
-                modifier = Modifier.align(Alignment.Center).padding(8.dp),
-            ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.6f))
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.play),
-                        contentDescription = null,
-                        tint = Color.White,
-                    )
                 }
             }
         },
@@ -1733,31 +1657,6 @@ fun YouTubeGridItem(
                         .clip(RoundedCornerShape(ThumbnailCornerRadius)),
             )
 
-            if (item is AlbumItem) {
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = !isActive,
-                    enter = fadeIn(),
-                    exit = fadeOut(),
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 8.dp),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(Color.Black.copy(alpha = 0.6f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.album),
-                            contentDescription = null,
-                            tint = Color.White,
-                        )
-                    }
-                }
-            }
-
             androidx.compose.animation.AnimatedVisibility(
                 visible = item is AlbumItem && !isActive,
                 enter = fadeIn(),
@@ -1839,7 +1738,7 @@ fun YouTubeGridItem(
             }
 
             androidx.compose.animation.AnimatedVisibility(
-                visible = (item is SongItem && !(isActive && isPlaying)) || (item is AlbumItem && isActive && !isPlaying) || (item is ArtistItem && isActive && !isPlaying) || (item is PlaylistItem && isActive && !isPlaying),
+                visible = item is SongItem && !(isActive && isPlaying),
                 enter = fadeIn(),
                 exit = fadeOut(),
                 modifier =
@@ -1930,78 +1829,54 @@ fun YouTubeSmallGridItem(
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(ThumbnailCornerRadius)),
         )
-        
-        if (item is AlbumItem) {
+        if (item is SongItem) {
             AnimatedVisibility(
-                visible = !isActive,
-                enter = fadeIn(),
-                exit = fadeOut(),
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 4.dp),
+                visible = isActive,
+                enter = fadeIn(tween(500)),
+                exit = fadeOut(tween(500)),
             ) {
                 Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.6f)),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .background(
+                                color = Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f),
+                                shape = RoundedCornerShape(ThumbnailCornerRadius),
+                            ),
+                ) {
+                    if (isPlaying) {
+                        PlayingIndicator(
+                            color = Color.White,
+                            modifier = Modifier.height(24.dp),
+                        )
+                    }
+                }
+            }
+
+            AnimatedVisibility(
+                visible = !(isActive && isPlaying),
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier =
+                    Modifier
+                        .align(Alignment.Center)
+                        .padding(8.dp),
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier =
+                        Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.6f)),
                 ) {
                     Icon(
-                        painter = painterResource(R.drawable.album),
+                        painter = painterResource(R.drawable.play),
                         contentDescription = null,
                         tint = Color.White,
                     )
                 }
-            }
-        }
-
-        AnimatedVisibility(
-            visible = isActive,
-            enter = fadeIn(tween(500)),
-            exit = fadeOut(tween(500)),
-        ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .background(
-                            color = Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f),
-                            shape = RoundedCornerShape(ThumbnailCornerRadius),
-                        ),
-            ) {
-                if (isPlaying) {
-                    PlayingIndicator(
-                        color = Color.White,
-                        modifier = Modifier.height(24.dp),
-                    )
-                }
-            }
-        }
-
-        AnimatedVisibility(
-            visible = if (item is SongItem) !(isActive && isPlaying) else (isActive && !isPlaying),
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier =
-                Modifier
-                    .align(Alignment.Center)
-                    .padding(8.dp),
-        ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier =
-                    Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.6f)),
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.play),
-                    contentDescription = null,
-                    tint = Color.White,
-                )
             }
         }
     },
@@ -2058,7 +1933,7 @@ fun LocalSongsGrid(
                         Modifier
                             .fillMaxSize()
                             .background(
-                                color = Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f),
+                                color = Color.Black.copy(alpha = 0.4f),
                                 shape = RoundedCornerShape(ThumbnailCornerRadius),
                             ),
                 ) {
@@ -2066,6 +1941,12 @@ fun LocalSongsGrid(
                         PlayingIndicator(
                             color = Color.White,
                             modifier = Modifier.height(24.dp),
+                        )
+                    } else {
+                        Icon(
+                            painter = painterResource(R.drawable.play),
+                            contentDescription = null,
+                            tint = Color.White,
                         )
                     }
                 }
@@ -2142,7 +2023,7 @@ fun LocalArtistsGrid(
                         Modifier
                             .fillMaxSize()
                             .background(
-                                color = Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f),
+                                color = Color.Black.copy(alpha = 0.4f),
                                 shape = CircleShape,
                             ),
                 ) {
@@ -2151,28 +2032,13 @@ fun LocalArtistsGrid(
                             color = Color.White,
                             modifier = Modifier.height(24.dp),
                         )
+                    } else {
+                        Icon(
+                            painter = painterResource(R.drawable.play),
+                            contentDescription = null,
+                            tint = Color.White,
+                        )
                     }
-                }
-            }
-
-            AnimatedVisibility(
-                visible = isActive && !isPlaying,
-                enter = fadeIn(),
-                exit = fadeOut(),
-                modifier = Modifier.align(Alignment.Center).padding(8.dp),
-            ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.6f)),
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.play),
-                        contentDescription = null,
-                        tint = Color.White,
-                    )
                 }
             }
         }
@@ -2206,29 +2072,6 @@ fun LocalAlbumsGrid(
         )
 
         AnimatedVisibility(
-            visible = !isActive,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 8.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(Color.Black.copy(alpha = 0.6f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.album),
-                    contentDescription = null,
-                    tint = Color.White,
-                )
-            }
-        }
-
-        AnimatedVisibility(
             visible = isActive,
             enter = fadeIn(tween(500)),
             exit = fadeOut(tween(500)),
@@ -2239,7 +2082,7 @@ fun LocalAlbumsGrid(
                     Modifier
                         .fillMaxSize()
                         .background(
-                            color = Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f),
+                            color = Color.Black.copy(alpha = 0.4f),
                             shape = RoundedCornerShape(ThumbnailCornerRadius),
                         ),
             ) {
@@ -2248,28 +2091,13 @@ fun LocalAlbumsGrid(
                         color = Color.White,
                         modifier = Modifier.height(24.dp),
                     )
+                } else {
+                    Icon(
+                        painter = painterResource(R.drawable.play),
+                        contentDescription = null,
+                        tint = Color.White,
+                    )
                 }
-            }
-        }
-
-        AnimatedVisibility(
-            visible = isActive && !isPlaying,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier.align(Alignment.Center).padding(8.dp),
-        ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(Color.Black.copy(alpha = 0.6f)),
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.play),
-                    contentDescription = null,
-                    tint = Color.White,
-                )
             }
         }
     },
