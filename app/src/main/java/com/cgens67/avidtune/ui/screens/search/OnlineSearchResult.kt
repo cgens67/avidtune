@@ -266,7 +266,7 @@ fun OnlineSearchResult(
                         )
                         Spacer(Modifier.width(10.dp))
                         Text(
-                            text = summary.title,
+                            text = getTranslatedSearchSummaryTitle(summary.title),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface,
@@ -361,5 +361,21 @@ fun OnlineSearchResult(
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun getTranslatedSearchSummaryTitle(title: String): String {
+    val titleLower = title.lowercase()
+    return when {
+        titleLower.contains("top") || titleLower.contains("principal") || titleLower.contains("result") || titleLower.contains("resultado") -> stringResource(R.string.top_result)
+        titleLower.contains("song") || titleLower.contains("cancion") || titleLower.contains("canción") -> stringResource(R.string.songs)
+        titleLower.contains("video") || titleLower.contains("vídeo") -> stringResource(R.string.videos)
+        titleLower.contains("episode") || titleLower.contains("episodio") || titleLower.contains("podcast") -> stringResource(R.string.episodes)
+        titleLower.contains("album") || titleLower.contains("álbum") -> stringResource(R.string.albums)
+        titleLower.contains("artist") || titleLower.contains("artista") -> stringResource(R.string.artists)
+        titleLower.contains("playlist") || titleLower.contains("lista") -> stringResource(R.string.playlists)
+        titleLower.contains("other") || titleLower.contains("otros") -> stringResource(R.string.other)
+        else -> title
     }
 }
