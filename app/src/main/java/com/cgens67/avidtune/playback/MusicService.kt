@@ -1134,25 +1134,69 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         }
     }
 
-    private fun createCacheDataSource(): CacheDataSource.Factory =
-        CacheDataSource.Factory()
-            .setCache(downloadCache)
-            .setUpstreamDataSourceFactory(
-                CacheDataSource.Factory()
-                    .setCache(playerCache)
-                    .setUpstreamDataSourceFactory(
-                        DefaultDataSource.Factory(
-                            this,
-                            OkHttpDataSource.Factory(
-                                OkHttpClient.Builder()
-                                    .proxy(YouTube.proxy)
-                                    .build(),
-                            ),
-                        ),
-                    ),
+    private fun createCacheDataSource(): DataSource.Factory {
+        val upstreamFactory = DefaultDataSource.Factory(
+            this,
+            OkHttpDataSource.Factory(
+                OkHttpClient.Builder()
+                    .proxy(YouTube.proxy)
+                    .build()
             )
-            .setCacheWriteDataSinkFactory(null)
-            .setFlags(FLAG_IGNORE_CACHE_ON_ERROR)
+        )
+
+        return DataSource.Factory {
+            val downloadCacheDataSource = CacheDataSource.Factory()
+                .setCache(downloadCache)
+                .setUpstreamDataSourceFactory(upstreamFactory)
+                .setCacheWriteDataSinkFactory(null)
+                .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+                .createDataSource()
+
+            val playerCacheDataSource = CacheDataSource.Factory()
+                .setCache(playerCache)
+                .setUpstreamDataSourceFactory(upstreamFactory)
+                .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+                .createDataSource()
+
+            object : DataSource {
+                private var activeDataSource: DataSource? = null
+
+                override fun addTransferListener(transferListener: androidx.media3.datasource.TransferListener) {
+                    downloadCacheDataSource.addTransferListener(transferListener)
+                    playerCacheDataSource.addTransferListener(transferListener)
+                }
+
+                override fun open(dataSpec: androidx.media3.datasource.DataSpec): Long {
+                    val mediaId = dataSpec.key ?: dataSpec.uri.toString()
+                    val length = if (dataSpec.length >= 0) dataSpec.length else 1L
+                    val isDownloaded = downloadCache.isCached(mediaId, dataSpec.position, length)
+                    
+                    activeDataSource = if (isDownloaded) {
+                        downloadCacheDataSource
+                    } else {
+                        playerCacheDataSource
+                    }
+                    return activeDataSource!!.open(dataSpec)
+                }
+
+                override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+                    return activeDataSource?.read(buffer, offset, length) ?: C.RESULT_END_OF_INPUT
+                }
+
+                override fun getUri(): android.net.Uri? {
+                    return activeDataSource?.uri
+                }
+
+                override fun getResponseHeaders(): Map<String, List<String>> {
+                    return activeDataSource?.responseHeaders ?: emptyMap()
+                }
+
+                override fun close() {
+                    activeDataSource?.close()
+                }
+            }
+        }
+    }
 
     private fun createDataSourceFactory(): DataSource.Factory {
         val songUrlCache = HashMap<String, Pair<String, Long>>()
