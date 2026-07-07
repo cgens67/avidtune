@@ -55,9 +55,15 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.navigation.NavController
+import coil.compose.SubcomposeAsyncImage
+import coil.compose.SubcomposeAsyncImageContent
+import coil.request.ImageRequest
 import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
 import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
+import com.cgens67.avidtune.ui.component.AvatarPreferenceManager
+import com.cgens67.avidtune.ui.component.AvatarSelection
+import com.cgens67.avidtune.ui.component.AvatarUtils
 import com.cgens67.avidtune.ui.component.IconButton as AtIconButton
 import com.cgens67.avidtune.ui.component.LocalMenuState
 import com.cgens67.avidtune.ui.component.SwitchPreference
@@ -103,7 +109,7 @@ val TogetherWelcomeShownKey = booleanPreferencesKey("TogetherWelcomeShown")
 
 // --- MODELS & MESSAGES ---
 @Serializable data class TogetherTrack(val id: String, val title: String, val artists: List<String> = emptyList(), val durationSec: Int = -1, val thumbnailUrl: String? = null)
-@Serializable data class TogetherParticipant(val id: String, val name: String, val isHost: Boolean = false, val isPending: Boolean = false, val isConnected: Boolean = true)
+@Serializable data class TogetherParticipant(val id: String, val name: String, val isHost: Boolean = false, val isPending: Boolean = false, val isConnected: Boolean = true, val avatar: String? = null)
 @Serializable data class TogetherRoomSettings(val allowGuestsToAddTracks: Boolean = true, val allowGuestsToControlPlayback: Boolean = false, val requireHostApprovalToJoin: Boolean = false)
 @Serializable data class TogetherRoomState(val sessionId: String, val hostId: String, val participants: List<TogetherParticipant> = emptyList(), val settings: TogetherRoomSettings = TogetherRoomSettings(), val queue: List<TogetherTrack> = emptyList(), val queueHash: String = "", val currentIndex: Int = 0, val isPlaying: Boolean = false, val positionMs: Long = 0L, val repeatMode: Int = 0, val shuffleEnabled: Boolean = false, val sentAtMs: Long = 0L)
 @Serializable data class DiscoveredSession(val pin: String, val hostName: String, val joinInfo: TogetherJoinInfo)
@@ -113,7 +119,7 @@ sealed class TogetherSessionState { data object Idle : TogetherSessionState(); d
 
 const val TogetherProtocolVersion: Int = 1
 @Serializable sealed interface TogetherMessage
-@Serializable @SerialName("client_hello") data class ClientHello(val protocolVersion: Int, val sessionId: String, val sessionKey: String, val clientId: String, val displayName: String) : TogetherMessage
+@Serializable @SerialName("client_hello") data class ClientHello(val protocolVersion: Int, val sessionId: String, val sessionKey: String, val clientId: String, val displayName: String, val avatar: String? = null) : TogetherMessage
 @Serializable @SerialName("server_welcome") data class ServerWelcome(val protocolVersion: Int, val sessionId: String, val participantId: String, val role: ServerRole, val isPending: Boolean, val settings: TogetherRoomSettings) : TogetherMessage
 @Serializable @SerialName("room_state") data class RoomStateMessage(val state: TogetherRoomState) : TogetherMessage
 @Serializable @SerialName("join_decision") data class JoinDecision(val sessionId: String, val participantId: String, val approved: Boolean) : TogetherMessage
@@ -422,7 +428,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
         }
     }
 
-    fun startTogetherHost(port: Int, displayName: String, settings: TogetherRoomSettings) {
+    fun startTogetherHost(port: Int, displayName: String, settings: TogetherRoomSettings, avatar: String? = null) {
         leaveTogether()
         isHost = true
         scope.launch(Dispatchers.IO) {
@@ -444,7 +450,8 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                     id = myHostId,
                     name = displayName,
                     isHost = true,
-                    isConnected = true
+                    isConnected = true,
+                    avatar = avatar
                 )
 
                 val engine = embeddedServer(CIO, port = port, host = "0.0.0.0") {
@@ -474,7 +481,8 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                                                 name = msg.displayName,
                                                 isHost = false,
                                                 isConnected = true,
-                                                isPending = isPending
+                                                isPending = isPending,
+                                                avatar = msg.avatar
                                             )
                                             hostConnections[pId] = this@webSocket
                                             
@@ -583,7 +591,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
         }
     }
 
-    fun joinTogether(inputLink: String, displayName: String) {
+    fun joinTogether(inputLink: String, displayName: String, avatar: String? = null) {
         leaveTogether()
         isHost = false
         val joinJob = scope.launch(Dispatchers.IO) {
@@ -602,7 +610,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                 httpClient.webSocket(info.toWebSocketUrl()) {
                     clientSession = this
                     val myClientId = UUID.randomUUID().toString()
-                    send(TogetherJson.json.encodeToString(TogetherMessage.serializer(), ClientHello(TogetherProtocolVersion, info.sessionId, info.sessionKey, myClientId, displayName)))
+                    send(TogetherJson.json.encodeToString(TogetherMessage.serializer(), ClientHello(TogetherProtocolVersion, info.sessionId, info.sessionKey, myClientId, displayName, avatar)))
                     
                     var selfPId = "guest"
 
@@ -807,6 +815,64 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
 }
 
 // --- UI SCREEN ---
+
+@Composable
+private fun ParticipantAvatar(
+    participant: TogetherParticipant,
+    modifier: Modifier = Modifier,
+    color: Color,
+    textColor: Color,
+    textStyle: androidx.compose.ui.text.TextStyle
+) {
+    if (participant.avatar != null) {
+        SubcomposeAsyncImage(
+            model = ImageRequest.Builder(LocalContext.current)
+                .data(participant.avatar)
+                .crossfade(true)
+                .build(),
+            contentDescription = null,
+            modifier = modifier.clip(CircleShape),
+            contentScale = ContentScale.Crop,
+            success = { SubcomposeAsyncImageContent() },
+            error = {
+                Box(
+                    modifier = Modifier.fillMaxSize().background(color),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = participant.name.take(1).uppercase(),
+                        style = textStyle,
+                        color = textColor
+                    )
+                }
+            },
+            loading = {
+                Box(
+                    modifier = Modifier.fillMaxSize().background(color),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = participant.name.take(1).uppercase(),
+                        style = textStyle,
+                        color = textColor
+                    )
+                }
+            }
+        )
+    } else {
+        Box(
+            modifier = modifier.clip(CircleShape).background(color),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = participant.name.take(1).uppercase(),
+                style = textStyle,
+                color = textColor
+            )
+        }
+    }
+}
+
 @SuppressLint("LocalContextGetResourceValueCall")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -860,6 +926,11 @@ fun MusicTogetherScreen(
         TogetherDisplayNameKey,
         defaultValue = Build.MODEL?.takeIf { it.isNotBlank() } ?: context.getString(R.string.app_name),
     )
+    
+    val avatarManager = remember { AvatarPreferenceManager(context) }
+    val currentAvatarSelection by avatarManager.getAvatarSelection.collectAsState(initial = AvatarSelection.Default)
+    val currentAvatar = AvatarUtils.getAvatarSource(currentAvatarSelection)
+
     val (port, setPort) = rememberPreference(TogetherDefaultPortKey, defaultValue = 42117)
     val (allowAddTracks, setAllowAddTracksRaw) = rememberPreference(TogetherAllowGuestsToAddTracksKey, defaultValue = true)
     val (allowControlPlayback, setAllowControlPlaybackRaw) = rememberPreference(TogetherAllowGuestsToControlPlaybackKey, defaultValue = false)
@@ -944,7 +1015,7 @@ fun MusicTogetherScreen(
                 val trimmed = raw.trim()
                 joinInput = trimmed
                 setLastJoinLink(trimmed)
-                playerConnection?.service?.joinTogether(trimmed, displayName)
+                playerConnection?.service?.joinTogether(trimmed, displayName, currentAvatar)
                 showJoinDialog = false 
             }
         )
@@ -1017,17 +1088,17 @@ fun MusicTogetherScreen(
                                 val link = TogetherLink.encode(session.joinInfo)
                                 joinInput = link
                                 setLastJoinLink(link)
-                                playerConnection?.service?.joinTogether(link, displayName)
+                                playerConnection?.service?.joinTogether(link, displayName, currentAvatar)
                             },
                             modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)
                         )
                     }
 
-                    HostSectionCard(displayName = displayName, port = port, allowAddTracks = allowAddTracks, allowControlPlayback = allowControlPlayback, requireApproval = requireApproval, onShowNameDialog = { showNameDialog = true }, onShowPortDialog = { showPortDialog = true }, onAllowAddTracksChange = setAllowAddTracks, onAllowControlPlaybackChange = setAllowControlPlayback, onRequireApprovalChange = setRequireApproval, isStartEnabled = !isCreatingSessionLoading && !isJoining && !isHosting && sessionState !is TogetherSessionState.Joined, isLoading = isCreatingSessionLoading, onStartSession = { playerConnection?.service?.startTogetherHost(port = port, displayName = displayName, settings = TogetherRoomSettings(allowGuestsToAddTracks = allowAddTracks, allowGuestsToControlPlayback = allowControlPlayback, requireHostApprovalToJoin = requireApproval)) }, modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp))
+                    HostSectionCard(displayName = displayName, port = port, allowAddTracks = allowAddTracks, allowControlPlayback = allowControlPlayback, requireApproval = requireApproval, onShowNameDialog = { showNameDialog = true }, onShowPortDialog = { showPortDialog = true }, onAllowAddTracksChange = setAllowAddTracks, onAllowControlPlaybackChange = setAllowControlPlayback, onRequireApprovalChange = setRequireApproval, isStartEnabled = !isCreatingSessionLoading && !isJoining && !isHosting && sessionState !is TogetherSessionState.Joined, isLoading = isCreatingSessionLoading, onStartSession = { playerConnection?.service?.startTogetherHost(port = port, displayName = displayName, settings = TogetherRoomSettings(allowGuestsToAddTracks = allowAddTracks, allowGuestsToControlPlayback = allowControlPlayback, requireHostApprovalToJoin = requireApproval), avatar = currentAvatar) }, modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp))
                 }
 
                 if (!isHostRole) {
-                    JoinSectionCard(joinInput = joinInput, onJoinInputChange = { joinInput = it }, canJoin = canJoin, disableJoinUi = disableJoinUi, isJoined = isJoinedAsAcceptedGuest, isWaitingApproval = isWaitingApproval, isJoining = isJoining, onShowJoinDialog = { showJoinDialog = true }, onPasteFromClipboard = { val text = clipboard.getText()?.text?.trim() ?: ""; if (text.isNotBlank()) { joinInput = text; haptic.performHapticFeedback(HapticFeedbackType.LongPress); setLastJoinLink(text); playerConnection?.service?.joinTogether(text, displayName) } }, onJoin = { val trimmed = joinInput.trim(); setLastJoinLink(trimmed); playerConnection?.service?.joinTogether(trimmed, displayName) }, modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp))
+                    JoinSectionCard(joinInput = joinInput, onJoinInputChange = { joinInput = it }, canJoin = canJoin, disableJoinUi = disableJoinUi, isJoined = isJoinedAsAcceptedGuest, isWaitingApproval = isWaitingApproval, isJoining = isJoining, onShowJoinDialog = { showJoinDialog = true }, onPasteFromClipboard = { val text = clipboard.getText()?.text?.trim() ?: ""; if (text.isNotBlank()) { joinInput = text; haptic.performHapticFeedback(HapticFeedbackType.LongPress); setLastJoinLink(text); playerConnection?.service?.joinTogether(text, displayName, currentAvatar) } }, onJoin = { val trimmed = joinInput.trim(); setLastJoinLink(trimmed); playerConnection?.service?.joinTogether(trimmed, displayName, currentAvatar) }, modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp))
                 }
             }
 
@@ -1441,20 +1512,13 @@ private fun OnlineParticipantsCard(
                             horizontalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             // Avatar
-                            Box(
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(CircleShape)
-                                    .background(accent.copy(alpha = 0.15f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = participant.name.take(1).uppercase(),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = accent
-                                )
-                            }
+                            ParticipantAvatar(
+                                participant = participant,
+                                modifier = Modifier.size(48.dp),
+                                color = accent.copy(alpha = 0.15f),
+                                textColor = accent,
+                                textStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                            )
                             
                             // Name & Role
                             Column(
@@ -1599,20 +1663,13 @@ private fun ParticipantsCard(participants: List<TogetherParticipant>) {
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(24.dp)
-                                    .clip(CircleShape)
-                                    .background(contentColor.copy(alpha = 0.2f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    participant.name.take(1).uppercase(),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = contentColor
-                                )
-                            }
+                            ParticipantAvatar(
+                                participant = participant,
+                                modifier = Modifier.size(24.dp),
+                                color = contentColor.copy(alpha = 0.2f),
+                                textColor = contentColor,
+                                textStyle = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                            )
                             Text(
                                 text = participant.name,
                                 style = MaterialTheme.typography.labelLarge,
