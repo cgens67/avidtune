@@ -167,7 +167,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
     private val hostParticipants = ConcurrentHashMap<String, TogetherParticipant>()
     private var isHost = false
     private var broadcastJob: Job? = null
-    
+
     // UDP Discovery features
     private var discoverySocket: DatagramSocket? = null
     private var discoveryJob: Job? = null
@@ -317,7 +317,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
         scope.launch(Dispatchers.Main) {
             val currentState = sessionState.value as? TogetherSessionState.Joined ?: return@launch
             if (!currentState.roomState.settings.allowGuestsToControlPlayback) return@launch
-            
+
             val msg = TogetherJson.json.encodeToString(
                 TogetherMessage.serializer(),
                 UpdatePlayback(
@@ -336,7 +336,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
         scope.launch(Dispatchers.Main) {
             val currentState = sessionState.value as? TogetherSessionState.Joined ?: return@launch
             if (!currentState.roomState.settings.allowGuestsToAddTracks) return@launch
-            
+
             val customMeta = mediaItem.localConfiguration?.tag as? com.cgens67.avidtune.models.MediaMetadata
             val trackId = mediaItem.mediaId
             val trackTitle = customMeta?.title ?: mediaItem.mediaMetadata.title?.toString() ?: ""
@@ -345,7 +345,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
             val durationSec = customMeta?.duration ?: -1
 
             val track = TogetherTrack(trackId, trackTitle, trackArtists, durationSec, trackArt)
-            
+
             val msg = TogetherJson.json.encodeToString(
                 TogetherMessage.serializer(),
                 UpdateTrack(track)
@@ -360,7 +360,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
     private fun getCurrentRoomState(sId: String): TogetherRoomState {
         val currentItem = player.currentMediaItem
         val customMeta = currentItem?.localConfiguration?.tag as? com.cgens67.avidtune.models.MediaMetadata
-        
+
         val trackId = currentItem?.mediaId ?: ""
         val trackTitle = customMeta?.title ?: currentItem?.mediaMetadata?.title?.toString() ?: ""
         val trackArtists = customMeta?.artists?.map { it.name } ?: listOf(currentItem?.mediaMetadata?.artist?.toString() ?: "")
@@ -438,7 +438,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                 val sId = UUID.randomUUID().toString()
                 val sKey = UUID.randomUUID().toString()
                 val hostIp = getIpAddress() ?: "127.0.0.1"
-                
+
                 currentPin = (100000..999999).random().toString()
                 currentHostName = displayName
                 currentJoinInfo = TogetherJoinInfo(hostIp, port, sId, sKey)
@@ -469,10 +469,10 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                                 for (frame in incoming) {
                                     if (frame !is Frame.Text) continue
                                     val txt = frame.readText()
-                                    val msg = try { 
-                                        TogetherJson.json.decodeFromString<TogetherMessage>(txt) 
+                                    val msg = try {
+                                        TogetherJson.json.decodeFromString<TogetherMessage>(txt)
                                     } catch (e: Exception) { null }
-                                    
+
                                     when (msg) {
                                         is ClientHello -> {
                                             val isPending = roomSettings.requireHostApprovalToJoin
@@ -486,15 +486,15 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                                                 avatar = msg.avatar
                                             )
                                             hostConnections[pId] = this@webSocket
-                                            
+
                                             send(TogetherJson.json.encodeToString(
-                                                TogetherMessage.serializer(), 
+                                                TogetherMessage.serializer(),
                                                 ServerWelcome(
-                                                    protocolVersion = TogetherProtocolVersion, 
-                                                    sessionId = sId, 
-                                                    participantId = pId, 
-                                                    role = ServerRole.GUEST, 
-                                                    isPending = isPending, 
+                                                    protocolVersion = TogetherProtocolVersion,
+                                                    sessionId = sId,
+                                                    participantId = pId,
+                                                    role = ServerRole.GUEST,
+                                                    isPending = isPending,
                                                     settings = roomSettings
                                                 )
                                             ))
@@ -508,7 +508,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                                                         isSyncing = true
                                                         if (msg.isPlaying && !player.isPlaying) player.play()
                                                         else if (!msg.isPlaying && player.isPlaying) player.pause()
-                                                        
+
                                                         if (kotlin.math.abs(player.currentPosition - msg.positionMs) > 1000L) {
                                                             player.seekTo(msg.positionMs)
                                                         }
@@ -577,7 +577,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
 
                 val link = TogetherLink.encode(currentJoinInfo!!)
                 startUdpDiscoveryServer()
-                
+
                 withContext(Dispatchers.Main) {
                     val rs = getCurrentRoomState(sId)
                     sessionState.value = TogetherSessionState.Hosting(sId, link, currentPin, hostIp, port, settings, rs)
@@ -612,7 +612,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                     clientSession = this
                     val myClientId = UUID.randomUUID().toString()
                     send(TogetherJson.json.encodeToString(TogetherMessage.serializer(), ClientHello(TogetherProtocolVersion, info.sessionId, info.sessionKey, myClientId, displayName, avatar)))
-                    
+
                     var selfPId = "guest"
 
                     try {
@@ -702,7 +702,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                 explicit = false,
                 liked = false
             )
-            
+
             val mediaItem = MediaItem.Builder()
                 .setMediaId(currentTrack.id)
                 .setUri(currentTrack.id)
@@ -753,9 +753,9 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
         serverEngine = null
         val sessionToClose = clientSession
         clientSession = null
-        
+
         sessionState.value = TogetherSessionState.Idle
-        
+
         scope.launch(Dispatchers.IO) {
             try {
                 engineToStop?.stop(100, 500)
@@ -927,7 +927,7 @@ fun MusicTogetherScreen(
         TogetherDisplayNameKey,
         defaultValue = Build.MODEL?.takeIf { it.isNotBlank() } ?: context.getString(R.string.app_name),
     )
-    
+
     val avatarManager = remember { AvatarPreferenceManager(context) }
     val currentAvatarSelection by avatarManager.getAvatarSelection.collectAsState(initial = AvatarSelection.Default)
     val currentAvatar = AvatarUtils.getAvatarSource(currentAvatarSelection)
@@ -1012,12 +1012,12 @@ fun MusicTogetherScreen(
         CustomJoinDialog(
             initialValue = joinInput,
             onDismiss = { showJoinDialog = false },
-            onJoin = { raw -> 
+            onJoin = { raw ->
                 val trimmed = raw.trim()
                 joinInput = trimmed
                 setLastJoinLink(trimmed)
                 playerConnection?.service?.joinTogether(trimmed, displayName, currentAvatar)
-                showJoinDialog = false 
+                showJoinDialog = false
             }
         )
     }
@@ -1061,12 +1061,11 @@ fun MusicTogetherScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom))
                 .background(MaterialTheme.colorScheme.surface)
         ) {
             Column(
                 Modifier
-                    .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Horizontal))
+                    .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom))
                     .verticalScroll(rememberScrollState()),
             ) {
                 Spacer(Modifier.windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Top)))
@@ -1129,7 +1128,7 @@ fun CustomJoinDialog(
     var isPinMode by remember { mutableStateOf(initialValue.length <= 6 && initialValue.all { it.isDigit() }) }
     var pinInput by remember { mutableStateOf(if (isPinMode) initialValue else "") }
     var linkInput by remember { mutableStateOf(if (!isPinMode) initialValue else "") }
-    
+
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
 
@@ -1158,7 +1157,7 @@ fun CustomJoinDialog(
                 ) {
                     val pinBg = if (isPinMode) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
                     val linkBg = if (!isPinMode) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-                    
+
                     Tab(
                         selected = isPinMode,
                         onClick = { isPinMode = true },
@@ -1238,7 +1237,7 @@ fun CustomJoinDialog(
             }
         }
     )
-    
+
     LaunchedEffect(isPinMode) {
         delay(100)
         focusRequester.requestFocus()
@@ -1275,7 +1274,7 @@ private fun OngoingSessionsCard(
                     Text(stringResource(R.string.together_ongoing_sessions_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            
+
             sessions.forEach { session ->
                 Surface(
                     shape = RoundedCornerShape(16.dp),
@@ -1388,7 +1387,7 @@ private fun StatusCard(state: TogetherSessionState, onCopyLink: (String) -> Unit
                     Column(modifier = Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { Text(stringResource(R.string.together_status), style = MaterialTheme.typography.labelLarge, color = statusColor); if (isActive && !isError) { Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary)) } }
                         Text(text = when (state) { TogetherSessionState.Idle -> stringResource(R.string.together_idle); is TogetherSessionState.Hosting -> stringResource(R.string.together_hosting); is TogetherSessionState.Joining -> stringResource(R.string.together_joining); is TogetherSessionState.Joined -> if (isWaitingApproval) stringResource(R.string.together_waiting_approval) else stringResource(R.string.together_connected); is TogetherSessionState.Error -> stringResource(R.string.together_error_state); else -> "" }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        
+
                         // Add track playing indicator inside the status card if active and not pending
                         if (isActive && !isError && !isWaitingApproval) {
                             val trackTitle = when (state) {
@@ -1425,9 +1424,9 @@ private fun LanSessionLinkCard(link: String, pin: String, localAddressHint: Stri
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(stringResource(R.string.together_join_with_pin), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(pin, style = MaterialTheme.typography.displayMedium.copy(fontFamily = FontFamily.Monospace, letterSpacing = 8.sp), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-            
+
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-            
+
             if (localAddressHint != null) { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { Surface(shape = RoundedCornerShape(50.dp), color = MaterialTheme.colorScheme.primaryContainer) { Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) { Icon(painterResource(R.drawable.wifi_proxy), contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(13.dp)); Text(text = "$localAddressHint:$port", style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer) } }; Text(stringResource(R.string.session_link), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold) } }
             Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f), modifier = Modifier.fillMaxWidth()) { Box(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 10.dp)) { Text(text = link, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace), color = MaterialTheme.colorScheme.primary, maxLines = 2) } }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { Button(onClick = onCopy, shape = RoundedCornerShape(14.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary), modifier = Modifier.weight(1f)) { Icon(painterResource(R.drawable.content_copy), contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.copy_link), fontWeight = FontWeight.SemiBold) }; FilledTonalButton(onClick = onShare, shape = RoundedCornerShape(14.dp), modifier = Modifier.weight(1f)) { Icon(painterResource(R.drawable.share), contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.share), fontWeight = FontWeight.SemiBold) } }
@@ -1494,13 +1493,13 @@ private fun OnlineParticipantsCard(
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(8.dp))
 
             participants.forEachIndexed { index, participant ->
                 key(participant.id) {
                     val accent = if (participant.isHost) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
-                    
+
                     Surface(
                         color = Color.Transparent,
                         modifier = Modifier.fillMaxWidth()
@@ -1520,7 +1519,7 @@ private fun OnlineParticipantsCard(
                                 textColor = accent,
                                 textStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                             )
-                            
+
                             // Name & Role
                             Column(
                                 modifier = Modifier.weight(1f),
@@ -1545,7 +1544,7 @@ private fun OnlineParticipantsCard(
                                     overflow = TextOverflow.Ellipsis
                                 )
                             }
-                            
+
                             // Actions
                             if (!participant.isHost) {
                                 Row(
@@ -1643,7 +1642,7 @@ private fun ParticipantsCard(participants: List<TogetherParticipant>) {
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
-            
+
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -1653,7 +1652,7 @@ private fun ParticipantsCard(participants: List<TogetherParticipant>) {
                     val isHost = participant.isHost
                     val bgColor = if (isHost) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer
                     val contentColor = if (isHost) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
-                    
+
                     Surface(
                         shape = RoundedCornerShape(12.dp),
                         color = bgColor,
@@ -1696,36 +1695,36 @@ private fun ParticipantsCard(participants: List<TogetherParticipant>) {
 private fun WelcomeDialog(onGotIt: (Boolean) -> Unit, onDismiss: () -> Unit) {
     var dontShowAgain by rememberSaveable { mutableStateOf(true) }
     AlertDialog(
-        onDismissRequest = onDismiss, 
-        shape = RoundedCornerShape(28.dp), 
-        containerColor = MaterialTheme.colorScheme.surface, 
-        title = { 
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) { 
-                Box(modifier = Modifier.size(40.dp).clip(RoundedCornerShape(14.dp)).background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f), MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)))), contentAlignment = Alignment.Center) { 
-                    Icon(painterResource(R.drawable.auto_awesome), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp)) 
-                } 
-                Text(stringResource(R.string.together_welcome_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold) 
-            } 
-        }, 
-        text = { 
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { 
-                Text(stringResource(R.string.together_welcome_body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) 
-                Card(shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp), modifier = Modifier.fillMaxWidth()) { 
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) { 
-                        InstructionRow(R.drawable.auto_awesome, MaterialTheme.colorScheme.primary, stringResource(R.string.together_welcome_host_title), stringResource(R.string.together_welcome_host_body)) 
-                        InstructionRow(R.drawable.link, MaterialTheme.colorScheme.tertiary, stringResource(R.string.together_welcome_join_title), stringResource(R.string.together_welcome_join_body)) 
-                        InstructionRow(R.drawable.lock, MaterialTheme.colorScheme.secondary, stringResource(R.string.together_welcome_permissions_title), stringResource(R.string.together_welcome_permissions_body)) 
-                    } 
-                } 
-                CheckboxRow(checked = dontShowAgain, onCheckedChange = { dontShowAgain = it }, label = stringResource(R.string.together_dont_show_again)) 
-            } 
-        }, 
-        confirmButton = { 
-            Button(onClick = { onGotIt(dontShowAgain) }, shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)) { 
-                Icon(painterResource(R.drawable.check), null, modifier = Modifier.size(18.dp)) 
-                Spacer(Modifier.width(8.dp)) 
-                Text(stringResource(R.string.got_it), fontWeight = FontWeight.SemiBold) 
-            } 
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(28.dp),
+        containerColor = MaterialTheme.colorScheme.surface,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(modifier = Modifier.size(40.dp).clip(RoundedCornerShape(14.dp)).background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f), MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)))), contentAlignment = Alignment.Center) {
+                    Icon(painterResource(R.drawable.auto_awesome), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+                }
+                Text(stringResource(R.string.together_welcome_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(R.string.together_welcome_body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Card(shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp), modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        InstructionRow(R.drawable.auto_awesome, MaterialTheme.colorScheme.primary, stringResource(R.string.together_welcome_host_title), stringResource(R.string.together_welcome_host_body))
+                        InstructionRow(R.drawable.link, MaterialTheme.colorScheme.tertiary, stringResource(R.string.together_welcome_join_title), stringResource(R.string.together_welcome_join_body))
+                        InstructionRow(R.drawable.lock, MaterialTheme.colorScheme.secondary, stringResource(R.string.together_welcome_permissions_title), stringResource(R.string.together_welcome_permissions_body))
+                    }
+                }
+                CheckboxRow(checked = dontShowAgain, onCheckedChange = { dontShowAgain = it }, label = stringResource(R.string.together_dont_show_again))
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onGotIt(dontShowAgain) }, shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)) {
+                Icon(painterResource(R.drawable.check), null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.got_it), fontWeight = FontWeight.SemiBold)
+            }
         }
     )
 }
