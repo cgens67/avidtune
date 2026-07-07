@@ -1079,6 +1079,11 @@
     <string name="together_pin">Code PIN</string>
     <string name="together_link">Lien</string>
     <string name="together_paste_link_placeholder">Collez le lien de votre session ici...</string>
+    
+    <string name="top_result">Meilleur résultat</string>
+    <string name="videos">Vidéos</string>
+    <string name="episodes">Épisodes</string>
+    <string name="other">Autre</string>
 
     
 </resources>
