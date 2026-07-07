@@ -70,9 +70,7 @@ constructor(
             }
 
             songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
-                val newLength = if (dataSpec.length == androidx.media3.common.C.LENGTH_UNSET.toLong()) 512 * 1024L else kotlin.math.min(dataSpec.length, 512 * 1024L)
                 return@Factory dataSpec.withUri(it.first.toUri())
-                    .subrange(0, newLength)
             }
 
             val playedFormat = runBlocking(Dispatchers.IO) { database.format(mediaId).first() }
@@ -106,8 +104,7 @@ constructor(
             songUrlCache[mediaId] =
                 streamUrl to System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L)
             
-            val newLength = if (dataSpec.length == androidx.media3.common.C.LENGTH_UNSET.toLong()) 512 * 1024L else kotlin.math.min(dataSpec.length, 512 * 1024L)
-            dataSpec.withUri(streamUrl.toUri()).subrange(0, newLength)
+            dataSpec.withUri(streamUrl.toUri())
         }
     val downloadNotificationHelper =
         DownloadNotificationHelper(context, ExoDownloadService.CHANNEL_ID)
