@@ -472,6 +472,7 @@ private fun DiceBearAvatarDialog(
     var avatarUrls by remember { mutableStateOf(DiceBearGenerator.getPresetAvatars(selectedStyle)) }
     var isLoading by remember { mutableStateOf(false) }
     var showStyleDialog by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
 
     // 🔄 Regenera avatares al cambiar estilo
     LaunchedEffect(selectedStyle) {
@@ -531,9 +532,17 @@ private fun DiceBearAvatarDialog(
                 // Botón randomizar con tu ícono
                 IconButton(
                     onClick = {
-                        isLoading = true
-                        avatarUrls = DiceBearGenerator.getPresetAvatars(selectedStyle)
-                        isLoading = false
+                        coroutineScope.launch {
+                            isLoading = true
+                            delay(100) // Small delay to allow the loading state to show up
+                            avatarUrls = List(20) {
+                                DiceBearGenerator.generateAvatarUrl(
+                                    style = selectedStyle,
+                                    seed = DiceBearGenerator.generateRandomSeed()
+                                )
+                            }
+                            isLoading = false
+                        }
                     }
                 ) {
                     Icon(
