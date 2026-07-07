@@ -1247,12 +1247,12 @@ fun ExportAudioBottomSheet(
                                     state = ExportState.FETCHING
                                     coroutineScope.launch(Dispatchers.IO) {
                                         try {
-                                            // Fetch Cobalt link
                                             val client = HttpClient(CIO) {
                                                 install(ContentNegotiation) {
                                                     json(Json { ignoreUnknownKeys = true })
                                                 }
                                             }
+                                            
                                             val request = CobaltRequest(
                                                 url = "https://music.youtube.com/watch?v=${song.song.id}",
                                                 downloadMode = "audio",
@@ -1260,30 +1260,54 @@ fun ExportAudioBottomSheet(
                                                 audioBitrate = selectedBitrate
                                             )
                                             
-                                            // ---------------------------------------------------------
-                                            // FIX: Using a trusted public community instance 
-                                            // to bypass API token requirement from the official tool
-                                            // ---------------------------------------------------------
-                                            val response = client.post("https://api.cobalt.blackcat.sweeux.org/") {
-                                                header(HttpHeaders.Accept, "application/json")
-                                                header(HttpHeaders.ContentType, "application/json")
-                                                header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                                                setBody(request)
-                                            }.body<CobaltResponse>()
+                                            // Fallback Instance Loop
+                                            // ----------------------------------------------------
+                                            // Tries multiple community servers in case one goes down
+                                            // to prevent HTML 502/Ktor crashes or rate limits
+                                            // ----------------------------------------------------
+                                            val fallbackInstances = listOf(
+                                                "https://cobalt-api.kwiatekmiki.com",
+                                                "https://api.cobalt.blackcat.sweeux.org",
+                                                "https://cobalt.catterall.sh",
+                                                "https://api.cobalt.tools"
+                                            )
                                             
-                                            if (response.status == "error" || response.status == "rate-limit") {
-                                                errorMessage = response.error?.code ?: response.text ?: "Unknown Cobalt error"
+                                            var validResponse: CobaltResponse? = null
+                                            var lastError = "No instances available"
+                                            
+                                            for (instance in fallbackInstances) {
+                                                try {
+                                                    val parsedBody = client.post("$instance/") {
+                                                        header(HttpHeaders.Accept, "application/json")
+                                                        header(HttpHeaders.ContentType, "application/json")
+                                                        header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                                                        setBody(request)
+                                                    }.body<CobaltResponse>()
+                                                    
+                                                    // If the server explicitly rejected our request (e.g., requires API key)
+                                                    if (parsedBody.status == "error" || parsedBody.status == "rate-limit") {
+                                                        lastError = parsedBody.error?.code ?: parsedBody.text ?: "Instance API error"
+                                                        continue // Skip and try the next instance
+                                                    }
+                                                    
+                                                    // We got a successful response!
+                                                    if (parsedBody.url != null) {
+                                                        validResponse = parsedBody
+                                                        break // Exit the loop early
+                                                    }
+                                                } catch (e: Exception) {
+                                                    // Safely catches 502 HTML pages which cause NoTransformationFoundException
+                                                    lastError = "Instance unreachable or offline"
+                                                }
+                                            }
+                                            
+                                            if (validResponse == null) {
+                                                errorMessage = "Export failed: $lastError"
                                                 state = ExportState.ERROR
                                                 return@launch
                                             }
                                             
-                                            val downloadUrl = response.url
-                                            if (downloadUrl == null) {
-                                                errorMessage = "Could not parse download URL"
-                                                state = ExportState.ERROR
-                                                return@launch
-                                            }
-                                            
+                                            val downloadUrl = validResponse.url!!
                                             state = ExportState.DOWNLOADING
                                             
                                             // Download File
