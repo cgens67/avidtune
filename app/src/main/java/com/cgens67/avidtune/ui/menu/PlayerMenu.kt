@@ -1259,12 +1259,15 @@ fun ExportAudioBottomSheet(
                                                 audioFormat = selectedFormat,
                                                 audioBitrate = selectedBitrate
                                             )
-                                            val response = client.post("https://api.cobalt.tools/") {
+                                            
+                                            // ---------------------------------------------------------
+                                            // FIX: Using a trusted public community instance 
+                                            // to bypass API token requirement from the official tool
+                                            // ---------------------------------------------------------
+                                            val response = client.post("https://api.cobalt.blackcat.sweeux.org/") {
                                                 header(HttpHeaders.Accept, "application/json")
                                                 header(HttpHeaders.ContentType, "application/json")
-                                                header("Origin", "https://cobalt.tools")
-                                                header("Referer", "https://cobalt.tools/")
-                                                header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+                                                header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
                                                 setBody(request)
                                             }.body<CobaltResponse>()
                                             
