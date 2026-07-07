@@ -1111,17 +1111,21 @@ enum class ExportState {
 data class CobaltRequest(
     val url: String,
     val downloadMode: String = "audio",
-    val aFormat: String = "mp3",
-    val aQuality: String = "320",
     val audioFormat: String = "mp3",
     val audioBitrate: String = "320"
+)
+
+@Serializable
+data class CobaltError(
+    val code: String
 )
 
 @Serializable
 data class CobaltResponse(
     val status: String,
     val url: String? = null,
-    val text: String? = null
+    val text: String? = null,
+    val error: CobaltError? = null
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1252,8 +1256,8 @@ fun ExportAudioBottomSheet(
                                             val request = CobaltRequest(
                                                 url = "https://music.youtube.com/watch?v=${song.song.id}",
                                                 downloadMode = "audio",
-                                                aFormat = selectedFormat,
-                                                aQuality = selectedBitrate
+                                                audioFormat = selectedFormat,
+                                                audioBitrate = selectedBitrate
                                             )
                                             val response = client.post("https://api.cobalt.tools/") {
                                                 header(HttpHeaders.Accept, "application/json")
@@ -1265,7 +1269,7 @@ fun ExportAudioBottomSheet(
                                             }.body<CobaltResponse>()
                                             
                                             if (response.status == "error" || response.status == "rate-limit") {
-                                                errorMessage = response.text ?: "Unknown Cobalt error"
+                                                errorMessage = response.error?.code ?: response.text ?: "Unknown Cobalt error"
                                                 state = ExportState.ERROR
                                                 return@launch
                                             }
