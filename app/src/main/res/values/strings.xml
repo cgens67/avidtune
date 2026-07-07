@@ -1105,4 +1105,9 @@
     <string name="together_link">Link</string>
     <string name="together_paste_link_placeholder">Paste your session link here...</string>
     
+    <string name="top_result">Top result</string>
+    <string name="videos">Videos</string>
+    <string name="episodes">Episodes</string>
+    <string name="other">Other</string>
+    
 </resources>
