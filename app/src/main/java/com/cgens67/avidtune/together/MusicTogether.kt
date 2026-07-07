@@ -986,10 +986,15 @@ fun MusicTogetherScreen(
         ) + fadeOut(animationSpec = tween(200, easing = LinearEasing)),
         modifier = Modifier.fillMaxSize().zIndex(100f)
     ) {
-        Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom))
+                .background(MaterialTheme.colorScheme.surface)
+        ) {
             Column(
                 Modifier
-                    .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom))
+                    .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Horizontal))
                     .verticalScroll(rememberScrollState()),
             ) {
                 Spacer(Modifier.windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Top)))
