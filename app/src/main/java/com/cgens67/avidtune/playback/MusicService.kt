@@ -1171,8 +1171,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 scope.launch(Dispatchers.IO) {
                     recoverSong(mediaId)
                 }
-                val length = if (dataSpec.length == C.LENGTH_UNSET.toLong()) CHUNK_LENGTH else kotlin.math.min(dataSpec.length, CHUNK_LENGTH)
-                return@Factory dataSpec.withUri(it.first.toUri()).subrange(0, length)
+                return@Factory dataSpec.withUri(it.first.toUri())
             }
             
             val ytLogTag = "YouTube"
@@ -1231,8 +1230,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 
                 val streamUrl = playbackData.streamUrl
                 songUrlCache[mediaId] = streamUrl to System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L)
-                val length = if (dataSpec.length == C.LENGTH_UNSET.toLong()) CHUNK_LENGTH else kotlin.math.min(dataSpec.length, CHUNK_LENGTH)
-                return@Factory dataSpec.withUri(streamUrl.toUri()).subrange(0, length)
+                return@Factory dataSpec.withUri(streamUrl.toUri())
             } catch (e: Exception) {
                 Timber.tag(ytLogTag).e(e, "YouTube playback error, trying JossRed as fallback")
                 val useAlternativeSource = runBlocking {
@@ -1273,8 +1271,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                                 scope.launch(Dispatchers.IO) {
                                     recoverSong(mediaId)
                                 }
-                                val length = if (dataSpec.length == C.LENGTH_UNSET.toLong()) CHUNK_LENGTH else kotlin.math.min(dataSpec.length, CHUNK_LENGTH)
-                                return@Factory dataSpec.withUri(alternativeUrl.toUri()).subrange(0, length)
+                                return@Factory dataSpec.withUri(alternativeUrl.toUri())
                             } else {
                                 Timber.tag(JRlogTag).w("JossRed URL unreachable (HTTP ${response.code}), throwing original error")
                                 throw e
