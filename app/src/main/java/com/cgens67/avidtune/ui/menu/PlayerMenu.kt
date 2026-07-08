@@ -1110,23 +1110,35 @@ enum class ExportState {
 }
 
 // ----------------------------------------------------
-// Universal Open API Model & Spoofing Payload
+// Google InnerTube Direct Extraction Models
+// Bypasses 3rd Party APIs entirely, immune to Cloudflare
 // ----------------------------------------------------
 @Serializable
-data class UniversalCobaltRequest(
-    val url: String,
-    val isAudioOnly: Boolean = true,
-    val downloadMode: String = "audio",
-    val aFormat: String,
-    val audioFormat: String
+data class InnerTubeResponse(
+    val streamingData: InnerTubeStreamingData? = null
 )
 
 @Serializable
-data class CobaltResponse(
-    val status: String? = null,
-    val url: String? = null,
-    val text: String? = null
+data class InnerTubeStreamingData(
+    val adaptiveFormats: List<InnerTubeFormat>? = null
 )
+
+@Serializable
+data class InnerTubeFormat(
+    val itag: Int? = null,
+    val url: String? = null,
+    val mimeType: String? = null
+)
+
+// Fallback API Models
+@Serializable
+data class PipedStreamResponse(val audioStreams: List<PipedAudioStream>? = null)
+@Serializable
+data class PipedAudioStream(val format: String, val bitrate: Long = 0, val url: String)
+@Serializable
+data class InvidiousResponse(val adaptiveFormats: List<InvidiousFormat>? = null)
+@Serializable
+data class InvidiousFormat(val url: String, val type: String)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1140,7 +1152,7 @@ fun ExportAudioBottomSheet(
     var state by remember { mutableStateOf(ExportState.IDLE) }
     var progress by remember { mutableFloatStateOf(0f) }
     var errorMessage by remember { mutableStateOf("") }
-    var selectedFormat by remember { mutableStateOf("mp3") }
+    var selectedFormat by remember { mutableStateOf("m4a") } // We restrict to native formats (m4a/webm) as we do raw stream extraction
     
     ModalBottomSheet(onDismissRequest = { if (state != ExportState.FETCHING && state != ExportState.DOWNLOADING) onDismiss() }) {
         Column(
@@ -1211,7 +1223,7 @@ fun ExportAudioBottomSheet(
                             )
                             Spacer(Modifier.height(8.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                listOf("mp3", "m4a").forEach { format ->
+                                listOf("m4a", "webm").forEach { format ->
                                     FilterChip(
                                         selected = selectedFormat == format,
                                         onClick = { selectedFormat = format },
@@ -1223,7 +1235,7 @@ fun ExportAudioBottomSheet(
                             Spacer(Modifier.height(16.dp))
                             
                             Text(
-                                text = "Note: MP3/M4A are natively supported on all Android devices and are highly recommended.",
+                                text = "Note: Native extraction ensures the highest quality. M4A is globally supported on all Android audio players.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1235,8 +1247,7 @@ fun ExportAudioBottomSheet(
                                     state = ExportState.FETCHING
                                     coroutineScope.launch(Dispatchers.IO) {
                                         try {
-                                            // IMPORTANT: expectSuccess = false prevents 403 HTML/Cloudflare blocks 
-                                            // from throwing Ktor ClientRequestException and prematurely ending the loop
+                                            // The Ktor client is configured to be extremely lenient and to not crash on HTTP errors
                                             val client = HttpClient(CIO) {
                                                 install(ContentNegotiation) {
                                                     json(Json { ignoreUnknownKeys = true; isLenient = true })
@@ -1246,104 +1257,150 @@ fun ExportAudioBottomSheet(
                                             
                                             var validStreamUrl: String? = null
                                             var resolvedExtension = selectedFormat
-                                            
-                                            val youtubeUrl = "https://www.youtube.com/watch?v=${song.song.id}"
-                                            val spoofedUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                                            var spoofedAgentForDownload = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                                             
                                             // ----------------------------------------------------
-                                            // 1. Unified API Network (Combines V7 & V11 payloads)
-                                            // - Integrates the api.cnvmp3.com instance requested
-                                            // - Hardcodes Origin/Referer to bypass Cloudflare Turnstile
+                                            // 1. Direct Google InnerTube Extraction (Primary)
+                                            // Bypasses all third party domains and Cloudflare checks
                                             // ----------------------------------------------------
-                                            val apiNodes = listOf(
-                                                Pair("https://api.cnvmp3.com", "https://cnvmp3.com"),
-                                                Pair("https://api.cobalt.tools", "https://cobalt.tools"),
-                                                Pair("https://api.cobalt.best", "https://cobalt.best"),
-                                                Pair("https://cobalt.api.timelessnesses.me", "https://cobalt.timelessnesses.me"),
-                                                Pair("https://co.wuk.sh", "https://wuk.sh")
+                                            val innerTubeClients = listOf(
+                                                // Payload 1: Android Music Client
+                                                Pair(
+                                                    "com.google.android.apps.youtube.music/6.31.55 (Linux; U; Android 13; en_US)",
+                                                    """{"context":{"client":{"clientName":"ANDROID_MUSIC","clientVersion":"6.31.55","androidSdkVersion":33,"osName":"Android","osVersion":"13","hl":"en"}},"videoId":"${song.song.id}"}"""
+                                                ),
+                                                // Payload 2: Web Remix (Music Web) Client
+                                                Pair(
+                                                    spoofedAgentForDownload,
+                                                    """{"context":{"client":{"clientName":"WEB_REMIX","clientVersion":"1.20230501.01.00","hl":"en"}},"videoId":"${song.song.id}"}"""
+                                                ),
+                                                // Payload 3: iOS Standard Client
+                                                Pair(
+                                                    "com.google.ios.youtube/19.28.1 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X; en_US)",
+                                                    """{"context":{"client":{"clientName":"IOS","clientVersion":"19.28.1","deviceMake":"Apple","deviceModel":"iPhone16,2","osName":"iOS","osVersion":"17.5.1","hl":"en"}},"videoId":"${song.song.id}"}"""
+                                                )
                                             )
                                             
-                                            val requestPayload = UniversalCobaltRequest(
-                                                url = youtubeUrl,
-                                                aFormat = selectedFormat,
-                                                audioFormat = selectedFormat
-                                            )
-                                            
-                                            for ((instance, frontend) in apiNodes) {
+                                            for ((userAgent, payload) in innerTubeClients) {
                                                 if (validStreamUrl != null) break
-                                                
-                                                // Test Modern V11 Endpoint Architecture
                                                 try {
-                                                    val cleanInstance = if (instance.endsWith("/")) instance else "$instance/"
                                                     val res = withTimeoutOrNull(5000L) {
-                                                        client.post(cleanInstance) {
-                                                            header(HttpHeaders.Accept, "application/json")
+                                                        client.post("https://music.youtube.com/youtubei/v1/player") {
                                                             header(HttpHeaders.ContentType, "application/json")
-                                                            header("Origin", frontend)
-                                                            header("Referer", "$frontend/")
-                                                            header(HttpHeaders.UserAgent, spoofedUserAgent)
-                                                            setBody(requestPayload)
+                                                            header(HttpHeaders.UserAgent, userAgent)
+                                                            setBody(payload)
                                                         }
                                                     }
+                                                    
                                                     if (res != null && res.status.value in 200..299) {
-                                                        try {
-                                                            val body = res.body<CobaltResponse>()
-                                                            if (!body.url.isNullOrEmpty()) {
-                                                                validStreamUrl = body.url
-                                                                resolvedExtension = selectedFormat
-                                                                break
-                                                            }
-                                                        } catch (e: Exception) { /* Cloudflare HTML / Invalid JSON */ }
-                                                    }
-                                                } catch (e: Exception) { /* Ignore & fallback */ }
-                                                
-                                                // Test Legacy V7 Endpoint Architecture (cnvmp3 backend uses this)
-                                                try {
-                                                    val v7Endpoint = if (instance.endsWith("/")) "${instance}api/json" else "$instance/api/json"
-                                                    val res = withTimeoutOrNull(5000L) {
-                                                        client.post(v7Endpoint) {
-                                                            header(HttpHeaders.Accept, "application/json")
-                                                            header(HttpHeaders.ContentType, "application/json")
-                                                            header("Origin", frontend)
-                                                            header("Referer", "$frontend/")
-                                                            header(HttpHeaders.UserAgent, spoofedUserAgent)
-                                                            setBody(requestPayload)
+                                                        val body = res.body<InnerTubeResponse>()
+                                                        val formats = body.streamingData?.adaptiveFormats ?: emptyList()
+                                                        
+                                                        // Look for native unencrypted streams (itag 140 is m4a audio, itag 251 is opus/webm)
+                                                        val bestFormat = if (selectedFormat == "m4a") {
+                                                            formats.find { it.itag == 140 && !it.url.isNullOrEmpty() } 
+                                                                ?: formats.find { it.mimeType?.contains("audio/mp4") == true && !it.url.isNullOrEmpty() }
+                                                        } else {
+                                                            formats.find { it.itag == 251 && !it.url.isNullOrEmpty() }
+                                                                ?: formats.find { it.mimeType?.contains("webm") == true && !it.url.isNullOrEmpty() }
+                                                        } ?: formats.find { it.mimeType?.contains("audio/") == true && !it.url.isNullOrEmpty() }
+                                                            
+                                                        if (bestFormat != null && !bestFormat.url.isNullOrEmpty()) {
+                                                            validStreamUrl = bestFormat.url
+                                                            resolvedExtension = if (bestFormat.mimeType?.contains("webm") == true) "webm" else "m4a"
+                                                            spoofedAgentForDownload = userAgent
+                                                            break
                                                         }
                                                     }
-                                                    if (res != null && res.status.value in 200..299) {
-                                                        try {
-                                                            val body = res.body<CobaltResponse>()
-                                                            if (!body.url.isNullOrEmpty()) {
-                                                                validStreamUrl = body.url
-                                                                resolvedExtension = selectedFormat
+                                                } catch (e: Exception) { /* Silently fallback to next client */ }
+                                            }
+                                            
+                                            // ----------------------------------------------------
+                                            // 2. Fallback to Piped API 
+                                            // ----------------------------------------------------
+                                            if (validStreamUrl == null) {
+                                                val pipedInstances = listOf(
+                                                    "https://pipedapi.kavin.rocks",
+                                                    "https://api.piped.privacydev.net",
+                                                    "https://piped-api.lunar.icu",
+                                                    "https://api-piped.mha.fi"
+                                                )
+                                                for (instance in pipedInstances) {
+                                                    try {
+                                                        val res = withTimeoutOrNull(4000L) {
+                                                            client.get("$instance/streams/${song.song.id}") {
+                                                                header(HttpHeaders.Accept, "application/json")
+                                                            }
+                                                        }
+                                                        if (res != null && res.status.value in 200..299) {
+                                                            val body = res.body<PipedStreamResponse>()
+                                                            val formatMatch = if (selectedFormat == "m4a") "M4A" else "WEBM"
+                                                            val stream = body.audioStreams?.find { it.format.equals(formatMatch, true) }
+                                                                ?: body.audioStreams?.maxByOrNull { it.bitrate }
+                                                                
+                                                            if (stream != null) {
+                                                                validStreamUrl = stream.url
+                                                                resolvedExtension = if (stream.format.equals("WEBM", true)) "webm" else "m4a"
                                                                 break
                                                             }
-                                                        } catch (e: Exception) { /* Cloudflare HTML / Invalid JSON */ }
-                                                    }
-                                                } catch (e: Exception) { /* Ignore & fallback */ }
+                                                        }
+                                                    } catch (e: Exception) {}
+                                                }
+                                            }
+                                            
+                                            // ----------------------------------------------------
+                                            // 3. Fallback to Invidious API
+                                            // ----------------------------------------------------
+                                            if (validStreamUrl == null) {
+                                                val invidiousInstances = listOf(
+                                                    "https://vid.puffyan.us",
+                                                    "https://invidious.nerdvpn.de",
+                                                    "https://inv.tux.pizza"
+                                                )
+                                                for (instance in invidiousInstances) {
+                                                    try {
+                                                        val res = withTimeoutOrNull(4000L) {
+                                                            client.get("$instance/api/v1/videos/${song.song.id}") {
+                                                                header(HttpHeaders.Accept, "application/json")
+                                                            }
+                                                        }
+                                                        if (res != null && res.status.value in 200..299) {
+                                                            val body = res.body<InvidiousResponse>()
+                                                            val formatMatch = if (selectedFormat == "m4a") "audio/mp4" else "audio/webm"
+                                                            val stream = body.adaptiveFormats?.find { it.type.startsWith(formatMatch) }
+                                                                ?: body.adaptiveFormats?.firstOrNull { it.type.startsWith("audio/") }
+                                                                
+                                                            if (stream != null) {
+                                                                validStreamUrl = stream.url
+                                                                resolvedExtension = if (stream.type.contains("webm")) "webm" else "m4a"
+                                                                break
+                                                            }
+                                                        }
+                                                    } catch (e: Exception) {}
+                                                }
                                             }
                                             
                                             client.close()
                                             
-                                            // Verify if any loop succeeded
+                                            // Validate URL successfully extracted
                                             if (validStreamUrl == null) {
-                                                errorMessage = "Export failed: All network endpoints blocked or offline."
+                                                errorMessage = "Export failed: Audio stream is encrypted or APIs are unreachable."
                                                 state = ExportState.ERROR
                                                 return@launch
                                             }
                                             
                                             state = ExportState.DOWNLOADING
                                             
-                                            // Download File using OkHttp with spoofed User-Agent to satisfy tunnel redirects
+                                            // Download actual audio chunk stream via OkHttp
                                             val okHttpClient = OkHttpClient()
                                             val downloadReq = Request.Builder()
                                                 .url(validStreamUrl!!)
-                                                .header("User-Agent", spoofedUserAgent)
+                                                .header("User-Agent", spoofedAgentForDownload)
                                                 .build()
                                             val downloadRes = okHttpClient.newCall(downloadReq).execute()
                                             
                                             if (!downloadRes.isSuccessful) {
-                                                errorMessage = "Download server returned ${downloadRes.code}"
+                                                errorMessage = "Download stream restricted by Google (Code: ${downloadRes.code})"
                                                 state = ExportState.ERROR
                                                 return@launch
                                             }
@@ -1354,10 +1411,7 @@ fun ExportAudioBottomSheet(
                                             
                                             val cleanTitle = song.song.title.replace(Regex("[\\\\/:*?\"<>|]"), "_")
                                             val cleanArtist = song.artists.joinToString { it.name }.replace(Regex("[\\\\/:*?\"<>|]"), "_")
-                                            val mimeType = when (resolvedExtension) {
-                                                "mp3" -> "audio/mpeg"
-                                                else -> "audio/mp4" 
-                                            }
+                                            val mimeType = if (resolvedExtension == "webm") "audio/webm" else "audio/mp4"
                                             val fileName = "$cleanTitle - $cleanArtist.$resolvedExtension"
                                             
                                             val contentValues = ContentValues().apply {
@@ -1421,7 +1475,7 @@ fun ExportAudioBottomSheet(
                             modifier = Modifier.fillMaxWidth().padding(32.dp)
                         ) {
                             CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                            Text("Trying multiple servers...", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Extracting direct stream...", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                     ExportState.DOWNLOADING -> {
