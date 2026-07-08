@@ -123,6 +123,8 @@ import io.ktor.client.call.body
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.get
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
 import io.ktor.client.request.header
 import io.ktor.http.HttpHeaders
 import io.ktor.serialization.kotlinx.json.json
@@ -1108,31 +1110,21 @@ enum class ExportState {
 }
 
 // ----------------------------------------------------
-// Piped & Invidious API Models
+// Cobalt API Models
 // ----------------------------------------------------
 @Serializable
-data class PipedStreamResponse(
-    val audioStreams: List<PipedAudioStream>? = null,
-    val error: String? = null
-)
-
-@Serializable
-data class PipedAudioStream(
-    val format: String,
-    val bitrate: Long = 0,
-    val url: String
-)
-
-@Serializable
-data class InvidiousResponse(
-    val adaptiveFormats: List<InvidiousFormat>? = null,
-    val error: String? = null
-)
-
-@Serializable
-data class InvidiousFormat(
+data class CobaltRequest(
     val url: String,
-    val type: String
+    val downloadMode: String = "audio",
+    val audioFormat: String,
+    val filenameStyle: String = "basic"
+)
+
+@Serializable
+data class CobaltResponse(
+    val status: String? = null,
+    val url: String? = null,
+    val text: String? = null
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1147,7 +1139,7 @@ fun ExportAudioBottomSheet(
     var state by remember { mutableStateOf(ExportState.IDLE) }
     var progress by remember { mutableFloatStateOf(0f) }
     var errorMessage by remember { mutableStateOf("") }
-    var selectedFormat by remember { mutableStateOf("m4a") }
+    var selectedFormat by remember { mutableStateOf("mp3") }
     
     ModalBottomSheet(onDismissRequest = { if (state != ExportState.FETCHING && state != ExportState.DOWNLOADING) onDismiss() }) {
         Column(
@@ -1218,7 +1210,7 @@ fun ExportAudioBottomSheet(
                             )
                             Spacer(Modifier.height(8.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                listOf("m4a", "webm").forEach { format ->
+                                listOf("mp3", "best", "opus").forEach { format ->
                                     FilterChip(
                                         selected = selectedFormat == format,
                                         onClick = { selectedFormat = format },
@@ -1230,7 +1222,7 @@ fun ExportAudioBottomSheet(
                             Spacer(Modifier.height(16.dp))
                             
                             Text(
-                                text = "Note: M4A is natively supported on all Android devices and is highly recommended.",
+                                text = "Note: MP3 is natively supported on all Android devices and is highly recommended.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1252,53 +1244,45 @@ fun ExportAudioBottomSheet(
                                             var lastError = "No instances available"
                                             
                                             // ----------------------------------------------------
-                                            // 1. Try Extensive List of Piped Instances
+                                            // Cobalt API fallback network to ensure reliability 
                                             // ----------------------------------------------------
-                                            val pipedInstances = listOf(
-                                                "https://pipedapi.kavin.rocks",
-                                                "https://pipedapi.tokhmi.xyz",
-                                                "https://pipedapi.syncpundit.io",
-                                                "https://api-piped.mha.fi",
-                                                "https://pipedapi.rivo.lol",
-                                                "https://pipedapi.leptons.xyz",
-                                                "https://piped-api.lunar.icu",
-                                                "https://ytapi.dc09.ru",
-                                                "https://pipedapi.colinslegacy.com",
-                                                "https://yapi.vyper.me",
-                                                "https://api.looleh.xyz",
-                                                "https://piped-api.cfe.re",
-                                                "https://pipedapi.r4fo.com",
-                                                "https://pipedapi.nosebs.ru",
-                                                "https://pipedapi.adminforge.de",
-                                                "https://api.piped.privacydev.net"
+                                            val cobaltInstances = listOf(
+                                                "https://api.cobalt.tools",
+                                                "https://api.cobalt.best",
+                                                "https://cobalt.kling.gg",
+                                                "https://api.cobalt.my.id",
+                                                "https://cobalt.qewertyy.dev",
+                                                "https://cobalt-api.kwiatektv.me",
+                                                "https://co.wuk.sh"
                                             )
                                             
-                                            for (instance in pipedInstances) {
+                                            for (instance in cobaltInstances) {
                                                 try {
-                                                    val response = withTimeoutOrNull(3000L) {
-                                                        client.get("$instance/streams/${song.song.id}") {
+                                                    val requestBody = CobaltRequest(
+                                                        url = "https://www.youtube.com/watch?v=${song.song.id}",
+                                                        audioFormat = selectedFormat
+                                                    )
+
+                                                    val response = withTimeoutOrNull(5000L) {
+                                                        client.post(instance) {
                                                             header(HttpHeaders.Accept, "application/json")
+                                                            header(HttpHeaders.ContentType, "application/json")
                                                             header(HttpHeaders.UserAgent, "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
-                                                        }.body<PipedStreamResponse>()
+                                                            setBody(requestBody)
+                                                        }.body<CobaltResponse>()
                                                     }
                                                     
                                                     if (response == null) {
                                                         lastError = "Timeout (${instance.substringAfter("https://")})"
                                                         continue 
                                                     }
-                                                    if (response.error != null) {
-                                                        lastError = response.error
+                                                    if (response.status == "error") {
+                                                        lastError = response.text ?: "Unknown Cobalt error"
                                                         continue 
                                                     }
                                                     
-                                                    val streams = response.audioStreams ?: emptyList()
-                                                    val matchFormat = if (selectedFormat == "m4a") "M4A" else "WEBM"
-                                                    val bestStream = streams
-                                                        .filter { it.format.equals(matchFormat, ignoreCase = true) }
-                                                        .maxByOrNull { it.bitrate }
-                                                        
-                                                    if (bestStream != null) {
-                                                        validStreamUrl = bestStream.url
+                                                    if (response.url != null) {
+                                                        validStreamUrl = response.url
                                                         break 
                                                     }
                                                 } catch (e: Exception) {
@@ -1306,55 +1290,9 @@ fun ExportAudioBottomSheet(
                                                 }
                                             }
                                             
-                                            // ----------------------------------------------------
-                                            // 2. Try Invidious API Fallback Network if Piped failed
-                                            // ----------------------------------------------------
-                                            if (validStreamUrl == null) {
-                                                val invidiousInstances = listOf(
-                                                    "https://vid.puffyan.us",
-                                                    "https://invidious.nerdvpn.de",
-                                                    "https://inv.tux.pizza",
-                                                    "https://invidious.protokolla.fi",
-                                                    "https://invidious.slipfox.xyz",
-                                                    "https://invidious.private.coffee",
-                                                    "https://invidious.fdn.fr"
-                                                )
-                                                
-                                                for (instance in invidiousInstances) {
-                                                    try {
-                                                        val response = withTimeoutOrNull(3000L) {
-                                                            client.get("$instance/api/v1/videos/${song.song.id}") {
-                                                                header(HttpHeaders.Accept, "application/json")
-                                                                header(HttpHeaders.UserAgent, "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
-                                                            }.body<InvidiousResponse>()
-                                                        }
-                                                        
-                                                        if (response == null) {
-                                                            lastError = "Timeout (${instance.substringAfter("https://")})"
-                                                            continue
-                                                        }
-                                                        if (response.error != null) {
-                                                            lastError = response.error
-                                                            continue
-                                                        }
-                                                        
-                                                        val formats = response.adaptiveFormats ?: emptyList()
-                                                        val matchMime = if (selectedFormat == "m4a") "audio/mp4" else "audio/webm"
-                                                        val bestFormat = formats.firstOrNull { it.type.startsWith(matchMime) }
-                                                            
-                                                        if (bestFormat != null) {
-                                                            validStreamUrl = bestFormat.url
-                                                            break
-                                                        }
-                                                    } catch (e: Exception) {
-                                                        lastError = "Unreachable (${instance.substringAfter("https://")})"
-                                                    }
-                                                }
-                                            }
-                                            
                                             // End of instances loop - checking if we successfully secured a URL
                                             if (validStreamUrl == null) {
-                                                errorMessage = "Export failed: All 23 instances unavailable ($lastError)"
+                                                errorMessage = "Export failed: All instances unavailable ($lastError)"
                                                 state = ExportState.ERROR
                                                 return@launch
                                             }
@@ -1378,8 +1316,17 @@ fun ExportAudioBottomSheet(
                                             
                                             val cleanTitle = song.song.title.replace(Regex("[\\\\/:*?\"<>|]"), "_")
                                             val cleanArtist = song.artists.joinToString { it.name }.replace(Regex("[\\\\/:*?\"<>|]"), "_")
-                                            val mimeType = if (selectedFormat == "m4a") "audio/mp4" else "audio/webm"
-                                            val fileName = "$cleanTitle - $cleanArtist.$selectedFormat"
+                                            val mimeType = when (selectedFormat) {
+                                                "mp3" -> "audio/mpeg"
+                                                "opus" -> "audio/ogg"
+                                                else -> "audio/mp4" // 'best' typically yields m4a container
+                                            }
+                                            val extension = when (selectedFormat) {
+                                                "mp3" -> "mp3"
+                                                "opus" -> "opus"
+                                                else -> "m4a"
+                                            }
+                                            val fileName = "$cleanTitle - $cleanArtist.$extension"
                                             
                                             val contentValues = ContentValues().apply {
                                                 put(MediaStore.Audio.Media.DISPLAY_NAME, fileName)
