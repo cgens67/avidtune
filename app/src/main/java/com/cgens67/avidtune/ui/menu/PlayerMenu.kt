@@ -119,12 +119,11 @@ import com.cgens67.avidtune.ui.component.NewActionGrid
 import com.cgens67.avidtune.utils.joinByBullet
 import com.cgens67.avidtune.utils.makeTimeString
 import io.ktor.client.HttpClient
+import io.ktor.client.call.body
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.request.get
 import io.ktor.client.request.header
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.Dispatchers
@@ -132,10 +131,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import org.json.JSONObject
 import java.time.LocalDateTime
 import kotlin.math.roundToInt
 
@@ -1107,6 +1107,34 @@ enum class ExportState {
     IDLE, FETCHING, DOWNLOADING, SUCCESS, ERROR
 }
 
+// ----------------------------------------------------
+// Piped & Invidious API Models
+// ----------------------------------------------------
+@Serializable
+data class PipedStreamResponse(
+    val audioStreams: List<PipedAudioStream>? = null,
+    val error: String? = null
+)
+
+@Serializable
+data class PipedAudioStream(
+    val format: String,
+    val bitrate: Long = 0,
+    val url: String
+)
+
+@Serializable
+data class InvidiousResponse(
+    val adaptiveFormats: List<InvidiousFormat>? = null,
+    val error: String? = null
+)
+
+@Serializable
+data class InvidiousFormat(
+    val url: String,
+    val type: String
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExportAudioBottomSheet(
@@ -1190,7 +1218,7 @@ fun ExportAudioBottomSheet(
                             )
                             Spacer(Modifier.height(8.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                listOf("m4a", "mp3", "wav", "flac").forEach { format ->
+                                listOf("m4a", "webm").forEach { format ->
                                     FilterChip(
                                         selected = selectedFormat == format,
                                         onClick = { selectedFormat = format },
@@ -1202,7 +1230,7 @@ fun ExportAudioBottomSheet(
                             Spacer(Modifier.height(16.dp))
                             
                             Text(
-                                text = "Note: Exporting happens directly on your device using yt-dlp.",
+                                text = "Note: M4A is natively supported on all Android devices and is highly recommended.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1211,38 +1239,146 @@ fun ExportAudioBottomSheet(
                             
                             Button(
                                 onClick = {
-                                    state = ExportState.DOWNLOADING
-                                    progress = 0f
+                                    state = ExportState.FETCHING
                                     coroutineScope.launch(Dispatchers.IO) {
                                         try {
-                                            val tempDir = java.io.File(context.cacheDir, "exports").apply { mkdirs() }
-                                            val basePattern = song.song.id
-                                            tempDir.listFiles { _, name -> name.startsWith(basePattern) }?.forEach { it.delete() }
-                                            
-                                            val request = com.yausername.youtubedl_android.YoutubeDLRequest("https://music.youtube.com/watch?v=${song.song.id}")
-                                            request.addOption("-f", "bestaudio")
-                                            request.addOption("-x")
-                                            request.addOption("--audio-format", selectedFormat)
-                                            request.addOption("--audio-quality", "0")
-                                            request.addOption("-o", tempDir.absolutePath + "/%(id)s.%(ext)s")
-                                            
-                                            com.yausername.youtubedl_android.YoutubeDL.getInstance().execute(request, song.song.id) { currentProgress, _, _ ->
-                                                progress = currentProgress / 100f
+                                            val client = HttpClient(CIO) {
+                                                install(ContentNegotiation) {
+                                                    json(Json { ignoreUnknownKeys = true; isLenient = true })
+                                                }
                                             }
                                             
-                                            val downloadedFile = tempDir.listFiles { _, name -> 
-                                                name.startsWith(basePattern) && name.endsWith(selectedFormat) 
-                                            }?.firstOrNull() ?: throw Exception("Downloaded file not found in cache")
+                                            var validStreamUrl: String? = null
+                                            var lastError = "No instances available"
+                                            
+                                            // ----------------------------------------------------
+                                            // 1. Try Extensive List of Piped Instances
+                                            // ----------------------------------------------------
+                                            val pipedInstances = listOf(
+                                                "https://pipedapi.kavin.rocks",
+                                                "https://pipedapi.tokhmi.xyz",
+                                                "https://pipedapi.syncpundit.io",
+                                                "https://api-piped.mha.fi",
+                                                "https://pipedapi.rivo.lol",
+                                                "https://pipedapi.leptons.xyz",
+                                                "https://piped-api.lunar.icu",
+                                                "https://ytapi.dc09.ru",
+                                                "https://pipedapi.colinslegacy.com",
+                                                "https://yapi.vyper.me",
+                                                "https://api.looleh.xyz",
+                                                "https://piped-api.cfe.re",
+                                                "https://pipedapi.r4fo.com",
+                                                "https://pipedapi.nosebs.ru",
+                                                "https://pipedapi.adminforge.de",
+                                                "https://api.piped.privacydev.net"
+                                            )
+                                            
+                                            for (instance in pipedInstances) {
+                                                try {
+                                                    val response = withTimeoutOrNull(3000L) {
+                                                        client.get("$instance/streams/${song.song.id}") {
+                                                            header(HttpHeaders.Accept, "application/json")
+                                                            header(HttpHeaders.UserAgent, "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+                                                        }.body<PipedStreamResponse>()
+                                                    }
+                                                    
+                                                    if (response == null) {
+                                                        lastError = "Timeout (${instance.substringAfter("https://")})"
+                                                        continue 
+                                                    }
+                                                    if (response.error != null) {
+                                                        lastError = response.error
+                                                        continue 
+                                                    }
+                                                    
+                                                    val streams = response.audioStreams ?: emptyList()
+                                                    val matchFormat = if (selectedFormat == "m4a") "M4A" else "WEBM"
+                                                    val bestStream = streams
+                                                        .filter { it.format.equals(matchFormat, ignoreCase = true) }
+                                                        .maxByOrNull { it.bitrate }
+                                                        
+                                                    if (bestStream != null) {
+                                                        validStreamUrl = bestStream.url
+                                                        break 
+                                                    }
+                                                } catch (e: Exception) {
+                                                    lastError = "Unreachable (${instance.substringAfter("https://")})"
+                                                }
+                                            }
+                                            
+                                            // ----------------------------------------------------
+                                            // 2. Try Invidious API Fallback Network if Piped failed
+                                            // ----------------------------------------------------
+                                            if (validStreamUrl == null) {
+                                                val invidiousInstances = listOf(
+                                                    "https://vid.puffyan.us",
+                                                    "https://invidious.nerdvpn.de",
+                                                    "https://inv.tux.pizza",
+                                                    "https://invidious.protokolla.fi",
+                                                    "https://invidious.slipfox.xyz",
+                                                    "https://invidious.private.coffee",
+                                                    "https://invidious.fdn.fr"
+                                                )
+                                                
+                                                for (instance in invidiousInstances) {
+                                                    try {
+                                                        val response = withTimeoutOrNull(3000L) {
+                                                            client.get("$instance/api/v1/videos/${song.song.id}") {
+                                                                header(HttpHeaders.Accept, "application/json")
+                                                                header(HttpHeaders.UserAgent, "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+                                                            }.body<InvidiousResponse>()
+                                                        }
+                                                        
+                                                        if (response == null) {
+                                                            lastError = "Timeout (${instance.substringAfter("https://")})"
+                                                            continue
+                                                        }
+                                                        if (response.error != null) {
+                                                            lastError = response.error
+                                                            continue
+                                                        }
+                                                        
+                                                        val formats = response.adaptiveFormats ?: emptyList()
+                                                        val matchMime = if (selectedFormat == "m4a") "audio/mp4" else "audio/webm"
+                                                        val bestFormat = formats.firstOrNull { it.type.startsWith(matchMime) }
+                                                            
+                                                        if (bestFormat != null) {
+                                                            validStreamUrl = bestFormat.url
+                                                            break
+                                                        }
+                                                    } catch (e: Exception) {
+                                                        lastError = "Unreachable (${instance.substringAfter("https://")})"
+                                                    }
+                                                }
+                                            }
+                                            
+                                            // End of instances loop - checking if we successfully secured a URL
+                                            if (validStreamUrl == null) {
+                                                errorMessage = "Export failed: All 23 instances unavailable ($lastError)"
+                                                state = ExportState.ERROR
+                                                return@launch
+                                            }
+                                            
+                                            state = ExportState.DOWNLOADING
+                                            
+                                            // Download File using OkHttp
+                                            val okHttpClient = OkHttpClient()
+                                            val downloadReq = Request.Builder().url(validStreamUrl).build()
+                                            val downloadRes = okHttpClient.newCall(downloadReq).execute()
+                                            
+                                            if (!downloadRes.isSuccessful) {
+                                                errorMessage = "Download server returned ${downloadRes.code}"
+                                                state = ExportState.ERROR
+                                                return@launch
+                                            }
+                                            
+                                            val body = downloadRes.body ?: throw Exception("Empty response body")
+                                            val contentLength = body.contentLength()
+                                            val inputStream = body.byteStream()
                                             
                                             val cleanTitle = song.song.title.replace(Regex("[\\\\/:*?\"<>|]"), "_")
                                             val cleanArtist = song.artists.joinToString { it.name }.replace(Regex("[\\\\/:*?\"<>|]"), "_")
-                                            val mimeType = when(selectedFormat) {
-                                                "mp3" -> "audio/mpeg"
-                                                "m4a" -> "audio/mp4"
-                                                "wav" -> "audio/x-wav"
-                                                "flac" -> "audio/flac"
-                                                else -> "audio/*"
-                                            }
+                                            val mimeType = if (selectedFormat == "m4a") "audio/mp4" else "audio/webm"
                                             val fileName = "$cleanTitle - $cleanArtist.$selectedFormat"
                                             
                                             val contentValues = ContentValues().apply {
@@ -1258,24 +1394,34 @@ fun ExportAudioBottomSheet(
                                             val uri = resolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, contentValues)
                                             
                                             if (uri != null) {
-                                                resolver.openOutputStream(uri)?.use { outputStream ->
-                                                    downloadedFile.inputStream().use { inputStream ->
-                                                        inputStream.copyTo(outputStream)
+                                                val outputStream = resolver.openOutputStream(uri)
+                                                if (outputStream != null) {
+                                                    val buffer = ByteArray(8192)
+                                                    var bytesRead: Int
+                                                    var totalBytesRead = 0L
+                                                    while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                                                        outputStream.write(buffer, 0, bytesRead)
+                                                        totalBytesRead += bytesRead
+                                                        if (contentLength > 0) {
+                                                            progress = totalBytesRead.toFloat() / contentLength.toFloat()
+                                                        }
                                                     }
+                                                    outputStream.flush()
+                                                    outputStream.close()
                                                 }
                                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                                                     contentValues.clear()
                                                     contentValues.put(MediaStore.Audio.Media.IS_PENDING, 0)
                                                     resolver.update(uri, contentValues, null, null)
                                                 }
-                                                downloadedFile.delete()
                                                 state = ExportState.SUCCESS
                                             } else {
-                                                throw Exception("Could not create file in MediaStore")
+                                                errorMessage = "Could not create file in MediaStore"
+                                                state = ExportState.ERROR
                                             }
                                             
                                         } catch (e: Exception) {
-                                            errorMessage = e.message ?: "Local download failed"
+                                            errorMessage = e.message ?: "Network error"
                                             state = ExportState.ERROR
                                         }
                                     }
@@ -1296,7 +1442,7 @@ fun ExportAudioBottomSheet(
                             modifier = Modifier.fillMaxWidth().padding(32.dp)
                         ) {
                             CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                            Text("Initializing...", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Trying multiple servers...", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                     ExportState.DOWNLOADING -> {
