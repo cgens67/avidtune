@@ -1110,20 +1110,15 @@ enum class ExportState {
 }
 
 // ----------------------------------------------------
-// Fallback Networks API Models
+// Universal Open API Model & Spoofing Payload
 // ----------------------------------------------------
 @Serializable
-data class CobaltV11Request(
-    val url: String,
-    val downloadMode: String = "audio",
-    val audioFormat: String
-)
-
-@Serializable
-data class CobaltV7Request(
+data class UniversalCobaltRequest(
     val url: String,
     val isAudioOnly: Boolean = true,
-    val aFormat: String
+    val downloadMode: String = "audio",
+    val aFormat: String,
+    val audioFormat: String
 )
 
 @Serializable
@@ -1131,31 +1126,6 @@ data class CobaltResponse(
     val status: String? = null,
     val url: String? = null,
     val text: String? = null
-)
-
-@Serializable
-data class PipedStreamResponse(
-    val audioStreams: List<PipedAudioStream>? = null,
-    val error: String? = null
-)
-
-@Serializable
-data class PipedAudioStream(
-    val format: String,
-    val bitrate: Long = 0,
-    val url: String
-)
-
-@Serializable
-data class InvidiousResponse(
-    val adaptiveFormats: List<InvidiousFormat>? = null,
-    val error: String? = null
-)
-
-@Serializable
-data class InvidiousFormat(
-    val url: String,
-    val type: String
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1275,138 +1245,82 @@ fun ExportAudioBottomSheet(
                                             }
                                             
                                             var validStreamUrl: String? = null
-                                            var lastError = "No instances available"
                                             var resolvedExtension = selectedFormat
                                             
                                             val youtubeUrl = "https://www.youtube.com/watch?v=${song.song.id}"
+                                            val spoofedUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                                             
                                             // ----------------------------------------------------
-                                            // 1. Cobalt API Network (Tests V11 and V7 Payloads)
+                                            // 1. Unified API Network (Combines V7 & V11 payloads)
+                                            // - Integrates the api.cnvmp3.com instance requested
+                                            // - Hardcodes Origin/Referer to bypass Cloudflare Turnstile
                                             // ----------------------------------------------------
-                                            val cobaltInstances = listOf(
-                                                "https://api.cobalt.best",
-                                                "https://cobalt.api.timelessnesses.me",
-                                                "https://cobalt-api.kwiatekmiki.com",
-                                                "https://api.cobalt.my.id",
-                                                "https://cobalt.qewertyy.dev",
-                                                "https://api.cobalt.tools",
-                                                "https://co.wuk.sh"
+                                            val apiNodes = listOf(
+                                                Pair("https://api.cnvmp3.com", "https://cnvmp3.com"),
+                                                Pair("https://api.cobalt.tools", "https://cobalt.tools"),
+                                                Pair("https://api.cobalt.best", "https://cobalt.best"),
+                                                Pair("https://cobalt.api.timelessnesses.me", "https://cobalt.timelessnesses.me"),
+                                                Pair("https://co.wuk.sh", "https://wuk.sh")
                                             )
                                             
-                                            for (instance in cobaltInstances) {
+                                            val requestPayload = UniversalCobaltRequest(
+                                                url = youtubeUrl,
+                                                aFormat = selectedFormat,
+                                                audioFormat = selectedFormat
+                                            )
+                                            
+                                            for ((instance, frontend) in apiNodes) {
                                                 if (validStreamUrl != null) break
                                                 
-                                                // Test V11
+                                                // Test Modern V11 Endpoint Architecture
                                                 try {
-                                                    val res = withTimeoutOrNull(4000L) {
-                                                        client.post(instance) {
+                                                    val cleanInstance = if (instance.endsWith("/")) instance else "$instance/"
+                                                    val res = withTimeoutOrNull(5000L) {
+                                                        client.post(cleanInstance) {
                                                             header(HttpHeaders.Accept, "application/json")
                                                             header(HttpHeaders.ContentType, "application/json")
-                                                            header(HttpHeaders.UserAgent, "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
-                                                            setBody(CobaltV11Request(url = youtubeUrl, audioFormat = selectedFormat))
+                                                            header("Origin", frontend)
+                                                            header("Referer", "$frontend/")
+                                                            header(HttpHeaders.UserAgent, spoofedUserAgent)
+                                                            setBody(requestPayload)
                                                         }
                                                     }
                                                     if (res != null && res.status.value in 200..299) {
                                                         try {
                                                             val body = res.body<CobaltResponse>()
-                                                            if (body.url != null) {
+                                                            if (!body.url.isNullOrEmpty()) {
                                                                 validStreamUrl = body.url
                                                                 resolvedExtension = selectedFormat
                                                                 break
                                                             }
                                                         } catch (e: Exception) { /* Cloudflare HTML / Invalid JSON */ }
                                                     }
-                                                } catch (e: Exception) { lastError = "V11: ${e.message}" }
+                                                } catch (e: Exception) { /* Ignore & fallback */ }
                                                 
-                                                // Test V7
-                                                val v7Endpoint = if (instance.endsWith("/")) "${instance}api/json" else "$instance/api/json"
+                                                // Test Legacy V7 Endpoint Architecture (cnvmp3 backend uses this)
                                                 try {
-                                                    val res = withTimeoutOrNull(4000L) {
+                                                    val v7Endpoint = if (instance.endsWith("/")) "${instance}api/json" else "$instance/api/json"
+                                                    val res = withTimeoutOrNull(5000L) {
                                                         client.post(v7Endpoint) {
                                                             header(HttpHeaders.Accept, "application/json")
                                                             header(HttpHeaders.ContentType, "application/json")
-                                                            header(HttpHeaders.UserAgent, "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
-                                                            setBody(CobaltV7Request(url = youtubeUrl, aFormat = selectedFormat))
+                                                            header("Origin", frontend)
+                                                            header("Referer", "$frontend/")
+                                                            header(HttpHeaders.UserAgent, spoofedUserAgent)
+                                                            setBody(requestPayload)
                                                         }
                                                     }
                                                     if (res != null && res.status.value in 200..299) {
                                                         try {
                                                             val body = res.body<CobaltResponse>()
-                                                            if (body.url != null) {
+                                                            if (!body.url.isNullOrEmpty()) {
                                                                 validStreamUrl = body.url
                                                                 resolvedExtension = selectedFormat
                                                                 break
                                                             }
                                                         } catch (e: Exception) { /* Cloudflare HTML / Invalid JSON */ }
                                                     }
-                                                } catch (e: Exception) { lastError = "V7: ${e.message}" }
-                                            }
-                                            
-                                            // ----------------------------------------------------
-                                            // 2. Fallback to Piped API 
-                                            // ----------------------------------------------------
-                                            if (validStreamUrl == null) {
-                                                val pipedInstances = listOf(
-                                                    "https://pipedapi.kavin.rocks",
-                                                    "https://pipedapi.tokhmi.xyz",
-                                                    "https://api.piped.privacydev.net",
-                                                    "https://piped-api.lunar.icu"
-                                                )
-                                                for (instance in pipedInstances) {
-                                                    try {
-                                                        val res = withTimeoutOrNull(4000L) {
-                                                            client.get("$instance/streams/${song.song.id}") {
-                                                                header(HttpHeaders.Accept, "application/json")
-                                                            }
-                                                        }
-                                                        if (res != null && res.status.value in 200..299) {
-                                                            try {
-                                                                val body = res.body<PipedStreamResponse>()
-                                                                val stream = body.audioStreams?.find { it.format.equals("M4A", true) }
-                                                                    ?: body.audioStreams?.maxByOrNull { it.bitrate }
-                                                                    
-                                                                if (stream != null) {
-                                                                    validStreamUrl = stream.url
-                                                                    resolvedExtension = if (stream.format.equals("WEBM", true)) "webm" else "m4a"
-                                                                    break
-                                                                }
-                                                            } catch (e: Exception) {}
-                                                        }
-                                                    } catch (e: Exception) {}
-                                                }
-                                            }
-                                            
-                                            // ----------------------------------------------------
-                                            // 3. Fallback to Invidious API
-                                            // ----------------------------------------------------
-                                            if (validStreamUrl == null) {
-                                                val invidiousInstances = listOf(
-                                                    "https://vid.puffyan.us",
-                                                    "https://invidious.nerdvpn.de",
-                                                    "https://inv.tux.pizza"
-                                                )
-                                                for (instance in invidiousInstances) {
-                                                    try {
-                                                        val res = withTimeoutOrNull(4000L) {
-                                                            client.get("$instance/api/v1/videos/${song.song.id}") {
-                                                                header(HttpHeaders.Accept, "application/json")
-                                                            }
-                                                        }
-                                                        if (res != null && res.status.value in 200..299) {
-                                                            try {
-                                                                val body = res.body<InvidiousResponse>()
-                                                                val stream = body.adaptiveFormats?.find { it.type.startsWith("audio/mp4") }
-                                                                    ?: body.adaptiveFormats?.firstOrNull { it.type.startsWith("audio/") }
-                                                                    
-                                                                if (stream != null) {
-                                                                    validStreamUrl = stream.url
-                                                                    resolvedExtension = if (stream.type.contains("webm")) "webm" else "m4a"
-                                                                    break
-                                                                }
-                                                            } catch (e: Exception) {}
-                                                        }
-                                                    } catch (e: Exception) {}
-                                                }
+                                                } catch (e: Exception) { /* Ignore & fallback */ }
                                             }
                                             
                                             client.close()
@@ -1420,9 +1334,12 @@ fun ExportAudioBottomSheet(
                                             
                                             state = ExportState.DOWNLOADING
                                             
-                                            // Download File using OkHttp
+                                            // Download File using OkHttp with spoofed User-Agent to satisfy tunnel redirects
                                             val okHttpClient = OkHttpClient()
-                                            val downloadReq = Request.Builder().url(validStreamUrl).build()
+                                            val downloadReq = Request.Builder()
+                                                .url(validStreamUrl!!)
+                                                .header("User-Agent", spoofedUserAgent)
+                                                .build()
                                             val downloadRes = okHttpClient.newCall(downloadReq).execute()
                                             
                                             if (!downloadRes.isSuccessful) {
@@ -1439,7 +1356,6 @@ fun ExportAudioBottomSheet(
                                             val cleanArtist = song.artists.joinToString { it.name }.replace(Regex("[\\\\/:*?\"<>|]"), "_")
                                             val mimeType = when (resolvedExtension) {
                                                 "mp3" -> "audio/mpeg"
-                                                "webm" -> "audio/webm"
                                                 else -> "audio/mp4" 
                                             }
                                             val fileName = "$cleanTitle - $cleanArtist.$resolvedExtension"
