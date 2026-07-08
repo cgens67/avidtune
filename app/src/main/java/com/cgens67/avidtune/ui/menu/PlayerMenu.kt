@@ -1110,14 +1110,20 @@ enum class ExportState {
 }
 
 // ----------------------------------------------------
-// Cobalt API Models
+// Fallback Networks API Models
 // ----------------------------------------------------
 @Serializable
-data class CobaltRequest(
+data class CobaltV11Request(
     val url: String,
     val downloadMode: String = "audio",
-    val audioFormat: String,
-    val filenameStyle: String = "basic"
+    val audioFormat: String
+)
+
+@Serializable
+data class CobaltV7Request(
+    val url: String,
+    val isAudioOnly: Boolean = true,
+    val aFormat: String
 )
 
 @Serializable
@@ -1125,6 +1131,31 @@ data class CobaltResponse(
     val status: String? = null,
     val url: String? = null,
     val text: String? = null
+)
+
+@Serializable
+data class PipedStreamResponse(
+    val audioStreams: List<PipedAudioStream>? = null,
+    val error: String? = null
+)
+
+@Serializable
+data class PipedAudioStream(
+    val format: String,
+    val bitrate: Long = 0,
+    val url: String
+)
+
+@Serializable
+data class InvidiousResponse(
+    val adaptiveFormats: List<InvidiousFormat>? = null,
+    val error: String? = null
+)
+
+@Serializable
+data class InvidiousFormat(
+    val url: String,
+    val type: String
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1210,7 +1241,7 @@ fun ExportAudioBottomSheet(
                             )
                             Spacer(Modifier.height(8.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                listOf("mp3", "best", "opus").forEach { format ->
+                                listOf("mp3", "m4a").forEach { format ->
                                     FilterChip(
                                         selected = selectedFormat == format,
                                         onClick = { selectedFormat = format },
@@ -1222,7 +1253,7 @@ fun ExportAudioBottomSheet(
                             Spacer(Modifier.height(16.dp))
                             
                             Text(
-                                text = "Note: MP3 is natively supported on all Android devices and is highly recommended.",
+                                text = "Note: MP3/M4A are natively supported on all Android devices and are highly recommended.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1234,65 +1265,155 @@ fun ExportAudioBottomSheet(
                                     state = ExportState.FETCHING
                                     coroutineScope.launch(Dispatchers.IO) {
                                         try {
+                                            // IMPORTANT: expectSuccess = false prevents 403 HTML/Cloudflare blocks 
+                                            // from throwing Ktor ClientRequestException and prematurely ending the loop
                                             val client = HttpClient(CIO) {
                                                 install(ContentNegotiation) {
                                                     json(Json { ignoreUnknownKeys = true; isLenient = true })
                                                 }
+                                                expectSuccess = false 
                                             }
                                             
                                             var validStreamUrl: String? = null
                                             var lastError = "No instances available"
+                                            var resolvedExtension = selectedFormat
+                                            
+                                            val youtubeUrl = "https://www.youtube.com/watch?v=${song.song.id}"
                                             
                                             // ----------------------------------------------------
-                                            // Cobalt API fallback network to ensure reliability 
+                                            // 1. Cobalt API Network (Tests V11 and V7 Payloads)
                                             // ----------------------------------------------------
                                             val cobaltInstances = listOf(
-                                                "https://api.cobalt.tools",
                                                 "https://api.cobalt.best",
-                                                "https://cobalt.kling.gg",
+                                                "https://cobalt.api.timelessnesses.me",
+                                                "https://cobalt-api.kwiatekmiki.com",
                                                 "https://api.cobalt.my.id",
                                                 "https://cobalt.qewertyy.dev",
-                                                "https://cobalt-api.kwiatektv.me",
+                                                "https://api.cobalt.tools",
                                                 "https://co.wuk.sh"
                                             )
                                             
                                             for (instance in cobaltInstances) {
+                                                if (validStreamUrl != null) break
+                                                
+                                                // Test V11
                                                 try {
-                                                    val requestBody = CobaltRequest(
-                                                        url = "https://www.youtube.com/watch?v=${song.song.id}",
-                                                        audioFormat = selectedFormat
-                                                    )
-
-                                                    val response = withTimeoutOrNull(5000L) {
+                                                    val res = withTimeoutOrNull(4000L) {
                                                         client.post(instance) {
                                                             header(HttpHeaders.Accept, "application/json")
                                                             header(HttpHeaders.ContentType, "application/json")
                                                             header(HttpHeaders.UserAgent, "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
-                                                            setBody(requestBody)
-                                                        }.body<CobaltResponse>()
+                                                            setBody(CobaltV11Request(url = youtubeUrl, audioFormat = selectedFormat))
+                                                        }
                                                     }
-                                                    
-                                                    if (response == null) {
-                                                        lastError = "Timeout (${instance.substringAfter("https://")})"
-                                                        continue 
+                                                    if (res != null && res.status.value in 200..299) {
+                                                        try {
+                                                            val body = res.body<CobaltResponse>()
+                                                            if (body.url != null) {
+                                                                validStreamUrl = body.url
+                                                                resolvedExtension = selectedFormat
+                                                                break
+                                                            }
+                                                        } catch (e: Exception) { /* Cloudflare HTML / Invalid JSON */ }
                                                     }
-                                                    if (response.status == "error") {
-                                                        lastError = response.text ?: "Unknown Cobalt error"
-                                                        continue 
+                                                } catch (e: Exception) { lastError = "V11: ${e.message}" }
+                                                
+                                                // Test V7
+                                                val v7Endpoint = if (instance.endsWith("/")) "${instance}api/json" else "$instance/api/json"
+                                                try {
+                                                    val res = withTimeoutOrNull(4000L) {
+                                                        client.post(v7Endpoint) {
+                                                            header(HttpHeaders.Accept, "application/json")
+                                                            header(HttpHeaders.ContentType, "application/json")
+                                                            header(HttpHeaders.UserAgent, "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+                                                            setBody(CobaltV7Request(url = youtubeUrl, aFormat = selectedFormat))
+                                                        }
                                                     }
-                                                    
-                                                    if (response.url != null) {
-                                                        validStreamUrl = response.url
-                                                        break 
+                                                    if (res != null && res.status.value in 200..299) {
+                                                        try {
+                                                            val body = res.body<CobaltResponse>()
+                                                            if (body.url != null) {
+                                                                validStreamUrl = body.url
+                                                                resolvedExtension = selectedFormat
+                                                                break
+                                                            }
+                                                        } catch (e: Exception) { /* Cloudflare HTML / Invalid JSON */ }
                                                     }
-                                                } catch (e: Exception) {
-                                                    lastError = "Unreachable (${instance.substringAfter("https://")})"
+                                                } catch (e: Exception) { lastError = "V7: ${e.message}" }
+                                            }
+                                            
+                                            // ----------------------------------------------------
+                                            // 2. Fallback to Piped API 
+                                            // ----------------------------------------------------
+                                            if (validStreamUrl == null) {
+                                                val pipedInstances = listOf(
+                                                    "https://pipedapi.kavin.rocks",
+                                                    "https://pipedapi.tokhmi.xyz",
+                                                    "https://api.piped.privacydev.net",
+                                                    "https://piped-api.lunar.icu"
+                                                )
+                                                for (instance in pipedInstances) {
+                                                    try {
+                                                        val res = withTimeoutOrNull(4000L) {
+                                                            client.get("$instance/streams/${song.song.id}") {
+                                                                header(HttpHeaders.Accept, "application/json")
+                                                            }
+                                                        }
+                                                        if (res != null && res.status.value in 200..299) {
+                                                            try {
+                                                                val body = res.body<PipedStreamResponse>()
+                                                                val stream = body.audioStreams?.find { it.format.equals("M4A", true) }
+                                                                    ?: body.audioStreams?.maxByOrNull { it.bitrate }
+                                                                    
+                                                                if (stream != null) {
+                                                                    validStreamUrl = stream.url
+                                                                    resolvedExtension = if (stream.format.equals("WEBM", true)) "webm" else "m4a"
+                                                                    break
+                                                                }
+                                                            } catch (e: Exception) {}
+                                                        }
+                                                    } catch (e: Exception) {}
                                                 }
                                             }
                                             
-                                            // End of instances loop - checking if we successfully secured a URL
+                                            // ----------------------------------------------------
+                                            // 3. Fallback to Invidious API
+                                            // ----------------------------------------------------
                                             if (validStreamUrl == null) {
-                                                errorMessage = "Export failed: All instances unavailable ($lastError)"
+                                                val invidiousInstances = listOf(
+                                                    "https://vid.puffyan.us",
+                                                    "https://invidious.nerdvpn.de",
+                                                    "https://inv.tux.pizza"
+                                                )
+                                                for (instance in invidiousInstances) {
+                                                    try {
+                                                        val res = withTimeoutOrNull(4000L) {
+                                                            client.get("$instance/api/v1/videos/${song.song.id}") {
+                                                                header(HttpHeaders.Accept, "application/json")
+                                                            }
+                                                        }
+                                                        if (res != null && res.status.value in 200..299) {
+                                                            try {
+                                                                val body = res.body<InvidiousResponse>()
+                                                                val stream = body.adaptiveFormats?.find { it.type.startsWith("audio/mp4") }
+                                                                    ?: body.adaptiveFormats?.firstOrNull { it.type.startsWith("audio/") }
+                                                                    
+                                                                if (stream != null) {
+                                                                    validStreamUrl = stream.url
+                                                                    resolvedExtension = if (stream.type.contains("webm")) "webm" else "m4a"
+                                                                    break
+                                                                }
+                                                            } catch (e: Exception) {}
+                                                        }
+                                                    } catch (e: Exception) {}
+                                                }
+                                            }
+                                            
+                                            client.close()
+                                            
+                                            // Verify if any loop succeeded
+                                            if (validStreamUrl == null) {
+                                                errorMessage = "Export failed: All network endpoints blocked or offline."
                                                 state = ExportState.ERROR
                                                 return@launch
                                             }
@@ -1310,23 +1431,18 @@ fun ExportAudioBottomSheet(
                                                 return@launch
                                             }
                                             
-                                            val body = downloadRes.body ?: throw Exception("Empty response body")
-                                            val contentLength = body.contentLength()
-                                            val inputStream = body.byteStream()
+                                            val responseBody = downloadRes.body ?: throw Exception("Empty response body")
+                                            val contentLength = responseBody.contentLength()
+                                            val inputStream = responseBody.byteStream()
                                             
                                             val cleanTitle = song.song.title.replace(Regex("[\\\\/:*?\"<>|]"), "_")
                                             val cleanArtist = song.artists.joinToString { it.name }.replace(Regex("[\\\\/:*?\"<>|]"), "_")
-                                            val mimeType = when (selectedFormat) {
+                                            val mimeType = when (resolvedExtension) {
                                                 "mp3" -> "audio/mpeg"
-                                                "opus" -> "audio/ogg"
-                                                else -> "audio/mp4" // 'best' typically yields m4a container
+                                                "webm" -> "audio/webm"
+                                                else -> "audio/mp4" 
                                             }
-                                            val extension = when (selectedFormat) {
-                                                "mp3" -> "mp3"
-                                                "opus" -> "opus"
-                                                else -> "m4a"
-                                            }
-                                            val fileName = "$cleanTitle - $cleanArtist.$extension"
+                                            val fileName = "$cleanTitle - $cleanArtist.$resolvedExtension"
                                             
                                             val contentValues = ContentValues().apply {
                                                 put(MediaStore.Audio.Media.DISPLAY_NAME, fileName)
