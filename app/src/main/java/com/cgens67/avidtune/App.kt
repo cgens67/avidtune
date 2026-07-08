@@ -60,6 +60,16 @@ class App : Application(), ImageLoaderFactory {
 
         Paxsenix.init(this)
 
+        // Native YT-DLP Initialization
+        GlobalScope.launch(Dispatchers.IO) {
+            try {
+                com.yausername.youtubedl_android.YoutubeDL.init(this@App)
+                com.yausername.ffmpeg.FFmpeg.init(this@App)
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to initialize youtubedl-android")
+            }
+        }
+
         val locale = Locale.getDefault()
         val languageTag = locale.toLanguageTag().replace("-Hant", "") // replace zh-Hant-* to zh-*
         YouTube.locale = YouTubeLocale(
