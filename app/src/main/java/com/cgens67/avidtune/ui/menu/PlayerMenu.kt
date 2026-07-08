@@ -131,6 +131,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
@@ -1107,7 +1108,7 @@ enum class ExportState {
 }
 
 // ----------------------------------------------------
-// Piped API Models
+// Piped & Invidious API Models
 // ----------------------------------------------------
 @Serializable
 data class PipedStreamResponse(
@@ -1120,6 +1121,18 @@ data class PipedAudioStream(
     val format: String,
     val bitrate: Long = 0,
     val url: String
+)
+
+@Serializable
+data class InvidiousResponse(
+    val adaptiveFormats: List<InvidiousFormat>? = null,
+    val error: String? = null
+)
+
+@Serializable
+data class InvidiousFormat(
+    val url: String,
+    val type: String
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1231,36 +1244,53 @@ fun ExportAudioBottomSheet(
                                         try {
                                             val client = HttpClient(CIO) {
                                                 install(ContentNegotiation) {
-                                                    json(Json { ignoreUnknownKeys = true })
+                                                    json(Json { ignoreUnknownKeys = true; isLenient = true })
                                                 }
                                             }
-                                            
-                                            // ----------------------------------------------------
-                                            // NEW: Piped API Fallback List
-                                            // 100% free, no Turnstile, provides raw M4A/WEBM links
-                                            // ----------------------------------------------------
-                                            val fallbackInstances = listOf(
-                                                "https://pipedapi.kavin.rocks",
-                                                "https://pipedapi.adminforge.de",
-                                                "https://api.piped.privacydev.net",
-                                                "https://pipedapi.syncpundit.io"
-                                            )
                                             
                                             var validStreamUrl: String? = null
                                             var lastError = "No instances available"
                                             
-                                            for (instance in fallbackInstances) {
+                                            // ----------------------------------------------------
+                                            // 1. Try Extensive List of Piped Instances
+                                            // ----------------------------------------------------
+                                            val pipedInstances = listOf(
+                                                "https://pipedapi.kavin.rocks",
+                                                "https://pipedapi.tokhmi.xyz",
+                                                "https://pipedapi.syncpundit.io",
+                                                "https://api-piped.mha.fi",
+                                                "https://pipedapi.rivo.lol",
+                                                "https://pipedapi.leptons.xyz",
+                                                "https://piped-api.lunar.icu",
+                                                "https://ytapi.dc09.ru",
+                                                "https://pipedapi.colinslegacy.com",
+                                                "https://yapi.vyper.me",
+                                                "https://api.looleh.xyz",
+                                                "https://piped-api.cfe.re",
+                                                "https://pipedapi.r4fo.com",
+                                                "https://pipedapi.nosebs.ru",
+                                                "https://pipedapi.adminforge.de",
+                                                "https://api.piped.privacydev.net"
+                                            )
+                                            
+                                            for (instance in pipedInstances) {
                                                 try {
-                                                    val response = client.get("$instance/streams/${song.song.id}") {
-                                                        header(HttpHeaders.Accept, "application/json")
-                                                    }.body<PipedStreamResponse>()
-                                                    
-                                                    if (response.error != null) {
-                                                        lastError = response.error
-                                                        continue // Try next instance
+                                                    val response = withTimeoutOrNull(3000L) {
+                                                        client.get("$instance/streams/${song.song.id}") {
+                                                            header(HttpHeaders.Accept, "application/json")
+                                                            header(HttpHeaders.UserAgent, "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+                                                        }.body<PipedStreamResponse>()
                                                     }
                                                     
-                                                    // Grab highest bitrate stream matching selected format
+                                                    if (response == null) {
+                                                        lastError = "Timeout (${instance.substringAfter("https://")})"
+                                                        continue 
+                                                    }
+                                                    if (response.error != null) {
+                                                        lastError = response.error
+                                                        continue 
+                                                    }
+                                                    
                                                     val streams = response.audioStreams ?: emptyList()
                                                     val matchFormat = if (selectedFormat == "m4a") "M4A" else "WEBM"
                                                     val bestStream = streams
@@ -1269,17 +1299,62 @@ fun ExportAudioBottomSheet(
                                                         
                                                     if (bestStream != null) {
                                                         validStreamUrl = bestStream.url
-                                                        break // Got it! Exit the loop.
-                                                    } else {
-                                                        lastError = "Selected format not available on this instance"
+                                                        break 
                                                     }
                                                 } catch (e: Exception) {
-                                                    lastError = "Instance unreachable"
+                                                    lastError = "Unreachable (${instance.substringAfter("https://")})"
                                                 }
                                             }
                                             
+                                            // ----------------------------------------------------
+                                            // 2. Try Invidious API Fallback Network if Piped failed
+                                            // ----------------------------------------------------
                                             if (validStreamUrl == null) {
-                                                errorMessage = "Export failed: $lastError"
+                                                val invidiousInstances = listOf(
+                                                    "https://vid.puffyan.us",
+                                                    "https://invidious.nerdvpn.de",
+                                                    "https://inv.tux.pizza",
+                                                    "https://invidious.protokolla.fi",
+                                                    "https://invidious.slipfox.xyz",
+                                                    "https://invidious.private.coffee",
+                                                    "https://invidious.fdn.fr"
+                                                )
+                                                
+                                                for (instance in invidiousInstances) {
+                                                    try {
+                                                        val response = withTimeoutOrNull(3000L) {
+                                                            client.get("$instance/api/v1/videos/${song.song.id}") {
+                                                                header(HttpHeaders.Accept, "application/json")
+                                                                header(HttpHeaders.UserAgent, "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+                                                            }.body<InvidiousResponse>()
+                                                        }
+                                                        
+                                                        if (response == null) {
+                                                            lastError = "Timeout (${instance.substringAfter("https://")})"
+                                                            continue
+                                                        }
+                                                        if (response.error != null) {
+                                                            lastError = response.error
+                                                            continue
+                                                        }
+                                                        
+                                                        val formats = response.adaptiveFormats ?: emptyList()
+                                                        val matchMime = if (selectedFormat == "m4a") "audio/mp4" else "audio/webm"
+                                                        val bestFormat = formats.firstOrNull { it.type.startsWith(matchMime) }
+                                                            
+                                                        if (bestFormat != null) {
+                                                            validStreamUrl = bestFormat.url
+                                                            break
+                                                        }
+                                                    } catch (e: Exception) {
+                                                        lastError = "Unreachable (${instance.substringAfter("https://")})"
+                                                    }
+                                                }
+                                            }
+                                            
+                                            // End of instances loop - checking if we successfully secured a URL
+                                            if (validStreamUrl == null) {
+                                                errorMessage = "Export failed: All 23 instances unavailable ($lastError)"
                                                 state = ExportState.ERROR
                                                 return@launch
                                             }
@@ -1367,7 +1442,7 @@ fun ExportAudioBottomSheet(
                             modifier = Modifier.fillMaxWidth().padding(32.dp)
                         ) {
                             CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                            Text("Fetching stream URL...", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Trying multiple servers...", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                     ExportState.DOWNLOADING -> {
