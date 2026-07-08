@@ -124,6 +124,8 @@ import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
 import io.ktor.http.HttpHeaders
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.Dispatchers
@@ -1108,31 +1110,51 @@ enum class ExportState {
 }
 
 // ----------------------------------------------------
-// Piped & Invidious API Models
+// Native YouTubei API Models
 // ----------------------------------------------------
 @Serializable
-data class PipedStreamResponse(
-    val audioStreams: List<PipedAudioStream>? = null,
-    val error: String? = null
+data class YtRequest(
+    val context: YtContext, 
+    val videoId: String
 )
 
 @Serializable
-data class PipedAudioStream(
-    val format: String,
-    val bitrate: Long = 0,
-    val url: String
+data class YtContext(
+    val client: YtClient
 )
 
 @Serializable
-data class InvidiousResponse(
-    val adaptiveFormats: List<InvidiousFormat>? = null,
-    val error: String? = null
+data class YtClient(
+    val clientName: String, 
+    val clientVersion: String,
+    val androidSdkVersion: Int? = null,
+    val hl: String = "en",
+    val gl: String = "US"
 )
 
 @Serializable
-data class InvidiousFormat(
-    val url: String,
-    val type: String
+data class YtResponse(
+    val playabilityStatus: YtPlayabilityStatus? = null, 
+    val streamingData: YtStreamingData? = null
+)
+
+@Serializable
+data class YtPlayabilityStatus(
+    val status: String, 
+    val reason: String? = null
+)
+
+@Serializable
+data class YtStreamingData(
+    val adaptiveFormats: List<YtFormat>? = null
+)
+
+@Serializable
+data class YtFormat(
+    val itag: Int, 
+    val url: String? = null, 
+    val mimeType: String, 
+    val bitrate: Long = 0
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1249,112 +1271,62 @@ fun ExportAudioBottomSheet(
                                             }
                                             
                                             var validStreamUrl: String? = null
-                                            var lastError = "No instances available"
+                                            var lastError = "Could not find stream"
                                             
                                             // ----------------------------------------------------
-                                            // 1. Try Extensive List of Piped Instances
+                                            // NATIVE YOUTUBEI BYPASS
                                             // ----------------------------------------------------
-                                            val pipedInstances = listOf(
-                                                "https://pipedapi.kavin.rocks",
-                                                "https://pipedapi.tokhmi.xyz",
-                                                "https://pipedapi.syncpundit.io",
-                                                "https://api-piped.mha.fi",
-                                                "https://pipedapi.rivo.lol",
-                                                "https://pipedapi.leptons.xyz",
-                                                "https://piped-api.lunar.icu",
-                                                "https://ytapi.dc09.ru",
-                                                "https://pipedapi.colinslegacy.com",
-                                                "https://yapi.vyper.me",
-                                                "https://api.looleh.xyz",
-                                                "https://piped-api.cfe.re",
-                                                "https://pipedapi.r4fo.com",
-                                                "https://pipedapi.nosebs.ru",
-                                                "https://pipedapi.adminforge.de",
-                                                "https://api.piped.privacydev.net"
+                                            // Mimics specific Google clients that are known to return
+                                            // unprotected audio streams without needing JS cipher decryption
+                                            val ytClients = listOf(
+                                                YtClient("ANDROID_VR", "1.24.40", androidSdkVersion = 30),
+                                                YtClient("TVHTML5", "7.20230407.08.00"),
+                                                YtClient("IOS", "17.33.2"),
+                                                YtClient("WEB_REMIX", "1.20230524.01.00")
                                             )
                                             
-                                            for (instance in pipedInstances) {
+                                            for (ytClient in ytClients) {
                                                 try {
-                                                    val response = withTimeoutOrNull(3000L) {
-                                                        client.get("$instance/streams/${song.song.id}") {
-                                                            header(HttpHeaders.Accept, "application/json")
-                                                            header(HttpHeaders.UserAgent, "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
-                                                        }.body<PipedStreamResponse>()
+                                                    val requestBody = YtRequest(
+                                                        context = YtContext(client = ytClient),
+                                                        videoId = song.song.id
+                                                    )
+                                                    
+                                                    val response = withTimeoutOrNull(5000L) {
+                                                        client.post("https://music.youtube.com/youtubei/v1/player") {
+                                                            header(HttpHeaders.ContentType, "application/json")
+                                                            setBody(requestBody)
+                                                        }.body<YtResponse>()
                                                     }
                                                     
                                                     if (response == null) {
-                                                        lastError = "Timeout (${instance.substringAfter("https://")})"
-                                                        continue 
-                                                    }
-                                                    if (response.error != null) {
-                                                        lastError = response.error
-                                                        continue 
+                                                        lastError = "Timeout reaching YouTube servers"
+                                                        continue
                                                     }
                                                     
-                                                    val streams = response.audioStreams ?: emptyList()
-                                                    val matchFormat = if (selectedFormat == "m4a") "M4A" else "WEBM"
-                                                    val bestStream = streams
-                                                        .filter { it.format.equals(matchFormat, ignoreCase = true) }
+                                                    if (response.playabilityStatus?.status == "UNPLAYABLE" || response.playabilityStatus?.status == "ERROR") {
+                                                        lastError = response.playabilityStatus.reason ?: "Video unplayable"
+                                                        continue
+                                                    }
+                                                    
+                                                    val formats = response.streamingData?.adaptiveFormats ?: emptyList()
+                                                    val matchMime = if (selectedFormat == "m4a") "audio/mp4" else "audio/webm"
+                                                    
+                                                    val bestFormat = formats
+                                                        .filter { it.mimeType.contains(matchMime) && !it.url.isNullOrEmpty() }
                                                         .maxByOrNull { it.bitrate }
                                                         
-                                                    if (bestStream != null) {
-                                                        validStreamUrl = bestStream.url
+                                                    if (bestFormat != null) {
+                                                        validStreamUrl = bestFormat.url
                                                         break 
                                                     }
                                                 } catch (e: Exception) {
-                                                    lastError = "Unreachable (${instance.substringAfter("https://")})"
+                                                    lastError = "Connection error: ${e.message}"
                                                 }
                                             }
                                             
-                                            // ----------------------------------------------------
-                                            // 2. Try Invidious API Fallback Network if Piped failed
-                                            // ----------------------------------------------------
                                             if (validStreamUrl == null) {
-                                                val invidiousInstances = listOf(
-                                                    "https://vid.puffyan.us",
-                                                    "https://invidious.nerdvpn.de",
-                                                    "https://inv.tux.pizza",
-                                                    "https://invidious.protokolla.fi",
-                                                    "https://invidious.slipfox.xyz",
-                                                    "https://invidious.private.coffee",
-                                                    "https://invidious.fdn.fr"
-                                                )
-                                                
-                                                for (instance in invidiousInstances) {
-                                                    try {
-                                                        val response = withTimeoutOrNull(3000L) {
-                                                            client.get("$instance/api/v1/videos/${song.song.id}") {
-                                                                header(HttpHeaders.Accept, "application/json")
-                                                                header(HttpHeaders.UserAgent, "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
-                                                            }.body<InvidiousResponse>()
-                                                        }
-                                                        
-                                                        if (response == null) {
-                                                            lastError = "Timeout (${instance.substringAfter("https://")})"
-                                                            continue
-                                                        }
-                                                        if (response.error != null) {
-                                                            lastError = response.error
-                                                            continue
-                                                        }
-                                                        
-                                                        val formats = response.adaptiveFormats ?: emptyList()
-                                                        val matchMime = if (selectedFormat == "m4a") "audio/mp4" else "audio/webm"
-                                                        val bestFormat = formats.firstOrNull { it.type.startsWith(matchMime) }
-                                                            
-                                                        if (bestFormat != null) {
-                                                            validStreamUrl = bestFormat.url
-                                                            break
-                                                        }
-                                                    } catch (e: Exception) {
-                                                        lastError = "Unreachable (${instance.substringAfter("https://")})"
-                                                    }
-                                                }
-                                            }
-                                            
-                                            // End of instances loop - checking if we successfully secured a URL
-                                            if (validStreamUrl == null) {
-                                                errorMessage = "Export failed: All 23 instances unavailable ($lastError)"
+                                                errorMessage = "Export failed: $lastError"
                                                 state = ExportState.ERROR
                                                 return@launch
                                             }
@@ -1363,7 +1335,11 @@ fun ExportAudioBottomSheet(
                                             
                                             // Download File using OkHttp
                                             val okHttpClient = OkHttpClient()
-                                            val downloadReq = Request.Builder().url(validStreamUrl).build()
+                                            val downloadReq = Request.Builder()
+                                                .url(validStreamUrl)
+                                                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                                                .build()
+                                                
                                             val downloadRes = okHttpClient.newCall(downloadReq).execute()
                                             
                                             if (!downloadRes.isSuccessful) {
@@ -1442,7 +1418,7 @@ fun ExportAudioBottomSheet(
                             modifier = Modifier.fillMaxWidth().padding(32.dp)
                         ) {
                             CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                            Text("Trying multiple servers...", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Connecting to YouTube...", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                     ExportState.DOWNLOADING -> {
