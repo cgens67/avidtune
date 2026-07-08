@@ -122,9 +122,8 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.request.get
 import io.ktor.client.request.header
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
 import io.ktor.http.HttpHeaders
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.Dispatchers
@@ -763,7 +762,7 @@ fun ColumnScope.PlayerMenu(
                     },
                     MenuItemData(
                         title = { Text(text = "Export to Device") },
-                        description = { Text(text = "Download as MP3 file") },
+                        description = { Text(text = "Download as audio file") },
                         icon = {
                             Icon(
                                 painter = painterResource(R.drawable.download),
@@ -1107,25 +1106,20 @@ enum class ExportState {
     IDLE, FETCHING, DOWNLOADING, SUCCESS, ERROR
 }
 
+// ----------------------------------------------------
+// Piped API Models
+// ----------------------------------------------------
 @Serializable
-data class CobaltRequest(
-    val url: String,
-    val downloadMode: String = "audio",
-    val audioFormat: String = "mp3",
-    val audioBitrate: String = "320"
+data class PipedStreamResponse(
+    val audioStreams: List<PipedAudioStream>? = null,
+    val error: String? = null
 )
 
 @Serializable
-data class CobaltError(
-    val code: String
-)
-
-@Serializable
-data class CobaltResponse(
-    val status: String,
-    val url: String? = null,
-    val text: String? = null,
-    val error: CobaltError? = null
+data class PipedAudioStream(
+    val format: String,
+    val bitrate: Long = 0,
+    val url: String
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1140,8 +1134,7 @@ fun ExportAudioBottomSheet(
     var state by remember { mutableStateOf(ExportState.IDLE) }
     var progress by remember { mutableFloatStateOf(0f) }
     var errorMessage by remember { mutableStateOf("") }
-    var selectedBitrate by remember { mutableStateOf("320") }
-    var selectedFormat by remember { mutableStateOf("mp3") }
+    var selectedFormat by remember { mutableStateOf("m4a") }
     
     ModalBottomSheet(onDismissRequest = { if (state != ExportState.FETCHING && state != ExportState.DOWNLOADING) onDismiss() }) {
         Column(
@@ -1212,7 +1205,7 @@ fun ExportAudioBottomSheet(
                             )
                             Spacer(Modifier.height(8.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                listOf("mp3", "wav", "opus").forEach { format ->
+                                listOf("m4a", "webm").forEach { format ->
                                     FilterChip(
                                         selected = selectedFormat == format,
                                         onClick = { selectedFormat = format },
@@ -1224,21 +1217,10 @@ fun ExportAudioBottomSheet(
                             Spacer(Modifier.height(16.dp))
                             
                             Text(
-                                text = "Audio Quality (kbps)",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.primary
+                                text = "Note: M4A is natively supported on all Android devices and is highly recommended.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            Spacer(Modifier.height(8.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                listOf("128", "256", "320").forEach { bitrate ->
-                                    FilterChip(
-                                        selected = selectedBitrate == bitrate,
-                                        onClick = { selectedBitrate = bitrate },
-                                        label = { Text(bitrate) },
-                                        enabled = selectedFormat != "wav" // WAV is lossless, bitrate doesn't matter
-                                    )
-                                }
-                            }
                             
                             Spacer(Modifier.height(32.dp))
                             
@@ -1253,66 +1235,60 @@ fun ExportAudioBottomSheet(
                                                 }
                                             }
                                             
-                                            val request = CobaltRequest(
-                                                url = "https://music.youtube.com/watch?v=${song.song.id}",
-                                                downloadMode = "audio",
-                                                audioFormat = selectedFormat,
-                                                audioBitrate = selectedBitrate
-                                            )
-                                            
-                                            // Fallback Instance Loop
                                             // ----------------------------------------------------
-                                            // Tries multiple community servers in case one goes down
-                                            // to prevent HTML 502/Ktor crashes or rate limits
+                                            // NEW: Piped API Fallback List
+                                            // 100% free, no Turnstile, provides raw M4A/WEBM links
                                             // ----------------------------------------------------
                                             val fallbackInstances = listOf(
-                                                "https://cobalt-api.kwiatekmiki.com",
-                                                "https://api.cobalt.blackcat.sweeux.org",
-                                                "https://cobalt.catterall.sh",
-                                                "https://api.cobalt.tools"
+                                                "https://pipedapi.kavin.rocks",
+                                                "https://pipedapi.adminforge.de",
+                                                "https://api.piped.privacydev.net",
+                                                "https://pipedapi.syncpundit.io"
                                             )
                                             
-                                            var validResponse: CobaltResponse? = null
+                                            var validStreamUrl: String? = null
                                             var lastError = "No instances available"
                                             
                                             for (instance in fallbackInstances) {
                                                 try {
-                                                    val parsedBody = client.post("$instance/") {
+                                                    val response = client.get("$instance/streams/${song.song.id}") {
                                                         header(HttpHeaders.Accept, "application/json")
-                                                        header(HttpHeaders.ContentType, "application/json")
-                                                        header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                                                        setBody(request)
-                                                    }.body<CobaltResponse>()
+                                                    }.body<PipedStreamResponse>()
                                                     
-                                                    // If the server explicitly rejected our request (e.g., requires API key)
-                                                    if (parsedBody.status == "error" || parsedBody.status == "rate-limit") {
-                                                        lastError = parsedBody.error?.code ?: parsedBody.text ?: "Instance API error"
-                                                        continue // Skip and try the next instance
+                                                    if (response.error != null) {
+                                                        lastError = response.error
+                                                        continue // Try next instance
                                                     }
                                                     
-                                                    // We got a successful response!
-                                                    if (parsedBody.url != null) {
-                                                        validResponse = parsedBody
-                                                        break // Exit the loop early
+                                                    // Grab highest bitrate stream matching selected format
+                                                    val streams = response.audioStreams ?: emptyList()
+                                                    val matchFormat = if (selectedFormat == "m4a") "M4A" else "WEBM"
+                                                    val bestStream = streams
+                                                        .filter { it.format.equals(matchFormat, ignoreCase = true) }
+                                                        .maxByOrNull { it.bitrate }
+                                                        
+                                                    if (bestStream != null) {
+                                                        validStreamUrl = bestStream.url
+                                                        break // Got it! Exit the loop.
+                                                    } else {
+                                                        lastError = "Selected format not available on this instance"
                                                     }
                                                 } catch (e: Exception) {
-                                                    // Safely catches 502 HTML pages which cause NoTransformationFoundException
-                                                    lastError = "Instance unreachable or offline"
+                                                    lastError = "Instance unreachable"
                                                 }
                                             }
                                             
-                                            if (validResponse == null) {
+                                            if (validStreamUrl == null) {
                                                 errorMessage = "Export failed: $lastError"
                                                 state = ExportState.ERROR
                                                 return@launch
                                             }
                                             
-                                            val downloadUrl = validResponse.url!!
                                             state = ExportState.DOWNLOADING
                                             
-                                            // Download File
+                                            // Download File using OkHttp
                                             val okHttpClient = OkHttpClient()
-                                            val downloadReq = Request.Builder().url(downloadUrl).build()
+                                            val downloadReq = Request.Builder().url(validStreamUrl).build()
                                             val downloadRes = okHttpClient.newCall(downloadReq).execute()
                                             
                                             if (!downloadRes.isSuccessful) {
@@ -1327,16 +1303,18 @@ fun ExportAudioBottomSheet(
                                             
                                             val cleanTitle = song.song.title.replace(Regex("[\\\\/:*?\"<>|]"), "_")
                                             val cleanArtist = song.artists.joinToString { it.name }.replace(Regex("[\\\\/:*?\"<>|]"), "_")
+                                            val mimeType = if (selectedFormat == "m4a") "audio/mp4" else "audio/webm"
                                             val fileName = "$cleanTitle - $cleanArtist.$selectedFormat"
                                             
                                             val contentValues = ContentValues().apply {
                                                 put(MediaStore.Audio.Media.DISPLAY_NAME, fileName)
-                                                put(MediaStore.Audio.Media.MIME_TYPE, "audio/${if(selectedFormat=="mp3") "mpeg" else selectedFormat}")
+                                                put(MediaStore.Audio.Media.MIME_TYPE, mimeType)
                                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                                                     put(MediaStore.Audio.Media.RELATIVE_PATH, Environment.DIRECTORY_MUSIC + "/AvidTune")
                                                     put(MediaStore.Audio.Media.IS_PENDING, 1)
                                                 }
                                             }
+                                            
                                             val resolver = context.contentResolver
                                             val uri = resolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, contentValues)
                                             
@@ -1389,7 +1367,7 @@ fun ExportAudioBottomSheet(
                             modifier = Modifier.fillMaxWidth().padding(32.dp)
                         ) {
                             CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                            Text("Connecting to server...", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Fetching stream URL...", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                     ExportState.DOWNLOADING -> {
