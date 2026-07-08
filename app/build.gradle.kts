@@ -182,8 +182,4 @@ dependencies {
     coreLibraryDesugaring(libs.desugaring)
 
     implementation(libs.timber)
-    
-    // NATIVE YT-DLP ENGINE
-    implementation(libs.youtubedl.android.library)
-    implementation(libs.youtubedl.android.ffmpeg)
 }
