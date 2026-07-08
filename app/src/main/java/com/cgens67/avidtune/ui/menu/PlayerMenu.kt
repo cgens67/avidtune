@@ -118,26 +118,11 @@ import com.cgens67.avidtune.ui.component.NewAction
 import com.cgens67.avidtune.ui.component.NewActionGrid
 import com.cgens67.avidtune.utils.joinByBullet
 import com.cgens67.avidtune.utils.makeTimeString
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.engine.cio.CIO
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.request.get
-import io.ktor.client.request.header
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.http.HttpHeaders
-import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
-import okhttp3.OkHttpClient
-import okhttp3.Request
 import java.time.LocalDateTime
 import kotlin.math.roundToInt
 
@@ -1109,54 +1094,6 @@ enum class ExportState {
     IDLE, FETCHING, DOWNLOADING, SUCCESS, ERROR
 }
 
-// ----------------------------------------------------
-// Native YouTubei API Models
-// ----------------------------------------------------
-@Serializable
-data class YtRequest(
-    val context: YtContext, 
-    val videoId: String
-)
-
-@Serializable
-data class YtContext(
-    val client: YtClient
-)
-
-@Serializable
-data class YtClient(
-    val clientName: String, 
-    val clientVersion: String,
-    val androidSdkVersion: Int? = null,
-    val hl: String = "en",
-    val gl: String = "US"
-)
-
-@Serializable
-data class YtResponse(
-    val playabilityStatus: YtPlayabilityStatus? = null, 
-    val streamingData: YtStreamingData? = null
-)
-
-@Serializable
-data class YtPlayabilityStatus(
-    val status: String, 
-    val reason: String? = null
-)
-
-@Serializable
-data class YtStreamingData(
-    val adaptiveFormats: List<YtFormat>? = null
-)
-
-@Serializable
-data class YtFormat(
-    val itag: Int, 
-    val url: String? = null, 
-    val mimeType: String, 
-    val bitrate: Long = 0
-)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExportAudioBottomSheet(
@@ -1240,7 +1177,7 @@ fun ExportAudioBottomSheet(
                             )
                             Spacer(Modifier.height(8.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                listOf("m4a", "webm").forEach { format ->
+                                listOf("m4a", "mp3", "wav", "flac").forEach { format ->
                                     FilterChip(
                                         selected = selectedFormat == format,
                                         onClick = { selectedFormat = format },
@@ -1252,7 +1189,7 @@ fun ExportAudioBottomSheet(
                             Spacer(Modifier.height(16.dp))
                             
                             Text(
-                                text = "Note: M4A is natively supported on all Android devices and is highly recommended.",
+                                text = "Note: Exporting happens directly on your device using yt-dlp.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1261,100 +1198,38 @@ fun ExportAudioBottomSheet(
                             
                             Button(
                                 onClick = {
-                                    state = ExportState.FETCHING
+                                    state = ExportState.DOWNLOADING
+                                    progress = 0f
                                     coroutineScope.launch(Dispatchers.IO) {
                                         try {
-                                            val client = HttpClient(CIO) {
-                                                install(ContentNegotiation) {
-                                                    json(Json { ignoreUnknownKeys = true; isLenient = true })
-                                                }
+                                            val tempDir = java.io.File(context.cacheDir, "exports").apply { mkdirs() }
+                                            val basePattern = song.song.id
+                                            tempDir.listFiles { _, name -> name.startsWith(basePattern) }?.forEach { it.delete() }
+                                            
+                                            val request = com.yausername.youtubedl_android.YoutubeDLRequest("https://music.youtube.com/watch?v=${song.song.id}")
+                                            request.addOption("-f", "bestaudio")
+                                            request.addOption("-x")
+                                            request.addOption("--audio-format", selectedFormat)
+                                            request.addOption("--audio-quality", "0")
+                                            request.addOption("-o", tempDir.absolutePath + "/%(id)s.%(ext)s")
+                                            
+                                            com.yausername.youtubedl_android.YoutubeDL.getInstance().execute(request, song.song.id) { currentProgress, _, _ ->
+                                                progress = currentProgress / 100f
                                             }
                                             
-                                            var validStreamUrl: String? = null
-                                            var lastError = "Could not find stream"
-                                            
-                                            // ----------------------------------------------------
-                                            // NATIVE YOUTUBEI BYPASS
-                                            // ----------------------------------------------------
-                                            // Mimics specific Google clients that are known to return
-                                            // unprotected audio streams without needing JS cipher decryption
-                                            val ytClients = listOf(
-                                                YtClient("ANDROID_VR", "1.24.40", androidSdkVersion = 30),
-                                                YtClient("TVHTML5", "7.20230407.08.00"),
-                                                YtClient("IOS", "17.33.2"),
-                                                YtClient("WEB_REMIX", "1.20230524.01.00")
-                                            )
-                                            
-                                            for (ytClient in ytClients) {
-                                                try {
-                                                    val requestBody = YtRequest(
-                                                        context = YtContext(client = ytClient),
-                                                        videoId = song.song.id
-                                                    )
-                                                    
-                                                    val response = withTimeoutOrNull(5000L) {
-                                                        client.post("https://music.youtube.com/youtubei/v1/player") {
-                                                            header(HttpHeaders.ContentType, "application/json")
-                                                            setBody(requestBody)
-                                                        }.body<YtResponse>()
-                                                    }
-                                                    
-                                                    if (response == null) {
-                                                        lastError = "Timeout reaching YouTube servers"
-                                                        continue
-                                                    }
-                                                    
-                                                    if (response.playabilityStatus?.status == "UNPLAYABLE" || response.playabilityStatus?.status == "ERROR") {
-                                                        lastError = response.playabilityStatus.reason ?: "Video unplayable"
-                                                        continue
-                                                    }
-                                                    
-                                                    val formats = response.streamingData?.adaptiveFormats ?: emptyList()
-                                                    val matchMime = if (selectedFormat == "m4a") "audio/mp4" else "audio/webm"
-                                                    
-                                                    val bestFormat = formats
-                                                        .filter { it.mimeType.contains(matchMime) && !it.url.isNullOrEmpty() }
-                                                        .maxByOrNull { it.bitrate }
-                                                        
-                                                    if (bestFormat != null) {
-                                                        validStreamUrl = bestFormat.url
-                                                        break 
-                                                    }
-                                                } catch (e: Exception) {
-                                                    lastError = "Connection error: ${e.message}"
-                                                }
-                                            }
-                                            
-                                            if (validStreamUrl == null) {
-                                                errorMessage = "Export failed: $lastError"
-                                                state = ExportState.ERROR
-                                                return@launch
-                                            }
-                                            
-                                            state = ExportState.DOWNLOADING
-                                            
-                                            // Download File using OkHttp
-                                            val okHttpClient = OkHttpClient()
-                                            val downloadReq = Request.Builder()
-                                                .url(validStreamUrl)
-                                                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                                                .build()
-                                                
-                                            val downloadRes = okHttpClient.newCall(downloadReq).execute()
-                                            
-                                            if (!downloadRes.isSuccessful) {
-                                                errorMessage = "Download server returned ${downloadRes.code}"
-                                                state = ExportState.ERROR
-                                                return@launch
-                                            }
-                                            
-                                            val body = downloadRes.body ?: throw Exception("Empty response body")
-                                            val contentLength = body.contentLength()
-                                            val inputStream = body.byteStream()
+                                            val downloadedFile = tempDir.listFiles { _, name -> 
+                                                name.startsWith(basePattern) && name.endsWith(selectedFormat) 
+                                            }?.firstOrNull() ?: throw Exception("Downloaded file not found in cache")
                                             
                                             val cleanTitle = song.song.title.replace(Regex("[\\\\/:*?\"<>|]"), "_")
                                             val cleanArtist = song.artists.joinToString { it.name }.replace(Regex("[\\\\/:*?\"<>|]"), "_")
-                                            val mimeType = if (selectedFormat == "m4a") "audio/mp4" else "audio/webm"
+                                            val mimeType = when(selectedFormat) {
+                                                "mp3" -> "audio/mpeg"
+                                                "m4a" -> "audio/mp4"
+                                                "wav" -> "audio/x-wav"
+                                                "flac" -> "audio/flac"
+                                                else -> "audio/*"
+                                            }
                                             val fileName = "$cleanTitle - $cleanArtist.$selectedFormat"
                                             
                                             val contentValues = ContentValues().apply {
@@ -1370,34 +1245,24 @@ fun ExportAudioBottomSheet(
                                             val uri = resolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, contentValues)
                                             
                                             if (uri != null) {
-                                                val outputStream = resolver.openOutputStream(uri)
-                                                if (outputStream != null) {
-                                                    val buffer = ByteArray(8192)
-                                                    var bytesRead: Int
-                                                    var totalBytesRead = 0L
-                                                    while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                                                        outputStream.write(buffer, 0, bytesRead)
-                                                        totalBytesRead += bytesRead
-                                                        if (contentLength > 0) {
-                                                            progress = totalBytesRead.toFloat() / contentLength.toFloat()
-                                                        }
+                                                resolver.openOutputStream(uri)?.use { outputStream ->
+                                                    downloadedFile.inputStream().use { inputStream ->
+                                                        inputStream.copyTo(outputStream)
                                                     }
-                                                    outputStream.flush()
-                                                    outputStream.close()
                                                 }
                                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                                                     contentValues.clear()
                                                     contentValues.put(MediaStore.Audio.Media.IS_PENDING, 0)
                                                     resolver.update(uri, contentValues, null, null)
                                                 }
+                                                downloadedFile.delete()
                                                 state = ExportState.SUCCESS
                                             } else {
-                                                errorMessage = "Could not create file in MediaStore"
-                                                state = ExportState.ERROR
+                                                throw Exception("Could not create file in MediaStore")
                                             }
                                             
                                         } catch (e: Exception) {
-                                            errorMessage = e.message ?: "Network error"
+                                            errorMessage = e.message ?: "Local download failed"
                                             state = ExportState.ERROR
                                         }
                                     }
@@ -1418,7 +1283,7 @@ fun ExportAudioBottomSheet(
                             modifier = Modifier.fillMaxWidth().padding(32.dp)
                         ) {
                             CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                            Text("Connecting to YouTube...", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Initializing...", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                     ExportState.DOWNLOADING -> {
