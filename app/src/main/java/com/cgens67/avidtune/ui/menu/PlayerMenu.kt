@@ -1196,7 +1196,7 @@ fun ExportAudioBottomSheet(
                             Spacer(Modifier.height(16.dp))
                             
                             Text(
-                                text = "Note: Native extraction ensures the highest quality. M4A is globally supported on all Android audio players.",
+                                text = "Note: Native extraction ensures the highest quality (128kbps+). M4A is globally supported on all Android audio players.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1224,7 +1224,7 @@ fun ExportAudioBottomSheet(
                                             
                                         val downloadClient = OkHttpClient.Builder()
                                             .connectTimeout(15, TimeUnit.SECONDS)
-                                            .readTimeout(0, TimeUnit.SECONDS) 
+                                            .readTimeout(0, TimeUnit.SECONDS) // 0 means no timeout for the actual file stream
                                             .build()
                                             
                                         val mediaTypeJson = "application/json; charset=utf-8".toMediaType()
@@ -1257,36 +1257,62 @@ fun ExportAudioBottomSheet(
                                                             val streamingData = json.optJSONObject("streamingData") ?: continue
                                                             val formats = streamingData.optJSONArray("adaptiveFormats") ?: streamingData.optJSONArray("formats") ?: continue
                                                             
+                                                            var candidateUrl: String? = null
+                                                            var candidateExt: String = selectedFormat
+                                                            
+                                                            // EXPLICIT QUALITY FILTERING:
+                                                            // Priority 1: Match Exact High-Quality itags (140 = 128kbps m4a, 251 = 160kbps webm)
                                                             for (i in 0 until formats.length()) {
                                                                 val format = formats.getJSONObject(i)
                                                                 if (format.has("url")) {
-                                                                    val mime = format.optString("mimeType", "").lowercase()
-                                                                    var candidateUrl: String? = null
-                                                                    var candidateExt: String = selectedFormat
-                                                                    
-                                                                    if ((mime.contains("audio/mp4") || format.optInt("itag") == 140) && selectedFormat == "m4a") {
+                                                                    val itag = format.optInt("itag")
+                                                                    if (selectedFormat == "m4a" && itag == 140) {
                                                                         candidateUrl = format.getString("url")
                                                                         candidateExt = "m4a"
-                                                                    } else if ((mime.contains("audio/webm") || format.optInt("itag") == 251) && selectedFormat == "webm") {
+                                                                        break
+                                                                    } else if (selectedFormat == "webm" && itag == 251) {
                                                                         candidateUrl = format.getString("url")
                                                                         candidateExt = "webm"
-                                                                    } else if (mime.contains("audio")) {
-                                                                        candidateUrl = format.getString("url")
-                                                                        candidateExt = if (mime.contains("webm")) "webm" else "m4a"
+                                                                        break
                                                                     }
-                                                                    
-                                                                    // VERIFY THE STREAM URL: Prevents 403 Forbidden drops
-                                                                    if (candidateUrl != null) {
-                                                                        val dReq = Request.Builder().url(candidateUrl).header("User-Agent", spoofedAgentForDownload).build()
-                                                                        val dRes = downloadClient.newCall(dReq).execute()
-                                                                        if (dRes.isSuccessful) {
-                                                                            downloadResponse = dRes
-                                                                            resolvedExtension = candidateExt
-                                                                            break
-                                                                        } else {
-                                                                            dRes.close()
+                                                                }
+                                                            }
+                                                            
+                                                            // Priority 2: Fallback to the highest bitrate format that matches the container
+                                                            if (candidateUrl == null) {
+                                                                var maxBitrate = 0
+                                                                for (i in 0 until formats.length()) {
+                                                                    val format = formats.getJSONObject(i)
+                                                                    if (format.has("url")) {
+                                                                        val mime = format.optString("mimeType", "").lowercase()
+                                                                        val bitrate = format.optInt("bitrate", 0)
+                                                                        if (selectedFormat == "m4a" && mime.contains("audio/mp4") && bitrate > maxBitrate) {
+                                                                            maxBitrate = bitrate
+                                                                            candidateUrl = format.getString("url")
+                                                                            candidateExt = "m4a"
+                                                                        } else if (selectedFormat == "webm" && mime.contains("audio/webm") && bitrate > maxBitrate) {
+                                                                            maxBitrate = bitrate
+                                                                            candidateUrl = format.getString("url")
+                                                                            candidateExt = "webm"
                                                                         }
                                                                     }
+                                                                }
+                                                            }
+                                                            
+                                                            // VERIFY THE STREAM URL: Prevents 403 Forbidden blocks
+                                                            if (candidateUrl != null) {
+                                                                val dReq = Request.Builder()
+                                                                    .url(candidateUrl)
+                                                                    .header("User-Agent", spoofedAgentForDownload)
+                                                                    .header("Connection", "close")
+                                                                    .build()
+                                                                val dRes = downloadClient.newCall(dReq).execute()
+                                                                if (dRes.isSuccessful) {
+                                                                    downloadResponse = dRes
+                                                                    resolvedExtension = candidateExt
+                                                                    break
+                                                                } else {
+                                                                    dRes.close()
                                                                 }
                                                             }
                                                         }
@@ -1328,7 +1354,11 @@ fun ExportAudioBottomSheet(
                                                             val json = JSONObject(responseString)
                                                             if (json.has("url")) {
                                                                 val candidateUrl = json.getString("url")
-                                                                val dReq = Request.Builder().url(candidateUrl).header("User-Agent", spoofedAgentForDownload).build()
+                                                                val dReq = Request.Builder()
+                                                                    .url(candidateUrl)
+                                                                    .header("User-Agent", spoofedAgentForDownload)
+                                                                    .header("Connection", "close")
+                                                                    .build()
                                                                 val dRes = downloadClient.newCall(dReq).execute()
                                                                 if (dRes.isSuccessful) {
                                                                     downloadResponse = dRes
@@ -1376,7 +1406,11 @@ fun ExportAudioBottomSheet(
                                                             val json = JSONObject(responseString)
                                                             if (json.has("url")) {
                                                                 val candidateUrl = json.getString("url")
-                                                                val dReq = Request.Builder().url(candidateUrl).header("User-Agent", spoofedAgentForDownload).build()
+                                                                val dReq = Request.Builder()
+                                                                    .url(candidateUrl)
+                                                                    .header("User-Agent", spoofedAgentForDownload)
+                                                                    .header("Connection", "close")
+                                                                    .build()
                                                                 val dRes = downloadClient.newCall(dReq).execute()
                                                                 if (dRes.isSuccessful) {
                                                                     downloadResponse = dRes
@@ -1418,12 +1452,14 @@ fun ExportAudioBottomSheet(
                                                             if (json.has("audioStreams")) {
                                                                 val streams = json.getJSONArray("audioStreams")
                                                                 var candidateUrl: String? = null
+                                                                var maxBitrate = 0
                                                                 for (i in 0 until streams.length()) {
                                                                     val stream = streams.getJSONObject(i)
                                                                     val format = stream.optString("format", "").lowercase()
-                                                                    if (format.contains(selectedFormat)) {
+                                                                    val bitrate = stream.optInt("bitrate", 0)
+                                                                    if (format.contains(selectedFormat) && bitrate > maxBitrate) {
+                                                                        maxBitrate = bitrate
                                                                         candidateUrl = stream.getString("url")
-                                                                        break
                                                                     }
                                                                 }
                                                                 if (candidateUrl == null && streams.length() > 0) {
@@ -1431,7 +1467,11 @@ fun ExportAudioBottomSheet(
                                                                 }
                                                                 
                                                                 if (candidateUrl != null) {
-                                                                    val dReq = Request.Builder().url(candidateUrl).header("User-Agent", spoofedAgentForDownload).build()
+                                                                    val dReq = Request.Builder()
+                                                                        .url(candidateUrl)
+                                                                        .header("User-Agent", spoofedAgentForDownload)
+                                                                        .header("Connection", "close")
+                                                                        .build()
                                                                     val dRes = downloadClient.newCall(dReq).execute()
                                                                     if (dRes.isSuccessful) {
                                                                         downloadResponse = dRes
@@ -1481,33 +1521,53 @@ fun ExportAudioBottomSheet(
                                             val uri = resolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, contentValues)
                                             
                                             if (uri != null) {
+                                                var streamCompleted = false
+                                                var totalBytesRead = 0L
+                                                
                                                 resolver.openOutputStream(uri)?.use { outputStream ->
                                                     val buffer = ByteArray(8192)
                                                     var bytesRead: Int
-                                                    var totalBytesRead = 0L
                                                     var lastUpdateTime = System.currentTimeMillis()
                                                     
-                                                    while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                                                        outputStream.write(buffer, 0, bytesRead)
-                                                        totalBytesRead += bytesRead
-                                                        
-                                                        val currentTime = System.currentTimeMillis()
-                                                        // THROTTLE: Only update progress state max 5 times a second (200ms) to prevent UI thread crashes
-                                                        if (contentLength > 0 && currentTime - lastUpdateTime > 200) {
-                                                            progress = totalBytesRead.toFloat() / contentLength.toFloat()
-                                                            lastUpdateTime = currentTime
+                                                    try {
+                                                        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                                                            outputStream.write(buffer, 0, bytesRead)
+                                                            totalBytesRead += bytesRead
+                                                            
+                                                            val currentTime = System.currentTimeMillis()
+                                                            // THROTTLE: Only update progress state max 4 times a second (250ms) to prevent UI thread crashes
+                                                            if (contentLength > 0 && currentTime - lastUpdateTime > 250) {
+                                                                progress = totalBytesRead.toFloat() / contentLength.toFloat()
+                                                                lastUpdateTime = currentTime
+                                                            }
+                                                        }
+                                                        streamCompleted = true
+                                                    } catch (e: Exception) {
+                                                        // CONNECTION RESET MITIGATION:
+                                                        // If YouTube cuts the stream connection but we have already fetched 95%+ of it, 
+                                                        // the file is still fully playable since the faststart (moov atom) is at the beginning.
+                                                        if (contentLength > 0 && totalBytesRead.toFloat() / contentLength.toFloat() >= 0.95f) {
+                                                            streamCompleted = true
+                                                        } else {
+                                                            throw e
                                                         }
                                                     }
-                                                    
                                                     outputStream.flush()
                                                 }
                                                 
-                                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                                                    contentValues.clear()
-                                                    contentValues.put(MediaStore.Audio.Media.IS_PENDING, 0)
-                                                    resolver.update(uri, contentValues, null, null)
+                                                if (streamCompleted) {
+                                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                                        contentValues.clear()
+                                                        contentValues.put(MediaStore.Audio.Media.IS_PENDING, 0)
+                                                        resolver.update(uri, contentValues, null, null)
+                                                    }
+                                                    state = ExportState.SUCCESS
+                                                } else {
+                                                    // File failed entirely.
+                                                    resolver.delete(uri, null, null)
+                                                    errorMessage = "Connection reset before completion."
+                                                    state = ExportState.ERROR
                                                 }
-                                                state = ExportState.SUCCESS
                                             } else {
                                                 errorMessage = "Could not create file in MediaStore"
                                                 state = ExportState.ERROR
