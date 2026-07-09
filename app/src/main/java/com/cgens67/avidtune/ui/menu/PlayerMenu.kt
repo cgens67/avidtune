@@ -1215,67 +1215,88 @@ fun ExportAudioBottomSheet(
                                             var validStreamUrl: String? = null
                                             var resolvedExtension = selectedFormat
                                             val youtubeUrl = "https://www.youtube.com/watch?v=${song.song.id}"
+                                            val spoofedAgentForDownload = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
                                             
-                                            // 1. Setup Pure OkHttp to completely avoid Ktor exceptions.
                                             val okHttpClient = OkHttpClient.Builder()
-                                                .connectTimeout(10, TimeUnit.SECONDS)
-                                                .readTimeout(10, TimeUnit.SECONDS)
+                                                .connectTimeout(15, TimeUnit.SECONDS)
+                                                .readTimeout(15, TimeUnit.SECONDS)
                                                 .build()
                                                 
                                             val mediaTypeJson = "application/json; charset=utf-8".toMediaType()
+                                            var iterationError = "All extraction instances are currently unreachable."
 
-                                            // 2. Fetch Proxy Stream (Cobalt V11)
-                                            if (validStreamUrl == null) {
-                                                val cobaltV11Instances = listOf(
-                                                    "https://api.cobalt.tools",
-                                                    "https://api.cobalt.best",
-                                                    "https://cobalt.qewertyy.dev"
-                                                )
-                                                val payload = JSONObject().apply {
-                                                    put("url", youtubeUrl)
-                                                    put("downloadMode", "audio")
-                                                    put("audioFormat", if (selectedFormat == "m4a") "best" else "mp3")
-                                                }.toString().toRequestBody(mediaTypeJson)
-                                                
-                                                for (instance in cobaltV11Instances) {
-                                                    try {
-                                                        val req = Request.Builder().url(instance).post(payload)
-                                                            .header("Accept", "application/json")
-                                                            .header("Content-Type", "application/json")
-                                                            .build()
-                                                        
-                                                        // use { } ensures the response stream closes instantly preventing hanging threads
-                                                        okHttpClient.newCall(req).execute().use { response ->
-                                                            if (response.isSuccessful) {
-                                                                val json = JSONObject(response.body?.string() ?: "")
-                                                                if (json.has("url")) {
-                                                                    validStreamUrl = json.getString("url")
-                                                                    resolvedExtension = if (selectedFormat == "m4a") "m4a" else "mp3"
-                                                                }
+                                            // ----------------------------------------------------
+                                            // 1. Cobalt V11 Cluster with proper CORS Spoofing
+                                            // ----------------------------------------------------
+                                            val cobaltV11Payload = JSONObject().apply {
+                                                put("url", youtubeUrl)
+                                                put("downloadMode", "audio")
+                                                put("audioFormat", if (selectedFormat == "m4a") "best" else "mp3")
+                                            }.toString().toRequestBody(mediaTypeJson)
+
+                                            val cobaltV11Instances = listOf(
+                                                Pair("https://api.cobalt.tools", "https://cobalt.tools"),
+                                                Pair("https://api.cobalt.best", "https://cobalt.best"),
+                                                Pair("https://cobalt.qewertyy.dev", "https://cobalt.qewertyy.dev"),
+                                                Pair("https://api.cobalt.my.id", "https://cobalt.my.id"),
+                                                Pair("https://cobalt.c-net.org", "https://c-net.org")
+                                            )
+
+                                            for ((api, frontend) in cobaltV11Instances) {
+                                                if (!isActive) break
+                                                try {
+                                                    val req = Request.Builder().url(api).post(cobaltV11Payload)
+                                                        .header("Accept", "application/json")
+                                                        .header("Content-Type", "application/json")
+                                                        .header("Origin", frontend)
+                                                        .header("Referer", "$frontend/")
+                                                        .header("User-Agent", spoofedAgentForDownload)
+                                                        .build()
+                                                    
+                                                    okHttpClient.newCall(req).execute().use { response ->
+                                                        val bodyStr = response.body?.string() ?: ""
+                                                        if (response.isSuccessful) {
+                                                            val json = JSONObject(bodyStr)
+                                                            if (json.has("url")) {
+                                                                validStreamUrl = json.getString("url")
+                                                                resolvedExtension = if (selectedFormat == "m4a") "m4a" else "mp3"
+                                                            } else if (json.optString("status") == "error") {
+                                                                iterationError = "Cobalt: ${json.optString("text")}"
                                                             }
+                                                        } else {
+                                                            iterationError = "HTTP ${response.code} from ${api.substringAfter("://")}"
                                                         }
-                                                    } catch (e: Throwable) { /* Move to next instance without crashing */ }
-                                                    if (validStreamUrl != null) break
+                                                    }
+                                                } catch (e: Throwable) {
+                                                    iterationError = "Network error: ${e.message}"
                                                 }
+                                                if (validStreamUrl != null) break
                                             }
 
-                                            // 3. Fallback: Fetch Proxy Stream (Cobalt V7)
+                                            // ----------------------------------------------------
+                                            // 2. Cobalt V7 Cluster Fallback
+                                            // ----------------------------------------------------
                                             if (validStreamUrl == null) {
-                                                val cobaltV7Instances = listOf(
-                                                    "https://co.wuk.sh/api/json",
-                                                    "https://api.cnvmp3.com/api/json"
-                                                )
-                                                val payload = JSONObject().apply {
+                                                val cobaltV7Payload = JSONObject().apply {
                                                     put("url", youtubeUrl)
                                                     put("isAudioOnly", true)
                                                     put("aFormat", if (selectedFormat == "m4a") "m4a" else "mp3")
                                                 }.toString().toRequestBody(mediaTypeJson)
-                                                
-                                                for (instance in cobaltV7Instances) {
+
+                                                val cobaltV7Instances = listOf(
+                                                    Pair("https://api.cnvmp3.com/api/json", "https://cnvmp3.com"),
+                                                    Pair("https://cobalt.api.timelessnesses.me/api/json", "https://cobalt.timelessnesses.me")
+                                                )
+
+                                                for ((api, frontend) in cobaltV7Instances) {
+                                                    if (!isActive) break
                                                     try {
-                                                        val req = Request.Builder().url(instance).post(payload)
+                                                        val req = Request.Builder().url(api).post(cobaltV7Payload)
                                                             .header("Accept", "application/json")
                                                             .header("Content-Type", "application/json")
+                                                            .header("Origin", frontend)
+                                                            .header("Referer", "$frontend/")
+                                                            .header("User-Agent", spoofedAgentForDownload)
                                                             .build()
                                                             
                                                         okHttpClient.newCall(req).execute().use { response ->
@@ -1287,21 +1308,27 @@ fun ExportAudioBottomSheet(
                                                                 }
                                                             }
                                                         }
-                                                    } catch (e: Throwable) { /* ignore */ }
+                                                    } catch (e: Throwable) { /* ignore fallback errors */ }
                                                     if (validStreamUrl != null) break
                                                 }
                                             }
                                             
-                                            // 4. Fallback: Piped Proxy (Provides Direct Stream without Cloudflare)
+                                            // ----------------------------------------------------
+                                            // 3. Piped Proxy Fallback
+                                            // ----------------------------------------------------
                                             if (validStreamUrl == null) {
                                                 val pipedInstances = listOf(
                                                     "https://pipedapi.kavin.rocks",
-                                                    "https://pipedapi.tokhmi.xyz",
-                                                    "https://api.piped.privacydev.net"
+                                                    "https://api.piped.privacydev.net",
+                                                    "https://piped-api.lunar.icu"
                                                 )
                                                 for (instance in pipedInstances) {
+                                                    if (!isActive) break
                                                     try {
-                                                        val req = Request.Builder().url("$instance/streams/${song.song.id}").get().build()
+                                                        val req = Request.Builder().url("$instance/streams/${song.song.id}")
+                                                            .header("User-Agent", spoofedAgentForDownload)
+                                                            .build()
+                                                            
                                                         okHttpClient.newCall(req).execute().use { response ->
                                                             if (response.isSuccessful) {
                                                                 val json = JSONObject(response.body?.string() ?: "")
@@ -1322,29 +1349,34 @@ fun ExportAudioBottomSheet(
                                                                 }
                                                             }
                                                         }
-                                                    } catch (e: Throwable) { /* ignore */ }
+                                                    } catch (e: Throwable) { /* ignore fallback errors */ }
                                                     if (validStreamUrl != null) break
                                                 }
                                             }
 
-                                            // Validation Check
+                                            // Final Validation Check
                                             if (validStreamUrl == null) {
-                                                errorMessage = "Export failed: All extraction instances are currently unreachable."
+                                                errorMessage = "Export failed: $iterationError"
                                                 state = ExportState.ERROR
                                                 return@launch
                                             }
                                             
                                             state = ExportState.DOWNLOADING
                                             
-                                            // 5. Download the file using a resilient OkHttp client (60s read timeout avoids aborted connections)
+                                            // ----------------------------------------------------
+                                            // 4. Ultra-Resilient Download Phase
+                                            // ----------------------------------------------------
                                             val downloadClient = OkHttpClient.Builder()
                                                 .connectTimeout(30, TimeUnit.SECONDS)
-                                                .readTimeout(60, TimeUnit.SECONDS)
+                                                .readTimeout(120, TimeUnit.SECONDS) // Greatly increased to stop connection aborts on slow networks
                                                 .build()
                                                 
-                                            val downloadReq = Request.Builder().url(validStreamUrl!!).build()
+                                            val downloadReq = Request.Builder()
+                                                .url(validStreamUrl!!)
+                                                .header("User-Agent", spoofedAgentForDownload)
+                                                .header("Connection", "keep-alive")
+                                                .build()
                                             
-                                            // The `.use` block ensures the network socket is properly closed even if cancelled.
                                             downloadClient.newCall(downloadReq).execute().use { downloadRes ->
                                                 if (!downloadRes.isSuccessful) {
                                                     errorMessage = "Download stream restricted (Code: ${downloadRes.code})"
@@ -1374,12 +1406,10 @@ fun ExportAudioBottomSheet(
                                                     ?: throw Exception("Could not create file in MediaStore")
                                                 uri = currentUri
                                                 
-                                                // `.use` prevents memory leaks in local file handling which cause background crashes
                                                 resolver.openOutputStream(currentUri)?.use { outputStream ->
                                                     val buffer = ByteArray(8192)
                                                     var bytesRead: Int
                                                     var totalBytesRead = 0L
-                                                    // isActive continuously checks if the coroutine (UI sheet) hasn't been destroyed
                                                     while (isActive) {
                                                         bytesRead = inputStream.read(buffer)
                                                         if (bytesRead == -1) break
@@ -1399,17 +1429,14 @@ fun ExportAudioBottomSheet(
                                                     }
                                                     state = ExportState.SUCCESS
                                                 } else {
-                                                    // Triggers deletion if cancelled during while-loop to prevent broken tracks
                                                     throw CancellationException("Download cancelled by user")
                                                 }
                                             }
                                             
                                         } catch (e: CancellationException) {
-                                            // Handle intentional coroutine cancellation gracefully
                                             uri?.let { resolver.delete(it, null, null) }
                                             throw e
                                         } catch (e: Throwable) {
-                                            // Safely catch any other exception (network drops, missing files, out of memory, etc)
                                             uri?.let { resolver.delete(it, null, null) }
                                             errorMessage = e.message ?: "Unknown Error"
                                             state = ExportState.ERROR
