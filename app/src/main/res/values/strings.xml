@@ -1110,4 +1110,22 @@
     <string name="episodes">Episodes</string>
     <string name="other">Other</string>
     
+    <!-- Export Sheet Strings -->
+    <string name="export_to_device">Export to Device</string>
+    <string name="download_as_audio_file">Download as audio file</string>
+    <string name="format">Format</string>
+    <string name="api_source">API Source</string>
+    <string name="export_note_mp3">Note: MP3 format utilizes backend transcoders to embed rich metadata (Album Cover, Title, Artist) inside the track. Native extraction (M4A/Opus) secures the original stream.</string>
+    <string name="securing_stream">Securing stream…</string>
+    <string name="working">Working…</string>
+    <string name="downloaded_size">Downloaded: %1$s</string>
+    <string name="fetched_by">Fetched by %1$s</string>
+    <string name="success_saved">Successfully saved to Music folder!</string>
+    <string name="size_format">Size: %1$s</string>
+    <string name="done">Done</string>
+    <string name="export_failed">Export Failed</string>
+    <string name="quality_unavailable">Quality Unavailable</string>
+    <string name="quality_unavailable_desc">Your preferred quality is not available. Available formats:</string>
+    <string name="source_format">Source: %1$s</string>
+    
 </resources>
