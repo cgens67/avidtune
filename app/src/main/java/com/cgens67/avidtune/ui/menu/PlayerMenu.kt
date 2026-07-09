@@ -35,7 +35,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -46,7 +45,10 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -56,6 +58,7 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -1122,8 +1125,14 @@ fun ExportAudioBottomSheet(
     var state by remember { mutableStateOf(ExportState.IDLE) }
     var progress by remember { mutableFloatStateOf(0f) }
     var errorMessage by remember { mutableStateOf("") }
+    
     var selectedFormat by remember { mutableStateOf("m4a") }
+    var formatExpanded by remember { mutableStateOf(false) }
+    
     var selectedQuality by remember { mutableStateOf("Default") }
+    var qualityExpanded by remember { mutableStateOf(false) }
+    val qualityOptions = listOf("Default", "Highest", "320 kbps", "256 kbps", "128 kbps", "48 kbps", "Lowest")
+    
     var availableStreams by remember { mutableStateOf<List<StreamInfo>>(emptyList()) }
     
     val spoofedAgentForDownload = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
@@ -1293,38 +1302,71 @@ fun ExportAudioBottomSheet(
                 when (currentState) {
                     ExportState.IDLE -> {
                         Column(modifier = Modifier.fillMaxWidth()) {
-                            Text(
-                                text = "Container Format",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                listOf("m4a", "webm").forEach { format ->
-                                    FilterChip(
-                                        selected = selectedFormat == format,
-                                        onClick = { selectedFormat = format },
-                                        label = { Text(format.uppercase()) }
+                            
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                // Format Dropdown
+                                ExposedDropdownMenuBox(
+                                    expanded = formatExpanded,
+                                    onExpandedChange = { formatExpanded = !formatExpanded },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    OutlinedTextField(
+                                        value = selectedFormat.uppercase(),
+                                        onValueChange = {},
+                                        readOnly = true,
+                                        label = { Text("Format") },
+                                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = formatExpanded) },
+                                        modifier = Modifier.menuAnchor().fillMaxWidth(),
+                                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
                                     )
+                                    ExposedDropdownMenu(
+                                        expanded = formatExpanded,
+                                        onDismissRequest = { formatExpanded = false }
+                                    ) {
+                                        listOf("m4a", "webm").forEach { format ->
+                                            DropdownMenuItem(
+                                                text = { Text(format.uppercase()) },
+                                                onClick = {
+                                                    selectedFormat = format
+                                                    formatExpanded = false
+                                                }
+                                            )
+                                        }
+                                    }
                                 }
-                            }
-                            
-                            Spacer(Modifier.height(24.dp))
-                            
-                            Text(
-                                text = "Preferred Quality",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                val qualityOptions = listOf("Default", "Highest", "320 kbps", "256 kbps", "128 kbps", "48 kbps", "Lowest")
-                                items(qualityOptions) { q ->
-                                    FilterChip(
-                                        selected = selectedQuality == q,
-                                        onClick = { selectedQuality = q },
-                                        label = { Text(q) }
+
+                                // Quality Dropdown
+                                ExposedDropdownMenuBox(
+                                    expanded = qualityExpanded,
+                                    onExpandedChange = { qualityExpanded = !qualityExpanded },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    OutlinedTextField(
+                                        value = selectedQuality,
+                                        onValueChange = {},
+                                        readOnly = true,
+                                        label = { Text("Quality") },
+                                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = qualityExpanded) },
+                                        modifier = Modifier.menuAnchor().fillMaxWidth(),
+                                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
                                     )
+                                    ExposedDropdownMenu(
+                                        expanded = qualityExpanded,
+                                        onDismissRequest = { qualityExpanded = false }
+                                    ) {
+                                        qualityOptions.forEach { q ->
+                                            DropdownMenuItem(
+                                                text = { Text(q) },
+                                                onClick = {
+                                                    selectedQuality = q
+                                                    qualityExpanded = false
+                                                }
+                                            )
+                                        }
+                                    }
                                 }
                             }
                             
@@ -1409,7 +1451,51 @@ fun ExportAudioBottomSheet(
                                             }
 
                                             // ----------------------------------------------------
-                                            // 2. Fallback: Piped API Cluster
+                                            // 2. Fallback: Cobalt V11 Cluster (Including Direct ones)
+                                            // ----------------------------------------------------
+                                            if (fetchedStreams.isEmpty()) {
+                                                val payloadV11 = JSONObject().apply {
+                                                    put("url", youtubeUrl)
+                                                    put("downloadMode", "audio")
+                                                    put("audioFormat", if (selectedFormat == "m4a") "best" else "opus")
+                                                    put("filenameStyle", "basic")
+                                                }.toString()
+                                                
+                                                val cobaltV11Instances = listOf(
+                                                    "https://api.cobalt.tools/",
+                                                    "https://cobalt.canine.tools/",
+                                                    "https://cobalt.clxxped.lol/",
+                                                    "https://cobalt.meowing.de/",
+                                                    "https://api.cobalt.best/",
+                                                    "https://cobalt.qewertyy.dev/"
+                                                )
+                                                
+                                                for (instance in cobaltV11Instances) {
+                                                    try {
+                                                        val body = payloadV11.toRequestBody(mediaTypeJson)
+                                                        val req = Request.Builder()
+                                                            .url(instance)
+                                                            .post(body)
+                                                            .header("Accept", "application/json")
+                                                            .header("Content-Type", "application/json")
+                                                            .header("User-Agent", spoofedAgentForDownload)
+                                                            .build()
+                                                        val response = fetchClient.newCall(req).execute()
+                                                        if (response.isSuccessful) {
+                                                            val responseString = response.body?.string() ?: ""
+                                                            val json = JSONObject(responseString)
+                                                            if (json.has("url")) {
+                                                                val extractedUrl = json.getString("url")
+                                                                fetchedStreams.add(StreamInfo(extractedUrl, selectedFormat, 128, 0))
+                                                                break
+                                                            }
+                                                        }
+                                                    } catch (e: Exception) { /* Silently fallback */ }
+                                                }
+                                            }
+
+                                            // ----------------------------------------------------
+                                            // 3. Fallback: Piped API Cluster
                                             // ----------------------------------------------------
                                             if (fetchedStreams.isEmpty()) {
                                                 val pipedInstances = listOf(
