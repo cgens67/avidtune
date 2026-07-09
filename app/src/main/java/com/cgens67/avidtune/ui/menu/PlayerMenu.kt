@@ -760,8 +760,8 @@ fun ColumnScope.PlayerMenu(
                         }
                     },
                     MenuItemData(
-                        title = { Text(text = "Export to Device") },
-                        description = { Text(text = "Download as audio file") },
+                        title = { Text(text = stringResource(R.string.export_to_device)) },
+                        description = { Text(text = stringResource(R.string.download_as_audio_file)) },
                         icon = {
                             Icon(
                                 painter = painterResource(R.drawable.download),
@@ -1290,7 +1290,7 @@ fun ExportAudioBottomSheet(
         ) {
             // Header
             Text(
-                text = "Export to Device",
+                text = stringResource(R.string.export_to_device),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
@@ -1358,7 +1358,7 @@ fun ExportAudioBottomSheet(
                                         value = selectedFormat.uppercase(),
                                         onValueChange = {},
                                         readOnly = true,
-                                        label = { Text("Format") },
+                                        label = { Text(stringResource(R.string.format)) },
                                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = formatExpanded) },
                                         modifier = Modifier.menuAnchor().fillMaxWidth(),
                                         colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
@@ -1389,7 +1389,7 @@ fun ExportAudioBottomSheet(
                                         value = selectedQuality,
                                         onValueChange = {},
                                         readOnly = true,
-                                        label = { Text("Quality") },
+                                        label = { Text(stringResource(R.string.audio_quality)) },
                                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = qualityExpanded) },
                                         modifier = Modifier.menuAnchor().fillMaxWidth(),
                                         colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
@@ -1423,7 +1423,7 @@ fun ExportAudioBottomSheet(
                                     value = selectedSource,
                                     onValueChange = {},
                                     readOnly = true,
-                                    label = { Text("API Source") },
+                                    label = { Text(stringResource(R.string.api_source)) },
                                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = sourceExpanded) },
                                     modifier = Modifier.menuAnchor().fillMaxWidth(),
                                     colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
@@ -1447,7 +1447,7 @@ fun ExportAudioBottomSheet(
                             Spacer(Modifier.height(16.dp))
                             
                             Text(
-                                text = "Note: MP3 format utilizes Cobalt API backend transcoder to automatically embed rich metadata (Album Cover, Title, Artist, Year) inside the downloaded track.",
+                                text = stringResource(R.string.export_note_mp3),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1468,16 +1468,74 @@ fun ExportAudioBottomSheet(
                                             
                                         val mediaTypeJson = "application/json; charset=utf-8".toMediaType()
                                         
-                                        // If MP3 is selected, InnerTube and Piped cannot be used because they don't serve MP3 dynamically
-                                        val tryInnerTube = (selectedSource == "Auto" || selectedSource == "Google InnerTube") && selectedFormat != "mp3"
-                                        val tryPiped = (selectedSource == "Auto" || selectedSource == "Piped API") && selectedFormat != "mp3"
+                                        // Priority 1: Cobalt
                                         val tryCobalt = (selectedSource == "Auto" || selectedSource == "Cobalt API" || selectedFormat == "mp3")
+                                        // Priority 2: InnerTube
+                                        val tryInnerTube = (selectedSource == "Auto" || selectedSource == "Google InnerTube") && selectedFormat != "mp3"
+                                        // Priority 3: Piped
+                                        val tryPiped = (selectedSource == "Auto" || selectedSource == "Piped API") && selectedFormat != "mp3"
 
                                         try {
                                             // ----------------------------------------------------
-                                            // 1. Primary: Direct Google InnerTube Extraction
+                                            // 1. Primary: Cobalt API Cluster 
                                             // ----------------------------------------------------
-                                            if (tryInnerTube) {
+                                            if (tryCobalt) {
+                                                val bitrateStr = when (selectedQuality) {
+                                                    "Highest", "320 kbps" -> "320"
+                                                    "256 kbps" -> "256"
+                                                    "128 kbps", "Default" -> "128"
+                                                    "Lowest", "64 kbps", "48 kbps" -> "64"
+                                                    else -> "128"
+                                                }
+                                                
+                                                val payloadV11 = JSONObject().apply {
+                                                    put("url", youtubeUrl)
+                                                    put("downloadMode", "audio")
+                                                    put("audioFormat", if (selectedFormat == "opus") "opus" else if (selectedFormat == "mp3") "mp3" else "best")
+                                                    put("audioBitrate", bitrateStr)
+                                                    put("filenameStyle", "basic")
+                                                    put("disableMetadata", false) // Embedded ID3 tags (Title, Artist, Album Cover, Year)
+                                                }.toString()
+                                                
+                                                val cobaltV11Instances = listOf(
+                                                    Pair("https://rue-cobalt.xenon.zone/", "https://cobalt.xenon.zone"),
+                                                    Pair("https://cobaltapi.kittycat.boo/", "https://cobalt.kittycat.boo"),
+                                                    Pair("https://dog.kittycat.boo/", "https://cobalt.kittycat.boo"),
+                                                    Pair("https://api.cobalt.liubquanti.click/", "https://cobalt.liubquanti.click"),
+                                                    Pair("https://cobaltapi.cjs.nz/", "https://cobalt.cjs.nz")
+                                                )
+                                                
+                                                for ((apiUrl, frontendUrl) in cobaltV11Instances) {
+                                                    try {
+                                                        val body = payloadV11.toRequestBody(mediaTypeJson)
+                                                        val req = Request.Builder()
+                                                            .url(apiUrl)
+                                                            .post(body)
+                                                            .header("Accept", "application/json")
+                                                            .header("Content-Type", "application/json")
+                                                            .header("Origin", frontendUrl)
+                                                            .header("Referer", "$frontendUrl/")
+                                                            .header("User-Agent", spoofedAgentForDownload)
+                                                            .build()
+                                                        val response = fetchClient.newCall(req).execute()
+                                                        if (response.isSuccessful) {
+                                                            val responseString = response.body?.string() ?: ""
+                                                            val json = JSONObject(responseString)
+                                                            if (json.has("url")) {
+                                                                val extractedUrl = json.getString("url")
+                                                                val sourceName = "Cobalt API (${frontendUrl.removePrefix("https://")})"
+                                                                fetchedStreams.add(StreamInfo(extractedUrl, selectedFormat, bitrateStr.toInt(), 0, sourceName, frontendUrl = frontendUrl))
+                                                                break
+                                                            }
+                                                        }
+                                                    } catch (e: Exception) { /* Silently fallback */ }
+                                                }
+                                            }
+
+                                            // ----------------------------------------------------
+                                            // 2. Fallback: Direct Google InnerTube Extraction
+                                            // ----------------------------------------------------
+                                            if (tryInnerTube && fetchedStreams.isEmpty()) {
                                                 val innerTubeClients = listOf(
                                                     """{"context":{"client":{"clientName":"TVHTML5_SIMPLY_EMBEDDED_PLAYER","clientVersion":"2.0","clientScreen":"WATCH","hl":"en"},"thirdParty":{"embedUrl":"https://www.youtube.com/"}},"playbackContext":{"contentPlaybackContext":{"signatureTimestamp":19000}},"videoId":"${song.song.id}"}""",
                                                     """{"context":{"client":{"clientName":"ANDROID_VR","clientVersion":"1.56.27","hl":"en"}},"videoId":"${song.song.id}"}""",
@@ -1529,62 +1587,6 @@ fun ExportAudioBottomSheet(
                                                     } catch (e: Exception) { /* Silently fallback */ }
                                                     
                                                     if (fetchedStreams.isNotEmpty()) break
-                                                }
-                                            }
-
-                                            // ----------------------------------------------------
-                                            // 2. Fallback: Cobalt V11 Cluster 
-                                            // ----------------------------------------------------
-                                            if (tryCobalt && fetchedStreams.isEmpty()) {
-                                                val bitrateStr = when (selectedQuality) {
-                                                    "Highest", "320 kbps" -> "320"
-                                                    "256 kbps" -> "256"
-                                                    "128 kbps", "Default" -> "128"
-                                                    "Lowest", "64 kbps", "48 kbps" -> "64"
-                                                    else -> "128"
-                                                }
-                                                
-                                                val payloadV11 = JSONObject().apply {
-                                                    put("url", youtubeUrl)
-                                                    put("downloadMode", "audio")
-                                                    put("audioFormat", if (selectedFormat == "opus") "opus" else if (selectedFormat == "mp3") "mp3" else "best")
-                                                    put("audioBitrate", bitrateStr)
-                                                    put("filenameStyle", "basic")
-                                                    put("disableMetadata", false) // Embedded ID3 tags (Title, Artist, Album Cover, Year)
-                                                }.toString()
-                                                
-                                                val cobaltV11Instances = listOf(
-                                                    Pair("https://rue-cobalt.xenon.zone/", "https://cobalt.xenon.zone"),
-                                                    Pair("https://cobaltapi.kittycat.boo/", "https://cobalt.kittycat.boo"),
-                                                    Pair("https://dog.kittycat.boo/", "https://cobalt.kittycat.boo"),
-                                                    Pair("https://api.cobalt.liubquanti.click/", "https://cobalt.liubquanti.click"),
-                                                    Pair("https://cobaltapi.cjs.nz/", "https://cobalt.cjs.nz")
-                                                )
-                                                
-                                                for ((apiUrl, frontendUrl) in cobaltV11Instances) {
-                                                    try {
-                                                        val body = payloadV11.toRequestBody(mediaTypeJson)
-                                                        val req = Request.Builder()
-                                                            .url(apiUrl)
-                                                            .post(body)
-                                                            .header("Accept", "application/json")
-                                                            .header("Content-Type", "application/json")
-                                                            .header("Origin", frontendUrl)
-                                                            .header("Referer", "$frontendUrl/")
-                                                            .header("User-Agent", spoofedAgentForDownload)
-                                                            .build()
-                                                        val response = fetchClient.newCall(req).execute()
-                                                        if (response.isSuccessful) {
-                                                            val responseString = response.body?.string() ?: ""
-                                                            val json = JSONObject(responseString)
-                                                            if (json.has("url")) {
-                                                                val extractedUrl = json.getString("url")
-                                                                val sourceName = "Cobalt API (${frontendUrl.removePrefix("https://")})"
-                                                                fetchedStreams.add(StreamInfo(extractedUrl, selectedFormat, bitrateStr.toInt(), 0, sourceName, frontendUrl = frontendUrl))
-                                                                break
-                                                            }
-                                                        }
-                                                    } catch (e: Exception) { /* Silently fallback */ }
                                                 }
                                             }
 
@@ -1728,7 +1730,7 @@ fun ExportAudioBottomSheet(
                             ) {
                                 Icon(painterResource(R.drawable.download), contentDescription = null)
                                 Spacer(Modifier.width(8.dp))
-                                Text("Export", fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.export), fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -1745,13 +1747,13 @@ fun ExportAudioBottomSheet(
                             )
                             Spacer(Modifier.height(16.dp))
                             Text(
-                                "Quality Unavailable", 
+                                stringResource(R.string.quality_unavailable), 
                                 style = MaterialTheme.typography.titleMedium, 
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(Modifier.height(8.dp))
                             Text(
-                                "Your preferred quality is not available for this track. We only found the following original formats:",
+                                stringResource(R.string.quality_unavailable_desc),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center
@@ -1784,7 +1786,7 @@ fun ExportAudioBottomSheet(
                                                 horizontalArrangement = Arrangement.SpaceBetween
                                             ) {
                                                 Text(
-                                                    "Source: ${stream.source}", 
+                                                    stringResource(R.string.source_format, stream.source), 
                                                     style = MaterialTheme.typography.bodySmall, 
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
@@ -1801,7 +1803,7 @@ fun ExportAudioBottomSheet(
                             
                             Spacer(Modifier.height(16.dp))
                             OutlinedButton(onClick = { state = ExportState.IDLE }, modifier = Modifier.fillMaxWidth()) {
-                                Text("Cancel")
+                                Text(stringResource(android.R.string.cancel))
                             }
                         }
                     }
@@ -1812,7 +1814,11 @@ fun ExportAudioBottomSheet(
                             modifier = Modifier.fillMaxWidth().padding(32.dp)
                         ) {
                             CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                            Text("Securing valid unencrypted stream...", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                stringResource(R.string.securing_stream),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
                         }
                     }
                     ExportState.DOWNLOADING -> {
@@ -1822,7 +1828,7 @@ fun ExportAudioBottomSheet(
                             modifier = Modifier.fillMaxWidth().padding(32.dp)
                         ) {
                             Text(
-                                "Downloading...", 
+                                stringResource(R.string.downloading), 
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
@@ -1844,24 +1850,31 @@ fun ExportAudioBottomSheet(
                             
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    "Fetched by $currentSource", 
+                                    stringResource(R.string.fetched_by, currentSource), 
                                     fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                                 if (currentTotalSize > 0) {
                                     Text(
                                         "${(progress * 100).toInt()}%",
                                         color = MaterialTheme.colorScheme.primary,
-                                        fontWeight = FontWeight.Bold
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(start = 8.dp)
                                     )
                                 } else {
                                     Text(
-                                        "Working...",
+                                        stringResource(R.string.working),
                                         color = MaterialTheme.colorScheme.primary,
-                                        fontWeight = FontWeight.Bold
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(start = 8.dp),
+                                        maxLines = 1
                                     )
                                 }
                             }
@@ -1875,7 +1888,7 @@ fun ExportAudioBottomSheet(
                                 )
                             } else {
                                 Text(
-                                    "Downloaded: ${formatBytes(downloadedBytes)}",
+                                    stringResource(R.string.downloaded_size, formatBytes(downloadedBytes)),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1902,19 +1915,19 @@ fun ExportAudioBottomSheet(
                                 )
                             }
                             Text(
-                                "Successfully saved to Music folder!",
+                                stringResource(R.string.success_saved),
                                 style = MaterialTheme.typography.titleMedium,
                                 textAlign = TextAlign.Center
                             )
                             if (currentTotalSize > 0) {
                                 Text(
-                                    "Size: ${formatBytes(currentTotalSize)}",
+                                    stringResource(R.string.size_format, formatBytes(currentTotalSize)),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                             Text(
-                                "Fetched by $currentSource",
+                                stringResource(R.string.fetched_by, currentSource),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center
@@ -1924,7 +1937,7 @@ fun ExportAudioBottomSheet(
                                 onClick = onDismiss,
                                 modifier = Modifier.fillMaxWidth().height(50.dp)
                             ) {
-                                Text("Done")
+                                Text(stringResource(R.string.done))
                             }
                         }
                     }
@@ -1948,7 +1961,7 @@ fun ExportAudioBottomSheet(
                                 )
                             }
                             Text(
-                                "Export Failed",
+                                stringResource(R.string.export_failed),
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.error
                             )
@@ -1961,13 +1974,13 @@ fun ExportAudioBottomSheet(
                             Spacer(Modifier.height(16.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f)) {
-                                    Text("Cancel")
+                                    Text(stringResource(android.R.string.cancel))
                                 }
                                 Button(
                                     onClick = { state = ExportState.IDLE },
                                     modifier = Modifier.weight(1f)
                                 ) {
-                                    Text("Retry")
+                                    Text(stringResource(R.string.retry))
                                 }
                             }
                         }
