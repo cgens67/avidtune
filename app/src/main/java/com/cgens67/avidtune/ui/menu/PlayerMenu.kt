@@ -1130,6 +1130,18 @@ fun ExportAudioBottomSheet(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    val dismissWithAnimation = {
+        coroutineScope.launch {
+            sheetState.hide()
+        }.invokeOnCompletion {
+            if (!sheetState.isVisible) {
+                onDismiss()
+            }
+        }
+    }
+    
     var state by remember { mutableStateOf(ExportState.IDLE) }
     var progress by remember { mutableFloatStateOf(0f) }
     var downloadedBytes by remember { mutableLongStateOf(0L) }
@@ -1280,7 +1292,14 @@ fun ExportAudioBottomSheet(
         }
     }
 
-    ModalBottomSheet(onDismissRequest = { if (state != ExportState.FETCHING && state != ExportState.DOWNLOADING) onDismiss() }) {
+    ModalBottomSheet(
+        onDismissRequest = { 
+            if (state != ExportState.FETCHING && state != ExportState.DOWNLOADING) {
+                onDismiss()
+            } 
+        },
+        sheetState = sheetState
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1802,8 +1821,16 @@ fun ExportAudioBottomSheet(
                             }
                             
                             Spacer(Modifier.height(16.dp))
-                            OutlinedButton(onClick = { state = ExportState.IDLE }, modifier = Modifier.fillMaxWidth()) {
-                                Text(stringResource(android.R.string.cancel))
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                OutlinedButton(onClick = { dismissWithAnimation() }, modifier = Modifier.weight(1f)) {
+                                    Text(stringResource(android.R.string.cancel))
+                                }
+                                Button(
+                                    onClick = { state = ExportState.IDLE },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(stringResource(R.string.retry))
+                                }
                             }
                         }
                     }
@@ -1934,7 +1961,7 @@ fun ExportAudioBottomSheet(
                             )
                             Spacer(Modifier.height(16.dp))
                             Button(
-                                onClick = onDismiss,
+                                onClick = { dismissWithAnimation() },
                                 modifier = Modifier.fillMaxWidth().height(50.dp)
                             ) {
                                 Text(stringResource(R.string.done))
@@ -1973,7 +2000,7 @@ fun ExportAudioBottomSheet(
                             )
                             Spacer(Modifier.height(16.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f)) {
+                                OutlinedButton(onClick = { dismissWithAnimation() }, modifier = Modifier.weight(1f)) {
                                     Text(stringResource(android.R.string.cancel))
                                 }
                                 Button(
