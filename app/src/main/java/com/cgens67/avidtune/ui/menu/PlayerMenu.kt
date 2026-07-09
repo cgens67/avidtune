@@ -1370,11 +1370,12 @@ fun ExportAudioBottomSheet(
                                                     }
                                                 }
                                                 
-                                                uri = resolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, contentValues)
-                                                if (uri == null) throw Exception("Could not create file in MediaStore")
+                                                val currentUri = resolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, contentValues)
+                                                    ?: throw Exception("Could not create file in MediaStore")
+                                                uri = currentUri
                                                 
                                                 // `.use` prevents memory leaks in local file handling which cause background crashes
-                                                resolver.openOutputStream(uri!!)?.use { outputStream ->
+                                                resolver.openOutputStream(currentUri)?.use { outputStream ->
                                                     val buffer = ByteArray(8192)
                                                     var bytesRead: Int
                                                     var totalBytesRead = 0L
@@ -1394,7 +1395,7 @@ fun ExportAudioBottomSheet(
                                                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                                                         contentValues.clear()
                                                         contentValues.put(MediaStore.Audio.Media.IS_PENDING, 0)
-                                                        resolver.update(uri!!, contentValues, null, null)
+                                                        resolver.update(currentUri, contentValues, null, null)
                                                     }
                                                     state = ExportState.SUCCESS
                                                 } else {
@@ -1405,11 +1406,11 @@ fun ExportAudioBottomSheet(
                                             
                                         } catch (e: CancellationException) {
                                             // Handle intentional coroutine cancellation gracefully
-                                            if (uri != null) resolver.delete(uri, null, null)
+                                            uri?.let { resolver.delete(it, null, null) }
                                             throw e
                                         } catch (e: Throwable) {
                                             // Safely catch any other exception (network drops, missing files, out of memory, etc)
-                                            if (uri != null) resolver.delete(uri, null, null)
+                                            uri?.let { resolver.delete(it, null, null) }
                                             errorMessage = e.message ?: "Unknown Error"
                                             state = ExportState.ERROR
                                         }
