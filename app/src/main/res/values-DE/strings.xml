@@ -1101,6 +1101,23 @@
     <string name="videos">Videos</string>
     <string name="episodes">Episoden</string>
     <string name="other">Andere</string>
-
+    
+    <!-- Export Sheet Strings -->
+    <string name="export_to_device">Auf Gerät exportieren</string>
+    <string name="download_as_audio_file">Als Audiodatei herunterladen</string>
+    <string name="format">Format</string>
+    <string name="api_source">API-Quelle</string>
+    <string name="export_note_mp3">Hinweis: Das MP3-Format nutzt Backend-Transcoder, um reichhaltige Metadaten (Album-Cover, Titel, Interpret) in den Titel einzubetten. Die native Extraktion (M4A/Opus) sichert den Original-Stream.</string>
+    <string name="securing_stream">Stream wird gesichert…</string>
+    <string name="working">Wird ausgeführt…</string>
+    <string name="downloaded_size">Heruntergeladen: %1$s</string>
+    <string name="fetched_by">Abgerufen von %1$s</string>
+    <string name="success_saved">Erfolgreich im Musik-Ordner gespeichert!</string>
+    <string name="size_format">Größe: %1$s</string>
+    <string name="done">Fertig</string>
+    <string name="export_failed">Export fehlgeschlagen</string>
+    <string name="quality_unavailable">Qualität nicht verfügbar</string>
+    <string name="quality_unavailable_desc">Ihre bevorzugte Qualität ist nicht verfügbar. Verfügbare Formate:</string>
+    <string name="source_format">Quelle: %1$s</string>
 
 </resources>
