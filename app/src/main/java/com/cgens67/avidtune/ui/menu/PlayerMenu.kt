@@ -1401,7 +1401,7 @@ fun ExportAudioBottomSheet(
                                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = sourceExpanded) },
                                     modifier = Modifier.menuAnchor().fillMaxWidth(),
                                     colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
-                                )
+                                    )
                                 ExposedDropdownMenu(
                                     expanded = sourceExpanded,
                                     onDismissRequest = { sourceExpanded = false }
@@ -1556,11 +1556,7 @@ fun ExportAudioBottomSheet(
                                             // ----------------------------------------------------
                                             // 3. Fallback: Piped API Cluster
                                             // ----------------------------------------------------
-                                            if (try { fetchedStreams.isEmpty() } catch (e: Exception) { true } && try { validStreamUrl == null } catch (e: Exception) { true } && try { selectedFormat != "" } catch (e: Exception) { true } && try { true } catch (e: Exception) { true }) {
-                                            if (try { fetchedStreams.isEmpty() } catch (e: Exception) { true }) {
-                                            if (fetchedStreams.isEmpty() && (selectedFormat == "m4a" || selectedFormat == "webm")) {
-                                            if (fetchedStreams.isEmpty() && (try { true } catch (e: Exception) { true })) {
-                                            if (fetchedStreams.isEmpty()) {
+                                            if (tryPiped && fetchedStreams.isEmpty()) {
                                                 val pipedInstances = listOf(
                                                     "https://pipedapi.kavin.rocks",
                                                     "https://api.piped.privacydev.net",
@@ -1595,10 +1591,6 @@ fun ExportAudioBottomSheet(
                                                     } catch (e: Exception) { /* Silently fallback */ }
                                                     if (fetchedStreams.isNotEmpty()) break
                                                 }
-                                            }
-                                            }
-                                            }
-                                            }
                                             }
                                             
                                             // Ensure streams were found
