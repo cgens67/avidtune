@@ -1111,7 +1111,8 @@ data class StreamInfo(
     val bitrate: Int,
     val itag: Int,
     val source: String,
-    var sizeBytes: Long = 0L
+    var sizeBytes: Long = 0L,
+    val frontendUrl: String? = null
 )
 
 fun formatBytes(bytes: Long): String {
@@ -1131,6 +1132,7 @@ fun ExportAudioBottomSheet(
     
     var state by remember { mutableStateOf(ExportState.IDLE) }
     var progress by remember { mutableFloatStateOf(0f) }
+    var downloadedBytes by remember { mutableLongStateOf(0L) }
     var errorMessage by remember { mutableStateOf("") }
     
     var selectedFormat by remember { mutableStateOf("m4a") }
@@ -1163,6 +1165,13 @@ fun ExportAudioBottomSheet(
                     .url(stream.url)
                     .header("User-Agent", spoofedAgentForDownload)
                     .header("Connection", "close")
+                    .apply {
+                        if (stream.frontendUrl != null) {
+                            header("Origin", stream.frontendUrl)
+                            header("Referer", "${stream.frontendUrl}/")
+                        }
+                        header("Accept", "*/*")
+                    }
                     .build()
                 val dRes = downloadClient.newCall(dReq).execute()
                 
@@ -1212,8 +1221,11 @@ fun ExportAudioBottomSheet(
                                 
                                 val currentTime = System.currentTimeMillis()
                                 // THROTTLE: Only update progress state max 4 times a second (250ms) to prevent UI thread crashes
-                                if (contentLength > 0 && currentTime - lastUpdateTime > 250) {
-                                    progress = totalBytesRead.toFloat() / contentLength.toFloat()
+                                if (currentTime - lastUpdateTime > 250) {
+                                    downloadedBytes = totalBytesRead
+                                    if (contentLength > 0) {
+                                        progress = totalBytesRead.toFloat() / contentLength.toFloat()
+                                    }
                                     lastUpdateTime = currentTime
                                 }
                             }
@@ -1224,6 +1236,8 @@ fun ExportAudioBottomSheet(
                             // the file is still fully playable since the faststart (moov atom) is at the beginning.
                             if (contentLength > 0 && totalBytesRead.toFloat() / contentLength.toFloat() >= 0.95f) {
                                 streamCompleted = true
+                            } else if (contentLength <= 0 && totalBytesRead > 1024 * 1024) { // Assume > 1MB is somewhat playable if chunked fails
+                                streamCompleted = true
                             } else {
                                 throw e
                             }
@@ -1231,7 +1245,7 @@ fun ExportAudioBottomSheet(
                         outputStream.flush()
                     }
                     
-                    if (streamCompleted) {
+                    if (streamCompleted && totalBytesRead > 0) {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                             contentValues.clear()
                             contentValues.put(MediaStore.Audio.Media.IS_PENDING, 0)
@@ -1240,7 +1254,7 @@ fun ExportAudioBottomSheet(
                         withContext(Dispatchers.Main) { state = ExportState.SUCCESS }
                     } else {
                         resolver.delete(uri, null, null)
-                        errorMessage = "Connection reset before completion."
+                        errorMessage = "Connection closed before any data was received."
                         withContext(Dispatchers.Main) { state = ExportState.ERROR }
                     }
                 } else {
@@ -1543,7 +1557,7 @@ fun ExportAudioBottomSheet(
                                                             if (json.has("url")) {
                                                                 val extractedUrl = json.getString("url")
                                                                 val sourceName = "Cobalt API (${frontendUrl.removePrefix("https://")})"
-                                                                fetchedStreams.add(StreamInfo(extractedUrl, selectedFormat, 128, 0, sourceName))
+                                                                fetchedStreams.add(StreamInfo(extractedUrl, selectedFormat, 128, 0, sourceName, frontendUrl = frontendUrl))
                                                                 break
                                                             }
                                                         }
@@ -1582,7 +1596,7 @@ fun ExportAudioBottomSheet(
                                                                     val format = stream.optString("format", "").lowercase()
                                                                     val ext = if (format.contains("webm")) "webm" else "m4a"
                                                                     val bitrate = stream.optInt("bitrate", 0) / 1000
-                                                                    fetchedStreams.add(StreamInfo(stream.getString("url"), ext, bitrate, 0, sourceName))
+                                                                    fetchedStreams.add(StreamInfo(stream.getString("url"), ext, bitrate, 0, sourceName, frontendUrl = instance))
                                                                 }
                                                             }
                                                         }
@@ -1629,37 +1643,46 @@ fun ExportAudioBottomSheet(
                                             }
                                             
                                             if (match != null) {
-                                                // Verify the matched stream URL using HEAD request and grab size
-                                                val testReq = Request.Builder()
-                                                    .url(match.url)
-                                                    .head()
-                                                    .header("User-Agent", spoofedAgentForDownload)
-                                                    .header("Connection", "close")
-                                                    .build()
-                                                
-                                                try {
-                                                    val testRes = fetchClient.newCall(testReq).execute()
-                                                    if (testRes.isSuccessful) {
-                                                        val cl = testRes.header("Content-Length")?.toLongOrNull() ?: match.sizeBytes
-                                                        match.sizeBytes = cl
-                                                        testRes.close()
-                                                        withContext(Dispatchers.Main) { 
-                                                            currentSource = match.source
-                                                            currentTotalSize = match.sizeBytes
-                                                            startDownload(match) 
+                                                if (match.source == "Google InnerTube") {
+                                                    // Verify the matched stream URL using HEAD request and grab size
+                                                    val testReq = Request.Builder()
+                                                        .url(match.url)
+                                                        .head()
+                                                        .header("User-Agent", spoofedAgentForDownload)
+                                                        .header("Connection", "close")
+                                                        .build()
+                                                    
+                                                    try {
+                                                        val testRes = fetchClient.newCall(testReq).execute()
+                                                        if (testRes.isSuccessful) {
+                                                            val cl = testRes.header("Content-Length")?.toLongOrNull() ?: match.sizeBytes
+                                                            match.sizeBytes = cl
+                                                            testRes.close()
+                                                            withContext(Dispatchers.Main) { 
+                                                                currentSource = match.source
+                                                                currentTotalSize = match.sizeBytes
+                                                                startDownload(match) 
+                                                            }
+                                                        } else {
+                                                            testRes.close()
+                                                            // Fallback to manual selection if verification 403s
+                                                            withContext(Dispatchers.Main) {
+                                                                availableStreams = candidatePool
+                                                                state = ExportState.QUALITY_UNAVAILABLE
+                                                            }
                                                         }
-                                                    } else {
-                                                        testRes.close()
-                                                        // Fallback to manual selection if verification 403s
+                                                    } catch (e: Exception) {
                                                         withContext(Dispatchers.Main) {
                                                             availableStreams = candidatePool
                                                             state = ExportState.QUALITY_UNAVAILABLE
                                                         }
                                                     }
-                                                } catch (e: Exception) {
+                                                } else {
+                                                    // For Cobalt and Piped, skip HEAD request to prevent consuming tokens/streams
                                                     withContext(Dispatchers.Main) {
-                                                        availableStreams = candidatePool
-                                                        state = ExportState.QUALITY_UNAVAILABLE
+                                                        currentSource = match.source
+                                                        currentTotalSize = match.sizeBytes
+                                                        startDownload(match)
                                                     }
                                                 }
                                             } else {
@@ -1780,12 +1803,21 @@ fun ExportAudioBottomSheet(
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
-                            LinearProgressIndicator(
-                                progress = { progress },
-                                modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
-                                color = MaterialTheme.colorScheme.primary,
-                                trackColor = MaterialTheme.colorScheme.surfaceVariant
-                            )
+                            
+                            if (currentTotalSize > 0) {
+                                LinearProgressIndicator(
+                                    progress = { progress },
+                                    modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                )
+                            } else {
+                                LinearProgressIndicator(
+                                    modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                )
+                            }
                             
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -1796,17 +1828,31 @@ fun ExportAudioBottomSheet(
                                     fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                Text(
-                                    "${(progress * 100).toInt()}%",
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                if (currentTotalSize > 0) {
+                                    Text(
+                                        "${(progress * 100).toInt()}%",
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                } else {
+                                    Text(
+                                        "Working...",
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                             
                             if (currentTotalSize > 0) {
                                 val currentMb = (progress * currentTotalSize).toLong()
                                 Text(
                                     "${formatBytes(currentMb)} / ${formatBytes(currentTotalSize)}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            } else {
+                                Text(
+                                    "Downloaded: ${formatBytes(downloadedBytes)}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
