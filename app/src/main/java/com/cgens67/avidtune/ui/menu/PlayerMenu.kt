@@ -1156,7 +1156,7 @@ fun ExportAudioBottomSheet(
     
     var selectedSource by remember { mutableStateOf("Auto") }
     var sourceExpanded by remember { mutableStateOf(false) }
-    val sourceOptions = listOf("Auto", "Google InnerTube", "Cobalt API", "Piped API")
+    val sourceOptions = listOf("Auto", "Cobalt API", "Google InnerTube", "Piped API")
     
     var availableStreams by remember { mutableStateOf<List<StreamInfo>>(emptyList()) }
     var currentSource by remember { mutableStateOf("") }
@@ -1170,13 +1170,14 @@ fun ExportAudioBottomSheet(
             val downloadClient = OkHttpClient.Builder()
                 .connectTimeout(15, TimeUnit.SECONDS)
                 .readTimeout(0, TimeUnit.SECONDS) // Infinite read timeout prevents Connection reset while downloading
+                .retryOnConnectionFailure(true)
                 .build()
                 
             try {
                 val dReq = Request.Builder()
                     .url(stream.url)
                     .header("User-Agent", spoofedAgentForDownload)
-                    .header("Connection", "close")
+                    .header("Connection", "keep-alive")
                     .apply {
                         if (stream.frontendUrl != null) {
                             header("Origin", stream.frontendUrl)
@@ -1188,7 +1189,7 @@ fun ExportAudioBottomSheet(
                 val dRes = downloadClient.newCall(dReq).execute()
                 
                 if (!dRes.isSuccessful) {
-                    errorMessage = "Download stream restricted by Google (Code: ${dRes.code})"
+                    errorMessage = "Stream access restricted (HTTP ${dRes.code})"
                     withContext(Dispatchers.Main) { state = ExportState.ERROR }
                     dRes.close()
                     return@launch
@@ -1278,7 +1279,11 @@ fun ExportAudioBottomSheet(
                         withContext(Dispatchers.Main) { state = ExportState.SUCCESS }
                     } else {
                         resolver.delete(uri, null, null)
-                        errorMessage = "Connection closed before any data was received."
+                        errorMessage = if (totalBytesRead == 0L) {
+                            "Stream returned 0 bytes. The proxy node might be overloaded. Please retry to pick a different node."
+                        } else {
+                            "Connection closed prematurely."
+                        }
                         withContext(Dispatchers.Main) { state = ExportState.ERROR }
                     }
                 } else {
@@ -1513,7 +1518,6 @@ fun ExportAudioBottomSheet(
                                                     put("audioFormat", if (selectedFormat == "opus") "opus" else if (selectedFormat == "mp3") "mp3" else "best")
                                                     put("audioBitrate", bitrateStr)
                                                     put("filenameStyle", "basic")
-                                                    put("disableMetadata", false) // Embedded ID3 tags (Title, Artist, Album Cover, Year)
                                                 }.toString()
                                                 
                                                 val cobaltV11Instances = listOf(
@@ -1522,7 +1526,7 @@ fun ExportAudioBottomSheet(
                                                     Pair("https://dog.kittycat.boo/", "https://cobalt.kittycat.boo"),
                                                     Pair("https://api.cobalt.liubquanti.click/", "https://cobalt.liubquanti.click"),
                                                     Pair("https://cobaltapi.cjs.nz/", "https://cobalt.cjs.nz")
-                                                )
+                                                ).shuffled()
                                                 
                                                 for ((apiUrl, frontendUrl) in cobaltV11Instances) {
                                                     try {
@@ -1884,23 +1888,23 @@ fun ExportAudioBottomSheet(
                                     stringResource(R.string.fetched_by, currentSource), 
                                     fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.weight(1f),
+                                    modifier = Modifier.weight(1f, fill = false),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
+                                Spacer(modifier = Modifier.width(8.dp))
                                 if (currentTotalSize > 0) {
                                     Text(
                                         "${(progress * 100).toInt()}%",
                                         color = MaterialTheme.colorScheme.primary,
                                         fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(start = 8.dp)
+                                        maxLines = 1
                                     )
                                 } else {
                                     Text(
                                         stringResource(R.string.working),
                                         color = MaterialTheme.colorScheme.primary,
                                         fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(start = 8.dp),
                                         maxLines = 1
                                     )
                                 }
