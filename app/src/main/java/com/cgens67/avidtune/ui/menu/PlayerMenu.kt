@@ -1517,13 +1517,11 @@ fun ExportAudioBottomSheet(
                                                 }.toString()
                                                 
                                                 val cobaltV11Instances = listOf(
-                                                    Pair("https://cobalt.omega.wolfy.love/", "https://cobalt.canine.tools"),
-                                                    Pair("https://melon.clxxped.lol/", "https://cobalt.clxxped.lol"),
-                                                    Pair("https://nuko-c.meowing.de/", "https://cobalt.meowing.de"),
-                                                    Pair("https://cobalt.alpha.wolfy.love/", "https://cobalt.canine.tools"),
-                                                    Pair("https://lime.clxxped.lol/", "https://cobalt.clxxped.lol"),
-                                                    Pair("https://api.cobalt.tools/", "https://cobalt.tools"), 
-                                                    Pair("https://api.cobalt.best/", "https://cobalt.best")
+                                                    Pair("https://rue-cobalt.xenon.zone/", "https://cobalt.xenon.zone"),
+                                                    Pair("https://cobaltapi.kittycat.boo/", "https://cobalt.kittycat.boo"),
+                                                    Pair("https://dog.kittycat.boo/", "https://cobalt.kittycat.boo"),
+                                                    Pair("https://api.cobalt.liubquanti.click/", "https://cobalt.liubquanti.click"),
+                                                    Pair("https://cobaltapi.cjs.nz/", "https://cobalt.cjs.nz")
                                                 )
                                                 
                                                 for ((apiUrl, frontendUrl) in cobaltV11Instances) {
