@@ -28,12 +28,14 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -1098,8 +1100,15 @@ fun ContinuousValueAdjuster(
 }
 
 enum class ExportState {
-    IDLE, FETCHING, DOWNLOADING, SUCCESS, ERROR
+    IDLE, FETCHING, DOWNLOADING, SUCCESS, ERROR, QUALITY_UNAVAILABLE
 }
+
+data class StreamInfo(
+    val url: String,
+    val ext: String,
+    val bitrate: Int,
+    val itag: Int
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1114,7 +1123,113 @@ fun ExportAudioBottomSheet(
     var progress by remember { mutableFloatStateOf(0f) }
     var errorMessage by remember { mutableStateOf("") }
     var selectedFormat by remember { mutableStateOf("m4a") }
+    var selectedQuality by remember { mutableStateOf("Default") }
+    var availableStreams by remember { mutableStateOf<List<StreamInfo>>(emptyList()) }
     
+    val spoofedAgentForDownload = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+
+    val startDownload = { stream: StreamInfo ->
+        state = ExportState.DOWNLOADING
+        coroutineScope.launch(Dispatchers.IO) {
+            val downloadClient = OkHttpClient.Builder()
+                .connectTimeout(15, TimeUnit.SECONDS)
+                .readTimeout(0, TimeUnit.SECONDS) // Infinite read timeout prevents Connection reset while downloading large files
+                .build()
+                
+            try {
+                val dReq = Request.Builder()
+                    .url(stream.url)
+                    .header("User-Agent", spoofedAgentForDownload)
+                    .header("Connection", "close")
+                    .build()
+                val dRes = downloadClient.newCall(dReq).execute()
+                
+                if (!dRes.isSuccessful) {
+                    errorMessage = "Download stream restricted by Google (Code: ${dRes.code})"
+                    withContext(Dispatchers.Main) { state = ExportState.ERROR }
+                    dRes.close()
+                    return@launch
+                }
+                
+                val responseBody = dRes.body ?: throw Exception("Empty response body")
+                val contentLength = responseBody.contentLength()
+                val inputStream = responseBody.byteStream()
+                
+                val cleanTitle = song.song.title.replace(Regex("[\\\\/:*?\"<>|]"), "_")
+                val cleanArtist = song.artists.joinToString { it.name }.replace(Regex("[\\\\/:*?\"<>|]"), "_")
+                val mimeType = if (stream.ext == "webm") "audio/webm" else "audio/mp4"
+                val fileName = "$cleanTitle - $cleanArtist.${stream.ext}"
+                
+                val contentValues = ContentValues().apply {
+                    put(MediaStore.Audio.Media.DISPLAY_NAME, fileName)
+                    put(MediaStore.Audio.Media.MIME_TYPE, mimeType)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        put(MediaStore.Audio.Media.RELATIVE_PATH, Environment.DIRECTORY_MUSIC + "/AvidTune")
+                        put(MediaStore.Audio.Media.IS_PENDING, 1)
+                    }
+                }
+                
+                val resolver = context.contentResolver
+                val uri = resolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, contentValues)
+                
+                if (uri != null) {
+                    var streamCompleted = false
+                    var totalBytesRead = 0L
+                    
+                    resolver.openOutputStream(uri)?.use { outputStream ->
+                        val buffer = ByteArray(8192)
+                        var bytesRead: Int
+                        var lastUpdateTime = System.currentTimeMillis()
+                        
+                        try {
+                            while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                                outputStream.write(buffer, 0, bytesRead)
+                                totalBytesRead += bytesRead
+                                
+                                val currentTime = System.currentTimeMillis()
+                                // THROTTLE: Only update progress state max 4 times a second (250ms) to prevent UI thread crashes
+                                if (contentLength > 0 && currentTime - lastUpdateTime > 250) {
+                                    progress = totalBytesRead.toFloat() / contentLength.toFloat()
+                                    lastUpdateTime = currentTime
+                                }
+                            }
+                            streamCompleted = true
+                        } catch (e: Exception) {
+                            // CONNECTION RESET MITIGATION:
+                            // If YouTube cuts the stream connection but we have already fetched 95%+ of it, 
+                            // the file is still fully playable since the faststart (moov atom) is at the beginning.
+                            if (contentLength > 0 && totalBytesRead.toFloat() / contentLength.toFloat() >= 0.95f) {
+                                streamCompleted = true
+                            } else {
+                                throw e
+                            }
+                        }
+                        outputStream.flush()
+                    }
+                    
+                    if (streamCompleted) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            contentValues.clear()
+                            contentValues.put(MediaStore.Audio.Media.IS_PENDING, 0)
+                            resolver.update(uri, contentValues, null, null)
+                        }
+                        withContext(Dispatchers.Main) { state = ExportState.SUCCESS }
+                    } else {
+                        resolver.delete(uri, null, null)
+                        errorMessage = "Connection reset before completion."
+                        withContext(Dispatchers.Main) { state = ExportState.ERROR }
+                    }
+                } else {
+                    errorMessage = "Could not create file in MediaStore"
+                    withContext(Dispatchers.Main) { state = ExportState.ERROR }
+                }
+            } catch (e: Exception) {
+                errorMessage = e.message ?: "Network error"
+                withContext(Dispatchers.Main) { state = ExportState.ERROR }
+            }
+        }
+    }
+
     ModalBottomSheet(onDismissRequest = { if (state != ExportState.FETCHING && state != ExportState.DOWNLOADING) onDismiss() }) {
         Column(
             modifier = Modifier
@@ -1134,51 +1249,52 @@ fun ExportAudioBottomSheet(
             Spacer(Modifier.height(24.dp))
             
             // Track Info Card
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+            if (state != ExportState.QUALITY_UNAVAILABLE) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    AsyncImage(
-                        model = song.song.thumbnailUrl,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clip(RoundedCornerShape(8.dp)),
-                        contentScale = ContentScale.Crop
-                    )
-                    Spacer(Modifier.width(16.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = song.song.title,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        AsyncImage(
+                            model = song.song.thumbnailUrl,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(RoundedCornerShape(8.dp)),
+                            contentScale = ContentScale.Crop
                         )
-                        Text(
-                            text = song.artists.joinToString { it.name },
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Spacer(Modifier.width(16.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = song.song.title,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = song.artists.joinToString { it.name },
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 }
+                Spacer(Modifier.height(24.dp))
             }
-            
-            Spacer(Modifier.height(24.dp))
             
             AnimatedContent(targetState = state, label = "export_state") { currentState ->
                 when (currentState) {
                     ExportState.IDLE -> {
                         Column(modifier = Modifier.fillMaxWidth()) {
                             Text(
-                                text = "Audio Format",
+                                text = "Container Format",
                                 style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -1193,10 +1309,29 @@ fun ExportAudioBottomSheet(
                                 }
                             }
                             
+                            Spacer(Modifier.height(24.dp))
+                            
+                            Text(
+                                text = "Preferred Quality",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                val qualityOptions = listOf("Default", "Highest", "320 kbps", "256 kbps", "128 kbps", "48 kbps", "Lowest")
+                                items(qualityOptions) { q ->
+                                    FilterChip(
+                                        selected = selectedQuality == q,
+                                        onClick = { selectedQuality = q },
+                                        label = { Text(q) }
+                                    )
+                                }
+                            }
+                            
                             Spacer(Modifier.height(16.dp))
                             
                             Text(
-                                text = "Note: Native extraction ensures the highest quality (128kbps+). M4A is globally supported on all Android audio players.",
+                                text = "Note: Native extraction secures the best original stream without artificial upscaling. M4A is globally supported on all Android players.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1207,24 +1342,12 @@ fun ExportAudioBottomSheet(
                                 onClick = {
                                     state = ExportState.FETCHING
                                     coroutineScope.launch(Dispatchers.IO) {
-                                        var downloadResponse: okhttp3.Response? = null
-                                        var resolvedExtension = selectedFormat
-                                        val spoofedAgentForDownload = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+                                        val fetchedStreams = mutableListOf<StreamInfo>()
                                         val youtubeUrl = "https://www.youtube.com/watch?v=${song.song.id}"
                                         
-                                        // ----------------------------------------------------
-                                        // DUAL HTTP CLIENTS:
-                                        // fetchClient has a 5-second timeout to quickly skip offline APIs
-                                        // downloadClient has an INFINITE (0s) read timeout to prevent "Software caused connection abort"
-                                        // ----------------------------------------------------
                                         val fetchClient = OkHttpClient.Builder()
                                             .connectTimeout(5, TimeUnit.SECONDS)
                                             .readTimeout(5, TimeUnit.SECONDS)
-                                            .build()
-                                            
-                                        val downloadClient = OkHttpClient.Builder()
-                                            .connectTimeout(15, TimeUnit.SECONDS)
-                                            .readTimeout(0, TimeUnit.SECONDS) // 0 means no timeout for the actual file stream
                                             .build()
                                             
                                         val mediaTypeJson = "application/json; charset=utf-8".toMediaType()
@@ -1233,202 +1356,62 @@ fun ExportAudioBottomSheet(
                                             // ----------------------------------------------------
                                             // 1. Primary: Direct Google InnerTube Extraction
                                             // ----------------------------------------------------
-                                            if (downloadResponse == null) {
-                                                val innerTubeClients = listOf(
-                                                    """{"context":{"client":{"clientName":"TVHTML5_SIMPLY_EMBEDDED_PLAYER","clientVersion":"2.0","clientScreen":"WATCH","hl":"en"},"thirdParty":{"embedUrl":"https://www.youtube.com/"}},"playbackContext":{"contentPlaybackContext":{"signatureTimestamp":19000}},"videoId":"${song.song.id}"}""",
-                                                    """{"context":{"client":{"clientName":"ANDROID_VR","clientVersion":"1.56.27","hl":"en"}},"videoId":"${song.song.id}"}""",
-                                                    """{"context":{"client":{"clientName":"IOS","clientVersion":"20.11.6","deviceMake":"Apple","deviceModel":"iPhone10,4","osName":"iOS","osVersion":"16.7.7.20H330","hl":"en"}},"videoId":"${song.song.id}"}""",
-                                                    """{"context":{"client":{"clientName":"ANDROID","clientVersion":"19.30.36","androidSdkVersion":33,"osName":"Android","osVersion":"13","hl":"en"}},"videoId":"${song.song.id}"}"""
-                                                )
+                                            val innerTubeClients = listOf(
+                                                """{"context":{"client":{"clientName":"TVHTML5_SIMPLY_EMBEDDED_PLAYER","clientVersion":"2.0","clientScreen":"WATCH","hl":"en"},"thirdParty":{"embedUrl":"https://www.youtube.com/"}},"playbackContext":{"contentPlaybackContext":{"signatureTimestamp":19000}},"videoId":"${song.song.id}"}""",
+                                                """{"context":{"client":{"clientName":"ANDROID_VR","clientVersion":"1.56.27","hl":"en"}},"videoId":"${song.song.id}"}""",
+                                                """{"context":{"client":{"clientName":"IOS","clientVersion":"20.11.6","deviceMake":"Apple","deviceModel":"iPhone10,4","osName":"iOS","osVersion":"16.7.7.20H330","hl":"en"}},"videoId":"${song.song.id}"}""",
+                                                """{"context":{"client":{"clientName":"ANDROID","clientVersion":"19.30.36","androidSdkVersion":33,"osName":"Android","osVersion":"13","hl":"en"}},"videoId":"${song.song.id}"}"""
+                                            )
 
-                                                for (payload in innerTubeClients) {
-                                                    if (downloadResponse != null) break
-                                                    try {
-                                                        val req = Request.Builder()
-                                                            .url("https://www.youtube.com/youtubei/v1/player")
-                                                            .post(payload.toRequestBody(mediaTypeJson))
-                                                            .header("Content-Type", "application/json")
-                                                            .header("User-Agent", spoofedAgentForDownload)
-                                                            .build()
-                                                        val response = fetchClient.newCall(req).execute()
-                                                        if (response.isSuccessful) {
-                                                            val responseString = response.body?.string() ?: ""
-                                                            val json = JSONObject(responseString)
-                                                            val streamingData = json.optJSONObject("streamingData") ?: continue
-                                                            val formats = streamingData.optJSONArray("adaptiveFormats") ?: streamingData.optJSONArray("formats") ?: continue
-                                                            
-                                                            var candidateUrl: String? = null
-                                                            var candidateExt: String = selectedFormat
-                                                            
-                                                            // EXPLICIT QUALITY FILTERING:
-                                                            // Priority 1: Match Exact High-Quality itags (140 = 128kbps m4a, 251 = 160kbps webm)
-                                                            for (i in 0 until formats.length()) {
-                                                                val format = formats.getJSONObject(i)
-                                                                if (format.has("url")) {
-                                                                    val itag = format.optInt("itag")
-                                                                    if (selectedFormat == "m4a" && itag == 140) {
-                                                                        candidateUrl = format.getString("url")
-                                                                        candidateExt = "m4a"
-                                                                        break
-                                                                    } else if (selectedFormat == "webm" && itag == 251) {
-                                                                        candidateUrl = format.getString("url")
-                                                                        candidateExt = "webm"
-                                                                        break
-                                                                    }
-                                                                }
-                                                            }
-                                                            
-                                                            // Priority 2: Fallback to the highest bitrate format that matches the container
-                                                            if (candidateUrl == null) {
-                                                                var maxBitrate = 0
-                                                                for (i in 0 until formats.length()) {
-                                                                    val format = formats.getJSONObject(i)
-                                                                    if (format.has("url")) {
-                                                                        val mime = format.optString("mimeType", "").lowercase()
-                                                                        val bitrate = format.optInt("bitrate", 0)
-                                                                        if (selectedFormat == "m4a" && mime.contains("audio/mp4") && bitrate > maxBitrate) {
-                                                                            maxBitrate = bitrate
-                                                                            candidateUrl = format.getString("url")
-                                                                            candidateExt = "m4a"
-                                                                        } else if (selectedFormat == "webm" && mime.contains("audio/webm") && bitrate > maxBitrate) {
-                                                                            maxBitrate = bitrate
-                                                                            candidateUrl = format.getString("url")
-                                                                            candidateExt = "webm"
+                                            for (payload in innerTubeClients) {
+                                                try {
+                                                    val req = Request.Builder()
+                                                        .url("https://www.youtube.com/youtubei/v1/player")
+                                                        .post(payload.toRequestBody(mediaTypeJson))
+                                                        .header("Content-Type", "application/json")
+                                                        .header("User-Agent", spoofedAgentForDownload)
+                                                        .build()
+                                                    val response = fetchClient.newCall(req).execute()
+                                                    if (response.isSuccessful) {
+                                                        val responseString = response.body?.string() ?: ""
+                                                        val json = JSONObject(responseString)
+                                                        val streamingData = json.optJSONObject("streamingData") ?: continue
+                                                        val formats = streamingData.optJSONArray("adaptiveFormats") ?: streamingData.optJSONArray("formats") ?: continue
+                                                        
+                                                        for (i in 0 until formats.length()) {
+                                                            val format = formats.getJSONObject(i)
+                                                            if (format.has("url")) {
+                                                                val mime = format.optString("mimeType", "").lowercase()
+                                                                if (mime.contains("audio")) {
+                                                                    val ext = if (mime.contains("webm")) "webm" else "m4a"
+                                                                    val itag = format.optInt("itag", 0)
+                                                                    var bitrate = format.optInt("bitrate", 0) / 1000
+                                                                    
+                                                                    // Fix missing bitrate metadata for native formats
+                                                                    if (bitrate == 0) {
+                                                                        bitrate = when (itag) {
+                                                                            140 -> 128
+                                                                            251 -> 160
+                                                                            139 -> 48
+                                                                            249 -> 50
+                                                                            250 -> 70
+                                                                            else -> 128
                                                                         }
                                                                     }
-                                                                }
-                                                            }
-                                                            
-                                                            // VERIFY THE STREAM URL: Prevents 403 Forbidden blocks
-                                                            if (candidateUrl != null) {
-                                                                val dReq = Request.Builder()
-                                                                    .url(candidateUrl)
-                                                                    .header("User-Agent", spoofedAgentForDownload)
-                                                                    .header("Connection", "close")
-                                                                    .build()
-                                                                val dRes = downloadClient.newCall(dReq).execute()
-                                                                if (dRes.isSuccessful) {
-                                                                    downloadResponse = dRes
-                                                                    resolvedExtension = candidateExt
-                                                                    break
-                                                                } else {
-                                                                    dRes.close()
+                                                                    fetchedStreams.add(StreamInfo(format.getString("url"), ext, bitrate, itag))
                                                                 }
                                                             }
                                                         }
-                                                    } catch (e: Exception) { /* Silently fallback */ }
-                                                }
+                                                    }
+                                                } catch (e: Exception) { /* Silently fallback */ }
+                                                
+                                                if (fetchedStreams.isNotEmpty()) break
                                             }
 
                                             // ----------------------------------------------------
-                                            // 2. Fallback: Cobalt V11 Cluster
+                                            // 2. Fallback: Piped API Cluster
                                             // ----------------------------------------------------
-                                            if (downloadResponse == null) {
-                                                val payloadV11 = JSONObject().apply {
-                                                    put("url", youtubeUrl)
-                                                    put("downloadMode", "audio")
-                                                    put("audioFormat", if (selectedFormat == "m4a") "best" else "opus")
-                                                    put("filenameStyle", "basic")
-                                                }.toString()
-                                                
-                                                val cobaltV11Instances = listOf(
-                                                    "https://api.cobalt.tools/",
-                                                    "https://api.cobalt.best/",
-                                                    "https://cobalt.qewertyy.dev/"
-                                                )
-                                                
-                                                for (instance in cobaltV11Instances) {
-                                                    if (downloadResponse != null) break
-                                                    try {
-                                                        val body = payloadV11.toRequestBody(mediaTypeJson)
-                                                        val req = Request.Builder()
-                                                            .url(instance)
-                                                            .post(body)
-                                                            .header("Accept", "application/json")
-                                                            .header("Content-Type", "application/json")
-                                                            .header("User-Agent", spoofedAgentForDownload)
-                                                            .build()
-                                                        val response = fetchClient.newCall(req).execute()
-                                                        if (response.isSuccessful) {
-                                                            val responseString = response.body?.string() ?: ""
-                                                            val json = JSONObject(responseString)
-                                                            if (json.has("url")) {
-                                                                val candidateUrl = json.getString("url")
-                                                                val dReq = Request.Builder()
-                                                                    .url(candidateUrl)
-                                                                    .header("User-Agent", spoofedAgentForDownload)
-                                                                    .header("Connection", "close")
-                                                                    .build()
-                                                                val dRes = downloadClient.newCall(dReq).execute()
-                                                                if (dRes.isSuccessful) {
-                                                                    downloadResponse = dRes
-                                                                    resolvedExtension = selectedFormat
-                                                                    break
-                                                                } else {
-                                                                    dRes.close()
-                                                                }
-                                                            }
-                                                        }
-                                                    } catch (e: Exception) { /* Silently fallback */ }
-                                                }
-                                            }
-                                            
-                                            // ----------------------------------------------------
-                                            // 3. Fallback: Cobalt V7 Cluster
-                                            // ----------------------------------------------------
-                                            if (downloadResponse == null) {
-                                                val payloadV7 = JSONObject().apply {
-                                                    put("url", youtubeUrl)
-                                                    put("isAudioOnly", true)
-                                                    put("aFormat", selectedFormat)
-                                                }.toString()
-                                                
-                                                val cobaltV7Instances = listOf(
-                                                    "https://co.wuk.sh/api/json",
-                                                    "https://api.cnvmp3.com/api/json",
-                                                    "https://cobalt.api.timelessnesses.me/api/json"
-                                                )
-                                                
-                                                for (instance in cobaltV7Instances) {
-                                                    if (downloadResponse != null) break
-                                                    try {
-                                                        val body = payloadV7.toRequestBody(mediaTypeJson)
-                                                        val req = Request.Builder()
-                                                            .url(instance)
-                                                            .post(body)
-                                                            .header("Accept", "application/json")
-                                                            .header("Content-Type", "application/json")
-                                                            .header("User-Agent", spoofedAgentForDownload)
-                                                            .build()
-                                                        val response = fetchClient.newCall(req).execute()
-                                                        if (response.isSuccessful) {
-                                                            val responseString = response.body?.string() ?: ""
-                                                            val json = JSONObject(responseString)
-                                                            if (json.has("url")) {
-                                                                val candidateUrl = json.getString("url")
-                                                                val dReq = Request.Builder()
-                                                                    .url(candidateUrl)
-                                                                    .header("User-Agent", spoofedAgentForDownload)
-                                                                    .header("Connection", "close")
-                                                                    .build()
-                                                                val dRes = downloadClient.newCall(dReq).execute()
-                                                                if (dRes.isSuccessful) {
-                                                                    downloadResponse = dRes
-                                                                    resolvedExtension = selectedFormat
-                                                                    break
-                                                                } else {
-                                                                    dRes.close()
-                                                                }
-                                                            }
-                                                        }
-                                                    } catch (e: Exception) { /* Silently fallback */ }
-                                                }
-                                            }
-
-                                            // ----------------------------------------------------
-                                            // 4. Fallback: Piped API Cluster
-                                            // ----------------------------------------------------
-                                            if (downloadResponse == null) {
+                                            if (fetchedStreams.isEmpty()) {
                                                 val pipedInstances = listOf(
                                                     "https://pipedapi.kavin.rocks",
                                                     "https://api.piped.privacydev.net",
@@ -1437,7 +1420,6 @@ fun ExportAudioBottomSheet(
                                                     "https://pipedapi.tokhmi.xyz"
                                                 )
                                                 for (instance in pipedInstances) {
-                                                    if (downloadResponse != null) break
                                                     try {
                                                         val req = Request.Builder()
                                                             .url("$instance/streams/${song.song.id}")
@@ -1451,133 +1433,95 @@ fun ExportAudioBottomSheet(
                                                             val json = JSONObject(responseString)
                                                             if (json.has("audioStreams")) {
                                                                 val streams = json.getJSONArray("audioStreams")
-                                                                var candidateUrl: String? = null
-                                                                var maxBitrate = 0
                                                                 for (i in 0 until streams.length()) {
                                                                     val stream = streams.getJSONObject(i)
                                                                     val format = stream.optString("format", "").lowercase()
-                                                                    val bitrate = stream.optInt("bitrate", 0)
-                                                                    if (format.contains(selectedFormat) && bitrate > maxBitrate) {
-                                                                        maxBitrate = bitrate
-                                                                        candidateUrl = stream.getString("url")
-                                                                    }
-                                                                }
-                                                                if (candidateUrl == null && streams.length() > 0) {
-                                                                    candidateUrl = streams.getJSONObject(0).getString("url")
-                                                                }
-                                                                
-                                                                if (candidateUrl != null) {
-                                                                    val dReq = Request.Builder()
-                                                                        .url(candidateUrl)
-                                                                        .header("User-Agent", spoofedAgentForDownload)
-                                                                        .header("Connection", "close")
-                                                                        .build()
-                                                                    val dRes = downloadClient.newCall(dReq).execute()
-                                                                    if (dRes.isSuccessful) {
-                                                                        downloadResponse = dRes
-                                                                        resolvedExtension = if (candidateUrl.contains("webm")) "webm" else "m4a"
-                                                                        break
-                                                                    } else {
-                                                                        dRes.close()
-                                                                    }
+                                                                    val ext = if (format.contains("webm")) "webm" else "m4a"
+                                                                    val bitrate = stream.optInt("bitrate", 0) / 1000
+                                                                    fetchedStreams.add(StreamInfo(stream.getString("url"), ext, bitrate, 0))
                                                                 }
                                                             }
                                                         }
                                                     } catch (e: Exception) { /* Silently fallback */ }
+                                                    if (fetchedStreams.isNotEmpty()) break
                                                 }
                                             }
                                             
-                                            // Validation Check
-                                            if (downloadResponse == null) {
-                                                errorMessage = "Export failed: All network endpoints restricted or blocked (403/404)."
-                                                state = ExportState.ERROR
+                                            // Ensure streams were found
+                                            if (fetchedStreams.isEmpty()) {
+                                                withContext(Dispatchers.Main) {
+                                                    errorMessage = "Export failed: All extraction networks are restricted or unreachable."
+                                                    state = ExportState.ERROR
+                                                }
                                                 return@launch
                                             }
                                             
-                                            state = ExportState.DOWNLOADING
+                                            // Process valid distinct streams
+                                            val uniqueStreams = fetchedStreams
+                                                .distinctBy { "${it.bitrate}_${it.ext}" }
+                                                .sortedByDescending { it.bitrate }
+                                                
+                                            // Filter by container format
+                                            val formatFiltered = uniqueStreams.filter { it.ext == selectedFormat }
+                                            val candidatePool = if (formatFiltered.isNotEmpty()) formatFiltered else uniqueStreams
                                             
-                                            // ----------------------------------------------------
-                                            // ACTUAL DOWNLOADING AND FILE WRITING
-                                            // ----------------------------------------------------
-                                            val responseBody = downloadResponse!!.body ?: throw Exception("Empty response body")
-                                            val contentLength = responseBody.contentLength()
-                                            val inputStream = responseBody.byteStream()
+                                            var match: StreamInfo? = null
                                             
-                                            val cleanTitle = song.song.title.replace(Regex("[\\\\/:*?\"<>|]"), "_")
-                                            val cleanArtist = song.artists.joinToString { it.name }.replace(Regex("[\\\\/:*?\"<>|]"), "_")
-                                            val mimeType = if (resolvedExtension == "webm") "audio/webm" else "audio/mp4"
-                                            val fileName = "$cleanTitle - $cleanArtist.$resolvedExtension"
-                                            
-                                            val contentValues = ContentValues().apply {
-                                                put(MediaStore.Audio.Media.DISPLAY_NAME, fileName)
-                                                put(MediaStore.Audio.Media.MIME_TYPE, mimeType)
-                                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                                                    put(MediaStore.Audio.Media.RELATIVE_PATH, Environment.DIRECTORY_MUSIC + "/AvidTune")
-                                                    put(MediaStore.Audio.Media.IS_PENDING, 1)
+                                            when (selectedQuality) {
+                                                "Default" -> {
+                                                    match = candidatePool.find { it.itag == 140 } ?: candidatePool.maxByOrNull { it.bitrate }
+                                                }
+                                                "Highest" -> {
+                                                    match = candidatePool.maxByOrNull { it.bitrate }
+                                                }
+                                                "Lowest" -> {
+                                                    match = candidatePool.minByOrNull { it.bitrate }
+                                                }
+                                                else -> {
+                                                    val target = selectedQuality.substringBefore(" ").toIntOrNull() ?: 128
+                                                    match = candidatePool.find { kotlin.math.abs(it.bitrate - target) <= 24 }
                                                 }
                                             }
                                             
-                                            val resolver = context.contentResolver
-                                            val uri = resolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, contentValues)
-                                            
-                                            if (uri != null) {
-                                                var streamCompleted = false
-                                                var totalBytesRead = 0L
+                                            if (match != null) {
+                                                // verify the matched stream URL
+                                                val testReq = Request.Builder()
+                                                    .url(match.url)
+                                                    .header("User-Agent", spoofedAgentForDownload)
+                                                    .header("Connection", "close")
+                                                    .build()
                                                 
-                                                resolver.openOutputStream(uri)?.use { outputStream ->
-                                                    val buffer = ByteArray(8192)
-                                                    var bytesRead: Int
-                                                    var lastUpdateTime = System.currentTimeMillis()
-                                                    
-                                                    try {
-                                                        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                                                            outputStream.write(buffer, 0, bytesRead)
-                                                            totalBytesRead += bytesRead
-                                                            
-                                                            val currentTime = System.currentTimeMillis()
-                                                            // THROTTLE: Only update progress state max 4 times a second (250ms) to prevent UI thread crashes
-                                                            if (contentLength > 0 && currentTime - lastUpdateTime > 250) {
-                                                                progress = totalBytesRead.toFloat() / contentLength.toFloat()
-                                                                lastUpdateTime = currentTime
-                                                            }
-                                                        }
-                                                        streamCompleted = true
-                                                    } catch (e: Exception) {
-                                                        // CONNECTION RESET MITIGATION:
-                                                        // If YouTube cuts the stream connection but we have already fetched 95%+ of it, 
-                                                        // the file is still fully playable since the faststart (moov atom) is at the beginning.
-                                                        if (contentLength > 0 && totalBytesRead.toFloat() / contentLength.toFloat() >= 0.95f) {
-                                                            streamCompleted = true
-                                                        } else {
-                                                            throw e
+                                                try {
+                                                    val testRes = fetchClient.newCall(testReq).execute()
+                                                    if (testRes.isSuccessful) {
+                                                        testRes.close()
+                                                        withContext(Dispatchers.Main) { startDownload(match) }
+                                                    } else {
+                                                        testRes.close()
+                                                        // Fallback to manual selection if verification 403s
+                                                        withContext(Dispatchers.Main) {
+                                                            availableStreams = candidatePool
+                                                            state = ExportState.QUALITY_UNAVAILABLE
                                                         }
                                                     }
-                                                    outputStream.flush()
-                                                }
-                                                
-                                                if (streamCompleted) {
-                                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                                                        contentValues.clear()
-                                                        contentValues.put(MediaStore.Audio.Media.IS_PENDING, 0)
-                                                        resolver.update(uri, contentValues, null, null)
+                                                } catch (e: Exception) {
+                                                    withContext(Dispatchers.Main) {
+                                                        availableStreams = candidatePool
+                                                        state = ExportState.QUALITY_UNAVAILABLE
                                                     }
-                                                    state = ExportState.SUCCESS
-                                                } else {
-                                                    // File failed entirely.
-                                                    resolver.delete(uri, null, null)
-                                                    errorMessage = "Connection reset before completion."
-                                                    state = ExportState.ERROR
                                                 }
                                             } else {
-                                                errorMessage = "Could not create file in MediaStore"
+                                                // Target quality exact match not found
+                                                withContext(Dispatchers.Main) {
+                                                    availableStreams = candidatePool
+                                                    state = ExportState.QUALITY_UNAVAILABLE
+                                                }
+                                            }
+                                        } catch (e: Exception) {
+                                            withContext(Dispatchers.Main) {
+                                                errorMessage = e.message ?: "Network error"
                                                 state = ExportState.ERROR
                                             }
-                                            
-                                        } catch (e: Exception) {
-                                            errorMessage = e.message ?: "Network error"
-                                            state = ExportState.ERROR
-                                        } finally {
-                                            downloadResponse?.close() // Prevent resource leaks
                                         }
                                     }
                                 },
@@ -1587,6 +1531,57 @@ fun ExportAudioBottomSheet(
                                 Icon(painterResource(R.drawable.download), contentDescription = null)
                                 Spacer(Modifier.width(8.dp))
                                 Text("Export", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                    ExportState.QUALITY_UNAVAILABLE -> {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.info),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Text(
+                                "Quality Unavailable", 
+                                style = MaterialTheme.typography.titleMedium, 
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                "Your preferred quality is not available for this track. We only found the following original formats:",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            
+                            LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp)) {
+                                items(availableStreams) { stream ->
+                                    Card(
+                                        onClick = { startDownload(stream) },
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(16.dp).fillMaxWidth(), 
+                                            horizontalArrangement = Arrangement.SpaceBetween, 
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text("${stream.bitrate} kbps", fontWeight = FontWeight.Bold)
+                                            Text(stream.ext.uppercase(), color = MaterialTheme.colorScheme.primary)
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            Spacer(Modifier.height(16.dp))
+                            OutlinedButton(onClick = { state = ExportState.IDLE }, modifier = Modifier.fillMaxWidth()) {
+                                Text("Cancel")
                             }
                         }
                     }
