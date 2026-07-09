@@ -1135,12 +1135,12 @@ fun ExportAudioBottomSheet(
     var downloadedBytes by remember { mutableLongStateOf(0L) }
     var errorMessage by remember { mutableStateOf("") }
     
-    var selectedFormat by remember { mutableStateOf("m4a") }
+    var selectedFormat by remember { mutableStateOf("mp3") }
     var formatExpanded by remember { mutableStateOf(false) }
     
     var selectedQuality by remember { mutableStateOf("Default") }
     var qualityExpanded by remember { mutableStateOf(false) }
-    val qualityOptions = listOf("Default", "Highest", "320 kbps", "256 kbps", "128 kbps", "48 kbps", "Lowest")
+    val qualityOptions = listOf("Default", "Highest", "320 kbps", "256 kbps", "128 kbps", "64 kbps", "Lowest")
     
     var selectedSource by remember { mutableStateOf("Auto") }
     var sourceExpanded by remember { mutableStateOf(false) }
@@ -1190,11 +1190,23 @@ fun ExportAudioBottomSheet(
                 
                 val cleanTitle = song.song.title.replace(Regex("[\\\\/:*?\"<>|]"), "_")
                 val cleanArtist = song.artists.joinToString { it.name }.replace(Regex("[\\\\/:*?\"<>|]"), "_")
-                val mimeType = if (stream.ext == "webm") "audio/webm" else "audio/mp4"
-                val fileName = "$cleanTitle - $cleanArtist.${stream.ext}"
+                
+                // Fix for Android 10+ strict MediaStore mappings rejecting audio/webm
+                val ext = if (stream.ext == "webm") "opus" else stream.ext
+                val mimeType = when (ext) {
+                    "opus", "ogg" -> "audio/ogg"
+                    "mp3" -> "audio/mpeg"
+                    "m4a" -> "audio/mp4"
+                    else -> "audio/mp4"
+                }
+                val fileName = "$cleanTitle - $cleanArtist.$ext"
                 
                 val contentValues = ContentValues().apply {
                     put(MediaStore.Audio.Media.DISPLAY_NAME, fileName)
+                    put(MediaStore.Audio.Media.TITLE, song.song.title)
+                    put(MediaStore.Audio.Media.ARTIST, song.artists.joinToString { it.name })
+                    song.album?.title?.let { put(MediaStore.Audio.Media.ALBUM, it) }
+                    
                     put(MediaStore.Audio.Media.MIME_TYPE, mimeType)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                         put(MediaStore.Audio.Media.RELATIVE_PATH, Environment.DIRECTORY_MUSIC + "/AvidTune")
@@ -1355,7 +1367,7 @@ fun ExportAudioBottomSheet(
                                         expanded = formatExpanded,
                                         onDismissRequest = { formatExpanded = false }
                                     ) {
-                                        listOf("m4a", "webm").forEach { format ->
+                                        listOf("mp3", "m4a", "opus").forEach { format ->
                                             DropdownMenuItem(
                                                 text = { Text(format.uppercase()) },
                                                 onClick = {
@@ -1435,7 +1447,7 @@ fun ExportAudioBottomSheet(
                             Spacer(Modifier.height(16.dp))
                             
                             Text(
-                                text = "Note: Native extraction secures the best original stream without artificial upscaling. M4A is globally supported on all Android players.",
+                                text = "Note: MP3 format utilizes Cobalt API backend transcoder to automatically embed rich metadata (Album Cover, Title, Artist, Year) inside the downloaded track.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1456,9 +1468,10 @@ fun ExportAudioBottomSheet(
                                             
                                         val mediaTypeJson = "application/json; charset=utf-8".toMediaType()
                                         
-                                        val tryInnerTube = selectedSource == "Auto" || selectedSource == "Google InnerTube"
-                                        val tryCobalt = selectedSource == "Auto" || selectedSource == "Cobalt API"
-                                        val tryPiped = selectedSource == "Auto" || selectedSource == "Piped API"
+                                        // If MP3 is selected, InnerTube and Piped cannot be used because they don't serve MP3 dynamically
+                                        val tryInnerTube = (selectedSource == "Auto" || selectedSource == "Google InnerTube") && selectedFormat != "mp3"
+                                        val tryPiped = (selectedSource == "Auto" || selectedSource == "Piped API") && selectedFormat != "mp3"
+                                        val tryCobalt = (selectedSource == "Auto" || selectedSource == "Cobalt API" || selectedFormat == "mp3")
 
                                         try {
                                             // ----------------------------------------------------
@@ -1492,7 +1505,7 @@ fun ExportAudioBottomSheet(
                                                                 if (format.has("url")) {
                                                                     val mime = format.optString("mimeType", "").lowercase()
                                                                     if (mime.contains("audio")) {
-                                                                        val ext = if (mime.contains("webm")) "webm" else "m4a"
+                                                                        val ext = if (mime.contains("webm") || mime.contains("opus")) "opus" else "m4a"
                                                                         val itag = format.optInt("itag", 0)
                                                                         var bitrate = format.optInt("bitrate", 0) / 1000
                                                                         val contentLen = format.optLong("contentLength", 0L)
@@ -1523,11 +1536,21 @@ fun ExportAudioBottomSheet(
                                             // 2. Fallback: Cobalt V11 Cluster 
                                             // ----------------------------------------------------
                                             if (tryCobalt && fetchedStreams.isEmpty()) {
+                                                val bitrateStr = when (selectedQuality) {
+                                                    "Highest", "320 kbps" -> "320"
+                                                    "256 kbps" -> "256"
+                                                    "128 kbps", "Default" -> "128"
+                                                    "Lowest", "64 kbps", "48 kbps" -> "64"
+                                                    else -> "128"
+                                                }
+                                                
                                                 val payloadV11 = JSONObject().apply {
                                                     put("url", youtubeUrl)
                                                     put("downloadMode", "audio")
-                                                    put("audioFormat", if (selectedFormat == "m4a") "best" else "opus")
+                                                    put("audioFormat", if (selectedFormat == "opus") "opus" else if (selectedFormat == "mp3") "mp3" else "best")
+                                                    put("audioBitrate", bitrateStr)
                                                     put("filenameStyle", "basic")
+                                                    put("disableMetadata", false) // Embedded ID3 tags (Title, Artist, Album Cover, Year)
                                                 }.toString()
                                                 
                                                 val cobaltV11Instances = listOf(
@@ -1557,7 +1580,7 @@ fun ExportAudioBottomSheet(
                                                             if (json.has("url")) {
                                                                 val extractedUrl = json.getString("url")
                                                                 val sourceName = "Cobalt API (${frontendUrl.removePrefix("https://")})"
-                                                                fetchedStreams.add(StreamInfo(extractedUrl, selectedFormat, 128, 0, sourceName, frontendUrl = frontendUrl))
+                                                                fetchedStreams.add(StreamInfo(extractedUrl, selectedFormat, bitrateStr.toInt(), 0, sourceName, frontendUrl = frontendUrl))
                                                                 break
                                                             }
                                                         }
@@ -1594,7 +1617,7 @@ fun ExportAudioBottomSheet(
                                                                 for (i in 0 until streams.length()) {
                                                                     val stream = streams.getJSONObject(i)
                                                                     val format = stream.optString("format", "").lowercase()
-                                                                    val ext = if (format.contains("webm")) "webm" else "m4a"
+                                                                    val ext = if (format.contains("webm") || format.contains("opus")) "opus" else "m4a"
                                                                     val bitrate = stream.optInt("bitrate", 0) / 1000
                                                                     fetchedStreams.add(StreamInfo(stream.getString("url"), ext, bitrate, 0, sourceName, frontendUrl = instance))
                                                                 }
