@@ -277,7 +277,7 @@ fun ExportAudioBottomSheet(song: Song, onDismiss: () -> Unit) {
                                             }
 
                                             if (tryPiped && fetchedStreams.isEmpty()) {
-                                                val pipedInstances = listOf("https://pipedapi.kavin.rocks", "https://api.piped.privacydev.net", "https://piped-api.lunar.icu", "https://api-piped.mha.fi", "https://pipedapi.tokhmi.xyz")
+                                                val pipedInstances = listOf("https://api.piped.private.coffee")
                                                 for (instance in pipedInstances) {
                                                     val streams = fetchClient.fetchJsonObj("$instance/streams/${song.song.id}") { header("Accept", "application/json") }?.optJSONArray("audioStreams") ?: continue
                                                     for (i in 0 until streams.length()) {
