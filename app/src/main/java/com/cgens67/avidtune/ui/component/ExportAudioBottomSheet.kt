@@ -58,6 +58,55 @@ private fun OkHttpClient.fetchJsonObj(url: String, init: Request.Builder.() -> U
     }
 } catch (e: Exception) { null }
 
+// Native lightweight MessagePack decoder for VidPipe API
+class MsgPackDecoder(private val b: ByteArray) {
+    private var i = 0
+    fun read(): Any? {
+        if (i >= b.size) return null
+        val tag = b[i++].toInt() and 0xFF
+        if (tag <= 0x7f) return tag
+        if (tag in 0xe0..0xff) return tag - 0x100
+        if (tag in 0x80..0x8f) {
+            val len = tag and 0xf
+            val map = mutableMapOf<String, Any?>()
+            for (j in 0 until len) { val k = read(); val v = read(); if (k is String) map[k] = v }
+            return map
+        }
+        if (tag in 0x90..0x9f) return (0 until (tag and 0xf)).map { read() }
+        if (tag in 0xa0..0xbf) { val len = tag and 0x1f; val s = String(b, i, len); i += len; return s }
+        return when (tag) {
+            0xc0 -> null
+            0xc2 -> false
+            0xc3 -> true
+            0xcc -> b[i++].toInt() and 0xFF
+            0xcd -> { val v = ((b[i++].toInt() and 0xFF) shl 8) or (b[i++].toInt() and 0xFF); v }
+            0xce -> { val v = ((b[i++].toInt() and 0xFF) shl 24) or ((b[i++].toInt() and 0xFF) shl 16) or ((b[i++].toInt() and 0xFF) shl 8) or (b[i++].toInt() and 0xFF); v }
+            0xcf -> { val v = ((b[i++].toLong() and 0xFF) shl 56) or ((b[i++].toLong() and 0xFF) shl 48) or ((b[i++].toLong() and 0xFF) shl 40) or ((b[i++].toLong() and 0xFF) shl 32) or ((b[i++].toLong() and 0xFF) shl 24) or ((b[i++].toLong() and 0xFF) shl 16) or ((b[i++].toLong() and 0xFF) shl 8) or (b[i++].toLong() and 0xFF); v }
+            0xd0 -> b[i++].toByte().toInt()
+            0xd1 -> ((b[i++].toInt() and 0xFF) shl 8) or (b[i++].toInt() and 0xFF)
+            0xd2 -> ((b[i++].toInt() and 0xFF) shl 24) or ((b[i++].toInt() and 0xFF) shl 16) or ((b[i++].toInt() and 0xFF) shl 8) or (b[i++].toInt() and 0xFF)
+            0xd3 -> { val v = ((b[i++].toLong() and 0xFF) shl 56) or ((b[i++].toLong() and 0xFF) shl 48) or ((b[i++].toLong() and 0xFF) shl 40) or ((b[i++].toLong() and 0xFF) shl 32) or ((b[i++].toLong() and 0xFF) shl 24) or ((b[i++].toLong() and 0xFF) shl 16) or ((b[i++].toLong() and 0xFF) shl 8) or (b[i++].toLong() and 0xFF); v }
+            0xd9 -> { val len = b[i++].toInt() and 0xFF; val s = String(b, i, len); i += len; s }
+            0xda -> { val len = ((b[i++].toInt() and 0xFF) shl 8) or (b[i++].toInt() and 0xFF); val s = String(b, i, len); i += len; s }
+            0xdb -> { val len = ((b[i++].toInt() and 0xFF) shl 24) or ((b[i++].toInt() and 0xFF) shl 16) or ((b[i++].toInt() and 0xFF) shl 8) or (b[i++].toInt() and 0xFF); val s = String(b, i, len); i += len; s }
+            0xdc -> { val len = ((b[i++].toInt() and 0xFF) shl 8) or (b[i++].toInt() and 0xFF); (0 until len).map { read() } }
+            0xdd -> { val len = ((b[i++].toInt() and 0xFF) shl 24) or ((b[i++].toInt() and 0xFF) shl 16) or ((b[i++].toInt() and 0xFF) shl 8) or (b[i++].toInt() and 0xFF); (0 until len).map { read() } }
+            0xde -> { val len = ((b[i++].toInt() and 0xFF) shl 8) or (b[i++].toInt() and 0xFF); val m = mutableMapOf<String, Any?>(); for(j in 0 until len){ val k = read(); val v = read(); if (k is String) m[k] = v }; m }
+            0xdf -> { val len = ((b[i++].toInt() and 0xFF) shl 24) or ((b[i++].toInt() and 0xFF) shl 16) or ((b[i++].toInt() and 0xFF) shl 8) or (b[i++].toInt() and 0xFF); val m = mutableMapOf<String, Any?>(); for(j in 0 until len){ val k = read(); val v = read(); if (k is String) m[k] = v }; m }
+            0xca -> { val v = java.lang.Float.intBitsToFloat(((b[i++].toInt() and 0xFF) shl 24) or ((b[i++].toInt() and 0xFF) shl 16) or ((b[i++].toInt() and 0xFF) shl 8) or (b[i++].toInt() and 0xFF)); v }
+            0xcb -> { val v = java.lang.Double.longBitsToDouble(((b[i++].toLong() and 0xFF) shl 56) or ((b[i++].toLong() and 0xFF) shl 48) or ((b[i++].toLong() and 0xFF) shl 40) or ((b[i++].toLong() and 0xFF) shl 32) or ((b[i++].toLong() and 0xFF) shl 24) or ((b[i++].toLong() and 0xFF) shl 16) or ((b[i++].toLong() and 0xFF) shl 8) or (b[i++].toLong() and 0xFF)); v }
+            0xc4, 0xc5, 0xc6 -> { val len = when (tag) { 0xc4 -> b[i++].toInt() and 0xFF; 0xc5 -> ((b[i++].toInt() and 0xFF) shl 8) or (b[i++].toInt() and 0xFF); else -> ((b[i++].toInt() and 0xFF) shl 24) or ((b[i++].toInt() and 0xFF) shl 16) or ((b[i++].toInt() and 0xFF) shl 8) or (b[i++].toInt() and 0xFF) }; i += len; null }
+            0xc7, 0xc8, 0xc9 -> { val len = when (tag) { 0xc7 -> b[i++].toInt() and 0xFF; 0xc8 -> ((b[i++].toInt() and 0xFF) shl 8) or (b[i++].toInt() and 0xFF); else -> ((b[i++].toInt() and 0xFF) shl 24) or ((b[i++].toInt() and 0xFF) shl 16) or ((b[i++].toInt() and 0xFF) shl 8) or (b[i++].toInt() and 0xFF) }; i += 1 + len; null }
+            0xd4 -> { i += 2; null }
+            0xd5 -> { i += 3; null }
+            0xd6 -> { i += 5; null }
+            0xd7 -> { i += 9; null }
+            0xd8 -> { i += 17; null }
+            else -> null
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ExportDropdown(
@@ -93,7 +142,8 @@ fun ExportAudioBottomSheet(song: Song, onDismiss: () -> Unit) {
     
     var selectedFormat by remember { mutableStateOf("mp3") }
     var selectedQuality by remember { mutableStateOf("Default") }
-    var selectedSource by remember { mutableStateOf("Auto") }
+    var selectedSource by remember { mutableStateOf("VidPipe API") }
+    var vidpipeUrl by remember { mutableStateOf("http://10.0.2.2:8000") }
     
     var availableStreams by remember { mutableStateOf<List<StreamInfo>>(emptyList()) }
     var currentSource by remember { mutableStateOf("") }
@@ -218,7 +268,18 @@ fun ExportAudioBottomSheet(song: Song, onDismiss: () -> Unit) {
                                 ExportDropdown(label = stringResource(R.string.audio_quality), selected = selectedQuality, options = listOf("Default", "Highest", "320 kbps", "256 kbps", "128 kbps", "64 kbps", "Lowest"), onSelect = { selectedQuality = it }, modifier = Modifier.weight(1f))
                             }
                             Spacer(Modifier.height(16.dp))
-                            ExportDropdown(label = stringResource(R.string.api_source), selected = selectedSource, options = listOf("Auto", "Cobalt API", "Google InnerTube", "Piped API"), onSelect = { selectedSource = it }, modifier = Modifier.fillMaxWidth())
+                            ExportDropdown(label = stringResource(R.string.api_source), selected = selectedSource, options = listOf("Auto", "VidPipe API", "Cobalt API", "Google InnerTube", "Piped API"), onSelect = { selectedSource = it }, modifier = Modifier.fillMaxWidth())
+                            
+                            if (selectedSource == "VidPipe API") {
+                                Spacer(Modifier.height(16.dp))
+                                OutlinedTextField(
+                                    value = vidpipeUrl,
+                                    onValueChange = { vidpipeUrl = it },
+                                    label = { Text("VidPipe Instance URL") },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                            
                             Spacer(Modifier.height(16.dp))
                             Text(stringResource(R.string.export_note_mp3), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(Modifier.height(32.dp))
@@ -227,14 +288,60 @@ fun ExportAudioBottomSheet(song: Song, onDismiss: () -> Unit) {
                                     state = ExportState.FETCHING
                                     coroutineScope.launch(Dispatchers.IO) {
                                         val fetchedStreams = mutableListOf<StreamInfo>()
-                                        val fetchClient = OkHttpClient.Builder().connectTimeout(5, TimeUnit.SECONDS).readTimeout(5, TimeUnit.SECONDS).build()
+                                        val fetchClient = OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS).readTimeout(15, TimeUnit.SECONDS).build()
                                         
+                                        val tryVidpipe = selectedSource == "VidPipe API" || selectedSource == "Auto"
                                         val tryCobalt = selectedSource == "Auto" || selectedSource == "Cobalt API" || selectedFormat == "mp3"
                                         val tryInnerTube = (selectedSource == "Auto" || selectedSource == "Google InnerTube") && selectedFormat != "mp3"
                                         val tryPiped = (selectedSource == "Auto" || selectedSource == "Piped API") && selectedFormat != "mp3"
 
                                         try {
-                                            if (tryCobalt) {
+                                            if (tryVidpipe) {
+                                                try {
+                                                    // Encode to MessagePack as expected by VidPipe Fastify Backend
+                                                    val key = "video_id".toByteArray(Charsets.UTF_8)
+                                                    val value = song.song.id.toByteArray(Charsets.UTF_8)
+                                                    val payload = java.io.ByteArrayOutputStream().apply {
+                                                        write(0x81); write(0xA0 or key.size); write(key); write(0xA0 or value.size); write(value)
+                                                    }.toByteArray()
+                                                    
+                                                    val req = Request.Builder()
+                                                        .url("${vidpipeUrl.trimEnd('/')}/api/v1/video/play")
+                                                        .post(payload.toRequestBody("application/msgpack".toMediaType()))
+                                                        .header("Accept", "application/msgpack")
+                                                        .header("User-Agent", SPOOFED_AGENT)
+                                                        .build()
+                                                        
+                                                    fetchClient.newCall(req).execute().use { res ->
+                                                        if (res.isSuccessful) {
+                                                            res.body?.bytes()?.let { bytes ->
+                                                                val data = MsgPackDecoder(bytes).read() as? Map<*, *>
+                                                                val adaptiveFormats = data?.get("adaptive_formats") as? List<*>
+                                                                if (adaptiveFormats != null) {
+                                                                    for (fObj in adaptiveFormats) {
+                                                                        val f = fObj as? Map<*, *> ?: continue
+                                                                        val mimeType = f["mimeType"] as? String ?: ""
+                                                                        val url = f["url"] as? String
+                                                                        if (url != null && mimeType.lowercase().contains("audio")) {
+                                                                            val ext = if (mimeType.contains("webm") || mimeType.contains("opus")) "opus" else "m4a"
+                                                                            val itag = (f["itag"] as? Number)?.toInt() ?: 0
+                                                                            val bitrate = ((f["bitrate"] as? Number)?.toInt() ?: 128000) / 1000
+                                                                            val contentLength = (f["contentLength"] as? String)?.toLongOrNull() ?: (f["contentLength"] as? Number)?.toLong() ?: 0L
+                                                                            fetchedStreams.add(StreamInfo(url, ext, bitrate, itag, "VidPipe API", contentLength))
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        } else {
+                                                            if (selectedSource == "VidPipe API") throw Exception("VidPipe API returned HTTP ${res.code}")
+                                                        }
+                                                    }
+                                                } catch (e: Exception) {
+                                                    if (selectedSource == "VidPipe API") throw e
+                                                }
+                                            }
+                                            
+                                            if (tryCobalt && fetchedStreams.isEmpty()) {
                                                 val bitrateStr = when (selectedQuality) { "Highest", "320 kbps" -> "320"; "256 kbps" -> "256"; "128 kbps", "Default" -> "128"; "Lowest", "64 kbps", "48 kbps" -> "64"; else -> "128" }
                                                 val payload = JSONObject().apply {
                                                     put("url", "https://www.youtube.com/watch?v=${song.song.id}"); put("downloadMode", "audio")
@@ -242,8 +349,10 @@ fun ExportAudioBottomSheet(song: Song, onDismiss: () -> Unit) {
                                                     put("audioBitrate", bitrateStr); put("filenameStyle", "basic")
                                                 }.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
                                                 
-                                                val cobaltV11Instances = listOf("https://rue-cobalt.xenon.zone/" to "https://cobalt.xenon.zone", "https://cobaltapi.kittycat.boo/" to "https://cobalt.kittycat.boo", "https://dog.kittycat.boo/" to "https://cobalt.kittycat.boo", "https://api.cobalt.liubquanti.click/" to "https://cobalt.liubquanti.click", "https://cobaltapi.cjs.nz/" to "https://cobalt.cjs.nz").shuffled()
-                                                for ((apiUrl, frontend) in cobaltV11Instances) {
+                                                val cobaltV11Instances = listOf("https://api.cobalt.tools/", "https://rue-cobalt.xenon.zone/" to "https://cobalt.xenon.zone", "https://cobaltapi.kittycat.boo/" to "https://cobalt.kittycat.boo", "https://dog.kittycat.boo/" to "https://cobalt.kittycat.boo", "https://api.cobalt.liubquanti.click/" to "https://cobalt.liubquanti.click", "https://cobaltapi.cjs.nz/" to "https://cobalt.cjs.nz").shuffled()
+                                                for (instance in cobaltV11Instances) {
+                                                    val apiUrl = if (instance is Pair<*, *>) instance.first as String else instance as String
+                                                    val frontend = if (instance is Pair<*, *>) instance.second as String else "https://cobalt.tools"
                                                     val url = fetchClient.fetchJsonObj(apiUrl) { post(payload).header("Accept", "application/json").header("Content-Type", "application/json").header("Origin", frontend).header("Referer", "$frontend/") }?.optString("url")
                                                     if (!url.isNullOrEmpty()) {
                                                         fetchedStreams.add(StreamInfo(url, selectedFormat, bitrateStr.toInt(), 0, "Cobalt API (${frontend.removePrefix("https://")})", frontendUrl = frontend))
@@ -277,7 +386,7 @@ fun ExportAudioBottomSheet(song: Song, onDismiss: () -> Unit) {
                                             }
 
                                             if (tryPiped && fetchedStreams.isEmpty()) {
-                                                val pipedInstances = listOf("https://api.piped.private.coffee")
+                                                val pipedInstances = listOf("https://api.piped.private.coffee", "https://pipedapi.kavin.rocks", "https://api.piped.privacydev.net", "https://piped-api.lunar.icu")
                                                 for (instance in pipedInstances) {
                                                     val streams = fetchClient.fetchJsonObj("$instance/streams/${song.song.id}") { header("Accept", "application/json") }?.optJSONArray("audioStreams") ?: continue
                                                     for (i in 0 until streams.length()) {
