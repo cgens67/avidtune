@@ -1291,7 +1291,7 @@ fun Lyrics(
                                     val itemEnd = item.words?.maxOfOrNull { (it.endTime * 1000).toLong() } ?: (item.time + 3000L)
                                     val gapDuration = nextItem.time - itemEnd
 
-                                    if (gapDuration > 6000L) {
+                                    if (gapDuration > 10000L) {
                                         GapIndicator(
                                             gapStart = itemEnd,
                                             gapEnd = nextItem.time,
