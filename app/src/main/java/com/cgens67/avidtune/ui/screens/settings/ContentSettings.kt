@@ -57,6 +57,7 @@ import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.ContentCountryKey
 import com.cgens67.avidtune.constants.ContentLanguageKey
 import com.cgens67.avidtune.constants.CountryCodeToName
+import com.cgens67.avidtune.constants.EnableAvidLyricsKey
 import com.cgens67.avidtune.constants.EnableKugouKey
 import com.cgens67.avidtune.constants.EnableLrcLibKey
 import com.cgens67.avidtune.constants.EnableBetterLyricsKey
@@ -75,7 +76,6 @@ import com.cgens67.avidtune.constants.QuickPicks
 import com.cgens67.avidtune.constants.QuickPicksKey
 import com.cgens67.avidtune.constants.SYSTEM_DEFAULT
 import com.cgens67.avidtune.constants.TopSize
-import com.cgens67.avidtune.lyrics.EnableAvidLyricsKey
 import com.cgens67.avidtune.ui.component.EditTextPreference
 import com.cgens67.avidtune.ui.component.ListPreference
 import com.cgens67.avidtune.ui.component.PreferenceEntry
