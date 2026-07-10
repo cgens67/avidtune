@@ -18,6 +18,7 @@ constructor(
     @ApplicationContext private val context: Context,
 ) {
     private val allProviders = listOf(
+        AvidLyricsProvider, // Prioritized first
         LyricsPlusProvider,
         PaxsenixLyricsProvider,
         BetterLyricsProvider,
