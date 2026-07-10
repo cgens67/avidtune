@@ -1,7 +1,7 @@
 package com.cgens67.avidtune.lyrics
 
 import android.content.Context
-import androidx.datastore.preferences.core.booleanPreferencesKey
+import com.cgens67.avidtune.constants.EnableAvidLyricsKey
 import com.cgens67.avidtune.utils.dataStore
 import com.cgens67.avidtune.utils.get
 import io.ktor.client.HttpClient
@@ -10,8 +10,6 @@ import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
-
-val EnableAvidLyricsKey = booleanPreferencesKey("enable_avid_lyrics")
 
 object AvidLyricsProvider : LyricsProvider {
     override val name = "AvidLyrics"
