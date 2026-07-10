@@ -75,6 +75,7 @@ import com.cgens67.avidtune.constants.QuickPicks
 import com.cgens67.avidtune.constants.QuickPicksKey
 import com.cgens67.avidtune.constants.SYSTEM_DEFAULT
 import com.cgens67.avidtune.constants.TopSize
+import com.cgens67.avidtune.lyrics.EnableAvidLyricsKey
 import com.cgens67.avidtune.ui.component.EditTextPreference
 import com.cgens67.avidtune.ui.component.ListPreference
 import com.cgens67.avidtune.ui.component.PreferenceEntry
@@ -136,6 +137,10 @@ fun ContentSettings(
         key = QuickPicksKey,
         defaultValue = QuickPicks.QUICK_PICKS
     )
+    val (enableAvidLyrics, onEnableAvidLyricsChange) = rememberPreference(
+        key = EnableAvidLyricsKey,
+        defaultValue = true
+    )
     val (enableKugou, onEnableKugouChange) = rememberPreference(
         key = EnableKugouKey,
         defaultValue = true
@@ -161,7 +166,7 @@ fun ContentSettings(
         defaultValue = true
     )
 
-    val defaultOrder = listOf("LyricsPlus", "Paxsenix", "BetterLyrics", "SimpMusic", "LrcLib", "Kugou", "YouTube Subtitle", "YouTube Music")
+    val defaultOrder = listOf("AvidLyrics", "LyricsPlus", "Paxsenix", "BetterLyrics", "SimpMusic", "LrcLib", "Kugou", "YouTube Subtitle", "YouTube Music")
     val (providerOrderStr, onProviderOrderChange) = rememberPreference(LyricsProviderOrderKey, defaultOrder.joinToString(","))
     val currentOrder = remember(providerOrderStr) {
         providerOrderStr.split(",").filter { it.isNotBlank() }.let { saved ->
@@ -265,6 +270,12 @@ fun ContentSettings(
         SettingsGeneralCategory(
             title = stringResource(R.string.lyrics),
             items = listOf(
+                {SwitchPreference(
+                    title = { Text("Enable AvidLyrics") },
+                    icon = { Icon(painterResource(R.drawable.lyrics), null) },
+                    checked = enableAvidLyrics,
+                    onCheckedChange = onEnableAvidLyricsChange,
+                )},
                 {SwitchPreference(
                     title = { Text(stringResource(R.string.enable_lyrics_plus)) },
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
