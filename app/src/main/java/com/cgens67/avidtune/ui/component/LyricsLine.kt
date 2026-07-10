@@ -34,7 +34,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.scale
@@ -588,8 +587,7 @@ private fun WordLevelLyrics(
             .fillMaxWidth()
             .height((layoutResult.size.height / density.density).dp)
             .graphicsLayer(
-                clip = false,
-                compositingStrategy = CompositingStrategy.Offscreen,
+                clip = false
             )
         ) {
             if (mainText.isEmpty()) return@Canvas
