@@ -273,7 +273,6 @@ fun Lyrics(
     var initialScrollDone by remember(currentSongId) { mutableStateOf(false) }
     var shouldScrollToFirstLine by remember(currentSongId) { mutableStateOf(true) }
     var isAppMinimized by rememberSaveable { mutableStateOf(false) }
-    var sliderPosition by remember { mutableStateOf<Long?>(null) }
     var cornerRadius by remember { mutableFloatStateOf(16f) }
 
     var isAutoScrollEnabled by rememberSaveable { mutableStateOf(true) }
@@ -423,7 +422,6 @@ fun Lyrics(
                 val linesToRomanize = lines.map { it.text }
                 val romanizedResult = com.cgens67.avidtune.utils.TranslationHelper.romanize(linesToRomanize)
 
-                // romanizedResult is a List<String> aligned with 'lines'
                 val finalRomanizedLines = mutableListOf<String>()
                 for (i in lines.indices) {
                     if (lines[i].text.isNotBlank()) {
@@ -497,7 +495,6 @@ fun Lyrics(
 
             withContext(Dispatchers.IO) {
                 try {
-
                     val fallbackColors = listOf(primaryColor, secondaryColor, tertiaryColor)
                     gradientColorsCache[currentMetadata.id] = fallbackColors
                     withContext(Dispatchers.Main) { gradientColors = fallbackColors }
@@ -539,7 +536,6 @@ fun Lyrics(
 
                         val text = existingLyrics.lyrics.trim()
                         if (!text.startsWith("[provider:")) {
-                            // Old format, trigger a background upgrade
                             scope.launch(Dispatchers.IO) {
                                 try {
                                     val entryPoint = EntryPointAccessors.fromApplication(
@@ -561,16 +557,13 @@ fun Lyrics(
                                             }
                                         } catch (e: Throwable) {}
 
-                                        // Update state to show provider credit
                                         currentLyricsEntity = upgradedEntity
                                         val upgradedCache = lyricsCache.toMutableMap().apply {
                                             put(songId, upgradedEntity)
                                         }
                                         lyricsCache = upgradedCache
                                     }
-                                } catch (e: Throwable) {
-                                    // Ignore errors during background upgrade
-                                }
+                                } catch (e: Throwable) {}
                             }
                         }
                     } else {
@@ -781,7 +774,6 @@ fun Lyrics(
             currentLineIndex = rawIndex
 
             var mainIdx = rawIndex
-            // Navigate back to find the closest main line (ignoring background lines)
             while (mainIdx >= 0 && lines.getOrNull(mainIdx)?.isBackground == true) {
                 mainIdx--
             }
@@ -990,7 +982,6 @@ fun Lyrics(
                                         .build()
                                 }
 
-                                // Layer 1 (Anchor)
                                 AsyncImage(
                                     model = imageRequest,
                                     contentDescription = null,
@@ -1002,7 +993,6 @@ fun Lyrics(
                                         .graphicsLayer { rotationZ = anchorRotation }
                                 )
 
-                                // Layer 2 (Fast)
                                 AsyncImage(
                                     model = imageRequest,
                                     contentDescription = null,
@@ -1018,7 +1008,6 @@ fun Lyrics(
                                         }
                                 )
 
-                                // Layer 3 (Slow)
                                 AsyncImage(
                                     model = imageRequest,
                                     contentDescription = null,
@@ -1034,7 +1023,6 @@ fun Lyrics(
                                         }
                                 )
                                 
-                                // Depth & Contrast Overlays
                                 Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.2f)))
                                 Box(
                                     modifier = Modifier
@@ -1216,10 +1204,16 @@ fun Lyrics(
                             ) { index, item ->
                                 val isSelected = selectedIndices.contains(index)
                                 
-                                val isAssociatedBg = item.isBackground &&
-                                        displayedCurrentMainLineIndex >= 0 &&
-                                        index > displayedCurrentMainLineIndex &&
-                                        displayedLines.subList(displayedCurrentMainLineIndex + 1, index + 1).all { it.isBackground }
+                                var isAssociatedBg = false
+                                if (item.isBackground && displayedCurrentMainLineIndex >= 0 && index > displayedCurrentMainLineIndex) {
+                                    isAssociatedBg = true
+                                    for (i in (displayedCurrentMainLineIndex + 1)..index) {
+                                        if (!displayedLines[i].isBackground) {
+                                            isAssociatedBg = false
+                                            break
+                                        }
+                                    }
+                                }
 
                                 val isActiveLine = (index == displayedCurrentMainLineIndex || isAssociatedBg) && isSynced
                                 val distance = if (isActiveLine) 0 else kotlin.math.abs(index - displayedCurrentMainLineIndex)
@@ -1647,96 +1641,18 @@ fun Lyrics(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                when (sliderStyle) {
-                    SliderStyle.DEFAULT -> {
-                        Slider(
-                            value = (sliderPosition ?: position).toFloat(),
-                            valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
-                            onValueChange = { sliderPosition = it.toLong() },
-                            onValueChangeFinished = {
-                                sliderPosition?.let {
-                                    playerConnection.player.seekTo(it)
-                                    position = it
-                                }
-                                sliderPosition = null
-                            },
-                            colors = androidx.compose.material3.SliderDefaults.colors(
-                                activeTrackColor = textBackgroundColor,
-                                inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
-                                thumbColor = textBackgroundColor
-                            ),
-                        )
-                    }
-
-                    SliderStyle.SQUIGGLY -> {
-                        SquigglySlider(
-                            value = (sliderPosition ?: position).toFloat(),
-                            valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
-                            onValueChange = { sliderPosition = it.toLong() },
-                            onValueChangeFinished = {
-                                sliderPosition?.let {
-                                    playerConnection.player.seekTo(it)
-                                    position = it
-                                }
-                                sliderPosition = null
-                            },
-                            colors = androidx.compose.material3.SliderDefaults.colors(
-                                activeTrackColor = textBackgroundColor,
-                                inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
-                                thumbColor = textBackgroundColor
-                            ),
-                            squigglesSpec = SquigglySlider.SquigglesSpec(
-                                amplitude = if (isPlaying && animateLyrics) (4.dp).coerceAtLeast(2.dp) else 0.dp,
-                                strokeWidth = 3.dp,
-                                wavelength = 36.dp,
-                            ),
-                        )
-                    }
-
-                    SliderStyle.SLIM -> {
-                        Slider(
-                            value = (sliderPosition ?: position).toFloat(),
-                            valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
-                            onValueChange = { sliderPosition = it.toLong() },
-                            onValueChangeFinished = {
-                                sliderPosition?.let {
-                                    playerConnection.player.seekTo(it)
-                                    position = it
-                                }
-                                sliderPosition = null
-                            },
-                            thumb = { Spacer(modifier = Modifier.size(0.dp)) },
-                            colors = androidx.compose.material3.SliderDefaults.colors(
-                                activeTrackColor = textBackgroundColor,
-                                inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f)
-                            )
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Row(
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = makeTimeString(sliderPosition ?: position),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = textBackgroundColor,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-
-                    Text(
-                        text = if (duration != C.TIME_UNSET) makeTimeString(duration) else "",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = textBackgroundColor,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
+                PlaybackProgressSlider(
+                    sliderStyle = sliderStyle,
+                    positionProvider = { position },
+                    durationProvider = { duration },
+                    onSeek = { pos ->
+                        playerConnection.player.seekTo(pos)
+                        position = pos
+                    },
+                    isPlayingProvider = { isPlaying },
+                    animateLyrics = animateLyrics,
+                    textBackgroundColor = textBackgroundColor
+                )
             }
         }
 
@@ -1995,7 +1911,6 @@ private fun ShareLyricsDialog(
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Share as text
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -2034,7 +1949,6 @@ private fun ShareLyricsDialog(
                     )
                 }
 
-                // Share as image
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -2057,7 +1971,6 @@ private fun ShareLyricsDialog(
                     )
                 }
 
-                // Cancel button
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -2079,6 +1992,115 @@ private fun ShareLyricsDialog(
     }
 }
 
+/**
+ * Calculations localized for slider to prevent whole Lyrics view recomposition
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PlaybackProgressSlider(
+    sliderStyle: SliderStyle,
+    positionProvider: () -> Long,
+    durationProvider: () -> Long,
+    onSeek: (Long) -> Unit,
+    isPlayingProvider: () -> Boolean,
+    animateLyrics: Boolean,
+    textBackgroundColor: Color
+) {
+    val position = positionProvider()
+    val duration = durationProvider()
+    val isPlaying = isPlayingProvider()
+    var sliderPosition by remember { mutableStateOf<Long?>(null) }
+
+    val displayPosition = sliderPosition ?: position
+
+    when (sliderStyle) {
+        SliderStyle.DEFAULT -> {
+            Slider(
+                value = displayPosition.toFloat(),
+                valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
+                onValueChange = { sliderPosition = it.toLong() },
+                onValueChangeFinished = {
+                    sliderPosition?.let {
+                        onSeek(it)
+                    }
+                    sliderPosition = null
+                },
+                colors = SliderDefaults.colors(
+                    activeTrackColor = textBackgroundColor,
+                    inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
+                    thumbColor = textBackgroundColor
+                ),
+            )
+        }
+
+        SliderStyle.SQUIGGLY -> {
+            SquigglySlider(
+                value = displayPosition.toFloat(),
+                valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
+                onValueChange = { sliderPosition = it.toLong() },
+                onValueChangeFinished = {
+                    sliderPosition?.let {
+                        onSeek(it)
+                    }
+                    sliderPosition = null
+                },
+                colors = SliderDefaults.colors(
+                    activeTrackColor = textBackgroundColor,
+                    inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
+                    thumbColor = textBackgroundColor
+                ),
+                squigglesSpec = SquigglySlider.SquigglesSpec(
+                    amplitude = if (isPlaying && animateLyrics) (4.dp).coerceAtLeast(2.dp) else 0.dp,
+                    strokeWidth = 3.dp,
+                    wavelength = 36.dp,
+                ),
+            )
+        }
+
+        SliderStyle.SLIM -> {
+            Slider(
+                value = displayPosition.toFloat(),
+                valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
+                onValueChange = { sliderPosition = it.toLong() },
+                onValueChangeFinished = {
+                    sliderPosition?.let {
+                        onSeek(it)
+                    }
+                    sliderPosition = null
+                },
+                thumb = { Spacer(modifier = Modifier.size(0.dp)) },
+                colors = SliderDefaults.colors(
+                    activeTrackColor = textBackgroundColor,
+                    inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f)
+                )
+            )
+        }
+    }
+
+    Spacer(modifier = Modifier.height(4.dp))
+
+    Row(
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(
+            text = makeTimeString(displayPosition),
+            style = MaterialTheme.typography.labelMedium,
+            color = textBackgroundColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+
+        Text(
+            text = if (duration != C.TIME_UNSET) makeTimeString(duration) else "",
+            style = MaterialTheme.typography.labelMedium,
+            color = textBackgroundColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
 
 /**
  * Calculates the auto-swipe threshold based on swipe sensitivity.
