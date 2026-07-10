@@ -244,8 +244,9 @@ fun ExportAudioBottomSheet(song: Song, onDismiss: () -> Unit) {
                                                 
                                                 val cobaltV11Instances = listOf("https://rue-cobalt.xenon.zone/" to "https://cobalt.xenon.zone", "https://cobaltapi.kittycat.boo/" to "https://cobalt.kittycat.boo", "https://dog.kittycat.boo/" to "https://cobalt.kittycat.boo", "https://api.cobalt.liubquanti.click/" to "https://cobalt.liubquanti.click", "https://cobaltapi.cjs.nz/" to "https://cobalt.cjs.nz").shuffled()
                                                 for ((apiUrl, frontend) in cobaltV11Instances) {
-                                                    fetchClient.fetchJsonObj(apiUrl) { post(payload).header("Accept", "application/json").header("Content-Type", "application/json").header("Origin", frontend).header("Referer", "$frontend/") }?.optString("url")?.takeIf { it.isNotEmpty() }?.let {
-                                                        fetchedStreams.add(StreamInfo(it, selectedFormat, bitrateStr.toInt(), 0, "Cobalt API (${frontend.removePrefix("https://")})", frontendUrl = frontend))
+                                                    val url = fetchClient.fetchJsonObj(apiUrl) { post(payload).header("Accept", "application/json").header("Content-Type", "application/json").header("Origin", frontend).header("Referer", "$frontend/") }?.optString("url")
+                                                    if (!url.isNullOrEmpty()) {
+                                                        fetchedStreams.add(StreamInfo(url, selectedFormat, bitrateStr.toInt(), 0, "Cobalt API (${frontend.removePrefix("https://")})", frontendUrl = frontend))
                                                         break
                                                     }
                                                 }
@@ -260,7 +261,8 @@ fun ExportAudioBottomSheet(song: Song, onDismiss: () -> Unit) {
                                                 )
                                                 for (payload in innerTubeClients) {
                                                     val res = fetchClient.fetchJsonObj("https://www.youtube.com/youtubei/v1/player") { post(payload.toRequestBody("application/json; charset=utf-8".toMediaType())).header("Content-Type", "application/json") }
-                                                    val formats = res?.optJSONObject("streamingData")?.let { it.optJSONArray("adaptiveFormats") ?: it.optJSONArray("formats") } ?: continue
+                                                    val streamingData = res?.optJSONObject("streamingData")
+                                                    val formats = (streamingData?.optJSONArray("adaptiveFormats") ?: streamingData?.optJSONArray("formats")) ?: continue
                                                     for (i in 0 until formats.length()) {
                                                         val f = formats.getJSONObject(i)
                                                         if (f.has("url") && f.optString("mimeType", "").lowercase().contains("audio")) {
