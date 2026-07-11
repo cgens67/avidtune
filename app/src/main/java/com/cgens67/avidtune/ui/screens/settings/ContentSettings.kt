@@ -271,7 +271,7 @@ fun ContentSettings(
             title = stringResource(R.string.lyrics),
             items = listOf(
                 {SwitchPreference(
-                    title = { Text("Enable AvidLyrics") },
+                    title = { Text(stringResource(R.string.enable_avid_lyrics)) },
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = enableAvidLyrics,
                     onCheckedChange = onEnableAvidLyricsChange,
@@ -289,7 +289,7 @@ fun ContentSettings(
                     onCheckedChange = onEnableBetterLyricsChange,
                 )},
                 {SwitchPreference(
-                    title = { Text("Enable SimpMusic") },
+                    title = { Text(stringResource(R.string.enable_simpmusic)) },
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = enableSimpMusic,
                     onCheckedChange = onEnableSimpMusicChange,
