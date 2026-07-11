@@ -36,8 +36,9 @@ object AvidLyricsProvider : LyricsProvider {
         artist: String,
         duration: Int,
     ): Result<String> = runCatching {
-        // Utilizing jsDelivr CDN to handle traffic and prevent GitHub raw rate limits
-        val url = "https://cdn.jsdelivr.net/gh/$GITHUB_USERNAME/$GITHUB_REPO@$GITHUB_BRANCH/lyrics/$id.lrc"
+        // Replaced jsDelivr with GitHub Raw to avoid the 12-hour CDN cache on branches.
+        // Appended a timestamp to completely bypass GitHub's 5-minute cache so edits show up instantly.
+        val url = "https://raw.githubusercontent.com/$GITHUB_USERNAME/$GITHUB_REPO/$GITHUB_BRANCH/lyrics/$id.lrc?t=${System.currentTimeMillis()}"
 
         val response = client.get(url)
         if (response.status == HttpStatusCode.OK) {
@@ -48,7 +49,7 @@ object AvidLyricsProvider : LyricsProvider {
                 throw IllegalStateException("Empty lyrics file")
             }
         } else {
-            throw IllegalStateException("Failed to fetch from AvidLyrics CDN: ${response.status}")
+            throw IllegalStateException("Failed to fetch from AvidLyrics: ${response.status}")
         }
     }
 }
