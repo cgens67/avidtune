@@ -86,6 +86,7 @@ import com.cgens67.avidtune.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.Cache
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
@@ -264,8 +265,12 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
         else LinearOutSlowInEasing.transform(pullToRefreshState.distanceFraction).coerceIn(0f, 1f)
     }
 
-    val httpClient = remember {
+    val httpClient = remember(context) {
+        val cacheSize = 10L * 1024 * 1024 // 10 MiB Cache size
+        val cache = Cache(File(context.cacheDir, "github_api_cache"), cacheSize)
+        
         OkHttpClient.Builder()
+            .cache(cache)
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(15, TimeUnit.SECONDS)
             .followRedirects(true)
@@ -778,8 +783,12 @@ fun CommitsContent(refreshTrigger: Int) {
         else LinearOutSlowInEasing.transform(pullToRefreshState.distanceFraction).coerceIn(0f, 1f)
     }
 
-    val httpClient = remember {
+    val httpClient = remember(context) {
+        val cacheSize = 10L * 1024 * 1024 // 10 MiB Cache size
+        val cache = Cache(File(context.cacheDir, "github_api_cache"), cacheSize)
+        
         OkHttpClient.Builder()
+            .cache(cache)
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(15, TimeUnit.SECONDS)
             .followRedirects(true)
