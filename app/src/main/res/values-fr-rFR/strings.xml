@@ -1102,4 +1102,7 @@
     <string name="quality_unavailable">Qualité indisponible</string>
     <string name="quality_unavailable_desc">Votre qualité préférée n\'est pas disponible. Formats disponibles :</string>
     <string name="source_format">Source : %1$s</string>
+    
+    <string name="enable_avid_lyrics">Activer AvidLyrics</string>
+    <string name="enable_simpmusic">Activer SimpMusic</string>
 </resources>
