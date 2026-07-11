@@ -1106,5 +1106,8 @@
     <string name="quality_unavailable">音质不可用</string>
     <string name="quality_unavailable_desc">您首选的音质不可用。可用格式：</string>
     <string name="source_format">来源：%1$s</string>
+    
+    <string name="enable_avid_lyrics">启用 AvidLyrics</string>
+    <string name="enable_simpmusic">启用 SimpMusic</string>
 
 </resources>
