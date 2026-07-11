@@ -103,7 +103,6 @@ import com.cgens67.avidtune.extensions.tryOrNull
 import com.cgens67.avidtune.ui.component.IconButton as AppIconButton
 import com.cgens67.avidtune.ui.component.ListPreference
 import com.cgens67.avidtune.ui.utils.backToMain
-import com.cgens67.avidtune.ui.utils.formatFileSize
 import com.cgens67.avidtune.utils.rememberPreference
 import com.cgens67.avidtune.viewmodels.HistoryViewModel
 import kotlinx.coroutines.Dispatchers
@@ -234,7 +233,7 @@ fun StorageSettings(
                         values = listOf(-1, 128, 256, 512, 1024, 2048, 4096, 8192),
                         valueText = {
                             if (it == -1) stringResource(R.string.unlimited)
-                            else formatFileSize(it * 1024 * 1024L)
+                            else formatStorageSize(it * 1024 * 1024L)
                         },
                         onValueSelected = onMaxSongCacheSizeChange,
                     )
@@ -265,7 +264,7 @@ fun StorageSettings(
                         values = listOf(-1, 128, 256, 512, 1024, 2048, 4096, 8192),
                         valueText = {
                             if (it == -1) stringResource(R.string.unlimited)
-                            else formatFileSize(it * 1024 * 1024L)
+                            else formatStorageSize(it * 1024 * 1024L)
                         },
                         onValueSelected = onMaxImageCacheSizeChange,
                     )
@@ -346,7 +345,7 @@ private fun StorageDashboardCard(
                     )
 
                     Text(
-                        text = formatFileSize(totalUsedBytes),
+                        text = formatStorageSize(totalUsedBytes),
                         style = MaterialTheme.typography.headlineLarge,
                         fontWeight = FontWeight.Black,
                         color = MaterialTheme.colorScheme.primary,
@@ -474,10 +473,10 @@ private fun AnimatedDonutChart(
         else -> "Used"
     }
     val centerValue = when (selectedSegmentIndex) {
-        0 -> formatFileSize(downloadSize)
-        1 -> formatFileSize(songCacheSize)
-        2 -> formatFileSize(imageCacheSize)
-        else -> formatFileSize(total)
+        0 -> formatStorageSize(downloadSize)
+        1 -> formatStorageSize(songCacheSize)
+        2 -> formatStorageSize(imageCacheSize)
+        else -> formatStorageSize(total)
     }
 
     Box(
@@ -694,7 +693,7 @@ private fun LegendRow(
             )
         }
         Text(
-            text = formatFileSize(size),
+            text = formatStorageSize(size),
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -754,9 +753,9 @@ private fun ModernStorageCard(
                     )
                     Text(
                         text = if (maxSize != null && maxSize > 0) {
-                            stringResource(R.string.limit_info, formatFileSize(usedSize), formatFileSize(maxSize))
+                            stringResource(R.string.limit_info, formatStorageSize(usedSize), formatStorageSize(maxSize))
                         } else {
-                            formatFileSize(usedSize)
+                            formatStorageSize(usedSize)
                         },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1050,7 +1049,7 @@ private fun CachedSongItem(
                     maxLines = 1
                 )
                 Text(
-                    text = formatFileSize(songInfo.size),
+                    text = formatStorageSize(songInfo.size),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
@@ -1072,3 +1071,24 @@ private data class CachedSongInfo(
     val song: Song,
     val size: Long
 )
+
+private fun formatStorageSize(bytes: Long): String {
+    if (bytes <= 0) return "0 B"
+    val units = arrayOf("B", "KB", "MB", "GB", "TB")
+    var size = bytes.toDouble()
+    var unitIndex = 0
+    while (size >= 1024 && unitIndex < units.size - 1) {
+        size /= 1024
+        unitIndex++
+    }
+
+    return if (unitIndex == 0) {
+        "$bytes B"
+    } else {
+        // String.format with Locale.US ensures '.' is universally used as the decimal separator.
+        val formattedSize = String.format(java.util.Locale.US, "%.2f", size)
+        // Trim trailing zeros and then trailing decimal point if number happens to be whole.
+        val cleanSize = formattedSize.trimEnd('0').trimEnd('.')
+        "$cleanSize ${units[unitIndex]}"
+    }
+}
