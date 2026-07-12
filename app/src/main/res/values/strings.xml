@@ -1131,4 +1131,11 @@
     <string name="enable_avid_lyrics">Enable AvidLyrics</string>
     <string name="enable_simpmusic">Enable SimpMusic</string>
     
+    <string name="continue_playing">Continue playing</string>
+    <string name="autoplaying_similar_content">Autoplaying similar content</string>
+    <plurals name="removed_songs_from_queue">
+        <item quantity="one">Removed %d song from queue</item>
+        <item quantity="other">Removed %d songs from queue</item>
+    </plurals>
+    
 </resources>
