@@ -1109,5 +1109,11 @@
     
     <string name="enable_avid_lyrics">启用 AvidLyrics</string>
     <string name="enable_simpmusic">启用 SimpMusic</string>
+    
+    <string name="continue_playing">继续播放</string>
+    <string name="autoplaying_similar_content">自动播放相似内容</string>
+    <plurals name="removed_songs_from_queue">
+        <item quantity="other">已从队列中移除 %d 首歌曲</item>
+    </plurals>
 
 </resources>
