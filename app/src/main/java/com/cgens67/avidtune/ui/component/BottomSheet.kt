@@ -43,6 +43,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
+import com.cgens67.avidtune.constants.BottomSheetAnimationSpec
+import com.cgens67.avidtune.constants.BottomSheetSoftAnimationSpec
 import com.cgens67.avidtune.constants.NavigationBarAnimationSpec
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -186,19 +188,19 @@ class BottomSheetState(
     }
 
     private fun collapse() {
-        collapse(SpringSpec())
+        collapse(BottomSheetAnimationSpec)
     }
 
     private fun expand() {
-        expand(SpringSpec())
+        expand(BottomSheetAnimationSpec)
     }
 
     fun collapseSoft() {
-        collapse(spring(dampingRatio = 0.9f, stiffness = 120f))
+        collapse(BottomSheetSoftAnimationSpec)
     }
 
     fun expandSoft() {
-        expand(spring(dampingRatio = 0.9f, stiffness = 120f))
+        expand(BottomSheetSoftAnimationSpec)
     }
 
     fun dismiss() {
@@ -216,13 +218,13 @@ class BottomSheetState(
 
     fun performFling(velocity: Float, onDismiss: (() -> Unit)?) {
         if (velocity > 250) {
-            expandSoft()
+            expand()
         } else if (velocity < -250) {
             if (value < collapsedBound && onDismiss != null) {
                 dismiss()
                 onDismiss.invoke()
             } else {
-                collapseSoft()
+                collapse()
             }
         } else {
             val l0 = dismissedBound
@@ -236,12 +238,12 @@ class BottomSheetState(
                         dismiss()
                         onDismiss.invoke()
                     } else {
-                        collapseSoft()
+                        collapse()
                     }
                 }
 
-                in l1..l2 -> collapseSoft()
-                in l2..l3 -> expandSoft()
+                in l1..l2 -> collapse()
+                in l2..l3 -> expand()
                 else -> Unit
             }
         }
@@ -336,7 +338,7 @@ fun rememberBottomSheetState(
         BottomSheetState(
             draggableState = DraggableState { delta ->
                 coroutineScope.launch {
-                    animatable.animateTo(initialValue, spring(dampingRatio = 0.9f, stiffness = 120f))
+                    animatable.snapTo(animatable.value - with(density) { delta.toDp() })
                 }
             },
             onAnchorChanged = { previousAnchor = it },
