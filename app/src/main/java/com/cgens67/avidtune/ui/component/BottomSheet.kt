@@ -194,11 +194,11 @@ class BottomSheetState(
     }
 
     fun collapseSoft() {
-        collapse(spring(stiffness = Spring.StiffnessMediumLow))
+        collapse(spring(dampingRatio = 0.9f, stiffness = 120f))
     }
 
     fun expandSoft() {
-        expand(spring(stiffness = Spring.StiffnessMediumLow))
+        expand(spring(dampingRatio = 0.9f, stiffness = 120f))
     }
 
     fun dismiss() {
@@ -216,13 +216,13 @@ class BottomSheetState(
 
     fun performFling(velocity: Float, onDismiss: (() -> Unit)?) {
         if (velocity > 250) {
-            expand()
+            expandSoft()
         } else if (velocity < -250) {
             if (value < collapsedBound && onDismiss != null) {
                 dismiss()
                 onDismiss.invoke()
             } else {
-                collapse()
+                collapseSoft()
             }
         } else {
             val l0 = dismissedBound
@@ -236,12 +236,12 @@ class BottomSheetState(
                         dismiss()
                         onDismiss.invoke()
                     } else {
-                        collapse()
+                        collapseSoft()
                     }
                 }
 
-                in l1..l2 -> collapse()
-                in l2..l3 -> expand()
+                in l1..l2 -> collapseSoft()
+                in l2..l3 -> expandSoft()
                 else -> Unit
             }
         }
@@ -336,7 +336,7 @@ fun rememberBottomSheetState(
         BottomSheetState(
             draggableState = DraggableState { delta ->
                 coroutineScope.launch {
-                    animatable.snapTo(animatable.value - with(density) { delta.toDp() })
+                    animatable.animateTo(initialValue, spring(dampingRatio = 0.9f, stiffness = 120f))
                 }
             },
             onAnchorChanged = { previousAnchor = it },
