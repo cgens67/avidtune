@@ -1122,5 +1122,12 @@
     
     <string name="enable_avid_lyrics">AvidLyrics aktivieren</string>
     <string name="enable_simpmusic">SimpMusic aktivieren</string>
+    
+    <string name="continue_playing">Weiter abspielen</string>
+    <string name="autoplaying_similar_content">Ähnliche Inhalte automatisch abspielen</string>
+    <plurals name="removed_songs_from_queue">
+        <item quantity="one">%d Song aus der Warteschlange entfernt</item>
+        <item quantity="other">%d Songs aus der Warteschlange entfernt</item>
+    </plurals>
 
 </resources>
