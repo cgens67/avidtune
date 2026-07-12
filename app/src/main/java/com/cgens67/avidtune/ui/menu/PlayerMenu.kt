@@ -222,6 +222,17 @@ fun ColumnScope.PlayerMenu(
         )
     }
 
+    var showMediaInfoSheet by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    if (showMediaInfoSheet) {
+        MediaInfoBottomSheet(
+            videoId = mediaMetadata.id,
+            onDismiss = { showMediaInfoSheet = false }
+        )
+    }
+
     AddToPlaylistDialog(
         isVisible = showChoosePlaylistDialog,
         onGetSong = { playlist ->
@@ -821,8 +832,7 @@ fun ColumnScope.PlayerMenu(
                                 )
                             },
                             onClick = {
-                                onShowDetailsDialog()
-                                onDismiss()
+                                showMediaInfoSheet = true
                             }
                         )
                     )
