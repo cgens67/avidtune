@@ -1105,4 +1105,11 @@
     
     <string name="enable_avid_lyrics">Activer AvidLyrics</string>
     <string name="enable_simpmusic">Activer SimpMusic</string>
+    
+    <string name="continue_playing">Continuer la lecture</string>
+    <string name="autoplaying_similar_content">Lecture automatique de contenu similaire</string>
+    <plurals name="removed_songs_from_queue">
+        <item quantity="one">%d chanson retirée de la file d\'attente</item>
+        <item quantity="other">%d chansons retirées de la file d\'attente</item>
+    </plurals>
 </resources>
