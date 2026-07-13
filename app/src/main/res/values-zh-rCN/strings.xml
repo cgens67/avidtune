@@ -1115,5 +1115,15 @@
     <plurals name="removed_songs_from_queue">
         <item quantity="other">已从队列中移除 %d 首歌曲</item>
     </plurals>
+    
+    <!-- ShowMediaInfo -->
+    <string name="media_info_numbers">数字</string>
+    <string name="action_copy">复制</string>
+    <string name="description">描述</string>
+    <string name="subscribers">订阅者</string>
+    <string name="views">观看次数</string>
+    <string name="likes">点赞</string>
+    <string name="dislikes">点踩</string>
+    <string name="itag">Itag</string>
 
 </resources>
