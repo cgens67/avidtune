@@ -1112,4 +1112,14 @@
         <item quantity="one">%d chanson retirée de la file d\'attente</item>
         <item quantity="other">%d chansons retirées de la file d\'attente</item>
     </plurals>
+    
+    <!-- ShowMediaInfo -->
+    <string name="media_info_numbers">Chiffres</string>
+    <string name="action_copy">Copier</string>
+    <string name="description">Description</string>
+    <string name="subscribers">Abonnés</string>
+    <string name="views">Vues</string>
+    <string name="likes">J\'aime</string>
+    <string name="dislikes">Je n\'aime pas</string>
+    <string name="itag">Itag</string>
 </resources>
