@@ -29,9 +29,26 @@ import coil.compose.AsyncImage
 import com.cgens67.avidtune.LocalDatabase
 import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
+import kotlinx.coroutines.launch
 
 @Composable
-fun MediaInfoBottomSheet(videoId: String, onDismiss: () -> Unit) = ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = MaterialTheme.colorScheme.surfaceContainerHigh) { ShowMediaInfo(videoId, onDismiss) }
+fun MediaInfoBottomSheet(videoId: String, onDismiss: () -> Unit) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
+    
+    ModalBottomSheet(
+        onDismissRequest = onDismiss, 
+        sheetState = sheetState, 
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
+    ) { 
+        ShowMediaInfo(videoId) {
+            scope.launch {
+                sheetState.hide()
+                onDismiss()
+            }
+        } 
+    }
+}
 
 private enum class Tab(@StringRes val labelRes: Int) { Info(R.string.info_title), Details(R.string.details), Stats(R.string.media_info_numbers) }
 
@@ -44,7 +61,20 @@ fun ColumnScope.ShowMediaInfo(videoId: String, onClose: () -> Unit) {
     
     val nestedScrollConnection = remember { object : NestedScrollConnection { override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource) = Offset(0f, available.y) } }
 
-    LazyColumn(Modifier.weight(1f, fill = false).fillMaxWidth().nestedScroll(nestedScrollConnection), rememberLazyListState(), PaddingValues(16.dp, 0.dp, 16.dp, 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(
+        modifier = Modifier
+            .weight(1f, fill = false)
+            .fillMaxWidth()
+            .nestedScroll(nestedScrollConnection), 
+        state = rememberLazyListState(), 
+        contentPadding = PaddingValues(
+            start = 16.dp, 
+            top = 0.dp, 
+            end = 16.dp, 
+            bottom = 24.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+        ), 
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
         item { ElevatedCard(Modifier.fillMaxWidth(), colors = CardDefaults.elevatedCardColors(MaterialTheme.colorScheme.surfaceContainerHigh)) { Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) { song?.thumbnailUrl?.let { AsyncImage(it, null, Modifier.size(88.dp).clip(MaterialTheme.shapes.large), contentScale = ContentScale.Crop) } ?: Surface(Modifier.size(88.dp), shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.secondaryContainer) { Box(Modifier.fillMaxSize(), Alignment.Center) { Surface(Modifier.size(44.dp), shape = CircleShape, color = MaterialTheme.colorScheme.tertiaryContainer) { Box(Modifier.fillMaxSize(), Alignment.Center) { Icon(painterResource(R.drawable.music_note), null, tint = MaterialTheme.colorScheme.onTertiaryContainer) } } } }; Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) { Text(stringResource(R.string.info_title), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge); Text(song?.title ?: videoId, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis); Text(song?.artists?.takeIf { it.isNotEmpty() }?.joinToString { it.name } ?: stringResource(R.string.unknown), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis); if (song == null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { CircularWavyProgressIndicator(Modifier.size(20.dp)); Text("${stringResource(R.string.please_wait)}...", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) } }; IconButton(onClose) { Icon(painterResource(R.drawable.close), stringResource(R.string.close)) } } } }
         item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) { FilledTonalButton({ copyToClip(videoId) }, Modifier.weight(1f)) { Icon(painterResource(R.drawable.content_copy), null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.action_copy)) }; OutlinedButton({ ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "https://music.youtube.com/watch?v=$videoId") }, null)) }, Modifier.weight(1f)) { Icon(painterResource(R.drawable.share), null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.share)) } } }
         item { val facts = listOfNotNull(format?.mimeType?.substringBefore(';')?.takeIf { it.isNotBlank() }?.let { R.drawable.graphic_eq to it }, format?.bitrate?.takeIf { it > 0 }?.let { R.drawable.waves to "${it / 1000} Kbps" }, format?.contentLength?.takeIf { it > 0 }?.let { R.drawable.storage to Formatter.formatShortFileSize(ctx, it) }); if (facts.isNotEmpty()) FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { facts.forEach { (i, t) -> AssistChip({ copyToClip(t) }, { Text(t, maxLines = 1, overflow = TextOverflow.Ellipsis) }, leadingIcon = { Icon(painterResource(i), null) }, colors = AssistChipDefaults.assistChipColors(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.onSurface)) } } }
