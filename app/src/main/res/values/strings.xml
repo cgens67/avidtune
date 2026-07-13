@@ -1138,4 +1138,14 @@
         <item quantity="other">Removed %d songs from queue</item>
     </plurals>
     
+    <!-- ShowMediaInfo -->
+    <string name="media_info_numbers">Numbers</string>
+    <string name="action_copy">Copy</string>
+    <string name="description">Description</string>
+    <string name="subscribers">Subscribers</string>
+    <string name="views">Views</string>
+    <string name="likes">Likes</string>
+    <string name="dislikes">Dislikes</string>
+    <string name="itag">Itag</string>
+    
 </resources>
