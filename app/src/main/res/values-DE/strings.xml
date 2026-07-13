@@ -1129,5 +1129,15 @@
         <item quantity="one">%d Song aus der Warteschlange entfernt</item>
         <item quantity="other">%d Songs aus der Warteschlange entfernt</item>
     </plurals>
+    
+    <!-- ShowMediaInfo -->
+    <string name="media_info_numbers">Zahlen</string>
+    <string name="action_copy">Kopieren</string>
+    <string name="description">Beschreibung</string>
+    <string name="subscribers">Abonnenten</string>
+    <string name="views">Aufrufe</string>
+    <string name="likes">Mag ich</string>
+    <string name="dislikes">Mag ich nicht</string>
+    <string name="itag">Itag</string>
 
 </resources>
