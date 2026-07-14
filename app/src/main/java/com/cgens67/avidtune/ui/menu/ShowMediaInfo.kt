@@ -78,7 +78,29 @@ fun ColumnScope.ShowMediaInfo(videoId: String, onClose: () -> Unit) {
         item { ElevatedCard(Modifier.fillMaxWidth(), colors = CardDefaults.elevatedCardColors(MaterialTheme.colorScheme.surfaceContainerHigh)) { Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) { song?.thumbnailUrl?.let { AsyncImage(it, null, Modifier.size(88.dp).clip(MaterialTheme.shapes.large), contentScale = ContentScale.Crop) } ?: Surface(Modifier.size(88.dp), shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.secondaryContainer) { Box(Modifier.fillMaxSize(), Alignment.Center) { Surface(Modifier.size(44.dp), shape = CircleShape, color = MaterialTheme.colorScheme.tertiaryContainer) { Box(Modifier.fillMaxSize(), Alignment.Center) { Icon(painterResource(R.drawable.music_note), null, tint = MaterialTheme.colorScheme.onTertiaryContainer) } } } }; Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) { Text(stringResource(R.string.info_title), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge); Text(song?.title ?: videoId, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis); Text(song?.artists?.takeIf { it.isNotEmpty() }?.joinToString { it.name } ?: stringResource(R.string.unknown), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis); if (song == null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { CircularWavyProgressIndicator(Modifier.size(20.dp)); Text("${stringResource(R.string.please_wait)}...", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) } }; IconButton(onClose) { Icon(painterResource(R.drawable.close), stringResource(R.string.close)) } } } }
         item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) { FilledTonalButton({ copyToClip(videoId) }, Modifier.weight(1f)) { Icon(painterResource(R.drawable.content_copy), null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.action_copy)) }; OutlinedButton({ ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "https://music.youtube.com/watch?v=$videoId") }, null)) }, Modifier.weight(1f)) { Icon(painterResource(R.drawable.share), null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.share)) } } }
         item { val facts = listOfNotNull(format?.mimeType?.substringBefore(';')?.takeIf { it.isNotBlank() }?.let { R.drawable.graphic_eq to it }, format?.bitrate?.takeIf { it > 0 }?.let { R.drawable.waves to "${it / 1000} Kbps" }, format?.contentLength?.takeIf { it > 0 }?.let { R.drawable.storage to Formatter.formatShortFileSize(ctx, it) }); if (facts.isNotEmpty()) FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { facts.forEach { (i, t) -> AssistChip({ copyToClip(t) }, { Text(t, maxLines = 1, overflow = TextOverflow.Ellipsis) }, leadingIcon = { Icon(painterResource(i), null) }, colors = AssistChipDefaults.assistChipColors(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.onSurface)) } } }
-        item { val visTabs = Tab.entries.filter { it != Tab.Stats /* HIDDEN */ }; Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) { visTabs.forEachIndexed { i, t -> ToggleButton(tab == t, { if (it) tab = t }, Modifier.weight(1f).height(52.dp), shapes = if (i == 0) ButtonGroupDefaults.connectedLeadingButtonShapes() else if (i == visTabs.lastIndex) ButtonGroupDefaults.connectedTrailingButtonShapes() else ButtonGroupDefaults.connectedMiddleButtonShapes(), colors = ToggleButtonDefaults.toggleButtonColors(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.onSurfaceVariant, MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer)) { Text(stringResource(t.labelRes), maxLines = 1, overflow = TextOverflow.Ellipsis) } } } }
+        item { 
+            val visTabs = Tab.entries.filter { it != Tab.Stats /* HIDDEN */ }
+            // Wrapped the row inside a full Surface background to clean up the connected edges glitch entirely
+            Surface(Modifier.fillMaxWidth().height(48.dp), shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+                Row(Modifier.fillMaxWidth()) { 
+                    visTabs.forEach { t -> 
+                        ToggleButton(
+                            checked = tab == t, 
+                            onCheckedChange = { if (it) tab = t }, 
+                            modifier = Modifier.weight(1f).fillMaxHeight(), 
+                            colors = ToggleButtonDefaults.toggleButtonColors(
+                                containerColor = Color.Transparent, // Transparent clears up any background clashing
+                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant, 
+                                checkedContainerColor = MaterialTheme.colorScheme.primaryContainer, 
+                                checkedContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        ) { 
+                            Text(stringResource(t.labelRes), maxLines = 1, overflow = TextOverflow.Ellipsis) 
+                        } 
+                    } 
+                } 
+            }
+        }
         item {
             AnimatedContent(tab, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "") { t ->
                 Column(Modifier.fillMaxWidth().animateContentSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
