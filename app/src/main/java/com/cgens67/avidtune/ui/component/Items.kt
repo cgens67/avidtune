@@ -104,8 +104,6 @@ import com.cgens67.avidtune.LocalDatabase
 import com.cgens67.avidtune.LocalDownloadUtil
 import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
-import com.cgens67.avidtune.constants.CropThumbnailToSquareKey
-import com.cgens67.avidtune.constants.GridThumbnailCornerRadius
 import com.cgens67.avidtune.constants.GridThumbnailHeight
 import com.cgens67.avidtune.constants.ListItemHeight
 import com.cgens67.avidtune.constants.ListThumbnailSize
@@ -125,7 +123,6 @@ import com.cgens67.innertube.models.SongItem
 import com.cgens67.innertube.models.YTItem
 import com.cgens67.avidtune.models.MediaMetadata
 import com.cgens67.avidtune.playback.queues.LocalAlbumRadio
-import com.cgens67.avidtune.ui.theme.PlayerColorExtractor
 import com.cgens67.avidtune.ui.theme.extractThemeColor
 import com.cgens67.avidtune.ui.utils.resize
 import com.cgens67.avidtune.utils.joinByBullet
@@ -347,9 +344,6 @@ fun SongListItem(
         if (showLikedIcon && song.song.liked) {
             Icon.Favorite()
         }
-        if (song.song.explicit) {
-            Icon.Explicit()
-        }
         if (showInLibraryIcon && song.song.inLibrary != null) {
             Icon.Library()
         }
@@ -463,7 +457,7 @@ fun SongGridItem(
             thumbnailUrl = song.song.thumbnailUrl,
             isActive = isActive,
             isPlaying = isPlaying,
-            shape = RoundedCornerShape(GridThumbnailCornerRadius),
+            shape = RoundedCornerShape(ThumbnailCornerRadius),
             modifier = Modifier.size(GridThumbnailHeight),
         )
         if (!isActive) {
@@ -588,9 +582,6 @@ fun AlbumListItem(
         if (showLikedIcon && album.album.bookmarkedAt != null) {
             Icon.Favorite()
         }
-        if (album.album.explicit) {
-            Icon.Explicit()
-        }
         Icon.Download(downloadState)
     },
     isActive: Boolean = false,
@@ -658,9 +649,6 @@ fun AlbumGridItem(
         if (album.album.bookmarkedAt != null) {
             Icon.Favorite()
         }
-        if (album.album.explicit) {
-            Icon.Explicit()
-        }
         Icon.Download(downloadState)
     },
     isActive: Boolean = false,
@@ -695,7 +683,7 @@ fun AlbumGridItem(
             thumbnailUrl = album.album.thumbnailUrl,
             isActive = isActive,
             isPlaying = isPlaying,
-            shape = RoundedCornerShape(GridThumbnailCornerRadius),
+            shape = RoundedCornerShape(ThumbnailCornerRadius),
         )
 
         AlbumPlayButton(
@@ -825,7 +813,7 @@ fun PlaylistGridItem(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(GridThumbnailCornerRadius))
+                    .clip(RoundedCornerShape(ThumbnailCornerRadius))
             )
         } else {
             PlaylistThumbnail(
@@ -851,7 +839,7 @@ fun PlaylistGridItem(
                         )
                     }
                 },
-                shape = RoundedCornerShape(GridThumbnailCornerRadius),
+                shape = RoundedCornerShape(ThumbnailCornerRadius),
             )
         }
     },
@@ -994,7 +982,7 @@ fun LibraryPlaylistFeatureCard(
                         ImageRequest
                             .Builder(context)
                             .data(primaryThumbnailUrl)
-                            .size(PlayerColorExtractor.Config.IMAGE_SIZE, PlayerColorExtractor.Config.IMAGE_SIZE)
+                            .size(128)
                             .allowHardware(false)
                             .build(),
                     ).drawable
@@ -1102,7 +1090,7 @@ fun LibraryAlbumSpotlightCard(
                         ImageRequest
                             .Builder(context)
                             .data(url)
-                            .size(PlayerColorExtractor.Config.IMAGE_SIZE, PlayerColorExtractor.Config.IMAGE_SIZE)
+                            .size(128)
                             .allowHardware(false)
                             .build(),
                     ).drawable
@@ -1216,7 +1204,7 @@ fun LibraryArtistSpotlightCard(
                         ImageRequest
                             .Builder(context)
                             .data(url)
-                            .size(PlayerColorExtractor.Config.IMAGE_SIZE, PlayerColorExtractor.Config.IMAGE_SIZE)
+                            .size(128)
                             .allowHardware(false)
                             .build(),
                     ).drawable
@@ -1473,7 +1461,7 @@ fun YouTubeGridItem(
     thumbnailContent = {
         val database = LocalDatabase.current
         val playerConnection = LocalPlayerConnection.current ?: return@GridItem
-        val shape = if (item is ArtistItem) CircleShape else RoundedCornerShape(GridThumbnailCornerRadius)
+        val shape = if (item is ArtistItem) CircleShape else RoundedCornerShape(ThumbnailCornerRadius)
 
         ItemThumbnail(
             thumbnailUrl = item.thumbnail,
@@ -1540,7 +1528,7 @@ fun LocalSongsGrid(
             thumbnailUrl = thumbnailUrl,
             isActive = isActive,
             isPlaying = isPlaying,
-            shape = RoundedCornerShape(GridThumbnailCornerRadius),
+            shape = RoundedCornerShape(ThumbnailCornerRadius),
             modifier = if (fillMaxWidth) Modifier.fillMaxWidth() else Modifier,
             showCenterPlay = true,
             playButtonVisible = false,
@@ -1598,7 +1586,7 @@ fun LocalAlbumsGrid(
             thumbnailUrl = thumbnailUrl,
             isActive = isActive,
             isPlaying = isPlaying,
-            shape = RoundedCornerShape(GridThumbnailCornerRadius),
+            shape = RoundedCornerShape(ThumbnailCornerRadius),
             modifier = if (fillMaxWidth) Modifier.fillMaxWidth() else Modifier,
             showCenterPlay = false,
             playButtonVisible = true,
@@ -1632,7 +1620,7 @@ fun ItemThumbnail(
                 .aspectRatio(thumbnailRatio)
                 .clip(shape),
     ) {
-        val (cropThumbnailToSquare, _) = rememberPreference(CropThumbnailToSquareKey, false)
+        val cropThumbnailToSquare = false
         val isYouTubeThumb = thumbnailUrl?.contains("ytimg.com", ignoreCase = true) == true
         val shouldApplySquareCrop = cropThumbnailToSquare && isYouTubeThumb && kotlin.math.abs(thumbnailRatio - 1f) < 0.001f
         val widthPx = if (maxWidth == Dp.Infinity) null else with(density) { maxWidth.roundToPx().coerceAtLeast(1) }
@@ -1768,7 +1756,7 @@ fun LocalThumbnail(
                 .aspectRatio(thumbnailRatio)
                 .clip(shape),
     ) {
-        val (cropThumbnailToSquare, _) = rememberPreference(CropThumbnailToSquareKey, false)
+        val cropThumbnailToSquare = false
         val isYouTubeThumb = thumbnailUrl?.contains("ytimg.com", ignoreCase = true) == true
         val shouldApplySquareCrop = cropThumbnailToSquare && isYouTubeThumb && kotlin.math.abs(thumbnailRatio - 1f) < 0.001f
         val widthPx = if (maxWidth == Dp.Infinity) null else with(density) { maxWidth.roundToPx().coerceAtLeast(1) }
