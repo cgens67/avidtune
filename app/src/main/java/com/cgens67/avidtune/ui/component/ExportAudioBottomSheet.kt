@@ -6,8 +6,6 @@ import android.os.Environment
 import android.provider.MediaStore
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -67,40 +65,31 @@ private fun ExportDropdown(
     modifier: Modifier = Modifier, transform: (String) -> String = { it }
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val interactionSource = remember { MutableInteractionSource() }
-
-    Box(modifier = modifier) {
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }, modifier = modifier) {
         OutlinedTextField(
-            value = transform(selected), 
-            onValueChange = {}, 
-            readOnly = true, 
-            label = { Text(label) },
+            value = transform(selected), onValueChange = {}, readOnly = true, label = { Text(label) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-            modifier = Modifier.fillMaxWidth(), 
+            modifier = Modifier.menuAnchor().fillMaxWidth(),
+            shape = CircleShape,
             colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
         )
-        
-        // Invisible box overlay to catch the click without focusing the text field
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .background(Color.Transparent)
-                .clickable(
-                    interactionSource = interactionSource,
-                    indication = null,
-                    onClick = { expanded = true }
-                )
-        )
-        
-        DropdownMenu(
-            expanded = expanded, 
-            onDismissRequest = { expanded = false }
-        ) {
-            options.forEach { opt -> 
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { opt ->
+                val isSelected = opt == selected
                 DropdownMenuItem(
-                    text = { Text(transform(opt)) }, 
-                    onClick = { onSelect(opt); expanded = false }
-                ) 
+                    text = { 
+                        Text(
+                            text = transform(opt),
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface
+                        ) 
+                    }, 
+                    onClick = { onSelect(opt); expanded = false },
+                    modifier = Modifier
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                        .clip(CircleShape)
+                        .background(if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+                )
             }
         }
     }
