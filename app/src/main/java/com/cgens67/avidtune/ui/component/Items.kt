@@ -172,7 +172,7 @@ inline fun ListItem(
                 .then(
                     if (isActive) {
                         Modifier
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(RoundedCornerShape(8.dp))
                             .background(MaterialTheme.colorScheme.secondaryContainer)
                     } else {
                         Modifier
@@ -277,7 +277,8 @@ fun GridItem(
                     Modifier.fillMaxWidth()
                 } else {
                     Modifier.height(GridThumbnailHeight)
-                }.aspectRatio(thumbnailRatio),
+                }.aspectRatio(thumbnailRatio)
+                 .clip(RoundedCornerShape(27.dp)),
         ) {
             thumbnailContent()
         }
@@ -964,7 +965,7 @@ fun LibraryPlaylistFeatureCard(
 ) {
     val subtitleText = playlistCountText(playlist = playlist, autoPlaylist = autoPlaylist)
     val thumbnailSize = LibraryCardThumbnailSize
-    val thumbnailShape = RoundedCornerShape(ThumbnailCornerRadius)
+    val thumbnailShape = RoundedCornerShape(18.dp)
     val context = LocalContext.current
     val primaryThumbnailUrl = playlist.thumbnails.getOrNull(0)
     var extractedGlowColor by remember(primaryThumbnailUrl) { mutableStateOf(Color.Transparent) }
@@ -1125,7 +1126,7 @@ fun LibraryAlbumSpotlightCard(
                         .size(LibraryCardThumbnailSize)
                         .shadow(
                             elevation = LibraryCardGlowElevation,
-                            shape = RoundedCornerShape(ThumbnailCornerRadius),
+                            shape = RoundedCornerShape(18.dp),
                             clip = false,
                             ambientColor = glowColor.copy(alpha = LibraryCardGlowAmbientAlpha),
                             spotColor = glowColor.copy(alpha = LibraryCardGlowSpotAlpha),
@@ -1135,7 +1136,7 @@ fun LibraryAlbumSpotlightCard(
                     thumbnailUrl = album.album.thumbnailUrl,
                     isActive = isActive,
                     isPlaying = isPlaying,
-                    shape = RoundedCornerShape(ThumbnailCornerRadius),
+                    shape = RoundedCornerShape(18.dp),
                     modifier = Modifier.fillMaxSize(),
                 )
                 if (onPlay != null) {
