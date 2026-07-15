@@ -7,6 +7,7 @@ import android.provider.MediaStore
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -66,7 +67,8 @@ private fun ExportDropdown(
     modifier: Modifier = Modifier, transform: (String) -> String = { it }
 ) {
     var expanded by remember { mutableStateOf(false) }
-    
+    val interactionSource = remember { MutableInteractionSource() }
+
     Box(modifier = modifier) {
         OutlinedTextField(
             value = transform(selected), 
@@ -77,12 +79,19 @@ private fun ExportDropdown(
             modifier = Modifier.fillMaxWidth(), 
             colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
         )
-        // Transparent overlay to intercept clicks without triggering TextField focus
+        
+        // Invisible box overlay to catch the click without focusing the text field
         Box(
             modifier = Modifier
                 .matchParentSize()
-                .clickable { expanded = true }
+                .background(Color.Transparent)
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                    onClick = { expanded = true }
+                )
         )
+        
         DropdownMenu(
             expanded = expanded, 
             onDismissRequest = { expanded = false }
