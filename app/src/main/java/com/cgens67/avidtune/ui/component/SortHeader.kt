@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -58,40 +59,45 @@ inline fun <reified T : Enum<T>> SortHeader(
                     .padding(horizontal = 4.dp, vertical = 8.dp),
         )
 
-        DropdownMenu(
-            expanded = menuExpanded,
-            onDismissRequest = { menuExpanded = false },
-            modifier = Modifier.widthIn(min = 172.dp),
+        // Localized MaterialTheme wrapper to apply corner rounding to the dropdown container
+        MaterialTheme(
+            shapes = MaterialTheme.shapes.copy(extraSmall = RoundedCornerShape(16.dp))
         ) {
-            enumValues<T>().forEach { type ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = stringResource(sortTypeText(type)),
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Normal,
-                        )
-                    },
-                    trailingIcon = {
-                        Icon(
-                            painter =
-                                painterResource(
-                                    if (sortType ==
-                                        type
-                                    ) {
-                                        R.drawable.radio_button_checked
-                                    } else {
-                                        R.drawable.radio_button_unchecked
-                                    },
-                                ),
-                            contentDescription = null,
-                        )
-                    },
-                    onClick = {
-                        onSortTypeChange(type)
-                        menuExpanded = false
-                    },
-                )
+            DropdownMenu(
+                expanded = menuExpanded,
+                onDismissRequest = { menuExpanded = false },
+                modifier = Modifier.widthIn(min = 172.dp),
+            ) {
+                enumValues<T>().forEach { type ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = stringResource(sortTypeText(type)),
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Normal,
+                            )
+                        },
+                        trailingIcon = {
+                            Icon(
+                                painter =
+                                    painterResource(
+                                        if (sortType ==
+                                            type
+                                        ) {
+                                            R.drawable.radio_button_checked
+                                        } else {
+                                            R.drawable.radio_button_unchecked
+                                        },
+                                    ),
+                                contentDescription = null,
+                            )
+                        },
+                        onClick = {
+                            onSortTypeChange(type)
+                            menuExpanded = false
+                        },
+                    )
+                }
             }
         }
 
