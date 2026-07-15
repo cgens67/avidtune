@@ -70,11 +70,10 @@ private fun ExportDropdown(
             value = transform(selected), onValueChange = {}, readOnly = true, label = { Text(label) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
             modifier = Modifier.menuAnchor().fillMaxWidth(),
-            shape = CircleShape,
+            // Changed shape from CircleShape to RoundedCornerShape(16.dp)
+            shape = RoundedCornerShape(16.dp),
             colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
         )
-        // Wrapping in a localized MaterialTheme overrides the extraSmall shape token,
-        // which determines the corner shape of the dropdown menu popup in Material 3.
         MaterialTheme(
             shapes = MaterialTheme.shapes.copy(extraSmall = RoundedCornerShape(16.dp))
         ) {
