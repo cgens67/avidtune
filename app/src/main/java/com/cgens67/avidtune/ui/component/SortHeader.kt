@@ -1,11 +1,13 @@
 package com.cgens67.avidtune.ui.component
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -20,6 +22,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -59,7 +63,6 @@ inline fun <reified T : Enum<T>> SortHeader(
                     .padding(horizontal = 4.dp, vertical = 8.dp),
         )
 
-        // Localized MaterialTheme wrapper to apply corner rounding to the dropdown container
         MaterialTheme(
             shapes = MaterialTheme.shapes.copy(extraSmall = RoundedCornerShape(16.dp))
         ) {
@@ -69,33 +72,38 @@ inline fun <reified T : Enum<T>> SortHeader(
                 modifier = Modifier.widthIn(min = 172.dp),
             ) {
                 enumValues<T>().forEach { type ->
+                    val isSelected = sortType == type
                     DropdownMenuItem(
                         text = {
                             Text(
                                 text = stringResource(sortTypeText(type)),
                                 fontSize = 16.sp,
-                                fontWeight = FontWeight.Normal,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface
                             )
                         },
                         trailingIcon = {
                             Icon(
                                 painter =
                                     painterResource(
-                                        if (sortType ==
-                                            type
-                                        ) {
+                                        if (isSelected) {
                                             R.drawable.radio_button_checked
                                         } else {
                                             R.drawable.radio_button_unchecked
                                         },
                                     ),
                                 contentDescription = null,
+                                tint = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         },
                         onClick = {
                             onSortTypeChange(type)
                             menuExpanded = false
                         },
+                        modifier = Modifier
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .clip(CircleShape)
+                            .background(if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
                     )
                 }
             }
