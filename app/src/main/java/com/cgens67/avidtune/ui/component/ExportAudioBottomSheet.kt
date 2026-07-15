@@ -6,6 +6,7 @@ import android.os.Environment
 import android.provider.MediaStore
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -65,14 +66,33 @@ private fun ExportDropdown(
     modifier: Modifier = Modifier, transform: (String) -> String = { it }
 ) {
     var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }, modifier = modifier) {
+    
+    Box(modifier = modifier) {
         OutlinedTextField(
-            value = transform(selected), onValueChange = {}, readOnly = true, label = { Text(label) },
+            value = transform(selected), 
+            onValueChange = {}, 
+            readOnly = true, 
+            label = { Text(label) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-            modifier = Modifier.menuAnchor().fillMaxWidth(), colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
+            modifier = Modifier.fillMaxWidth(), 
+            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
         )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            options.forEach { opt -> DropdownMenuItem(text = { Text(transform(opt)) }, onClick = { onSelect(opt); expanded = false }) }
+        // Transparent overlay to intercept clicks without triggering TextField focus
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clickable { expanded = true }
+        )
+        DropdownMenu(
+            expanded = expanded, 
+            onDismissRequest = { expanded = false }
+        ) {
+            options.forEach { opt -> 
+                DropdownMenuItem(
+                    text = { Text(transform(opt)) }, 
+                    onClick = { onSelect(opt); expanded = false }
+                ) 
+            }
         }
     }
 }
