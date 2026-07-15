@@ -172,7 +172,7 @@ inline fun ListItem(
                 .then(
                     if (isActive) {
                         Modifier
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(12.dp))
                             .background(MaterialTheme.colorScheme.secondaryContainer)
                     } else {
                         Modifier
@@ -277,8 +277,7 @@ fun GridItem(
                     Modifier.fillMaxWidth()
                 } else {
                     Modifier.height(GridThumbnailHeight)
-                }.aspectRatio(thumbnailRatio)
-                 .clip(RoundedCornerShape(27.dp)),
+                }.aspectRatio(thumbnailRatio),
         ) {
             thumbnailContent()
         }
