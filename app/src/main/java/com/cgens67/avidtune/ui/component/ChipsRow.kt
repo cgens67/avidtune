@@ -142,23 +142,28 @@ fun <Int> ChoiceChipsRow(
                 enter = expandIn() + fadeIn(),
                 exit = shrinkOut() + fadeOut(),
             ) {
-                DropdownMenu(
-                    modifier = Modifier.padding(start = 12.dp),
-                    expanded = expanded,
-                    onDismissRequest = {
-                        expanded = false
-                        expandIconDegree -= 180
-                    },
+                // Localized MaterialTheme wrapper to apply corner rounding to the dropdown container
+                MaterialTheme(
+                    shapes = MaterialTheme.shapes.copy(extraSmall = RoundedCornerShape(16.dp))
                 ) {
-                    options.forEach { option ->
-                        DropdownMenuItem(
-                            text = { Text(text = option.second) },
-                            onClick = {
-                                onSelectionChange(option.first)
-                                expandIconDegree -= 180
-                                expanded = false
-                            },
-                        )
+                    DropdownMenu(
+                        modifier = Modifier.padding(start = 12.dp),
+                        expanded = expanded,
+                        onDismissRequest = {
+                            expanded = false
+                            expandIconDegree -= 180
+                        },
+                    ) {
+                        options.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(text = option.second) },
+                                onClick = {
+                                    onSelectionChange(option.first)
+                                    expandIconDegree -= 180
+                                    expanded = false
+                                },
+                            )
+                        }
                     }
                 }
             }
