@@ -73,23 +73,29 @@ private fun ExportDropdown(
             shape = CircleShape,
             colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
         )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            options.forEach { opt ->
-                val isSelected = opt == selected
-                DropdownMenuItem(
-                    text = { 
-                        Text(
-                            text = transform(opt),
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface
-                        ) 
-                    }, 
-                    onClick = { onSelect(opt); expanded = false },
-                    modifier = Modifier
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                        .clip(CircleShape)
-                        .background(if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
-                )
+        // Wrapping in a localized MaterialTheme overrides the extraSmall shape token,
+        // which determines the corner shape of the dropdown menu popup in Material 3.
+        MaterialTheme(
+            shapes = MaterialTheme.shapes.copy(extraSmall = RoundedCornerShape(16.dp))
+        ) {
+            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                options.forEach { opt ->
+                    val isSelected = opt == selected
+                    DropdownMenuItem(
+                        text = { 
+                            Text(
+                                text = transform(opt),
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface
+                            ) 
+                        }, 
+                        onClick = { onSelect(opt); expanded = false },
+                        modifier = Modifier
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .clip(CircleShape)
+                            .background(if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+                    )
+                }
             }
         }
     }
