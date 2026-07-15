@@ -12,6 +12,7 @@ import androidx.compose.animation.shrinkOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -37,10 +39,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.ui.screens.OptionStats
@@ -142,7 +146,6 @@ fun <Int> ChoiceChipsRow(
                 enter = expandIn() + fadeIn(),
                 exit = shrinkOut() + fadeOut(),
             ) {
-                // Localized MaterialTheme wrapper to apply corner rounding to the dropdown container
                 MaterialTheme(
                     shapes = MaterialTheme.shapes.copy(extraSmall = RoundedCornerShape(16.dp))
                 ) {
@@ -155,13 +158,24 @@ fun <Int> ChoiceChipsRow(
                         },
                     ) {
                         options.forEach { option ->
+                            val isSelected = option.first == selectedOption
                             DropdownMenuItem(
-                                text = { Text(text = option.second) },
+                                text = { 
+                                    Text(
+                                        text = option.second,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface
+                                    ) 
+                                },
                                 onClick = {
                                     onSelectionChange(option.first)
                                     expandIconDegree -= 180
                                     expanded = false
                                 },
+                                modifier = Modifier
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
                             )
                         }
                     }
