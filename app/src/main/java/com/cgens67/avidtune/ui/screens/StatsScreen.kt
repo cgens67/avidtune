@@ -116,7 +116,6 @@ fun StatsScreen(
     val lazyListState = rememberLazyListState()
     val selectedOption by viewModel.selectedOption.collectAsState()
 
-    // BottomSheet para Insight
     var showInsightBottomSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -423,7 +422,6 @@ fun StatsScreen(
             }
         }
 
-        // FAB to shuffle most played songs
         if (mostPlayedSongs.isNotEmpty()) {
             HideOnScrollFAB(
                 visible = true,
@@ -468,15 +466,12 @@ fun StatsScreen(
                     )
                 }
             }
-
         )
     }
 
-    // BottomSheet de Insight
     if (showInsightBottomSheet) {
         val totalMinutes = mostPlayedSongsStats.sumOf { it.timeListened ?: 0L } / 60000L
 
-        // Consumes ALL vertical overscroll to prevent the sheet from dragging and snapping back
         val nestedScrollConnection = remember {
             object : NestedScrollConnection {
                 override fun onPostScroll(
@@ -536,7 +531,6 @@ fun InsightBottomSheetContent(
             .fillMaxWidth()
             .padding(bottom = 32.dp, start = 16.dp, end = 16.dp, top = 8.dp)
     ) {
-        // Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -564,7 +558,6 @@ fun InsightBottomSheetContent(
             }
         }
 
-        // Card principal
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -614,7 +607,6 @@ fun InsightBottomSheetContent(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Características
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
@@ -639,7 +631,6 @@ fun InsightBottomSheetContent(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Botón para ver completo
         Button(
             onClick = onNavigateToFullInsight,
             modifier = Modifier.fillMaxWidth(),
