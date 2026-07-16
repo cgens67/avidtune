@@ -45,6 +45,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.ui.screens.OptionStats
@@ -150,12 +151,13 @@ fun <Int> ChoiceChipsRow(
                     shapes = MaterialTheme.shapes.copy(extraSmall = RoundedCornerShape(16.dp))
                 ) {
                     DropdownMenu(
-                        modifier = Modifier.padding(start = 12.dp),
                         expanded = expanded,
                         onDismissRequest = {
                             expanded = false
                             expandIconDegree -= 180
                         },
+                        // Replaced the padding modifier with DpOffset to align the popup container externally
+                        offset = DpOffset(x = 12.dp, y = 0.dp)
                     ) {
                         options.forEach { option ->
                             val isSelected = option.first == selectedOption
