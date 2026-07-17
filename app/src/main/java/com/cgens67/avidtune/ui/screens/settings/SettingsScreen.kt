@@ -619,7 +619,10 @@ fun SettingsScreen(
                     },
                     trailingIcon = {
                         if (query.text.isNotBlank()) {
-                            IconButton(onClick = { query = TextFieldValue() }) {
+                            IconButton(
+                                onClick = { query = TextFieldValue() },
+                                onLongClick = {}
+                            ) {
                                 Icon(painterResource(R.drawable.close), contentDescription = null)
                             }
                         }
@@ -956,7 +959,11 @@ private fun LazyListScope.SearchHistorySection(state: SettingsContentState, pad:
                         color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.weight(1f)
                     )
-                    IconButton(onClick = { state.onRemoveSearchHistoryItem(historyItem) }, modifier = Modifier.size(36.dp)) {
+                    IconButton(
+                        onClick = { state.onRemoveSearchHistoryItem(historyItem) },
+                        onLongClick = {},
+                        modifier = Modifier.size(36.dp)
+                    ) {
                         Icon(painter = painterResource(R.drawable.close), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
