@@ -1,7 +1,7 @@
 package com.cgens67.avidtune.ui.screens.settings
 
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.text.LinkAnnotation
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
