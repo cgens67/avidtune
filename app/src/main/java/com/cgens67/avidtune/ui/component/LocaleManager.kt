@@ -43,16 +43,16 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.RadioButton
@@ -71,6 +71,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -92,16 +94,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.os.ConfigurationCompat
 import androidx.core.os.LocaleListCompat
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.LanguageCodeToName
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import java.util.Locale
 import timber.log.Timber
+import java.util.Locale
 
 /** Data model to represent a language */
 data class LanguageItem(
@@ -122,11 +122,11 @@ enum class CompletionStatus(@StringRes val labelRes: Int?, val color: @Composabl
 }
 
 /** States of the language change operation */
-sealed class LanguageChangeState {
-    object Idle : LanguageChangeState()
-    object Changing : LanguageChangeState()
-    object Success : LanguageChangeState()
-    data class Error(val message: String) : LanguageChangeState()
+sealed interface LanguageChangeState {
+    data object Idle : LanguageChangeState
+    data object Changing : LanguageChangeState
+    data object Success : LanguageChangeState
+    data class Error(val message: String) : LanguageChangeState
 }
 
 class LocaleManager private constructor(private val context: Context) {
@@ -528,7 +528,7 @@ fun LanguageSelector(
         dragHandle = {
             Surface(
                 modifier = Modifier
-                    .padding(vertical = 8.dp)
+                    .padding(vertical = 12.dp)
                     .size(width = 32.dp, height = 4.dp)
                     .clip(RoundedCornerShape(2.dp)),
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
@@ -596,7 +596,7 @@ fun LanguageSelector(
                         .fillMaxWidth()
                         .selectableGroup(),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(
                         items = filteredLanguages,
@@ -622,7 +622,7 @@ fun LanguageSelector(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
@@ -640,8 +640,8 @@ private fun SearchBar(
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        tonalElevation = 1.dp
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        tonalElevation = 0.dp
     ) {
         Row(
             modifier = Modifier
@@ -678,7 +678,7 @@ private fun SearchBar(
                         Text(
                             text = stringResource(R.string.search_language_placeholder),
                             style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                         )
                     }
                     innerTextField()
@@ -692,7 +692,7 @@ private fun SearchBar(
             ) {
                 IconButton(
                     onClick = onClear,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(24.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Clear,
@@ -756,7 +756,7 @@ private fun EmptySearchResult(
     ) {
         Text(
             text = stringResource(R.string.no_results_found),
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
@@ -776,18 +776,18 @@ private fun LanguageItem(
     onClick: () -> Unit
 ) {
     val elevation by animateDpAsState(
-        targetValue = if (isSelected) 2.dp else 0.dp,
+        targetValue = if (isSelected) 4.dp else 0.dp,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessMedium
         ),
-        label = "elevation"
+        label = "LanguageItemElevation"
     )
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(16.dp))
             .selectable(
                 selected = isSelected,
                 enabled = isEnabled,
@@ -804,13 +804,13 @@ private fun LanguageItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
+                .padding(horizontal = 16.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Flag
             Text(
                 text = language.flag,
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.headlineSmall,
                 modifier = Modifier.width(36.dp),
                 textAlign = TextAlign.Center
             )
@@ -822,7 +822,7 @@ private fun LanguageItem(
                 Text(
                     text = language.displayName,
                     style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
                     color = if (isSelected) {
                         MaterialTheme.colorScheme.onPrimaryContainer
                     } else {
@@ -838,9 +838,9 @@ private fun LanguageItem(
                 ) {
                     Text(
                         text = language.nativeName,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = if (isSelected) {
-                            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
                         },
@@ -857,15 +857,15 @@ private fun LanguageItem(
 
                 if (labelRes != null) {
                     Surface(
-                        shape = RoundedCornerShape(6.dp),
+                        shape = RoundedCornerShape(8.dp),
                         color = statusColor.copy(alpha = 0.12f),
-                        modifier = Modifier.padding(end = 8.dp)
+                        modifier = Modifier.padding(end = 12.dp)
                     ) {
                         Text(
                             text = stringResource(labelRes),
                             style = MaterialTheme.typography.labelSmall,
                             color = statusColor,
-                            fontWeight = FontWeight.Medium,
+                            fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     }
@@ -911,69 +911,47 @@ fun LanguagePreference(
 
     val isChanging = changeState is LanguageChangeState.Changing
 
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .clickable(enabled = !isChanging) {
-                showLanguageSelector = true
-            },
-        colors = CardDefaults.cardColors(
-            containerColor = Color.Transparent
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+    ListItem(
+        headlineContent = {
+            Text(
+                text = stringResource(R.string.language),
+                style = MaterialTheme.typography.titleMedium,
+                color = if (isChanging) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
+                fontWeight = FontWeight.Medium
+            )
+        },
+        supportingContent = {
+            Text(
+                text = if (isChanging) {
+                    stringResource(R.string.changing_language)
+                } else {
+                    currentLanguageDisplay
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
+        leadingContent = {
             Box(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                    ),
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    painterResource(R.drawable.translate),
+                    painter = painterResource(R.drawable.translate),
                     contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(24.dp)
                 )
             }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.language),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = if (isChanging) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
-                    },
-                    fontWeight = FontWeight.Medium
-                )
-
-                Text(
-                    text = if (isChanging) {
-                        stringResource(R.string.changing_language)
-                    } else {
-                        currentLanguageDisplay
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (isChanging) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                    modifier = Modifier.padding(top = 2.dp)
-                )
-            }
-
+        },
+        trailingContent = {
             if (isChanging) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(20.dp),
@@ -982,14 +960,23 @@ fun LanguagePreference(
                 )
             } else {
                 Icon(
-                    imageVector = Icons.Default.ArrowForward,
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                     contentDescription = stringResource(R.string.configure_app_language),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(20.dp)
                 )
             }
-        }
-    }
+        },
+        colors = ListItemDefaults.colors(
+            containerColor = Color.Transparent
+        ),
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(enabled = !isChanging) {
+                showLanguageSelector = true
+            }
+    )
 
     if (showLanguageSelector) {
         LanguageSelector(
@@ -997,7 +984,6 @@ fun LanguagePreference(
         )
     }
 }
-
 
 abstract class LocaleAwareApplication : android.app.Application() {
 
