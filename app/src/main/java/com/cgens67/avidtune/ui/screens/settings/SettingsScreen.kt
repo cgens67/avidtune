@@ -102,7 +102,6 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.painter.Painter
@@ -157,17 +156,17 @@ val LocalAnimationsDisabled = compositionLocalOf { false }
 // --- DIMENSIONS & ANIMATIONS ---
 
 object SettingsDimensions {
-    val GroupCardCornerRadius = 28.dp
-    val QuickActionCardCornerRadius = 28.dp
-    val IntegrationPillCornerRadius = 24.dp
-    val BannerCardCornerRadius = 28.dp
-    val HeroCardCornerRadius = 32.dp
-    val RowIconCornerRadius = 16.dp
+    val GroupCardCornerRadius = 16.dp
+    val QuickActionCardCornerRadius = 20.dp
+    val IntegrationPillCornerRadius = 14.dp
+    val BannerCardCornerRadius = 20.dp
+    val HeroCardCornerRadius = 24.dp
+    val RowIconCornerRadius = 12.dp
 
     val ScreenHorizontalPadding = 16.dp
-    val SectionSpacing = 16.dp
-    val RowVerticalPadding = 16.dp
-    val RowHorizontalPadding = 20.dp
+    val SectionSpacing = 14.dp
+    val RowVerticalPadding = 14.dp
+    val RowHorizontalPadding = 16.dp
 
     val RowIconSize = 36.dp
     val RowIconInnerSize = 20.dp
@@ -185,7 +184,7 @@ object SettingsDimensions {
     val DividerStartIndent = 60.dp
 
     val SectionHeaderBottomPadding = 6.dp
-    val SectionHeaderHorizontalPadding = 24.dp
+    val SectionHeaderHorizontalPadding = 20.dp
 
     val QuickActionTileAspectRatio = 1.4f
 
@@ -1433,10 +1432,10 @@ private fun LazyListScope.SearchHistorySection(state: SettingsContentState, pad:
                     .fillMaxWidth()
                     .padding(horizontal = pad, vertical = 4.dp)
                     .animateItem()
-                    .clip(RoundedCornerShape(24.dp))
+                    .clip(RoundedCornerShape(12.dp))
                     .clickable { state.onSearchHistoryItemClick(historyItem) },
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                shape = RoundedCornerShape(24.dp)
+                shape = RoundedCornerShape(12.dp)
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
@@ -2629,8 +2628,6 @@ fun SettingsGroupCard(
                     SettingsRow(
                         item = item,
                         showDivider = index < group.items.size - 1,
-                        isFirst = index == 0,
-                        isLast = index == group.items.size - 1
                     )
                 }
             }
@@ -2643,8 +2640,6 @@ fun SettingsRow(
     item: SettingsItem,
     showDivider: Boolean,
     modifier: Modifier = Modifier,
-    isFirst: Boolean = false,
-    isLast: Boolean = false,
 ) {
     val effectiveAccent = if (item.accentColor.isSpecified) {
         item.accentColor
@@ -2654,31 +2649,16 @@ fun SettingsRow(
 
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.98f else 1f,
-        animationSpec = SettingsAnimations.pressSpring(),
-        label = "rowScale",
-    )
     val bgAlpha by animateFloatAsState(
         targetValue = if (isPressed) 0.06f else 0f,
         animationSpec = SettingsAnimations.pressSpring(),
         label = "rowBgAlpha",
     )
 
-    val cornerRadius = SettingsDimensions.GroupCardCornerRadius
-    val shape = when {
-        isFirst && isLast -> RoundedCornerShape(cornerRadius)
-        isFirst -> RoundedCornerShape(topStart = cornerRadius, topEnd = cornerRadius)
-        isLast -> RoundedCornerShape(bottomStart = cornerRadius, bottomEnd = cornerRadius)
-        else -> RectangleShape
-    }
-
     Column(modifier = modifier) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .graphicsLayer { scaleX = scale; scaleY = scale }
-                .clip(shape)
                 .background(MaterialTheme.colorScheme.primary.copy(alpha = bgAlpha))
                 .clickable(
                     interactionSource = interactionSource,
@@ -3162,7 +3142,7 @@ fun UpdateDownloadDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            shape = RoundedCornerShape(32.dp),
+            shape = RoundedCornerShape(28.dp),
         ) {
             Column(
                 modifier = Modifier
