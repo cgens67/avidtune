@@ -107,6 +107,7 @@ import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.ui.utils.backToMain
@@ -617,7 +618,7 @@ private fun NewsMetaRow(
         ) {
             val formattedDate = remember(item.timestamp) {
                 if (item.timestamp == 0L) ""
-                else DateTimeFormatter.ofPattern("d MMM yyyy").format(
+                else DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).format(
                     LocalDateTime.ofInstant(Instant.ofEpochSecond(item.timestamp), ZoneId.systemDefault())
                 )
             }
@@ -1141,7 +1142,7 @@ private fun ViewNewsMetaRow(
 
         val formattedDate = remember(item.timestamp) {
             if (item.timestamp == 0L) ""
-            else DateTimeFormatter.ofPattern("d MMM yyyy").format(
+            else DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).format(
                 LocalDateTime.ofInstant(Instant.ofEpochSecond(item.timestamp), ZoneId.systemDefault())
             )
         }
