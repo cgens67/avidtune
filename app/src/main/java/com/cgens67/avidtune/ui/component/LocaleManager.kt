@@ -13,6 +13,7 @@ import android.os.LocaleList
 import android.os.Looper
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
@@ -557,6 +558,12 @@ fun LanguageSelector(
             modifier = Modifier
                 .fillMaxWidth()
                 .nestedScroll(nestedScrollConnection)
+                .animateContentSize(
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessMediumLow
+                    )
+                )
                 .weight(1f, fill = false)
                 .navigationBarsPadding()
         ) {
@@ -611,6 +618,7 @@ fun LanguageSelector(
                         val isEnabled = changeState !is LanguageChangeState.Changing
 
                         LanguageItem(
+                            modifier = Modifier.animateItem(),
                             language = language,
                             isSelected = isSelected,
                             isEnabled = isEnabled,
@@ -775,6 +783,7 @@ private fun EmptySearchResult(
 
 @Composable
 private fun LanguageItem(
+    modifier: Modifier = Modifier,
     language: LanguageItem,
     isSelected: Boolean,
     isEnabled: Boolean,
@@ -790,7 +799,7 @@ private fun LanguageItem(
     )
 
     Surface(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .selectable(
