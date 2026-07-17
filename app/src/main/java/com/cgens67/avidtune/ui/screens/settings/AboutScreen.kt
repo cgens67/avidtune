@@ -1,7 +1,7 @@
 package com.cgens67.avidtune.ui.screens.settings
 
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.text.LinkAnnotation
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -126,10 +126,10 @@ private val developers = listOf(
 
 private val supporters = listOf(
     Contributor(
-        avatarUrl = "https://raw.githubusercontent.com/cgens67/Assets/refs/heads/main/avidtunescreenshots/723961601_17939287968252146_3708914078912691512_n.jpg",
+        avatarUrl = "https://raw.githubusercontent.com/cgens67/Assets/refs/heads/main/avidtunescreenshots/747643159_17944159968252146_2891069926341403652_n.jpg",
         name = R.string.supporter, 
         role = R.string.supporter,
-        profileUrl = "https://www.instagram.com/illit._.610",
+        profileUrl = "https://www.instagram.com/cct._.610",
     ),
     Contributor(
         avatarUrl = "https://raw.githubusercontent.com/cgens67/Assets/refs/heads/main/627632846_17942422653109085_6346845649854714491_n.jpg",
@@ -247,10 +247,10 @@ fun AboutScreen(
                 ContributorsCard(
                     contributors = listOf(
                         Contributor(
-                            avatarUrl = "https://raw.githubusercontent.com/cgens67/Assets/refs/heads/main/avidtunescreenshots/723961601_17939287968252146_3708914078912691512_n.jpg",
+                            avatarUrl = "https://raw.githubusercontent.com/cgens67/Assets/refs/heads/main/avidtunescreenshots/747643159_17944159968252146_2891069926341403652_n.jpg",
                             name = 0,
                             role = R.string.supporter,
-                            profileUrl = "https://www.instagram.com/illit._.610",
+                            profileUrl = "https://www.instagram.com/cct._.610",
                         ),
                         Contributor(
                             avatarUrl = "https://raw.githubusercontent.com/cgens67/Assets/refs/heads/main/627632846_17942422653109085_6346845649854714491_n.jpg",
@@ -260,7 +260,7 @@ fun AboutScreen(
                         )
                     ),
                     onContributorClick = { uriHandler.openUri(it) },
-                    rawNames = listOf("illit._.610", "wei_.3120")
+                    rawNames = listOf("cct._.610", "wei_.3120")
                 )
             }
 
