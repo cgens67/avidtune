@@ -211,7 +211,7 @@ object SettingsAnimations {
     @Composable
     fun <T> pressSpring(): FiniteAnimationSpec<T> =
         if (LocalAnimationsDisabled.current) snap()
-        else spring(stiffness = Spring.StiffnessHigh)
+        else spring(stiffness = Spring.StiffnessMedium)
 
     @Composable
     fun <T> entranceSpring(): FiniteAnimationSpec<T> =
@@ -2649,9 +2649,16 @@ fun SettingsRow(
 
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
-    val bgAlpha by animateFloatAsState(
-        targetValue = if (isPressed) 0.06f else 0f,
+    
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.97f else 1f,
         animationSpec = SettingsAnimations.pressSpring(),
+        label = "rowScale",
+    )
+    
+    val bgAlpha by animateFloatAsState(
+        targetValue = if (isPressed) 0.08f else 0f,
+        animationSpec = if (LocalAnimationsDisabled.current) snap() else tween(150),
         label = "rowBgAlpha",
     )
 
@@ -2659,6 +2666,11 @@ fun SettingsRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                }
+                .clip(RoundedCornerShape(12.dp))
                 .background(MaterialTheme.colorScheme.primary.copy(alpha = bgAlpha))
                 .clickable(
                     interactionSource = interactionSource,
