@@ -84,7 +84,6 @@ import com.cgens67.avidtune.ui.component.SettingsPage
 import com.cgens67.avidtune.ui.component.SwitchPreference
 import com.cgens67.avidtune.ui.menu.OnlinePlaylistAdder
 import com.cgens67.avidtune.ui.utils.backToMain
-import com.cgens67.avidtune.ui.utils.formatFileSize
 import com.cgens67.avidtune.viewmodels.BackupRestoreViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -96,6 +95,7 @@ import okhttp3.Request
 import okhttp3.RequestBody
 import okio.BufferedSink
 import java.io.File
+import java.text.DecimalFormat
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.UUID
@@ -432,7 +432,7 @@ private fun MinimalVisitorDataCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = formatFileSize(playerCacheSize),
+                            text = formatCacheSize(playerCacheSize),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -839,4 +839,12 @@ fun restartApp(context: Context) {
         context.startActivity(mainIntent)
         Runtime.getRuntime().exit(0)
     }
+}
+
+private fun formatCacheSize(sizeBytes: Long): String {
+    if (sizeBytes <= 0) return "0 B"
+    val units = arrayOf("B", "KB", "MB", "GB", "TB", "PB", "EB")
+    val digitGroups = (Math.log10(sizeBytes.toDouble()) / Math.log10(1024.0)).toInt()
+    val formattedSize = DecimalFormat("#,##0.##").format(sizeBytes / Math.pow(1024.0, digitGroups.toDouble()))
+    return "$formattedSize ${units[digitGroups]}"
 }
