@@ -365,8 +365,8 @@ fun SettingsScreen(
             AnimatedVisibility(visible = !showSearchBar, enter = fadeIn(), exit = fadeOut()) {
                 LargeTopAppBar(
                     title = { Text(text = stringResource(R.string.settings), fontWeight = FontWeight.Bold) },
-                    navigationIcon = { IconButton(onClick = navController::navigateUp, onLongClick = navController::backToMain) { Icon(painterResource(R.drawable.arrow_back), null) } },
-                    actions = { IconButton(onClick = { isSearching = true }) { Icon(painterResource(R.drawable.search), null) } },
+                    navigationIcon = { IconButton(onClick = { navController.navigateUp() }, onLongClick = { navController.backToMain() }) { Icon(painterResource(R.drawable.arrow_back), null) } },
+                    actions = { IconButton(onClick = { isSearching = true }, onLongClick = {}) { Icon(painterResource(R.drawable.search), null) } },
                     scrollBehavior = scrollBehavior,
                     colors = TopAppBarDefaults.largeTopAppBarColors(containerColor = MaterialTheme.colorScheme.surface, scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow)
                 )
@@ -386,7 +386,7 @@ fun SettingsScreen(
                     active = showSearchBar, onActiveChange = { active -> if (active) isSearching = true else resetSearch() },
                     placeholder = { Text(text = stringResource(R.string.search)) },
                     leadingIcon = { IconButton(onClick = { resetSearch() }, onLongClick = { if (queryText.isBlank()) navController.backToMain() }) { Icon(painterResource(R.drawable.arrow_back), null) } },
-                    trailingIcon = { if (query.text.isNotBlank()) IconButton(onClick = { query = TextFieldValue() }) { Icon(painterResource(R.drawable.close), null) } },
+                    trailingIcon = { if (query.text.isNotBlank()) IconButton(onClick = { query = TextFieldValue() }, onLongClick = {}) { Icon(painterResource(R.drawable.close), null) } },
                     focusRequester = focusRequester
                 ) { AdaptiveSettingsLayout(state = searchState, modifier = Modifier.fillMaxWidth()) }
             }
@@ -617,7 +617,7 @@ private fun SearchHistorySection(state: SettingsContentState) {
             ListItem(
                 headlineContent = { Text(item) },
                 leadingContent = { Icon(painterResource(R.drawable.history), null) },
-                trailingContent = { IconButton(onClick = { state.onRemoveSearchHistoryItem(item) }) { Icon(painterResource(R.drawable.close), null, modifier = Modifier.size(20.dp)) } },
+                trailingContent = { IconButton(onClick = { state.onRemoveSearchHistoryItem(item) }, onLongClick = {}) { Icon(painterResource(R.drawable.close), null, modifier = Modifier.size(20.dp)) } },
                 modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable { state.onSearchHistoryItemClick(item) },
                 colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
             )
