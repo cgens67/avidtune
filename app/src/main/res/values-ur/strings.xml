@@ -1,0 +1,1151 @@
+<resources>
+    <!-- Bottom navigation -->
+    <string name="home">ہوم</string>
+    <string name="songs">گانے</string>
+    <string name="artists">فنکار</string>
+    <string name="albums">البمز</string>
+    <string name="playlists">پلے لسٹس</string>
+
+    <!-- Top bar -->
+    <plurals name="n_selected">
+        <item quantity="one">%d منتخب کیا گیا</item>
+        <item quantity="other">%d منتخب کیے گئے</item>
+    </plurals>
+
+    <!-- Home -->
+    <string name="history">ہسٹری</string>
+    <string name="stats">اعداد و شمار</string>
+    <string name="mood_and_genres">موڈ اور انواع</string>
+    <string name="account">اکاؤنٹ</string>
+    <string name="quick_picks">کوئیک پکس</string>
+    <string name="quick_picks_empty">اپنی کوئیک پکس بنانے کے لیے گانے سنیں</string>
+    <string name="new_release_albums">نئی ریلیز</string>
+    <string name="similar_to">اس جیسا</string>
+    <string name="keep_listening">سنتے رہیں</string>
+    <string name="your_ytb_playlists">آپ کا یوٹیوب اکاؤنٹ</string>
+
+    <!-- History -->
+    <string name="today">آج</string>
+    <string name="yesterday">گزشتہ کل</string>
+    <string name="this_week">اس ہفتے</string>
+    <string name="last_week">پچھلے ہفتے</string>
+    <string name="local_history">لوکل</string>
+    <string name="remote_history">ریموٹ</string>
+
+    <!-- Stats -->
+    <string name="most_played_songs">سب سے زیادہ سنے گئے گانے</string>
+    <string name="most_played_artists">سب سے زیادہ سنے گئے فنکار</string>
+    <string name="most_played_albums">سب سے زیادہ سنے گئے البمز</string>
+    <string name="weeks">ہفتے</string>
+    <string name="months">مہینے</string>
+    <string name="years">سال</string>
+    <string name="continuous">مسلسل</string>
+
+    <!-- Search -->
+    <string name="search">تلاش کریں</string>
+    <string name="search_yt_music">یوٹیوب میوزک تلاش کریں…</string>
+    <string name="search_library">لائبریری میں تلاش کریں…</string>
+    <string name="filter_library">لائبریری</string>
+    <string name="filter_liked">پسندیدہ</string>
+    <string name="filter_downloaded">ڈاؤن لوڈ کردہ</string>
+    <string name="filter_all">سبھی</string>
+    <string name="filter_songs">گانے</string>
+    <string name="filter_videos">ویڈیوز</string>
+    <string name="filter_albums">البمز</string>
+    <string name="filter_artists">فنکار</string>
+    <string name="filter_playlists">پلے لسٹس</string>
+    <string name="filter_community_playlists">کمیونٹی پلے لسٹس</string>
+    <string name="filter_featured_playlists">فیچرڈ پلے لسٹس</string>
+    <string name="filter_bookmarked">بک مارک کردہ</string>
+    <string name="no_results_found">کوئی نتیجہ نہیں ملا</string>
+
+    <!-- Album screen -->
+    <string name="other_versions">دیگر ورژنز</string>
+
+    <!-- Library -->
+    <string name="liked">پسندیدہ</string>
+    <string name="offline">ڈاؤن لوڈ کردہ</string>
+    <string name="my_top">میری ٹاپ لسٹ</string>
+    <string name="library_song_empty">لائبریری کے گانے یہاں نظر آئیں گے</string>
+    <string name="library_artist_empty">لائبریری کے فنکار یہاں نظر آئیں گے</string>
+    <string name="library_album_empty">لائبریری کے البمز یہاں نظر آئیں گے</string>
+    <string name="library_playlist_empty">آپ کی پلے لسٹس یہاں نظر آئیں گی</string>
+
+    <!-- Playlist -->
+    <string name="liked_songs">پسندیدہ گانے</string>
+    <string name="downloaded_songs">ڈاؤن لوڈ کردہ گانے</string>
+    <string name="sync_playlist">پلے لسٹ سنک کریں</string>
+    <string name="playlist_is_empty">یہ پلے لسٹ خالی ہے</string>
+    <string name="remove_download_playlist_confirm">کیا آپ واقعی ڈاؤن لوڈ کردہ گانوں کی اسٹوریج سے تمام \"%s\" پلے لسٹ کے گانے ہٹانا چاہتے ہیں؟</string>
+    <string name="delete_playlist_confirm">کیا آپ واقعی \"%s\" پلے لسٹ کو حذف کرنا چاہتے ہیں؟</string>
+    <string name="elements_selected">%1$d عناصر منتخب کیے گئے</string>
+    <string name="allows_for_sync_witch_youtube">نوٹ: یہ یوٹیوب میوزک کے ساتھ سنک کرنے کی اجازت دیتا ہے۔ اسے بعد میں تبدیل نہیں کیا جا سکتا۔</string>
+
+    <!-- Button -->
+    <string name="retry">دوبارہ کوشش کریں</string>
+    <string name="radio">ریڈیو</string>
+    <string name="shuffle">شفل</string>
+    <string name="reset">ری سیٹ</string>
+
+    <!-- Menu -->
+    <string name="details">تفصیلات</string>
+    <string name="edit">ترمیم کریں</string>
+    <string name="start_radio">ریڈیو شروع کریں</string>
+    <string name="play">چلائیں</string>
+    <string name="play_next">اگلا چلائیں</string>
+    <string name="add_to_queue">قطار میں شامل کریں</string>
+    <string name="add_to_library">لائبریری میں شامل کریں</string>
+    <string name="remove_from_library">لائبریری سے ہٹائیں</string>
+    <string name="remove_from_playlist">پلے لسٹ سے ہٹائیں</string>
+    <string name="download">ڈاؤن لوڈ کریں</string>
+    <string name="remove_download">ڈاؤن لوڈ ہٹائیں</string>
+    <string name="import_playlist">پلے لسٹ امپورٹ کریں</string>
+    <string name="add_to_playlist">پلے لسٹ میں شامل کریں</string>
+    <string name="view_artist">فنکار دیکھیں</string>
+    <string name="view_album">البم دیکھیں</string>
+    <string name="refetch">دوبارہ حاصل کریں</string>
+    <string name="share">شیئر کریں</string>
+    <string name="delete">حذف کریں</string>
+    <string name="remove_from_history">ہسٹری سے ہٹائیں</string>
+    <string name="search_online">آن لائن تلاش کریں</string>
+    <string name="sync">سنک</string>
+    <string name="advanced">ایڈوانسڈ</string>
+    <string name="select">سب منتخب کریں</string>
+    <string name="like_all">سب پسند کریں</string>
+    <string name="dislike_all">سب ناپسند کریں</string>
+    <string name="tempo_and_pitch">ٹیمپو اور پچ</string>
+
+    <!-- Sort menu -->
+    <string name="sort_by_create_date">شامل کرنے کی تاریخ</string>
+    <string name="sort_by_last_updated">اپ ڈیٹ کی تاریخ</string>
+    <string name="sort_by_name">نام</string>
+    <string name="sort_by_artist">فنکار</string>
+    <string name="sort_by_year">سال</string>
+    <string name="sort_by_song_count">گانوں کی تعداد</string>
+    <string name="sort_by_length">طوالت</string>
+    <string name="sort_by_play_time">پلے ٹائم</string>
+    <string name="sort_by_custom">اپنی مرضی کی ترتیب</string>
+
+    <!-- Dialog -->
+    <string name="mime_type">MIME قسم</string>
+    <string name="codecs">کوڈیکس</string>
+    <string name="loudness">آواز کی شدت</string>
+    <string name="volume">والیوم</string>
+    <string name="file_size">فائل کا سائز</string>
+    <string name="unknown">نامعلوم</string>
+    <string name="copied">کلپ بورڈ پر کاپی ہو گیا</string>
+
+    <string name="edit_lyrics">لیرکس میں ترمیم کریں</string>
+    <string name="search_lyrics">لیرکس تلاش کریں</string>
+    <string name="lyrics">لیرکس (بول)</string>
+
+    <string name="edit_song">گانے میں ترمیم کریں</string>
+    <string name="song_title">گانے کا عنوان</string>
+    <string name="song_artists">گانے کے فنکار</string>
+    <string name="error_song_title_empty">گانے کا عنوان خالی نہیں ہو سکتا۔</string>
+    <string name="error_song_artist_empty">گانے کا فنکار خالی نہیں ہو سکتا۔</string>
+    <string name="save">محفوظ کریں</string>
+
+    <string name="choose_playlist">پلے لسٹ منتخب کریں</string>
+    <string name="edit_playlist">پلے لسٹ میں ترمیم کریں</string>
+    <string name="create_playlist">پلے لسٹ بنائیں</string>
+    <string name="playlist_name">پلے لسٹ کا نام</string>
+    <string name="error_playlist_name_empty">پلے لسٹ کا نام خالی نہیں ہو سکتا۔</string>
+    <string name="already_in_playlist">پہلے سے ہی پلے لسٹ میں موجود ہے:</string>
+
+    <string name="edit_artist">فنکار میں ترمیم کریں</string>
+    <string name="artist_name">فنکار کا نام</string>
+    <string name="error_artist_name_empty">فنکار کا نام خالی نہیں ہو سکتا۔</string>
+
+    <string name="duplicates">ڈپلیکیٹس (نقول)</string>
+    <string name="skip_duplicates">ڈپلیکیٹس چھوڑیں</string>
+    <string name="add_anyway">پھر بھی شامل کریں</string>
+    <string name="duplicates_description_single">یہ گانا آپ کی پلے لسٹ میں پہلے سے موجود ہے</string>
+    <string name="duplicates_description_multiple">%d گانے آپ کی پلے لسٹ میں پہلے سے موجود ہیں</string>
+
+    <!-- Noun -->
+    <plurals name="n_song">
+        <item quantity="one">%d گانا</item>
+        <item quantity="other">%d گانے</item>
+    </plurals>
+    <plurals name="n_artist">
+        <item quantity="one">%d فنکار</item>
+        <item quantity="other">%d فنکار</item>
+    </plurals>
+    <plurals name="n_album">
+        <item quantity="one">%d البم</item>
+        <item quantity="other">%d البمز</item>
+    </plurals>
+    <plurals name="n_playlist">
+        <item quantity="one">%d پلے لسٹ</item>
+        <item quantity="other">%d پلے لسٹس</item>
+    </plurals>
+    <plurals name="n_week">
+        <item quantity="one">%d ہفتہ</item>
+        <item quantity="other">%d ہفتے</item>
+    </plurals>
+    <plurals name="n_month">
+        <item quantity="one">%d مہینہ</item>
+        <item quantity="other">%d مہینے</item>
+    </plurals>
+    <plurals name="n_year">
+        <item quantity="one">%d سال</item>
+        <item quantity="other">%d سال</item>
+    </plurals>
+    <plurals name="n_element">
+        <item quantity="one">%d عنصر</item>
+        <item quantity="other">%d عناصر</item>
+    </plurals>
+    <plurals name="n_time">
+        <item quantity="one">%d بار</item>
+        <item quantity="other">%d بار</item>
+    </plurals>
+
+    <!-- Snackbar -->
+    <string name="playlist_imported">پلے لسٹ امپورٹ ہو گئی</string>
+    <string name="imported_playlist">امپورٹ شدہ پلے لسٹ</string>
+    <string name="removed_song_from_playlist">پلے لسٹ سے \"%s\" ہٹا دیا گیا</string>
+    <string name="playlist_synced">پلے لسٹ سنک ہو گئی</string>
+    <string name="undo">انڈو (واپس کریں)</string>
+
+    <!-- Player -->
+    <string name="lyrics_not_found">لیرکس نہیں ملے</string>
+    <string name="sleep_timer">سلیپ ٹائمر</string>
+    <string name="end_of_song">گانے کا اختتام</string>
+    <plurals name="minute">
+        <item quantity="one">1 منٹ</item>
+        <item quantity="other">%d منٹ</item>
+    </plurals>
+    <string name="error_no_stream">کوئی اسٹریم دستیاب نہیں</string>
+    <string name="error_no_internet">کوئی نیٹ ورک کنکشن نہیں</string>
+    <string name="error_timeout">ٹائم آؤٹ</string>
+    <string name="error_unknown">نامعلوم خرابی</string>
+    <string name="seek_backward">5 سیکنڈ پیچھے</string>
+    <string name="seek_forward">5 سیکنڈ آگے</string>
+
+    <!-- Player action -->
+    <string name="action_like">پسند کریں</string>
+    <string name="action_remove_like">پسند ہٹائیں</string>
+    <string name="action_shuffle_on">شفل آن کریں</string>
+    <string name="action_shuffle_off">شفل آف کریں</string>
+    <string name="repeat_mode_off">ریپیٹ موڈ آف ہے</string>
+    <string name="repeat_mode_one">موجودہ گانا دہرائیں</string>
+    <string name="repeat_mode_all">پوری قطار دہرائیں</string>
+
+    <!-- Queue Title -->
+    <string name="queue_all_songs">تمام گانے</string>
+    <string name="queue_searched_songs">تلاش کیے گئے گانے</string>
+    <string name="similar_content">ملتا جلتا مواد</string>
+
+    <!-- Notification name -->
+    <string name="music_player">میوزک پلیئر</string>
+
+    <!-- Settings -->
+    <string name="settings">ترتیبات</string>
+    <string name="login_settings">لاگ ان ترتیبات</string>
+    <string name="use_login_for_browse">پریمیم مواد براؤز کرنے کے لیے لاگ ان استعمال کریں</string>
+    <string name="use_login_for_browse_desc">اگر آپ پریمیم اکاؤنٹ سے لاگ ان ہیں تو یہ صرف پریمیم البمز دکھا سکتا ہے</string>
+
+    <string name="general_settings">عمومی ترتیبات</string>
+
+    <string name="appearance">ظاہری شکل</string>
+    <string name="theme">تھیم</string>
+    <string name="enable_dynamic_theme">ڈائنامک تھیم فعال کریں</string>
+    <string name="dark_theme">ڈارک تھیم</string>
+    <string name="dark_theme_on">آن</string>
+    <string name="dark_theme_off">آف</string>
+    <string name="dark_theme_follow_system">سسٹم کے مطابق</string>
+    <string name="player_background_style">پلیئر کے پس منظر کا اسٹائل</string>
+    <string name="follow_theme">تھیم کے مطابق</string>
+    <string name="gradient">گریڈینٹ (Gradient)</string>
+    <string name="player_background_blur">بلر (Blur)</string>
+    <string name="enable_squiggly_slider">سکویگلی (Squiggly) سلائیڈر فعال کریں</string>
+    <string name="enable_swipe_thumbnail">گانا تبدیل کرنے کے لیے سوائپ فعال کریں</string>
+    <string name="pure_black">مکمل کالا</string>
+    <string name="customize_navigation_tabs">نیویگیشن ٹیبز اپنی مرضی کے مطابق بنائیں</string>
+    <string name="player">پلیئر</string>
+    <string name="player_text_alignment">پلیئر ٹیکسٹ کی سیدھ (Alignment)</string>
+    <string name="lyrics_text_position">لیرکس ٹیکسٹ کی پوزیشن</string>
+    <string name="sided">ایک طرف</string>
+    <string name="left">بائیں</string>
+    <string name="center">درمیان</string>
+    <string name="right">دائیں</string>
+    <string name="lyrics_click_change">کلک پر لیرکس تبدیل کریں</string>
+    <string name="grid_cell_size">گرڈ سیل کا سائز</string>
+    <string name="small">چھوٹا</string>
+    <string name="big">بڑا</string>
+    <string name="player_slider_style">پلیئر سلائیڈر کا اسٹائل</string>
+    <string name="default_">ڈیفالٹ</string>
+    <string name="squiggly">سکویگلی (لہر دار)</string>
+    <string name="slim">پتلا (Slim)</string>
+    <string name="misc">متفرق</string>
+    <string name="default_open_tab">ڈیفالٹ اوپن ٹیب</string>
+    <string name="slim_navbar">نیچے والے نیویگیشن بار کے لیبلز چھپائیں</string>
+
+    <string name="content">مواد</string>
+    <string name="google">گوگل (Google)</string>
+    <string name="discord">ڈسکارڈ (Discord)</string>
+    <string name="login">لاگ ان کریں</string>
+    <string name="advanced_login">ایڈوانسڈ لاگ ان (ٹوکن)</string>
+    <string name="logout">لاگ آؤٹ کریں</string>
+    <string name="not_logged_in">لاگ ان نہیں ہے</string>
+    <string name="token_hidden">ٹوکن دیکھنے کے لیے تھپتھپائیں</string>
+    <string name="token_shown">کاپی یا ترمیم کرنے کے لیے دوبارہ تھپتھپائیں</string>
+    <string name="token_adv_login_description">یہ ایک ایڈوانسڈ لاگ ان کا طریقہ ہے۔ ویب پورٹل کے متبادل کے طور پر، آپ براہ راست اپنا لاگ ان ٹوکن یہاں درج یا اپ ڈیٹ کر سکتے ہیں۔ مثال کے طور پر، یہ متعدد ڈیوائسز پر لاگ ان کو تیز کر سکتا ہے۔ براہ کرم نوٹ کریں کہ کوئی بھی غلط ٹوکن فارمیٹ جسے ایپ پارس (Parse) کرنے میں ناکام رہتی ہے اسے قبول نہیں کیا جائے گا</string>
+    <string name="ytm_sync">اپنے یوٹیوب میوزک اکاؤنٹ کے ساتھ خودکار طور پر سنک کریں</string>
+    <string name="general">عمومی</string>
+    <string name="content_language">ڈیفالٹ مواد کی زبان</string>
+    <string name="content_country">ڈیفالٹ مواد کا ملک</string>
+    <string name="system_default">سسٹم ڈیفالٹ</string>
+    <string name="proxy">پراکسی (Proxy)</string>
+    <string name="enable_proxy">پراکسی فعال کریں</string>
+    <string name="proxy_type">پراکسی کی قسم</string>
+    <string name="proxy_url">پراکسی یو آر ایل (URL)</string>
+    <string name="default_lib_chips">ڈیفالٹ لائبریری چِپ تبدیل کریں</string>
+    <string name="set_quick_picks">کوئیک پکس سیٹ کریں</string>
+    <string name="last_song_listened">آخری سنے گئے گانے کی بنیاد پر</string>
+    <string name="restart_to_take_effect">اثر لاگو کرنے کے لیے ری اسٹارٹ کریں</string>
+    <string name="app_language">ایپ کی زبان (بیٹا)</string>
+    <string name="configure_app_language">ایپ کی زبانیں ترتیب دیں</string>
+    <string name="intent_app_language_not_found">ایپ کی زبان کی ترتیبات نہیں مل سکیں، براہ کرم انہیں مینوئل طور پر ترتیب دیں</string>
+    <string name="open_supported_links">سپورٹڈ لنکس کھولیں</string>
+    <string name="configure_supported_links">سپورٹڈ لنکس ترتیب دیں</string>
+    <string name="intent_supported_links_not_found">سپورٹڈ لنکس کی ترتیبات نہیں مل سکیں، براہ کرم انہیں مینوئل طور پر ترتیب دیں</string>
+    <string name="enable_kugou">KuGou لیرکس پرووائیڈر فعال کریں</string>
+    <string name="enable_lrclib">LrcLib لیرکس پرووائیڈر فعال کریں</string>
+    <string name="set_first_lyrics_provider">پسندیدہ لیرکس پرووائیڈر</string>
+
+    <string name="player_and_audio">پلیئر اور آڈیو</string>
+    <string name="audio_quality">آڈیو کوالٹی</string>
+    <string name="audio_quality_max">زیادہ سے زیادہ (بیٹا)</string>
+    <string name="audio_quality_auto">آٹو</string>
+    <string name="audio_quality_high">ہائی (زیادہ)</string>
+    <string name="audio_quality_low">لو (کم)</string>
+    <string name="queue">قطار (Queue)</string>
+    <string name="persistent_queue">مستقل قطار</string>
+    <string name="persistent_queue_desc">ایپ شروع ہونے پر آپ کی آخری قطار بحال کریں</string>
+    <string name="auto_load_more">خود بخود مزید گانے لوڈ کریں</string>
+    <string name="auto_load_more_desc">جب قطار کا اختتام ہو جائے تو اگر ممکن ہو تو خودکار طور پر مزید گانے شامل کریں</string>
+    <string name="enable_similar_content">ملتا جلتا مواد فعال کریں</string>
+    <string name="similar_content_desc">جب قطار ختم ہو جائے تو خودکار طور پر مزید ملتے جلتے گانے شامل کریں</string>
+    <string name="skip_silence">خاموشی چھوڑیں (Skip silence)</string>
+    <string name="audio_normalization">آڈیو نارملائزیشن</string>
+    <string name="auto_skip_next_on_error">ایرر (خرابی) آنے پر خود بخود اگلے گانے پر چلے جائیں</string>
+    <string name="auto_skip_next_on_error_desc">اپنی بلاتعطل پلے بیک کو یقینی بنائیں</string>
+    <string name="stop_music_on_task_clear">ٹاسک کلیئر ہونے پر میوزک بند کریں</string>
+    <string name="equalizer">ایکویلائزر (Equalizer)</string>
+
+    <string name="storage">اسٹوریج</string>
+    <string name="cache">کیشے (Cache)</string>
+    <string name="image_cache">تصاویر کا کیشے</string>
+    <string name="song_cache">گانوں کا کیشے</string>
+    <string name="max_cache_size">کیشے کا زیادہ سے زیادہ سائز</string>
+    <string name="unlimited">لامحدود</string>
+    <string name="clear_all_downloads">تمام ڈاؤن لوڈز صاف کریں</string>
+    <string name="max_image_cache_size">تصاویر کے کیشے کا زیادہ سے زیادہ سائز</string>
+    <string name="clear_image_cache">تصاویر کا کیشے صاف کریں</string>
+    <string name="max_song_cache_size">گانوں کے کیشے کا زیادہ سے زیادہ سائز</string>
+    <string name="clear_song_cache">گانوں کا کیشے صاف کریں</string>
+    <string name="size_used">%s استعمال شدہ</string>
+
+    <string name="privacy">پرائیویسی</string>
+    <string name="listen_history">سننے کی ہسٹری</string>
+    <string name="search_history">تلاش کی ہسٹری</string>
+    <string name="pause_listen_history">سننے کی ہسٹری کو روکیں</string>
+    <string name="clear_listen_history">سننے کی ہسٹری صاف کریں</string>
+    <string name="clear_listen_history_confirm">کیا آپ واقعی سننے کی تمام ہسٹری صاف کرنا چاہتے ہیں؟</string>
+    <string name="pause_search_history">تلاش کی ہسٹری کو روکیں</string>
+    <string name="clear_search_history">تلاش کی ہسٹری صاف کریں</string>
+    <string name="clear_search_history_confirm">کیا آپ واقعی تلاش کی تمام ہسٹری صاف کرنا چاہتے ہیں؟</string>
+    <string name="disable_screenshot">اسکرین شاٹ غیر فعال کریں</string>
+    <string name="disable_screenshot_desc">جب یہ آپشن آن ہوتا ہے تو اسکرین شاٹس اور ریسینٹس (Recents) میں ایپ کا ویو غیر فعال ہو جاتا ہے۔</string>
+
+    <string name="hide_explicit">نامناسب (Explicit) مواد چھپائیں</string>
+
+    <string name="backup_restore">بیک اپ اور ری اسٹور</string>
+    <string name="backup">بیک اپ</string>
+    <string name="restore">ری اسٹور</string>
+    <string name="backup_create_success">بیک اپ کامیابی سے بن گیا</string>
+    <string name="backup_create_failed">بیک اپ نہیں بنایا جا سکا</string>
+    <string name="restore_failed">بیک اپ ری اسٹور کرنے میں ناکامی</string>
+
+    <string name="discord_integration">ڈسکارڈ انٹیگریشن</string>
+    <string name="discord_information">AvidTune آپ کے ڈسکارڈ اکاؤنٹ کا اسٹیٹس سیٹ کرنے کے لیے KizzyRPC لائبریری کا استعمال کرتی ہے۔ اس میں ڈسکارڈ گیٹ وے کنکشن کا استعمال شامل ہے، جسے ڈسکارڈ کی سروس کی شرائط (TOS) کی خلاف ورزی سمجھا جا سکتا ہے۔ تاہم، اس وجہ سے صارفین کے اکاؤنٹس معطل ہونے کا کوئی معلوم کیس نہیں ہے۔ اسے اپنے رسک پر استعمال کریں۔ AvidTune صرف آپ کا ٹوکن لے گی، اور باقی سب کچھ لوکل طور پر محفوظ کیا جاتا ہے۔</string>
+    <string name="dismiss">خارج کریں</string>
+    <string name="options">آپشنز</string>
+    <string name="preview">پیش نظارہ (پریویو)</string>
+    <string name="login_failed">لاگ ان ناکام ہو گیا</string>
+
+    <string name="enable_discord_rpc">رچ پریزنس (Rich Presence) فعال کریں</string>
+
+    <string name="default_links">سپورٹڈ لنکس کھولیں</string>
+    <string name="open_app_settings_error">ایپ کی ترتیبات نہیں کھولی جا سکیں</string>
+
+    <string name="release_notes">ریلیز نوٹس</string>
+
+    <string name="about">متعلق</string>
+    <string name="app_version">ایپ ورژن</string>
+
+    <string name="translation_models">ترجمے کے ماڈلز</string>
+    <string name="clear_translation_models">ترجمے کے ماڈلز صاف کریں</string>
+
+    <string name="all_time">ہر وقت</string>
+    <string name="past_24_hours">پچھلے 24 گھنٹے</string>
+    <string name="past_week">پچھلا ہفتہ</string>
+    <string name="past_month">پچھلا مہینہ</string>
+    <string name="past_year">پچھلا سال</string>
+    <string name="top_length">میری ٹاپ لسٹ کی لمبائی</string>
+    <string name="history_duration">ہسٹری کا دورانیہ</string>
+    <string name="contributors">تعاون کنندگان</string>
+    <string name="Donate">عطیہ دیں (Donate)</string>
+    <string name="Telegramchanel">ٹیلیگرام چینل</string>
+    <string name="contribution">تعاون</string>
+    <string name="Hi">ہائے</string>
+    <string name="NewVersion">نیا ورژن</string>
+    <string name="Changelog">چینج لاگ</string>
+    <string name="changelogs">تبدیلیوں کی فہرست (Changelogs)</string>
+    <string name="no_changes">کوئی تبدیلی نہیں</string>
+    <string name="Translate">ترجمہ کریں</string>
+    <string name="Redirección">ری ڈائریکشن</string>
+    <string name="poeditor_redirect">آپ کو poeditor.com پر ری ڈائریکٹ کیا جا رہا ہے</string>
+    <string name="barwar">بیک اپ ری اسٹور کرتے وقت توجہ دیں، پہلے سے ڈاؤن لوڈ کردہ گانے ڈاؤن لوڈ نہیں ہوتے۔ ڈاؤن لوڈ کی کسی بھی خرابی سے بچنے کے لیے سختی سے تجویز کی جاتی ہے کہ ری اسٹور کیے گئے گانوں کو چلائیں۔</string>
+    <string name="backup_link_title">بیک اپ کامیابی کے ساتھ اپ لوڈ ہو گیا!</string>
+    <string name="backup_link_description">آپ کا بیک اپ 14 دنوں کے لیے دستیاب ہوگا۔</string>
+    <string name="copy_link">لنک کاپی کریں</string>
+    <string name="customize_thumbnail_corner_radius">تھمب نیل کارنر ریڈیئس کو اپنی مرضی کے مطابق بنائیں</string>
+    <string name="corner_radius_label">کارنر ریڈیئس: %1$s</string>
+    <string name="unmute">آواز کھولیں (Unmute)</string>
+    <plurals name="seconds">
+        <item quantity="one">1 سیکنڈ</item>
+        <item quantity="other">%d سیکنڈز</item>
+    </plurals>
+    <string name="mute">آواز بند کریں (Mute)</string>
+    <string name="explore">ایکسپلور کریں (Explore)</string>
+    <string name="custom_avatar">"اپنی مرضی کا اوتار "</string>
+    <string name="custom_avatar_beta">اپنی مرضی کا اوتار</string>
+    <string name="select_image">تصویر منتخب کریں</string>
+    <string name="default_avatar">ڈیفالٹ اوتار</string>
+    <string name="restore_default_avatar">ڈیفالٹ اوتار بحال کریں</string>
+    <string name="SearchResutls">تلاش کے نتائج</string>
+    <string name="Sujestions">تجاویز</string>
+    <string name="SearchHistory">تلاش کی ہسٹری</string>
+    <string name="collapse">بند کریں (Collapse)</string>
+    <string name="expand">پھیلائیں (Expand)</string>
+    <string name="reset_to_default">ڈیفالٹ پر ری سیٹ کریں</string>
+    <string name="Presets">پریسیٹس</string>
+    <string name="custom">اپنی مرضی کا</string>
+    <string name="close">بند کریں</string>
+    <string name="custom_value">اپنی مرضی کی ویلیو</string>
+    <string name="adjust_radius">ریڈیئس ایڈجسٹ کریں</string>
+    <string name="cancel">منسوخ کریں</string>
+    <string name="apply">لاگو کریں</string>
+    <string name="player_buttons_style">پلیئر بٹنز کا اسٹائل</string>
+    <string name="default_style">ڈیفالٹ اسٹائل</string>
+    <string name="secondary_color_style">ثانوی رنگ کا اسٹائل</string>
+    <string name="download_question">کیا آپ نیا ورژن ڈاؤن لوڈ کرنا چاہیں گے؟</string>
+    <string name="downloadup">ڈاؤن لوڈ کریں</string>
+    <string name="downloadingup">اپ ڈیٹ ڈاؤن لوڈ ہو رہی ہے…</string>
+    <string name="tap_to_update">اپ ڈیٹ کرنے کے لیے تھپتھپائیں</string>
+    <string name="info_title">معلومات</string>
+    <string name="info_description">یہ سیکشن بیک اپ اور ری اسٹور کے عمل کے بارے میں کلیدی تفصیلات فراہم کرتا ہے، بشمول آپ کے ڈیٹا کی سیکیورٹی اور اس بات کو یقینی بنانا کہ آپ کی معلومات محفوظ اور آسانی سے قابل رسائی رہیں۔</string>
+    <string name="backup_info_title">اہم معلومات</string>
+    <string name="backup_info_description">جب آپ اپنے ڈیٹا کا بیک اپ بناتے ہیں، تو آپ کے ڈاؤن لوڈز اس میں شامل نہیں ہوتے۔ بہترین کارکردگی کے لیے تجویز کی جاتی ہے کہ ایپ کے ذریعے اپنا کیشے صاف کریں۔ بیک اپ سروس محفوظ ہے، جو اس بات کو یقینی بناتی ہے کہ آپ کا ڈیٹا نجی اور محفوظ رہے۔</string>
+
+    <string name="backup_description">اپنے موجودہ ڈیٹا کی بیک اپ فائل بنائیں</string>
+    <string name="restore_description">بیک اپ فائل سے اپنا ڈیٹا بحال کریں</string>
+    <string name="link_copied">لنک کاپی ہو گیا</string>
+    <string name="redireccion">ری ڈائریکشن</string>
+    <string name="Version">ورژن</string>
+    <string name="notification">نوٹیفیکیشنز آن کریں</string>
+    <string name="cached_playlist">کیشڈ (Cached)</string>
+    <string name="added_to_queue">قطار میں شامل کر دیا گیا</string>
+    <string name="warn">نوٹ: یہ APK F-Droid کے بجائے آفیشل گٹ ہب ریپوزٹری سے ڈاؤن لوڈ کیا جا رہا ہے۔</string>
+    <string name="edit_thumbnail">تھمب نیل میں ترمیم کریں</string>
+    <string name="remove_thumbnail">تھمب نیل ہٹائیں</string>
+    <string name="add_thumbnail">تھمب نیل شامل کریں</string>
+    <string name="storage_overview">اسٹوریج کا جائزہ</string>
+
+    <string name="clear_downloads_confirmation">کیا آپ واقعی تمام ڈاؤن لوڈ کردہ گانے ہٹانا چاہتے ہیں؟ اس عمل کو واپس نہیں کیا جا سکتا۔</string>
+    <string name="clear_song_cache_confirmation">کیا آپ واقعی گانوں کا کیشے صاف کرنا چاہتے ہیں؟ اس سے جگہ خالی ہو جائے گی لیکن پلے بیک کی کارکردگی عارضی طور پر متاثر ہو سکتی ہے۔</string>
+    <string name="clear_image_cache_confirmation">کیا آپ واقعی تصویر کا کیشے صاف کرنا چاہتے ہیں؟ البم آرٹ اور فنکار کی تصاویر کو دوبارہ ڈاؤن لوڈ کرنے کی ضرورت ہوگی۔</string>
+    <string name="confirm">تصدیق کریں</string>
+    <string name="problem_solver">مسئلہ حل کرنے والا (پرابلم سالور)</string>
+    <string name="action_login">لاگ ان</string>
+    <string name="generating_image">تصویر بنائی جا رہی ہے</string>
+    <string name="please_wait">براہ کرم انتظار کریں</string>
+    <string name="share_lyrics">لیرکس شیئر کریں</string>
+    <string name="share_as_text">بطور ٹیکسٹ شیئر کریں</string>
+    <string name="share_as_image">بطور تصویر شیئر کریں</string>
+    <string name="max_selection_limit">انتخاب کی زیادہ سے زیادہ حد: %1$d</string>
+    <string name="share_selected">منتخب کردہ کو شیئر کریں</string>
+    <string name="customize_colors">رنگوں کو اپنی مرضی کے مطابق بنائیں</string>
+    <string name="more_options">مزید آپشنز</string>
+    <string name="text_color">ٹیکسٹ کا رنگ</string>
+    <string name="secondary_text_color">ثانوی ٹیکسٹ کا رنگ</string>
+    <string name="background_color">پس منظر کا رنگ</string>
+    <string name="back">پیچھے</string>
+    <string name="navigation_error">نیویگیشن ایرر</string>
+    <string name="notifications_enabled">نوٹیفیکیشنز آن ہیں</string>
+    <string name="notifications_disabled">نوٹیفیکیشنز آف ہیں</string>
+
+    <string name="visitor_data_title">ٹربل شوٹنگ</string>
+    <string name="visitor_data_description">اگر آپ کو یوٹیوب کے ساتھ کنکشن کے مسائل درپیش ہیں تو VISITOR_DATA کو ری سیٹ کرنے سے مدد مل سکتی ہے۔</string>
+    <string name="visitor_data_info_button">یہ کیا ہے؟</string>
+    <string name="visitor_data_reset_button">ری سیٹ کریں</string>
+
+    <string name="visitor_data_info_title">VISITOR_DATA کیا ہے؟</string>
+    <string name="visitor_data_info_intro">VISITOR_DATA ایک شناخت کنندہ ہے جسے یوٹیوب آپ کے سیشن کو ٹریک کرنے کے لیے استعمال کرتا ہے۔ جب یہ کرپٹ ہو جاتا ہے تو اس کی وجہ سے درج ذیل مسائل آ سکتے ہیں:</string>
+    <string name="visitor_data_info_problems">• کنکشن کی خرابیاں\n• مواد لوڈ کرنے میں مسائل\n• تلاش کی ناکامیاں\n• پلے بیک میں رکاوٹیں</string>
+    <string name="visitor_data_info_solution">VISITOR_DATA ری سیٹ کرنے سے ایک نیا شناخت کنندہ تیار ہوتا ہے اور عام طور پر یہ مسائل حل ہو جاتے ہیں۔</string>
+    <string name="visitor_data_info_note">یہ گمنام صارفین (Anonymous) اور سائن ان صارفین دونوں کے لیے کام کرتا ہے۔</string>
+    <string name="visitor_data_info_confirm">سمجھ گیا</string>
+
+    <string name="visitor_data_reset_title">VISITOR_DATA ری سیٹ کریں</string>
+    <string name="visitor_data_reset_message">کیا آپ واقعی VISITOR_DATA ری سیٹ کرنا چاہتے ہیں؟ اس سے یوٹیوب کے لیے ایک نیا شناخت کنندہ بن جائے گا اور کنکشن کے مسائل حل ہو سکتے ہیں۔\n\nایپ خودکار طور پر ری اسٹارٹ ہو جائے گی۔</string>
+    <string name="visitor_data_reset_confirm">ری سیٹ کریں</string>
+    <string name="visitor_data_reset_cancel">منسوخ کریں</string>
+
+    <string name="widget_title">میوزک ویجیٹ (Widget)</string>
+    <string name="error_saving_image">تصویر محفوظ کرنے میں ایرر</string>
+    <string name="processing">پراسیسنگ ہو رہی ہے</string>
+    <string name="subscribed">سبسکرائبڈ</string>
+    <string name="subscribe">سبسکرائب کریں</string>
+    <string name="language">ایپلیکیشن کی زبان</string>
+    <string name="selection_mode_active">انتخاب کا موڈ فعال ہے</string>
+
+
+    <!-- Avatar Selection -->
+    <string name="avatar_selection">اوتار کا انتخاب</string>
+    <string name="choose_predefined_avatar">پہلے سے موجود اوتار منتخب کریں</string>
+
+    <!-- Avatar Descriptions for Predefined Avatars -->
+    <string name="geometric_avatar_1">جیومیٹرک اوتار 1</string>
+    <string name="geometric_avatar_2">جیومیٹرک اوتار 2</string>
+    <string name="geometric_avatar_3">جیومیٹرک اوتار 3</string>
+    <string name="geometric_avatar_4">جیومیٹرک اوتار 4</string>
+    <string name="geometric_avatar_5">جیومیٹرک اوتار 5</string>
+    <string name="geometric_avatar_6">جیومیٹرک اوتار 6</string>
+    <string name="purple_initial_avatar">جامنی (Purple) انیشلز اوتار</string>
+    <string name="blue_initial_avatar">نیلا (Blue) انیشلز اوتار</string>
+    <string name="green_initial_avatar">سبز (Green) انیشلز اوتار</string>
+    <string name="orange_initial_avatar">نارنجی (Orange) انیشلز اوتار</string>
+    <string name="red_initial_avatar">سرخ (Red) انیشلز اوتار</string>
+    <string name="teal_initial_avatar">ٹیل (Teal) انیشلز اوتار</string>
+    <string name="dots_pattern_avatar">ڈاٹس پیٹرن اوتار</string>
+    <string name="waves_pattern_avatar">ویوز پیٹرن اوتار</string>
+    <string name="gradient_pattern_avatar">گریڈینٹ پیٹرن اوتار</string>
+    <string name="music_note_avatar">میوزک نوٹ اوتار</string>
+    <string name="equalizer_avatar">ایکویلائزر اوتار</string>
+    <string name="headphones_avatar">ہیڈ فونز اوتار</string>
+    <string name="discord_use_details">اسٹیٹس کی بجائے تفصیلات استعمال کریں</string>
+    <string name="discord_use_details_description">فنکاروں کے نام کی بجائے گانے کا عنوان نمایاں طور پر دکھائیں</string>
+    <string name="community">کمیونٹی</string>
+    <string name="app_info">ایپ کی معلومات (App Info)</string>
+    <string name="hide_controls">کنٹرولز چھپائیں</string>
+    <string name="show_controls">کنٹرولز دکھائیں</string>
+    <string name="customize_lyrics_image">لیرکس کی تصویر کسٹمائز کریں</string>
+
+
+    <string name="customize_image">تصویر کسٹمائز کریں</string>
+    <string name="select_theme">تھیم منتخب کریں</string>
+    <string name="from_cover">کور (Cover) سے</string>
+    <string name="presets">پہلے سے طے شدہ تھیمز</string>
+    <string name="share_lyrics_image">لیرکس کو بطور تصویر شیئر کریں</string>
+    <string name="error_generating_image">تصویر بنانے میں ایرر</string>
+    <string name="cover_color">کور کا رنگ</string>
+    <string name="Rotatelyricsbackground">لیرکس کے پس منظر کو گھمائیں</string>
+    <string name="playlist_add_local_to_synced_note">نوٹ: مقامی (لوکل) گانوں کو سنکڈ/ریموٹ پلے لسٹس میں شامل کرنا تعاون یافتہ نہیں ہے۔ کوئی اور مجموعہ درست ہے</string>
+    <string name="manage">نظم کریں (Manage)</string>
+    <string name="clear">صاف کریں</string>
+    <string name="playing_from">"یہاں سے چل رہا ہے: "</string>
+    <string name="SmallButtonsShape">چھوٹے بٹنوں کی شکل</string>
+
+
+
+    <string name="cloud_upload_title">خودکار کلاؤڈ اپ لوڈ</string>
+    <string name="cloud_upload_enabled_description">بیک اپ filebin.net پر اپ لوڈ کیے جائیں گے</string>
+    <string name="cloud_upload_disabled_description">بیک اپ صرف مقامی (لوکل) طور پر محفوظ کیے جائیں گے</string>
+    <string name="backup_with_cloud">لوکل بیک اپ بنائیں اور کلاؤڈ پر اپ لوڈ کریں</string>
+    <string name="uploading_backup">بیک اپ اپ لوڈ ہو رہا ہے…</string>
+    <string name="backup_success">بیک اپ کامیاب</string>
+    <string name="backup_upload_error">بیک اپ اپ لوڈ کرنے میں ایرر</string>
+    <string name="cache_clearing">صاف کیا جا رہا ہے…</string>
+    <string name="info_button">معلومات</string>
+    <string name="reset_button">ری سیٹ کریں</string>
+    <string name="processing_songs">گانوں کی پراسیسنگ ہو رہی ہے…</string>
+    <string name="understood">سمجھ گیا</string>
+    <string name="tap_to_open">کھولنے کے لیے تھپتھپائیں</string>
+    <string name="animate_lyrics">لیرکس میں اینیمیشن لگائیں</string>
+    <string name="animate_lyrics_desc">لیرکس کے درمیان ہموار ٹرانزیشن (تبدیلی)</string>
+    <string name="changing_language">زبان تبدیل ہو رہی ہے…</string>
+    <string name="auto_scroll">آٹو اسکرول</string>
+    <string name="tertiary_color_style">تیسرے رنگ کا اسٹائل (Tertiary)</string>
+    <string name="details_desc">گانے کی معلومات دیکھیں</string>
+    <string name="equalizer_desc">آڈیو ایکویلائزر ایڈجسٹ کریں</string>
+    <string name="advanced_desc">گانے کا ٹیمپو اور پچ تبدیل کریں</string>
+    <string name="check_out_album_share">یوٹیوب میوزک پر %2$s کا گانا %1$s دیکھیں: %3$s</string>
+    <string name="album_text">البم</string>
+    <string name="by_text">"از "</string>
+    <string name="more">مزید</string>
+    <string name="uploaded_playlist">اپ لوڈ کردہ</string>
+    <string name="auto_playlist">آٹو پلے لسٹ</string>
+    <string name="saved">محفوظ کردہ</string>
+    <string name="add_to_queue_content_desc">قطار میں شامل کریں</string>
+    <string name="queue_label">قطار (Queue)</string>
+    <string name="more_options_content_desc">مزید آپشنز</string>
+
+    <string name="playlist_description_start">یہ احتیاط سے بنائی گئی پلے لسٹ پیش کرتی ہے</string>
+    <string name="playlist_duration_description">کل کا تجربہ کریں</string>
+    <string name="hour">گھنٹہ</string>
+    <string name="hours">گھنٹے</string>
+    <string name="minute">منٹ</string>
+    <string name="minutes">منٹ</string>
+    <string name="and">اور</string>
+    <string name="of_music">کی موسیقی</string>
+    <string name="playlist_enjoy_message">سننے کے اپنے تجربے سے لطف اندوز ہوں</string>
+    <string name="live_media">لائیو میڈیا (Live Media)</string>
+    <string name="live_media_desc">لائیو میڈیا Vivi Music پلے بیک کے لیے ایک ڈائنامک نوٹیفکیشن اور اسٹیٹس بار پِل (Pill) فراہم کرتا ہے۔</string>
+    <string name="notification_body">نوٹیفکیشن کی باڈی</string>
+    <string name="show_album_art">البم آرٹ دکھائیں</string>
+    <string name="show_album_art_desc">نوٹیفکیشن میں کور آرٹ دکھائیں</string>
+    <string name="show_artist_name">فنکار کا نام دکھائیں</string>
+    <string name="show_artist_name_desc">میٹا ڈیٹا میں فنکار کا نام شامل کریں</string>
+    <string name="show_album_name">البم کا نام دکھائیں</string>
+    <string name="show_album_name_desc">تفصیلات میں البم کا نام دکھائیں</string>
+    <string name="show_action_buttons">ایکشن بٹنز دکھائیں</string>
+    <string name="show_action_buttons_desc">کنٹرولز جیسے پلے/پاز، اگلا، پچھلا</string>
+    <string name="show_progress">پراگریس (Progress) دکھائیں</string>
+    <string name="show_progress_desc">گانے کی پراگریس بار دکھائیں</string>
+    <string name="show_timestamps">ٹائم اسٹامپس دکھائیں</string>
+    <string name="show_timestamps_desc">گزرنے والا وقت اور کل دورانیہ</string>
+    <string name="hide_on_qs">کوئیک سیٹنگز (QS) پر چھپائیں</string>
+    <string name="hide_on_qs_desc">جب نوٹیفکیشن شیڈ کھلا ہو تو چھپائیں</string>
+    <string name="status_bar_pill">اسٹیٹس بار پِل (Pill)</string>
+    <string name="pill_song_title">گانے کا عنوان</string>
+    <string name="pill_song_title_desc">پِل (Pill) میں ٹریک کا عنوان دکھائیں</string>
+    <string name="pill_elapsed_time">گزرنے والا وقت</string>
+    <string name="pill_elapsed_time_desc">پِل (Pill) میں پلے بیک کی پوزیشن دکھائیں</string>
+    <string name="pill_remaining_time">باقی وقت</string>
+    <string name="pill_remaining_time_desc">گانے میں بچا ہوا وقت دکھائیں</string>
+    <string name="grant_permission">اجازت دیں</string>
+    <string name="notification_listener_permission_needed">نوٹیفکیشن لسنر کی اجازت درکار ہے</string>
+    <string name="notification_listener_permission_desc">اس ایپ کو پلے بیک کی شناخت کرنے اور لائیو میڈیا نوٹیفکیشن کو سنبھالنے کے لیے نوٹیفکیشن تک رسائی کی ضرورت ہے۔</string>
+    <string name="accessibility_permission_needed">ایکسیسبیلٹی کی اجازت درکار ہے</string>
+    <string name="accessibility_permission_desc">اس ایپ کو کوئیک سیٹنگز کی شناخت کے لیے ایکسیسبیلٹی تک رسائی کی ضرورت ہے۔</string>
+    <string name="live_media_compatibility_title">مطابقت کی وارننگ (Compatibility Warning)</string>
+    <string name="live_media_compatibility_message">لائیو میڈیا اینڈرائیڈ 16 اور اس سے اوپر کے لیے ڈیزائن کیا گیا ہے۔ آپ کے اینڈرائیڈ کے موجودہ ورژن پر، یہ معیاری نوٹیفکیشن کے طور پر کام کرے گا اور ڈائنامک میڈیا کا مکمل تجربہ (جیسے اسٹیٹس بار پِل) فراہم نہیں کر سکتا۔</string>
+    <string name="permissions">اجازتیں</string>
+    <string name="granted">دی گئی</string>
+    <string name="pill_content_desc">اسٹیٹس بار پِل کے لیے مواد ترتیب دیں</string>
+    <string name="play_action">چلائیں (Play)</string>
+    <string name="pause_action">روکیں (Pause)</string>
+    <string name="next_action">اگلا</string>
+    <string name="previous_action">پچھلا</string>
+    <string name="loading_lyrics">لیرکس لوڈ ہو رہے ہیں</string>
+    <string name="apple_music">ایپل میوزک</string>
+    <string name="extra_button_type">اضافی بٹن</string>
+    <string name="none">کوئی نہیں</string>
+    <string name="repeat">دہرائیں (Repeat)</string>
+    <string name="show_extra_button">پلیئر میں اضافی بٹن دکھائیں</string>
+    <string name="cancel_timer">ٹائمر منسوخ کریں</string>
+    <string name="start_timer">شروع کریں</string>
+    <string name="sleep_timer_active">فعال ٹائمر:</string>
+    <string name="sleep_timer_desc">خودکار شٹ ڈاؤن شیڈول کریں</string>
+    
+    <!-- Thumbnail Corner Radius Selector -->
+    <string name="shape_and_corners">شکل اور کونے</string>
+    <string name="album_preview">البم کا پیش نظارہ</string>
+    <string name="fine_tune_radius">ریڈیئس (Radius)</string>
+    <string name="decrease">کم کریں</string>
+    <string name="increase">بڑھائیں</string>
+    <string name="quick_presets">کوئیک پریسیٹس</string>
+    
+    <!-- Lyrics Settings -->
+    <string name="enable_lyrics_plus">LyricsPlus فعال کریں</string>
+    <string name="enable_better_lyrics">BetterLyrics فعال کریں</string>
+    <string name="enable_paxsenix">Paxsenix فعال کریں</string>
+    <string name="lyrics_provider_priority">لیرکس پرووائیڈر کی ترجیح</string>
+    <string name="lyrics_provider_priority_desc">لیرکس پرووائیڈرز کی ترجیح کو دوبارہ ترتیب دیں</string>
+    <string name="provider_priority">پرووائیڈر کی ترجیح</string>
+    <string name="lyrics_provided_by">لیرکس %1$s کی طرف سے فراہم کردہ ہیں</string>
+
+    <string name="performance">کارکردگی</string>
+    <string name="minimal_player_design">سادہ (Minimal) پلیئر ڈیزائن</string>
+    <string name="visual_effects">ویژول ایفیکٹس (Visual effects)</string>
+    <string name="background_blur_intensity">بیک گراؤنڈ بلر کی شدت</string>
+    <string name="network">نیٹ ورک</string>
+    
+    <!-- Lyrics Translate -->
+    <string name="translate_lyrics_prompt">ایسا لگتا ہے کہ اس گانے میں ایسے الفاظ ہیں جو آپ کی زبان کے نہیں ہیں، کیا ترجمہ کریں؟</string>
+    <string name="translate_zh_tw_prompt">ایسا لگتا ہے کہ یہ گانا روایتی چینی (Traditional Chinese) میں ہے، کیا اسے آسان چینی (Simplified) میں تبدیل کریں؟</string>
+    <string name="show_original">اصل دکھائیں</string>
+    <string name="translation_failed">ترجمہ ناکام ہو گیا</string>
+    
+    <string name="new_version_available">نیا ورژن دستیاب ہے!</string>
+    <string name="update_version">ورژن %1$s اپ ڈیٹ کریں</string>
+    <string name="download_update_prompt">کیا آپ اپ ڈیٹ ڈاؤن لوڈ کرنا چاہیں گے؟</string>
+    <string name="downloading">ڈاؤن لوڈ ہو رہا ہے…</string>
+    <string name="download_errorup">اپ ڈیٹ ڈاؤن لوڈ کرنے میں ایرر</string>
+    <string name="download_completed">ڈاؤن لوڈ مکمل ہو گیا!</string>
+    <string name="install">انسٹال کریں</string>
+    <string name="download_error">ڈاؤن لوڈ ایرر</string>
+    
+    <string name="disable_blur_effects">بلر ایفیکٹس غیر فعال کریں</string>
+    <string name="disable_blur_effects_desc">کارکردگی بہتر بنانے کے لیے بیک گراؤنڈ بلر کو غیر فعال کرتا ہے</string>
+    
+    <string name="show_nerd_stats">نرڈ اسٹیٹس (Nerd stats) دکھائیں</string>
+    <string name="show_nerd_stats_desc">پلے بیک کے تفصیلی اعداد و شمار دکھائیں</string>
+    <string name="nerd_stats">نرڈ اسٹیٹس (Nerd Stats)</string>
+    <string name="nerd_stats_desc">ریئل ٹائم پلے بیک اعداد و شمار</string>
+    
+    <string name="track">ٹریک</string>
+    <string name="no_track_playing">کوئی ٹریک نہیں چل رہا</string>
+    <string name="codec">کوڈیک (Codec)</string>
+    <string name="bitrate">بِٹ ریٹ</string>
+    <string name="sample_rate">سیمپل ریٹ</string>
+    <string name="size">سائز</string>
+    <string name="loading_format_details">فارمیٹ کی تفصیلات لوڈ ہو رہی ہیں…</string>
+    <string name="buffer_health">بفر کی صحت (Buffer Health)</string>
+    <string name="buffer_health_stats">%1$d%% (%2$d سیکنڈ آگے)</string>
+    
+    <string name="state">اسٹیٹس (State)</string>
+    <string name="state_idle">آئیڈل (Idle)</string>
+    <string name="state_buffering">بفرنگ ہو رہی ہے</string>
+    <string name="state_ready">تیار</string>
+    <string name="state_ended">ختم ہو گیا</string>
+    
+    <string name="speed">رفتار</string>
+    <string name="media_id">میڈیا آئی ڈی (ID)</string>
+    <string name="n_a">دستیاب نہیں (N/A)</string>
+    
+    <!-- String formats -->
+    <string name="format_kbps">%1$d kbps</string>
+    <string name="format_khz">%1$d kHz</string>
+    <string name="format_mb">%1$s MB</string>
+    <string name="format_speed">%1$sx</string>
+    <string name="version_name">v%1$s</string>
+    
+    <!-- Appearance & Theme Settings -->
+    <string name="color_palette">رنگوں کی پیلیٹ (Color Palette)</string>
+    <string name="choose_custom_color_theme">اپنی مرضی کا کلر تھیم منتخب کریں</string>
+    <string name="custom_theme">کسٹم تھیم</string>
+    <string name="import_theme">تھیم امپورٹ کریں</string>
+    <string name="theme_imported_successfully">تھیم کامیابی سے امپورٹ ہو گیا</string>
+    <string name="theme_import_failed">تھیم امپورٹ کرنے میں ناکامی</string>
+
+    <!-- Avatar Selection -->
+    <string name="avatars">اوتار (Avatars)</string>
+    <string name="select_an_avatar">اوتار منتخب کریں</string>
+    <string name="choose_a_style">انداز (اسٹائل) منتخب کریں</string>
+    
+    <!-- Custom Theme Color Sliders -->
+    <string name="red_colon">سرخ: %1$d</string>
+    <string name="green_colon">سبز: %1$d</string>
+    <string name="blue_colon">نیلا: %1$d</string>
+    <string name="selected_theme_color">منتخب شدہ تھیم کا رنگ</string>
+    
+    <!-- Changelog & Release Notes -->
+    <string name="loading_releases">ریلیز لوڈ ہو رہی ہیں…</string>
+    <string name="no_releases_available">کوئی ریلیز دستیاب نہیں</string>
+    <string name="loading_commits">کمٹس (Commits) لوڈ ہو رہے ہیں…</string>
+    <string name="no_commits_available">کوئی کمٹ دستیاب نہیں</string>
+    <string name="error_loading">لوڈ کرنے میں ایرر</string>
+    <string name="action_retry">دوبارہ کوشش کریں</string>
+    <string name="last_updated_date">آخری بار اپ ڈیٹ کیا گیا: %1$s</string>
+    <string name="by_author">از %1$s</string>
+    <string name="tab_releases">ریلیز</string>
+    <string name="tab_commits">کمٹس (Commits)</string>
+    <string name="pre_release">پری ریلیز</string>
+
+    <string name="latest_version_of_avidtune">AvidTune کا تازہ ترین ورژن</string>
+    <string name="collapse_release_notes">ریلیز نوٹس بند کریں (Collapse)</string>
+    <string name="expand_release_notes">ریلیز نوٹس پھیلائیں (Expand)</string>
+    <string name="view_on_github">گٹ ہب (GitHub) پر دیکھیں</string>
+    <string name="loading_release_notes">ریلیز نوٹس لوڈ ہو رہے ہیں...</string>
+    <string name="more_changes">+%1$d مزید تبدیلیاں</string>
+    <string name="all_changes">تمام تبدیلیاں</string>
+    <string name="no_release_notes">کوئی ریلیز نوٹس دستیاب نہیں</string>
+
+    <string name="note_feature">نیا فیچر</string>
+    <string name="note_improvement">بہتری (Improvement)</string>
+    <string name="note_fix">اصلاح (Fix)</string>
+    <string name="note_security">سیکیورٹی</string>
+    <string name="note_deprecation">منسوخ کر دیا گیا (Deprecated)</string>
+    <string name="note_error">ایرر</string>
+    
+    <!-- Language Settings & Locale Manager -->
+    <string name="system_language">سسٹم (%1$s)</string>
+    <string name="search_language_placeholder">زبان تلاش کریں…</string>
+    <string name="clear_search">تلاش صاف کریں</string>
+    <string name="applying">لاگو کیا جا رہا ہے…</string>
+    <string name="restarting">ری اسٹارٹ ہو رہا ہے…</string>
+    <string name="try_another_term">کوئی اور لفظ آزمائیں</string>
+    
+    <!-- Language Status Badges -->
+    <string name="status_incomplete">نامکمل</string>
+    <string name="status_beta">بیٹا</string>
+    <string name="status_experimental">تجرباتی (Exp)</string>
+    
+    <!-- About Screen -->
+    <string name="developers">ڈیولپرز</string>
+    <string name="supporters">سپورٹرز (معاونین)</string>
+    <string name="about_app">ایپ کے بارے میں</string>
+    
+    <string name="lead_developer">لیڈ ڈیولپر</string>
+    <string name="co_developer">کو ڈیولپر (معاون)</string>
+    <string name="supporter">سپورٹر</string>
+    
+    <string name="dev_by_cgens67">cgens67 کی جانب سے تیار کردہ</string>
+    <string name="gpl_3_license">GPL-3.0 لائسنس</string>
+    
+    <string name="social_links">سوشل لنکس</string>
+    <string name="view_license">لائسنس دیکھیں</string>
+    <string name="social_github">گٹ ہب (GitHub)</string>
+    <string name="social_telegram">ٹیلیگرام (Telegram)</string>
+    <string name="social_paypal">پے پال (PayPal)</string>
+    <string name="social_web">ویب (Web)</string>
+    
+    <string name="about_app_desc_part1">"AvidTune بنیادی طور پر "</string>
+    <string name="about_app_desc_ganvo">Ganvo Music</string>
+    <string name="about_app_desc_part2">" کا ایک موبائل ورژن ہے، جو آپ کو چلتے پھرتے اپنے پسندیدہ گانوں سے لطف اندوز ہونے کے لیے ایک ہموار، تیز اور فیچرز سے بھرپور تجربہ پیش کرتا ہے۔ کارکردگی کو مدنظر رکھتے ہوئے، آپ آسانی سے یوٹیوب میوزک کے تمام گانوں تک اپنی انگلیوں کے اشارے سے رسائی حاصل کر سکتے ہیں۔"</string>
+
+    <string name="use_system_font">سسٹم کا فونٹ استعمال کریں</string>
+    <string name="use_system_font_desc">ایپ کے فونٹ کی بجائے ڈیوائس کا فونٹ استعمال کریں</string>
+
+    <string name="permissions_title">اجازتیں (Permissions)</string>
+    <string name="permissions_desc">اسٹوریج اور نوٹیفیکیشنز تک رسائی کی اجازت دیں</string>
+    <string name="allow">اجازت دیں</string>
+    <string name="try_different_search_term">کوئی مختلف تلاش کا لفظ آزمائیں</string>
+
+    <string name="app_text_size">ایپ کے ٹیکسٹ کا سائز</string>
+    <string name="text_size_small">چھوٹا</string>
+    <string name="text_size_system">سسٹم کے مطابق</string>
+    <string name="text_size_medium">درمیانہ</string>
+    <string name="text_size_large">بڑا</string>
+    <string name="text_size_extra_large">بہت بڑا</string>
+
+    <string name="sync_offset">سنک آفسیٹ (Sync offset)</string>
+    <string name="lyrics_sync_offset">لیرکس کا سنک آفسیٹ</string>
+    <string name="sync_offset_description">اگر لیرکس وقت پر نہیں آ رہے تو ٹائمنگ ایڈجسٹ کریں۔\nمثبت (+ms) سے لیرکس پہلے ظاہر ہوتے ہیں۔\nمنفی (-ms) سے لیرکس بعد میں ظاہر ہوتے ہیں۔</string>
+
+    <string name="romanize">رومنائز (Romanize)</string>
+    <string name="hide_romanized">رومنائزڈ کو چھپائیں</string>
+
+    <!-- Insight Strings -->
+    <string name="avidtune_insight">AvidTune انسائٹ</string>
+    <string name="insight_discover_year">اپنا موسیقی کا سال دریافت کریں</string>
+    <string name="insight_your_musical_year">آپ کا موسیقی کا سال</string>
+    <string name="insight_tap_to_view">اپنے مکمل اعداد و شمار دیکھنے کے لیے تھپتھپائیں</string>
+    <string name="insight_top_songs">ٹاپ\nگانے</string>
+    <string name="insight_top_artists">ٹاپ\nفنکار</string>
+    <string name="insight_full_stats">مکمل\nاعداد و شمار</string>
+    <string name="insight_download_report">رپورٹ\nڈاؤن لوڈ کریں</string>
+    <string name="insight_view_full">مکمل AvidTune انسائٹ دیکھیں</string>
+    <string name="insight_minutes">منٹ</string>
+    <string name="insight_playlist_name">AvidTune انسائٹ %1$d</string>
+    <string name="insight_msg_tease_0">مجھے واقعی امید ہے کہ آپ مایوس نہیں ہوں گے...</string>
+    <string name="insight_msg_reveal_0">یہ **%1$d منٹ** ہیں۔ ابھی بس شروعات کی ہے؟</string>
+    <string name="insight_msg_tease_1000">ایسا لگتا ہے کہ آپ نے ہمیں حال ہی میں دریافت کیا ہے...</string>
+    <string name="insight_msg_reveal_1000">اور آپ نے موسیقی کے لیے **%1$d منٹ** وقف کیے ہیں۔</string>
+    <string name="insight_msg_tease_5000">موسیقی یقینی طور پر آپ کی پسند ہے۔</string>
+    <string name="insight_msg_reveal_5000">**%1$d منٹ** آپ کے سال کا ایک بہترین ساؤنڈ ٹریک ہے۔</string>
+    <string name="insight_msg_tease_15000">کیا آپ کبھی اپنے ہیڈ فونز اتارتے ہیں؟</string>
+    <string name="insight_msg_reveal_15000">**%1$d منٹ** بتاتے ہیں کہ موسیقی آپ کی آکسیجن ہے۔</string>
+    <string name="insight_msg_tease_40000">کیا آپ... ٹھیک ہیں؟</string>
+    <string name="insight_msg_reveal_40000">آپ نے واقعی یہاں **%1$d منٹ** گزارے۔</string>
+    <string name="insight_msg_tease_default">ایسا لگتا ہے ہم گننا بھول گئے!</string>
+    <string name="insight_msg_reveal_default">لیکن آپ نے یقینی طور پر **%1$d منٹ** موسیقی سنی ہے۔</string>
+    <string name="insight_title">AvidTune انسائٹ</string>
+    <string name="insight_intro_subtitle">آپ کے موسیقی کے سال پر ایک نظر۔</string>
+    <string name="insight_lets_go">چلیں شروع کریں!</string>
+    <string name="insight_total_songs_title">وہ گانے جو\nآپ نے سنے</string>
+    <string name="insight_total_songs_subtitle">یہ تو بہت ساری دھنیں ہیں۔</string>
+    <string name="insight_top_song_title">لیکن آپ کا سب سے\nپسندیدہ تھا...</string>
+    <string name="insight_no_data">کوئی ڈیٹا نہیں</string>
+    <string name="insight_listened_for_minutes">%1$d منٹ کے لیے سنا</string>
+    <string name="insight_minutes_short">%1$d منٹ</string>
+    <string name="insight_top_5_songs">آپ کے ٹاپ 5 گانے</string>
+    <string name="insight_total_albums_title">وہ البمز جو\nآپ نے دریافت کیے</string>
+    <string name="insight_total_albums_subtitle">یہ بہت زیادہ اسکیپس اور ریپیٹس (Repeats) ہیں۔</string>
+    <string name="insight_top_album_title">لیکن ایک البم ایسا تھا\nجس نے سب پر راج کیا۔</string>
+    <string name="insight_top_5_albums">آپ کے ٹاپ 5\nالبمز</string>
+    <string name="insight_total_artists_title">وہ فنکار جنہیں\nآپ نے سنا</string>
+    <string name="insight_total_artists_subtitle">آپ کی موسیقی کا ذوق کافی متنوع ہے۔</string>
+    <string name="insight_top_artist_title">آپ کا ٹاپ فنکار</string>
+    <string name="insight_top_5_artists">ٹاپ 5 فنکار</string>
+    <string name="insight_playlist_ready">آپ کی انسائٹ پلے لسٹ\nتیار ہے۔</string>
+    <string name="insight_add_to_library">لائبریری میں شامل کریں</string>
+    <string name="insight_saved">محفوظ ہو گئی!</string>
+    <string name="insight_thank_you">سننے کے لیے آپ کا شکریہ</string>
+    <string name="insight_see_you">اگلی بار ملتے ہیں!</string>
+    <string name="insight_close">انسائٹ بند کریں</string>
+    
+    <!-- News -->
+    <string name="news">خبریں (News)</string>
+    <string name="search_news_placeholder">خبریں تلاش کریں...</string>
+    <string name="search_results">تلاش کے نتائج</string>
+    <string name="latest_news">تازہ ترین خبریں</string>
+    <plurals name="n_articles">
+        <item quantity="one">%d آرٹیکل</item>
+        <item quantity="other">%d آرٹیکلز</item>
+    </plurals>
+    <string name="important">اہم (IMPORTANT)</string>
+    <string name="read_more">مزید پڑھیں</string>
+    <string name="loading_news">خبریں لوڈ ہو رہی ہیں...</string>
+    <string name="no_news_available">کوئی خبر دستیاب نہیں</string>
+    <string name="try_different_keywords">مختلف الفاظ (Keywords) آزمائیں</string>
+    <string name="check_back_later">بعد میں دوبارہ چیک کریں</string>
+    <string name="something_went_wrong">کچھ غلط ہو گیا</string>
+    <string name="failed_to_fetch_news">خبریں حاصل کرنے میں ناکامی</string>
+    <string name="loading">لوڈ ہو رہا ہے...</string>
+    <string name="error">ایرر</string>
+    <string name="could_not_load_article">آرٹیکل لوڈ نہیں ہو سکا</string>
+    
+    <!-- SponsorBlock setting -->
+    <string name="enable_sponsorblock">اسپانسر بلاک (SponsorBlock) فعال کریں</string>
+    <string name="enable_sponsorblock_desc">میوزک ویڈیوز میں غیر موسیقی والے حصوں، انٹروز اور اسپانسر شپس کو خود بخود چھوڑیں</string>
+    <string name="skipped_sponsor">چھوڑا گیا حصہ (اسپانسر بلاک)</string>
+    
+    <string name="fallback_artist_desc">%1$s ایک میوزک آرٹسٹ ہے۔</string>
+    
+    <string name="current_version">موجودہ</string>
+    <string name="error_loading_changelog">چینج لاگ لوڈ کرنے میں ایرر</string>
+    <string name="error_loading_commits">کمٹس لوڈ کرنے میں ایرر</string>
+    <string name="cached">کیشڈ (Cached)</string>
+    
+    <!-- Settings Search & Layout -->
+    <string name="internal_settings">اندرونی ترتیبات (Internal Settings)</string>
+    <string name="github">گٹ ہب (GitHub)</string>
+    <string name="new_badge">نیا</string>
+    
+    <string name="music_together">میوزک ٹوگیدر (Music Together)</string>
+    <string name="together_display_name">ڈسپلے نام</string>
+    <string name="together_display_name_placeholder">اپنا نام درج کریں</string>
+    <string name="together_port">پورٹ (Port)</string>
+    <string name="together_host_section">سیشن ہوسٹ کریں</string>
+    <string name="together_lan">لوکل نیٹ ورک</string>
+    <string name="together_allow_guests_add">مہمانوں کو ٹریکس شامل کرنے کی اجازت دیں</string>
+    <string name="together_allow_guests_control">مہمانوں کو پلے بیک کنٹرول کرنے کی اجازت دیں</string>
+    <string name="together_require_approval">شامل ہونے کے لیے منظوری درکار ہے</string>
+    <string name="together_join_section">سیشن میں شامل ہوں</string>
+    <string name="together_join_link_hint">شامل ہونے کا لنک یہاں پیسٹ کریں</string>
+    <string name="together_kick">نکالیں (Kick)</string>
+    <string name="together_kick_confirm">کیا آپ واقعی %1$s کو نکالنا (Kick) چاہتے ہیں؟</string>
+    <string name="together_ban">پابندی لگائیں (Ban)</string>
+    <string name="together_ban_confirm">کیا آپ واقعی %1$s پر پابندی لگانا چاہتے ہیں؟</string>
+    <string name="together_status">اسٹیٹس</string>
+    <string name="together_idle">آئیڈل (Idle)</string>
+    <string name="together_hosting">ہوسٹنگ ہو رہی ہے</string>
+    <string name="together_joining">شامل ہو رہے ہیں…</string>
+    <string name="together_waiting_approval">منظوری کا انتظار ہے…</string>
+    <string name="together_connected">منسلک (Connected)</string>
+    <string name="together_error_state">ایرر</string>
+    <string name="together_participants">شرکاء (Participants)</string>
+    <string name="together_connected_count">%1$d منسلک ہیں</string>
+    <string name="together_role_host">ہوسٹ</string>
+    <string name="together_role_guest">مہمان</string>
+    <string name="together_pending_approval">منظوری زیر التوا ہے</string>
+    <string name="together_welcome_title">میوزک ٹوگیدر میں خوش آمدید</string>
+    <string name="together_welcome_body">ایک ہی نیٹ ورک پر دوستوں کے ساتھ بیک وقت موسیقی سنیں۔</string>
+    <string name="together_welcome_host_title">ہوسٹ کریں</string>
+    <string name="together_welcome_host_body">سیشن شروع کریں اور اپنے دوستوں کے ساتھ لنک شیئر کریں۔</string>
+    <string name="together_welcome_join_title">شامل ہوں</string>
+    <string name="together_welcome_join_body">کسی موجودہ روم میں شامل ہونے کے لیے سیشن کا لنک پیسٹ کریں۔</string>
+    <string name="together_welcome_permissions_title">اجازتیں</string>
+    <string name="together_welcome_permissions_body">ہوسٹ کنٹرول کرتا ہے کہ کون گانے شامل کر سکتا ہے اور پلے/پاز کر سکتا ہے۔</string>
+    <string name="together_dont_show_again">دوبارہ نہ دکھائیں</string>
+    <string name="start_session">سیشن شروع کریں</string>
+    <string name="join_session">سیشن میں شامل ہوں</string>
+    <string name="session_link">سیشن کا لنک</string>
+    <string name="paste">پیسٹ کریں</string>
+    <string name="join">شامل ہوں</string>
+    <string name="joined">شامل ہو گئے</string>
+    <string name="leave">چھوڑیں (Leave)</string>
+    <string name="connecting">کنیکٹ ہو رہا ہے…</string>
+    <string name="participants">شرکاء</string>
+    <string name="got_it">سمجھ گیا</string>
+    
+    <!-- 1.2.0 -->    
+    <string name="double_tap_to_seek">آگے/پیچھے کرنے کے لیے دو بار تھپتھپائیں</string>
+    <string name="turn_on_artist_canvas">آرٹسٹ کینوس (Canvas) آن کریں</string>
+    <string name="turn_on_artist_canvas_desc">فنکاروں کے پروفائلز پر اینیمیٹڈ ویڈیو بیک گراؤنڈز دکھاتا ہے۔</string>
+    <string name="hide_music_videos">میوزک ویڈیوز چھپائیں</string>
+    <string name="premium_audio_fading">پریمیم آڈیو فیڈنگ</string>
+    <string name="premium_audio_fading_desc">ٹریکس کو روکتے، چلاتے یا چھوڑتے وقت والیوم کو ہمواری سے فیڈ اِن اور آؤٹ کریں</string>
+    
+    <!-- 1.2.1 -->
+    <string name="artist_top_songs">ٹاپ گانے</string>
+    <string name="artist_albums">البمز</string>
+    <string name="artist_singles_eps">سنگلز اور ای پیز (EPs)</string>
+    <string name="artist_videos">ویڈیوز</string>
+    <string name="artist_playlists">پلے لسٹس</string>
+    <string name="artist_playlists_by">%1$s کی پلے لسٹس</string>
+    <string name="artist_live_performances">لائیو پرفارمنسز</string>
+    <string name="artist_featured_on">ان پر فیچرڈ ہیں</string>
+    <string name="artist_fans_might_also_like">مداحوں کو یہ بھی پسند آ سکتا ہے</string>
+    <string name="view_all">سبھی دیکھیں</string>
+    
+    <!-- Home Section Titles -->
+    <string name="albums_for_you">آپ کے لیے البمز</string>
+    <string name="new_releases">نئی ریلیز</string>
+    <string name="similar_to_caps">اس سے ملتا جلتا</string>
+    <string name="fresh_finds_old_favorites">نئی دریافتیں، پرانے پسندیدہ</string>
+    <string name="from_your_library">آپ کی لائبریری سے</string>
+    <string name="from_the_community">کمیونٹی کی جانب سے</string>
+    <string name="forgotten_favorites">بھولے ہوئے پسندیدہ</string>
+    <string name="music_videos_for_you">آپ کے لیے میوزک ویڈیوز</string>
+    <string name="todays_hits">آج کے ہٹس</string>
+    <string name="mixed_for_you">آپ کے لیے مکس</string>
+    <string name="your_daily_discover">آپ کی روزانہ کی دریافت</string>
+    <string name="featured_playlists_for_you">آپ کے لیے فیچرڈ پلے لسٹس</string>
+    
+    <string name="moods_and_moments">موڈز اور لمحات</string>
+    <string name="genres">انواع (Genres)</string>
+    
+    <string name="equalizer_and_effects">ایکویلائزر اور ایفیکٹس</string>
+    <string name="enable_audio_effects">آڈیو ایفیکٹس فعال کریں</string>
+    <string name="enable_audio_effects_desc">بلٹ ان ایکویلائزر، باس بوسٹ اور ریورب آن کریں</string>
+    <string name="enhancements">بہتریاں (Enhancements)</string>
+    <string name="mega_bass">میگا باس</string>
+    <string name="panoramic_surround">پینورامک سراؤنڈ (Panoramic surround)</string>
+    <string name="environment_reverb">انفائرمنٹ ریورب (Environment reverb)</string>
+    <string name="clear_voice">صاف آواز</string>
+    <string name="reset_all_settings">تمام ترتیبات ری سیٹ کریں</string>
+    <string name="no_system_equalizer_found">کوئی سسٹم ایکویلائزر نہیں ملا</string>
+    <string name="no_equalizer_bands_available">ایکویلائزر بینڈز دستیاب نہیں ہیں۔</string>
+    <string name="equalizer_not_supported">اس ڈیوائس پر ایکویلائزر کی سہولت موجود نہیں ہے۔</string>
+    <string name="reverb_none">کوئی نہیں</string>
+    <string name="reverb_bathroom">باتھ روم</string>
+    <string name="reverb_living_room">لونگ روم (ڈرائنگ روم)</string>
+    <string name="reverb_concert_hall">کنسرٹ ہال</string>
+    <string name="reverb_cave">غار / پلیٹ</string>
+    <string name="reverb_device_support_warning">یہ ہو سکتا ہے کہ کچھ ڈیوائسز پر کام نہ کرے</string>
+    <string name="in_app_audio_effects_and_eq">ایپ کے اندر آڈیو ایفیکٹس اور ایکویلائزر</string>
+    
+    <string name="new_beta_version_available">نیا بیٹا ورژن دستیاب ہے!</string>
+    <string name="beta_version_name">بیٹا %1$s</string>
+    <string name="update_beta_version">بیٹا %1$s پر اپ ڈیٹ کریں؟</string>
+    <string name="download_beta_update_prompt">تجرباتی فیچرز کے ساتھ نیا بیٹا ورژن دستیاب ہے۔ کیا آپ اسے ابھی ڈاؤن لوڈ اور انسٹال کرنا چاہیں گے؟</string>
+    
+    <string name="live_mesh">لائیو میش (Live Mesh)</string>
+    
+    <string name="apple_music_trending">ایپل میوزک ٹرینڈنگ</string>
+    <string name="data_from_apple_music">ڈیٹا ایپل میوزک سے لیا گیا ہے</string>
+    <string name="select_region">خطہ (Region) منتخب کریں</string>
+    <string name="trending_songs">ٹرینڈنگ گانے</string>
+    <string name="trending_artists">ٹرینڈنگ فنکار</string>
+    <string name="trending_albums">ٹرینڈنگ البمز</string>
+    <string name="loading_item">%1$s لوڈ ہو رہا ہے…</string>
+    <string name="trending">ٹرینڈنگ (Trending)</string>
+    
+    <!-- Changelog & Time -->
+    <string name="beta_releases">بیٹا ریلیز</string>
+    <string name="no_beta_releases">کوئی بیٹا ریلیز دستیاب نہیں۔</string>
+    <string name="no_stable_releases">کوئی مستحکم (Stable) ریلیز دستیاب نہیں۔</string>
+    <string name="pre_release_for">%1$s کے لیے پری ریلیز</string>
+    <string name="just_now">ابھی ابھی</string>
+    <string name="seconds_ago">%1$d سیکنڈ پہلے</string>
+    <string name="one_minute_ago">1 منٹ پہلے</string>
+    <string name="minutes_ago">%1$d منٹ پہلے</string>
+    <string name="one_hour_ago">1 گھنٹہ پہلے</string>
+    <string name="hours_ago">%1$d گھنٹے پہلے</string>
+    <string name="one_day_ago">1 دن پہلے</string>
+    <string name="days_ago">%1$d دن پہلے</string>
+    <string name="one_month_ago">1 مہینہ پہلے</string>
+    <string name="months_ago">%1$d مہینے پہلے</string>
+    <string name="one_year_ago">1 سال پہلے</string>
+    <string name="years_ago">%1$d سال پہلے</string>
+    
+    <!-- 1.3.1 -->
+    <string name="export">ایکسپورٹ کریں (Export)</string>
+    <string name="random">رینڈم (Random)</string>
+    <string name="github_api_rate_limit_exceeded">گٹ ہب API کی ریٹ لمٹ پار ہو گئی ہے (HTTP 403)۔ براہ کرم تھوڑی دیر بعد دوبارہ کوشش کریں۔</string>
+    
+    
+    <!-- Currently unused playback fallback priority setting-->    
+    <string name="playback_fallback_priority">پلے بیک فال بیک کی ترجیح</string>
+    <string name="playback_fallback_priority_desc">پابندیوں کو بائی پاس کرنے کے لیے اسٹریمز حاصل کرنے والے کلائنٹس کو دوبارہ ترتیب دیں۔</string>
+    <string name="client_desc_web_remix">دستخطی ڈیکرپشن کے بغیر براہ راست اسٹریمز کرتا ہے۔</string>
+    <string name="client_desc_android_vr">ورچوئل رئیلٹی کلائنٹ، کوئی تصدیق (Authentication) نہیں۔</string>
+    <string name="client_desc_android">معیاری (Standard) موبائل کلائنٹ۔</string>
+    <string name="client_desc_tv_embedded">ایمبیڈڈ ٹی وی پلیئر کلائنٹ۔</string>
+    <string name="client_desc_ios">معیاری iOS کلائنٹ۔</string>
+    <string name="client_desc_web">معیاری ویب کلائنٹ۔</string>
+    <string name="client_desc_web_creator">ویب کری ایٹر اسٹوڈیو کلائنٹ۔</string>
+    <string name="playback_client">پلے بیک کلائنٹ</string>
+    
+    <!-- Storage Settings -->
+    <string name="manage_storage_categories">اسٹوریج کے زمروں (Categories) کا نظم کریں</string>
+    <string name="total_managed_space">کل زیرِ انتظام جگہ (Managed space)</string>
+    <string name="limit_info">%2$s میں سے %1$s</string>
+    
+    <!-- Premium Collapsing Header Titles -->
+    <string name="library_title">لائبریری</string>
+    <string name="library_subtitle">آپ کا موسیقی کا مجموعہ، آف لائن اور سنکڈ (Synced)</string>
+    <string name="library_playlists_subtitle">آپ کے کسٹم مکسز اور پلے لسٹس</string>
+    <string name="library_songs_subtitle">آپ کے تمام محفوظ کردہ اور آف لائن ٹریکس</string>
+    <string name="library_artists_subtitle">سبسکرائب کردہ اور مقامی تخلیق کار</string>
+    <string name="library_albums_subtitle">آپ کے کلیکشن میں مکمل ریکارڈز</string>
+
+    <!-- Shortcut Descriptions -->
+    <string name="instant_playback">فوری آف لائن کیشے (Instant offline cache)</string>
+    
+    <string name="most_played_sort">سب سے زیادہ چلائے گئے</string>
+    
+    <string name="together_ongoing_sessions_title">جاری سیشنز</string>
+    <string name="together_ongoing_sessions_desc">آپ کے لوکل نیٹ ورک پر ملا</string>
+    <string name="together_local_network">لوکل نیٹ ورک</string>
+    <string name="together_lan_badge">لوکل ایریا نیٹ ورک (LAN)</string>
+    <string name="together_enter_pin_or_link">پن (PIN) یا لنک درج کریں</string>
+    <string name="together_session_id_format">سیشن: %s…</string>
+    <string name="together_join_with_pin">پن (PIN) کے ساتھ شامل ہوں</string>
+    <string name="together_join_via_pin">پن کے ذریعے شامل ہوں</string>
+    <string name="together_join_via_link">لنک کے ذریعے شامل ہوں</string>
+    <string name="together_pin">پن (PIN)</string>
+    <string name="together_link">لنک</string>
+    <string name="together_paste_link_placeholder">اپنے سیشن کا لنک یہاں پیسٹ کریں...</string>
+    
+    <string name="top_result">ٹاپ نتیجہ</string>
+    <string name="videos">ویڈیوز</string>
+    <string name="episodes">ایپیسوڈز</string>
+    <string name="other">دیگر</string>
+    
+    <!-- Export Sheet Strings -->
+    <string name="export_to_device">ڈیوائس میں ایکسپورٹ کریں</string>
+    <string name="download_as_audio_file">بطور آڈیو فائل ڈاؤن لوڈ کریں</string>
+    <string name="format">فارمیٹ (Format)</string>
+    <string name="api_source">اے پی آئی سورس (API Source)</string>
+    <string name="export_note_mp3">نوٹ: MP3 فارمیٹ ٹریک کے اندر میٹا ڈیٹا (البم کور، ٹائٹل، آرٹسٹ) شامل کرنے کے لیے بیک اینڈ ٹرانسکوڈرز کا استعمال کرتا ہے۔ نیٹو ایکسٹریکشن (M4A/Opus) اصل اسٹریم کو محفوظ بناتی ہے۔</string>
+    <string name="securing_stream">اسٹریم محفوظ کی جا رہی ہے…</string>
+    <string name="working">کام ہو رہا ہے…</string>
+    <string name="downloaded_size">ڈاؤن لوڈ ہو گیا: %1$s</string>
+    <string name="fetched_by">%1$s کے ذریعے حاصل کیا گیا</string>
+    <string name="success_saved">میوزک فولڈر میں کامیابی سے محفوظ ہو گیا!</string>
+    <string name="size_format">سائز: %1$s</string>
+    <string name="done">ہو گیا</string>
+    <string name="export_failed">ایکسپورٹ ناکام</string>
+    <string name="quality_unavailable">کوالٹی دستیاب نہیں</string>
+    <string name="quality_unavailable_desc">آپ کی پسندیدہ کوالٹی دستیاب نہیں ہے۔ دستیاب فارمیٹس:</string>
+    <string name="source_format">سورس: %1$s</string>
+    
+    <string name="enable_avid_lyrics">AvidLyrics فعال کریں</string>
+    <string name="enable_simpmusic">SimpMusic فعال کریں</string>
+    
+    <string name="continue_playing">چلانا جاری رکھیں</string>
+    <string name="autoplaying_similar_content">ملتا جلتا مواد آٹو پلے ہو رہا ہے</string>
+    <plurals name="removed_songs_from_queue">
+        <item quantity="one">قطار سے %d گانا ہٹا دیا گیا</item>
+        <item quantity="other">قطار سے %d گانے ہٹا دیے گئے</item>
+    </plurals>
+    
+    <!-- ShowMediaInfo -->
+    <string name="media_info_numbers">نمبرز (Numbers)</string>
+    <string name="action_copy">کاپی کریں</string>
+    <string name="description">تفصیل (Description)</string>
+    <string name="subscribers">سبسکرائبرز</string>
+    <string name="views">ویوز (Views)</string>
+    <string name="likes">لائیکس (Likes)</string>
+    <string name="dislikes">ڈس لائیکس (Dislikes)</string>
+    <string name="itag">Itag</string>
+    
+</resources>
