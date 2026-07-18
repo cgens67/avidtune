@@ -5,7 +5,6 @@ import android.content.res.Configuration
 import android.net.ConnectivityManager
 import android.net.Uri
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -759,7 +758,7 @@ fun WrappedIntro(textColor: Color, useDarkTheme: Boolean, onNext: () -> Unit) {
         if (isLandscape) {
             Row(modifier = Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    AnimatedVisibility(
+                    androidx.compose.animation.AnimatedVisibility(
                         visible = visible,
                         enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
                     ) {
@@ -776,7 +775,7 @@ fun WrappedIntro(textColor: Color, useDarkTheme: Boolean, onNext: () -> Unit) {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    AnimatedVisibility(
+                    androidx.compose.animation.AnimatedVisibility(
                         visible = visible,
                         enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
                     ) {
@@ -788,7 +787,7 @@ fun WrappedIntro(textColor: Color, useDarkTheme: Boolean, onNext: () -> Unit) {
                         }
                     }
                     Spacer(modifier = Modifier.height(8.dp))
-                    AnimatedVisibility(
+                    androidx.compose.animation.AnimatedVisibility(
                         visible = visible,
                         enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
                     ) {
@@ -800,7 +799,7 @@ fun WrappedIntro(textColor: Color, useDarkTheme: Boolean, onNext: () -> Unit) {
                         )
                     }
                     Spacer(modifier = Modifier.height(24.dp))
-                    AnimatedVisibility(
+                    androidx.compose.animation.AnimatedVisibility(
                         visible = visible,
                         enter = fadeIn(tween(1000, 1000)) + slideInVertically(tween(1000, 1000))
                     ) {
@@ -825,7 +824,7 @@ fun WrappedIntro(textColor: Color, useDarkTheme: Boolean, onNext: () -> Unit) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                AnimatedVisibility(
+                androidx.compose.animation.AnimatedVisibility(
                     visible = visible,
                     enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
                 ) {
@@ -837,7 +836,7 @@ fun WrappedIntro(textColor: Color, useDarkTheme: Boolean, onNext: () -> Unit) {
                     )
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                AnimatedVisibility(
+                androidx.compose.animation.AnimatedVisibility(
                     visible = visible,
                     enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
                 ) {
@@ -849,7 +848,7 @@ fun WrappedIntro(textColor: Color, useDarkTheme: Boolean, onNext: () -> Unit) {
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                AnimatedVisibility(
+                androidx.compose.animation.AnimatedVisibility(
                     visible = visible,
                     enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
                 ) {
@@ -861,7 +860,7 @@ fun WrappedIntro(textColor: Color, useDarkTheme: Boolean, onNext: () -> Unit) {
                     )
                 }
             }
-            AnimatedVisibility(
+            androidx.compose.animation.AnimatedVisibility(
                 visible = visible,
                 enter = fadeIn(tween(1000, 1000)) + slideInVertically(tween(1000, 1000)),
                 modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 64.dp)
@@ -888,7 +887,7 @@ fun WrappedMinutesTease(messagePair: MessagePair?, onNavigateForward: () -> Unit
     LaunchedEffect(Unit) { delay(3500); onNavigateForward() }
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        AnimatedVisibility(
+        androidx.compose.animation.AnimatedVisibility(
             visible = messagePair != null && isDataReady,
             enter = fadeIn(tween(1000)) + scaleIn(initialScale = 0.9f, animationSpec = tween(1000))
         ) {
@@ -1096,7 +1095,7 @@ fun WrappedTopSongScreen(topSong: SongWithStats?, isVisible: Boolean, textColor:
         if (isLandscape) {
             Row(modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    AnimatedVisibility(
+                    androidx.compose.animation.AnimatedVisibility(
                         visible = visible,
                         enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
                     ) {
@@ -1113,7 +1112,7 @@ fun WrappedTopSongScreen(topSong: SongWithStats?, isVisible: Boolean, textColor:
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    AnimatedVisibility(
+                    androidx.compose.animation.AnimatedVisibility(
                         visible = visible,
                         enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
                     ) {
@@ -1126,7 +1125,7 @@ fun WrappedTopSongScreen(topSong: SongWithStats?, isVisible: Boolean, textColor:
                         )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    AnimatedVisibility(
+                    androidx.compose.animation.AnimatedVisibility(
                         visible = visible,
                         enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
                     ) {
@@ -1138,7 +1137,7 @@ fun WrappedTopSongScreen(topSong: SongWithStats?, isVisible: Boolean, textColor:
                         )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
-                    AnimatedVisibility(
+                    androidx.compose.animation.AnimatedVisibility(
                         visible = visible,
                         enter = fadeIn(tween(1000, 1000)) + slideInVertically(tween(1000, 1000))
                     ) {
@@ -1156,7 +1155,7 @@ fun WrappedTopSongScreen(topSong: SongWithStats?, isVisible: Boolean, textColor:
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                AnimatedVisibility(
+                androidx.compose.animation.AnimatedVisibility(
                     visible = visible,
                     enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
                 ) {
@@ -1169,7 +1168,7 @@ fun WrappedTopSongScreen(topSong: SongWithStats?, isVisible: Boolean, textColor:
                     )
                 }
                 Spacer(modifier = Modifier.height(32.dp))
-                AnimatedVisibility(
+                androidx.compose.animation.AnimatedVisibility(
                     visible = visible,
                     enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
                 ) {
@@ -1181,7 +1180,7 @@ fun WrappedTopSongScreen(topSong: SongWithStats?, isVisible: Boolean, textColor:
                     )
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                AnimatedVisibility(
+                androidx.compose.animation.AnimatedVisibility(
                     visible = visible,
                     enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
                 ) {
@@ -1193,7 +1192,7 @@ fun WrappedTopSongScreen(topSong: SongWithStats?, isVisible: Boolean, textColor:
                     )
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                AnimatedVisibility(
+                androidx.compose.animation.AnimatedVisibility(
                     visible = visible,
                     enter = fadeIn(tween(1000, 1000)) + slideInVertically(tween(1000, 1000))
                 ) {
@@ -1219,7 +1218,7 @@ fun WrappedTop5SongsScreen(topSongs: List<SongWithStats>, isVisible: Boolean, te
         if (isLandscape) {
             Row(modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    AnimatedVisibility(
+                    androidx.compose.animation.AnimatedVisibility(
                         visible = visible,
                         enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
                     ) {
@@ -1233,7 +1232,7 @@ fun WrappedTop5SongsScreen(topSongs: List<SongWithStats>, isVisible: Boolean, te
                 }
                 Column(modifier = Modifier.weight(1.5f).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.Start) {
                     topSongs.forEachIndexed { index, song ->
-                        AnimatedVisibility(
+                        androidx.compose.animation.AnimatedVisibility(
                             visible = visible,
                             enter = fadeIn(tween(600, 400 + (index * 200))) + slideInVertically(tween(600, 400 + (index * 200)))
                         ) {
@@ -1254,7 +1253,7 @@ fun WrappedTop5SongsScreen(topSongs: List<SongWithStats>, isVisible: Boolean, te
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                AnimatedVisibility(
+                androidx.compose.animation.AnimatedVisibility(
                     visible = visible,
                     enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
                 ) {
@@ -1268,7 +1267,7 @@ fun WrappedTop5SongsScreen(topSongs: List<SongWithStats>, isVisible: Boolean, te
                 Spacer(modifier = Modifier.height(32.dp))
                 Column(horizontalAlignment = Alignment.Start) {
                     topSongs.forEachIndexed { index, song ->
-                        AnimatedVisibility(
+                        androidx.compose.animation.AnimatedVisibility(
                             visible = visible,
                             enter = fadeIn(tween(600, 400 + (index * 200))) + slideInVertically(tween(600, 400 + (index * 200)))
                         ) {
@@ -1327,7 +1326,7 @@ fun WrappedTotalAlbumsScreen(uniqueAlbumCount: Int, isVisible: Boolean, textColo
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    AnimatedVisibility(
+                    androidx.compose.animation.AnimatedVisibility(
                         visible = visible,
                         enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
                     ) {
@@ -1339,7 +1338,7 @@ fun WrappedTotalAlbumsScreen(uniqueAlbumCount: Int, isVisible: Boolean, textColo
                         )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    AnimatedVisibility(
+                    androidx.compose.animation.AnimatedVisibility(
                         visible = visible,
                         enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
                     ) {
@@ -1374,7 +1373,7 @@ fun WrappedTotalAlbumsScreen(uniqueAlbumCount: Int, isVisible: Boolean, textColo
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                AnimatedVisibility(
+                androidx.compose.animation.AnimatedVisibility(
                     visible = visible,
                     enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
                 ) {
@@ -1404,7 +1403,7 @@ fun WrappedTotalAlbumsScreen(uniqueAlbumCount: Int, isVisible: Boolean, textColo
                     )
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                AnimatedVisibility(
+                androidx.compose.animation.AnimatedVisibility(
                     visible = visible,
                     enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
                 ) {
@@ -1431,7 +1430,7 @@ fun WrappedTopAlbumScreen(topAlbum: Album?, isVisible: Boolean, textColor: Color
         if (isLandscape) {
             Row(modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    AnimatedVisibility(
+                    androidx.compose.animation.AnimatedVisibility(
                         visible = visible,
                         enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
                     ) {
@@ -1448,7 +1447,7 @@ fun WrappedTopAlbumScreen(topAlbum: Album?, isVisible: Boolean, textColor: Color
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    AnimatedVisibility(
+                    androidx.compose.animation.AnimatedVisibility(
                         visible = visible,
                         enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
                     ) {
@@ -1460,7 +1459,7 @@ fun WrappedTopAlbumScreen(topAlbum: Album?, isVisible: Boolean, textColor: Color
                         )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    AnimatedVisibility(
+                    androidx.compose.animation.AnimatedVisibility(
                         visible = visible,
                         enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
                     ) {
@@ -1473,7 +1472,7 @@ fun WrappedTopAlbumScreen(topAlbum: Album?, isVisible: Boolean, textColor: Color
                         )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
-                    AnimatedVisibility(
+                    androidx.compose.animation.AnimatedVisibility(
                         visible = visible,
                         enter = fadeIn(tween(1000, 800)) + slideInVertically(tween(1000, 800))
                     ) {
@@ -1492,7 +1491,7 @@ fun WrappedTopAlbumScreen(topAlbum: Album?, isVisible: Boolean, textColor: Color
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                AnimatedVisibility(
+                androidx.compose.animation.AnimatedVisibility(
                     visible = visible,
                     enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
                 ) {
@@ -1504,7 +1503,7 @@ fun WrappedTopAlbumScreen(topAlbum: Album?, isVisible: Boolean, textColor: Color
                     )
                 }
                 Spacer(modifier = Modifier.height(32.dp))
-                AnimatedVisibility(
+                androidx.compose.animation.AnimatedVisibility(
                     visible = visible,
                     enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
                 ) {
@@ -1516,7 +1515,7 @@ fun WrappedTopAlbumScreen(topAlbum: Album?, isVisible: Boolean, textColor: Color
                     )
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                AnimatedVisibility(
+                androidx.compose.animation.AnimatedVisibility(
                     visible = visible,
                     enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
                 ) {
@@ -1529,7 +1528,7 @@ fun WrappedTopAlbumScreen(topAlbum: Album?, isVisible: Boolean, textColor: Color
                     )
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                AnimatedVisibility(
+                androidx.compose.animation.AnimatedVisibility(
                     visible = visible,
                     enter = fadeIn(tween(1000, 800)) + slideInVertically(tween(1000, 800))
                 ) {
@@ -1556,7 +1555,7 @@ fun WrappedTop5AlbumsScreen(topAlbums: List<Album>, isVisible: Boolean, textColo
         if (isLandscape) {
             Row(modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    AnimatedVisibility(
+                    androidx.compose.animation.AnimatedVisibility(
                         visible = visible,
                         enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
                     ) {
@@ -1570,7 +1569,7 @@ fun WrappedTop5AlbumsScreen(topAlbums: List<Album>, isVisible: Boolean, textColo
                 }
                 Column(modifier = Modifier.weight(1.5f).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.Start) {
                     topAlbums.forEachIndexed { index, album ->
-                        AnimatedVisibility(
+                        androidx.compose.animation.AnimatedVisibility(
                             visible = visible,
                             enter = fadeIn(tween(600, 400 + (index * 200))) + slideInVertically(tween(600, 400 + (index * 200)))
                         ) {
@@ -1594,7 +1593,7 @@ fun WrappedTop5AlbumsScreen(topAlbums: List<Album>, isVisible: Boolean, textColo
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                AnimatedVisibility(
+                androidx.compose.animation.AnimatedVisibility(
                     visible = visible,
                     enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
                 ) {
@@ -1608,7 +1607,7 @@ fun WrappedTop5AlbumsScreen(topAlbums: List<Album>, isVisible: Boolean, textColo
                 Spacer(modifier = Modifier.height(32.dp))
                 Column(horizontalAlignment = Alignment.Start) {
                     topAlbums.forEachIndexed { index, album ->
-                        AnimatedVisibility(
+                        androidx.compose.animation.AnimatedVisibility(
                             visible = visible,
                             enter = fadeIn(tween(600, 400 + (index * 200))) + slideInVertically(tween(600, 400 + (index * 200)))
                         ) {
@@ -1756,7 +1755,7 @@ fun WrappedTopArtistScreen(topArtist: Artist?, isVisible: Boolean, textColor: Co
         if (isLandscape) {
             Row(modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    AnimatedVisibility(
+                    androidx.compose.animation.AnimatedVisibility(
                         visible = visible,
                         enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
                     ) {
@@ -1773,7 +1772,7 @@ fun WrappedTopArtistScreen(topArtist: Artist?, isVisible: Boolean, textColor: Co
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    AnimatedVisibility(
+                    androidx.compose.animation.AnimatedVisibility(
                         visible = visible,
                         enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
                     ) {
@@ -1786,7 +1785,7 @@ fun WrappedTopArtistScreen(topArtist: Artist?, isVisible: Boolean, textColor: Co
                         )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    AnimatedVisibility(
+                    androidx.compose.animation.AnimatedVisibility(
                         visible = visible,
                         enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
                     ) {
@@ -1798,7 +1797,7 @@ fun WrappedTopArtistScreen(topArtist: Artist?, isVisible: Boolean, textColor: Co
                         )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
-                    AnimatedVisibility(
+                    androidx.compose.animation.AnimatedVisibility(
                         visible = visible,
                         enter = fadeIn(tween(1000, 800)) + slideInVertically(tween(1000, 800))
                     ) {
@@ -1816,7 +1815,7 @@ fun WrappedTopArtistScreen(topArtist: Artist?, isVisible: Boolean, textColor: Co
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                AnimatedVisibility(
+                androidx.compose.animation.AnimatedVisibility(
                     visible = visible,
                     enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
                 ) {
@@ -1829,7 +1828,7 @@ fun WrappedTopArtistScreen(topArtist: Artist?, isVisible: Boolean, textColor: Co
                     )
                 }
                 Spacer(modifier = Modifier.height(32.dp))
-                AnimatedVisibility(
+                androidx.compose.animation.AnimatedVisibility(
                     visible = visible,
                     enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
                 ) {
@@ -1841,7 +1840,7 @@ fun WrappedTopArtistScreen(topArtist: Artist?, isVisible: Boolean, textColor: Co
                     )
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                AnimatedVisibility(
+                androidx.compose.animation.AnimatedVisibility(
                     visible = visible,
                     enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
                 ) {
@@ -1852,7 +1851,7 @@ fun WrappedTopArtistScreen(topArtist: Artist?, isVisible: Boolean, textColor: Co
                         textAlign = TextAlign.Center
                     )
                 }
-                AnimatedVisibility(
+                androidx.compose.animation.AnimatedVisibility(
                     visible = visible,
                     enter = fadeIn(tween(1000, 800)) + slideInVertically(tween(1000, 800))
                 ) {
@@ -1878,7 +1877,7 @@ fun WrappedTop5ArtistsScreen(topArtists: List<Artist>, isVisible: Boolean, textC
         if (isLandscape) {
             Row(modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    AnimatedVisibility(
+                    androidx.compose.animation.AnimatedVisibility(
                         visible = visible,
                         enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
                     ) {
@@ -1892,7 +1891,7 @@ fun WrappedTop5ArtistsScreen(topArtists: List<Artist>, isVisible: Boolean, textC
                 }
                 Column(modifier = Modifier.weight(1.5f).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.Start) {
                     topArtists.forEachIndexed { index, artist ->
-                        AnimatedVisibility(
+                        androidx.compose.animation.AnimatedVisibility(
                             visible = visible,
                             enter = fadeIn(tween(600, 400 + (index * 200))) + slideInVertically(tween(600, 400 + (index * 200)))
                         ) {
@@ -1916,7 +1915,7 @@ fun WrappedTop5ArtistsScreen(topArtists: List<Artist>, isVisible: Boolean, textC
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                AnimatedVisibility(
+                androidx.compose.animation.AnimatedVisibility(
                     visible = visible,
                     enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
                 ) {
@@ -1930,7 +1929,7 @@ fun WrappedTop5ArtistsScreen(topArtists: List<Artist>, isVisible: Boolean, textC
                 Spacer(modifier = Modifier.height(32.dp))
                 Column(horizontalAlignment = Alignment.Start) {
                     topArtists.forEachIndexed { index, artist ->
-                        AnimatedVisibility(
+                        androidx.compose.animation.AnimatedVisibility(
                             visible = visible,
                             enter = fadeIn(tween(600, 400 + (index * 200))) + slideInVertically(tween(600, 400 + (index * 200)))
                         ) {
