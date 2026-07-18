@@ -446,7 +446,6 @@ fun InsightScreen(navController: NavController) {
     }
 
     // Auto-Scroll Logic with extremely smooth transitions.
-    // Fixed: Keying to `settledPage` ensures the launched effect isn't cancelled mid-animation!
     LaunchedEffect(pagerState.settledPage, state.isDataReady) {
         val currentScreen = screens.getOrNull(pagerState.settledPage) ?: return@LaunchedEffect
         
@@ -514,8 +513,8 @@ fun InsightScreen(navController: NavController) {
                             drawRect(
                                 brush = Brush.verticalGradient(
                                     0f to Color.Transparent,
-                                    0.05f to Color.Black,
-                                    0.95f to Color.Black,
+                                    0.1f to Color.Black,
+                                    0.9f to Color.Black,
                                     1f to Color.Transparent
                                 ),
                                 blendMode = BlendMode.DstIn
@@ -747,6 +746,7 @@ fun WrappedBackground(
     }
 }
 
+@Suppress("DEPRECATION")
 @Composable
 fun AutoResizingText(
     text: String, 
@@ -755,14 +755,19 @@ fun AutoResizingText(
     maxLines: Int = 1,
     textAlign: TextAlign? = null
 ) {
-    var scaledTextStyle by remember(style) { mutableStateOf(style) }
-    var readyToDraw by remember(style) { mutableStateOf(false) }
+    val baseStyle = remember(style) { 
+        style.copy(platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = true)) 
+    }
+    var scaledTextStyle by remember(baseStyle) { mutableStateOf(baseStyle) }
+    var readyToDraw by remember(baseStyle) { mutableStateOf(false) }
 
     Text(
         text = text,
-        modifier = modifier.drawWithContent { if (readyToDraw) drawContent() },
+        modifier = modifier
+            .padding(vertical = 12.dp)
+            .drawWithContent { if (readyToDraw) drawContent() },
         style = scaledTextStyle,
-        maxLines = maxLines,
+        maxLines = Int.MAX_VALUE, // Do not clip text bounds internally
         textAlign = textAlign,
         softWrap = true,
         onTextLayout = { textLayoutResult ->
@@ -792,10 +797,14 @@ fun AutoResizingText(
     )
 }
 
+@Suppress("DEPRECATION")
 @Composable
 fun FormattedText(text: String, modifier: Modifier = Modifier, style: TextStyle) {
-    var scaledTextStyle by remember(style) { mutableStateOf(style) }
-    var readyToDraw by remember(style) { mutableStateOf(false) }
+    val baseStyle = remember(style) { 
+        style.copy(platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = true)) 
+    }
+    var scaledTextStyle by remember(baseStyle) { mutableStateOf(baseStyle) }
+    var readyToDraw by remember(baseStyle) { mutableStateOf(false) }
 
     val annotatedString = buildAnnotatedString {
         val parts = text.split("(?=\\*\\*)|(?<=\\*\\*)".toRegex())
@@ -811,7 +820,9 @@ fun FormattedText(text: String, modifier: Modifier = Modifier, style: TextStyle)
     
     Text(
         text = annotatedString,
-        modifier = modifier.drawWithContent { if (readyToDraw) drawContent() },
+        modifier = modifier
+            .padding(vertical = 12.dp)
+            .drawWithContent { if (readyToDraw) drawContent() },
         style = scaledTextStyle,
         softWrap = true,
         onTextLayout = { textLayoutResult ->
@@ -1062,7 +1073,7 @@ fun WrappedMinutesScreen(messagePair: MessagePair?, totalMinutes: Long, isVisibl
                         text = animatedMinutes.value.toInt().toString(),
                         style = textStyle,
                         maxLines = 1,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
                         textAlign = TextAlign.Center
                     )
                 }
@@ -1092,7 +1103,7 @@ fun WrappedMinutesScreen(messagePair: MessagePair?, totalMinutes: Long, isVisibl
                         text = animatedMinutes.value.toInt().toString(),
                         style = textStyle,
                         maxLines = 1,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
                         textAlign = TextAlign.Center
                     )
                 }
@@ -1151,7 +1162,7 @@ fun WrappedTotalSongsScreen(uniqueSongCount: Int, isVisible: Boolean, textColor:
                         text = animatedSongs.value.toInt().toString(),
                         style = textStyle,
                         maxLines = 1,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
                         textAlign = TextAlign.Center
                     )
                 }
@@ -1182,7 +1193,7 @@ fun WrappedTotalSongsScreen(uniqueSongCount: Int, isVisible: Boolean, textColor:
                         text = animatedSongs.value.toInt().toString(),
                         style = textStyle,
                         maxLines = 1,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
                         textAlign = TextAlign.Center
                     )
                 }
@@ -1475,7 +1486,7 @@ fun WrappedTotalAlbumsScreen(uniqueAlbumCount: Int, isVisible: Boolean, textColo
                         text = animatedAlbums.value.toInt().toString(),
                         style = textStyle,
                         maxLines = 1,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
                         textAlign = TextAlign.Center
                     )
                 }
@@ -1511,7 +1522,7 @@ fun WrappedTotalAlbumsScreen(uniqueAlbumCount: Int, isVisible: Boolean, textColo
                         text = animatedAlbums.value.toInt().toString(),
                         style = textStyle,
                         maxLines = 1,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
                         textAlign = TextAlign.Center
                     )
                 }
@@ -1810,7 +1821,7 @@ fun WrappedTotalArtistsScreen(uniqueArtistCount: Int, isVisible: Boolean, textCo
                         text = animatedArtists.value.toInt().toString(),
                         style = textStyle,
                         maxLines = 1,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
                         textAlign = TextAlign.Center
                     )
                 }
@@ -1841,7 +1852,7 @@ fun WrappedTotalArtistsScreen(uniqueArtistCount: Int, isVisible: Boolean, textCo
                         text = animatedArtists.value.toInt().toString(),
                         style = textStyle,
                         maxLines = 1,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
                         textAlign = TextAlign.Center
                     )
                 }
