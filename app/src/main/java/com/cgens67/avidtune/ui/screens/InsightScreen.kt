@@ -774,11 +774,11 @@ fun WrappedIntro(textColor: Color, useDarkTheme: Boolean, onNext: () -> Unit) {
                 visible = visible,
                 enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
             ) {
-                val baseStyle = TextStyle(fontFamily = bbh_bartle, textAlign = TextAlign.Center, letterSpacing = 2.sp, fontSize = 50.sp)
-                Box {
-                    AutoResizingText(text = stringResource(R.string.insight_title), modifier = Modifier.padding(start = 2.dp, top = 2.dp), style = baseStyle.copy(color = Color.DarkGray))
-                    AutoResizingText(text = stringResource(R.string.insight_title), modifier = Modifier.padding(start = 1.dp, top = 1.dp), style = baseStyle.copy(color = Color.Gray))
-                    AutoResizingText(text = stringResource(R.string.insight_title), modifier = Modifier, style = baseStyle.copy(color = textColor))
+                val baseStyle = TextStyle(fontFamily = bbh_bartle, textAlign = TextAlign.Center, letterSpacing = 1.sp, fontSize = 32.sp)
+                Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), contentAlignment = Alignment.Center) {
+                    AutoResizingText(text = stringResource(R.string.insight_title), modifier = Modifier.fillMaxWidth().padding(start = 2.dp, top = 2.dp), style = baseStyle.copy(color = Color.DarkGray))
+                    AutoResizingText(text = stringResource(R.string.insight_title), modifier = Modifier.fillMaxWidth().padding(start = 1.dp, top = 1.dp), style = baseStyle.copy(color = Color.Gray))
+                    AutoResizingText(text = stringResource(R.string.insight_title), modifier = Modifier.fillMaxWidth(), style = baseStyle.copy(color = textColor))
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
@@ -825,7 +825,7 @@ fun WrappedMinutesTease(messagePair: MessagePair?, onNavigateForward: () -> Unit
         ) {
             AutoResizingText(
                 text = messagePair?.teaseRes?.let { stringResource(it) } ?: "",
-                modifier = Modifier.padding(horizontal = 12.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
                 maxLines = 3,
                 style = TextStyle(
                     color = textColor,
@@ -902,7 +902,7 @@ fun WrappedTotalSongsScreen(uniqueSongCount: Int, isVisible: Boolean, textColor:
         ) {
             AutoResizingText(
                 text = stringResource(R.string.insight_total_songs_title),
-                modifier = Modifier.padding(horizontal = 12.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
                 maxLines = 2,
                 style = MaterialTheme.typography.headlineSmall.copy(color = textColor, textAlign = TextAlign.Center, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 34.sp)
             )
@@ -950,6 +950,7 @@ fun WrappedTopSongScreen(topSong: SongWithStats?, isVisible: Boolean, textColor:
             ) {
                 AutoResizingText(
                     text = stringResource(R.string.insight_top_song_title),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
                     style = MaterialTheme.typography.headlineSmall.copy(color = textColor, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 34.sp),
                     textAlign = TextAlign.Center,
                     maxLines = 2
@@ -1012,8 +1013,8 @@ fun WrappedTop5SongsScreen(topSongs: List<SongWithStats>, isVisible: Boolean, te
                 AutoResizingText(
                     text = stringResource(R.string.insight_top_5_songs),
                     maxLines = 2,
-                    modifier = Modifier.padding(horizontal = 12.dp),
-                    style = TextStyle(fontSize = 34.sp, fontFamily = bbh_bartle, color = textColor, textAlign = TextAlign.Center, lineHeight = 38.sp)
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                    style = TextStyle(fontSize = 28.sp, fontFamily = bbh_bartle, color = textColor, textAlign = TextAlign.Center, lineHeight = 34.sp)
                 )
             }
             Spacer(modifier = Modifier.height(32.dp))
@@ -1079,7 +1080,7 @@ fun WrappedTotalAlbumsScreen(uniqueAlbumCount: Int, isVisible: Boolean, textColo
             ) {
                 AutoResizingText(
                     text = stringResource(R.string.insight_total_albums_title),
-                    modifier = Modifier.padding(horizontal = 12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
                     maxLines = 2,
                     style = MaterialTheme.typography.headlineSmall.copy(color = textColor, textAlign = TextAlign.Center, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 34.sp)
                 )
@@ -1135,7 +1136,7 @@ fun WrappedTopAlbumScreen(topAlbum: Album?, isVisible: Boolean, textColor: Color
                 AutoResizingText(
                     text = stringResource(R.string.insight_top_album_title),
                     maxLines = 2,
-                    modifier = Modifier.padding(horizontal = 12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
                     style = TextStyle(fontFamily = bbh_bartle, fontSize = 28.sp, color = textColor, textAlign = TextAlign.Center, lineHeight = 34.sp)
                 )
             }
@@ -1198,8 +1199,8 @@ fun WrappedTop5AlbumsScreen(topAlbums: List<Album>, isVisible: Boolean, textColo
                 AutoResizingText(
                     text = stringResource(R.string.insight_top_5_albums),
                     maxLines = 2,
-                    modifier = Modifier.padding(horizontal = 12.dp),
-                    style = TextStyle(fontFamily = bbh_bartle, fontSize = 34.sp, color = textColor, textAlign = TextAlign.Center, lineHeight = 38.sp)
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                    style = TextStyle(fontFamily = bbh_bartle, fontSize = 28.sp, color = textColor, textAlign = TextAlign.Center, lineHeight = 34.sp)
                 )
             }
             Spacer(modifier = Modifier.height(32.dp))
@@ -1266,7 +1267,7 @@ fun WrappedTotalArtistsScreen(uniqueArtistCount: Int, isVisible: Boolean, textCo
         ) {
             AutoResizingText(
                 text = stringResource(R.string.insight_total_artists_title),
-                modifier = Modifier.padding(horizontal = 12.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
                 maxLines = 2,
                 style = MaterialTheme.typography.headlineSmall.copy(color = textColor, textAlign = TextAlign.Center, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 34.sp)
             )
@@ -1316,7 +1317,7 @@ fun WrappedTopArtistScreen(topArtist: Artist?, isVisible: Boolean, textColor: Co
                 AutoResizingText(
                     text = stringResource(R.string.insight_top_artist_title),
                     maxLines = 2,
-                    modifier = Modifier.padding(horizontal = 12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
                     style = MaterialTheme.typography.headlineSmall.copy(color = textColor, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 34.sp),
                     textAlign = TextAlign.Center
                 )
@@ -1377,8 +1378,8 @@ fun WrappedTop5ArtistsScreen(topArtists: List<Artist>, isVisible: Boolean, textC
                 AutoResizingText(
                     text = stringResource(R.string.insight_top_5_artists),
                     maxLines = 2,
-                    modifier = Modifier.padding(horizontal = 12.dp),
-                    style = TextStyle(fontSize = 34.sp, fontFamily = bbh_bartle, color = textColor, textAlign = TextAlign.Center, lineHeight = 38.sp)
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                    style = TextStyle(fontSize = 28.sp, fontFamily = bbh_bartle, color = textColor, textAlign = TextAlign.Center, lineHeight = 34.sp)
                 )
             }
             Spacer(modifier = Modifier.height(32.dp))
@@ -1445,8 +1446,8 @@ fun PlaylistPage(state: WrappedState, onCreatePlaylist: () -> Unit, textColor: C
             AutoResizingText(
                 text = stringResource(R.string.insight_playlist_ready),
                 maxLines = 2,
-                modifier = Modifier.padding(horizontal = 12.dp),
-                style = TextStyle(fontFamily = bbh_bartle, fontSize = 40.sp, color = textColor, textAlign = TextAlign.Center, lineHeight = 48.sp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                style = TextStyle(fontFamily = bbh_bartle, fontSize = 28.sp, color = textColor, textAlign = TextAlign.Center, lineHeight = 34.sp),
                 textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(32.dp))
@@ -1458,7 +1459,8 @@ fun PlaylistPage(state: WrappedState, onCreatePlaylist: () -> Unit, textColor: C
             Spacer(modifier = Modifier.height(24.dp))
             Text(
                 text = stringResource(R.string.insight_playlist_name, WrappedConstants.YEAR),
-                style = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Bold, color = textColor)
+                style = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Bold, color = textColor),
+                textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(48.dp))
             Button(
@@ -1495,12 +1497,14 @@ fun ConclusionPage(onClose: () -> Unit, textColor: Color, useDarkTheme: Boolean)
             Spacer(modifier = Modifier.height(24.dp))
             Text(
                 text = stringResource(R.string.insight_thank_you),
-                style = TextStyle(fontSize = 28.sp, fontWeight = FontWeight.Bold, color = textColor)
+                style = TextStyle(fontSize = 28.sp, fontWeight = FontWeight.Bold, color = textColor),
+                textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = stringResource(R.string.insight_see_you),
-                style = TextStyle(fontSize = 16.sp, color = Color.Gray)
+                style = TextStyle(fontSize = 16.sp, color = Color.Gray),
+                textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(48.dp))
             Button(
