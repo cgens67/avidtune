@@ -1,6 +1,7 @@
 package com.cgens67.avidtune.ui.screens
 
 import android.content.Context
+import android.content.res.Configuration
 import android.net.ConnectivityManager
 import android.net.Uri
 import androidx.activity.compose.BackHandler
@@ -37,8 +38,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -75,8 +78,8 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.PointMode
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
@@ -128,7 +131,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -751,65 +753,131 @@ fun FormattedText(text: String, modifier: Modifier = Modifier, style: TextStyle)
 fun WrappedIntro(textColor: Color, useDarkTheme: Boolean, onNext: () -> Unit) {
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { delay(200); visible = true }
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     Box(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            AnimatedVisibility(
-                visible = visible,
-                enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.avidtune),
-                    contentDescription = null,
-                    colorFilter = ColorFilter.tint(textColor),
-                    modifier = Modifier.size(100.dp).clip(CircleShape)
-                )
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            AnimatedVisibility(
-                visible = visible,
-                enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
-            ) {
-                val baseStyle = TextStyle(fontFamily = bbh_bartle, textAlign = TextAlign.Center, letterSpacing = 1.sp, fontSize = 32.sp)
-                Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), contentAlignment = Alignment.Center) {
-                    AutoResizingText(text = stringResource(R.string.insight_title), modifier = Modifier.fillMaxWidth().padding(start = 2.dp, top = 2.dp), style = baseStyle.copy(color = Color.DarkGray))
-                    AutoResizingText(text = stringResource(R.string.insight_title), modifier = Modifier.fillMaxWidth().padding(start = 1.dp, top = 1.dp), style = baseStyle.copy(color = Color.Gray))
-                    AutoResizingText(text = stringResource(R.string.insight_title), modifier = Modifier.fillMaxWidth(), style = baseStyle.copy(color = textColor))
+        if (isLandscape) {
+            Row(modifier = Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
+                    ) {
+                        Image(
+                            painter = painterResource(R.drawable.avidtune),
+                            contentDescription = null,
+                            colorFilter = ColorFilter.tint(textColor),
+                            modifier = Modifier.size(100.dp).clip(CircleShape)
+                        )
+                    }
+                }
+                Column(
+                    modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
+                    ) {
+                        val baseStyle = TextStyle(fontFamily = bbh_bartle, textAlign = TextAlign.Center, letterSpacing = 1.sp, fontSize = 32.sp, lineHeight = 38.sp)
+                        Box(modifier = Modifier.fillMaxWidth(0.9f), contentAlignment = Alignment.Center) {
+                            AutoResizingText(text = stringResource(R.string.insight_title), maxLines = 3, modifier = Modifier.fillMaxWidth().padding(start = 2.dp, top = 2.dp), style = baseStyle.copy(color = Color.DarkGray))
+                            AutoResizingText(text = stringResource(R.string.insight_title), maxLines = 3, modifier = Modifier.fillMaxWidth().padding(start = 1.dp, top = 1.dp), style = baseStyle.copy(color = Color.Gray))
+                            AutoResizingText(text = stringResource(R.string.insight_title), maxLines = 3, modifier = Modifier.fillMaxWidth(), style = baseStyle.copy(color = textColor))
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
+                    ) {
+                        Text(
+                            text = stringResource(R.string.insight_intro_subtitle),
+                            color = textColor,
+                            fontSize = 16.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(24.dp))
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(tween(1000, 1000)) + slideInVertically(tween(1000, 1000))
+                    ) {
+                        Button(
+                            onClick = onNext,
+                            shape = RoundedCornerShape(50),
+                            colors = ButtonDefaults.buttonColors(containerColor = textColor)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.insight_lets_go),
+                                color = if (useDarkTheme) Color.Black else Color.White,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                            )
+                        }
+                    }
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
+        } else {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.avidtune),
+                        contentDescription = null,
+                        colorFilter = ColorFilter.tint(textColor),
+                        modifier = Modifier.size(100.dp).clip(CircleShape)
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
+                ) {
+                    val baseStyle = TextStyle(fontFamily = bbh_bartle, textAlign = TextAlign.Center, letterSpacing = 1.sp, fontSize = 32.sp, lineHeight = 38.sp)
+                    Box(modifier = Modifier.fillMaxWidth(0.85f), contentAlignment = Alignment.Center) {
+                        AutoResizingText(text = stringResource(R.string.insight_title), maxLines = 3, modifier = Modifier.fillMaxWidth().padding(start = 2.dp, top = 2.dp), style = baseStyle.copy(color = Color.DarkGray))
+                        AutoResizingText(text = stringResource(R.string.insight_title), maxLines = 3, modifier = Modifier.fillMaxWidth().padding(start = 1.dp, top = 1.dp), style = baseStyle.copy(color = Color.Gray))
+                        AutoResizingText(text = stringResource(R.string.insight_title), maxLines = 3, modifier = Modifier.fillMaxWidth(), style = baseStyle.copy(color = textColor))
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
+                ) {
+                    Text(
+                        text = stringResource(R.string.insight_intro_subtitle),
+                        color = textColor,
+                        fontSize = 16.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
             AnimatedVisibility(
                 visible = visible,
-                enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
+                enter = fadeIn(tween(1000, 1000)) + slideInVertically(tween(1000, 1000)),
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 64.dp)
             ) {
-                Text(
-                    text = stringResource(R.string.insight_intro_subtitle),
-                    color = textColor,
-                    fontSize = 16.sp,
-                    textAlign = TextAlign.Center
-                )
-            }
-        }
-        AnimatedVisibility(
-            visible = visible,
-            enter = fadeIn(tween(1000, 1000)) + slideInVertically(tween(1000, 1000)),
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 64.dp)
-        ) {
-            Button(
-                onClick = onNext,
-                shape = RoundedCornerShape(50),
-                colors = ButtonDefaults.buttonColors(containerColor = textColor)
-            ) {
-                Text(
-                    text = stringResource(R.string.insight_lets_go),
-                    color = if (useDarkTheme) Color.Black else Color.White,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
-                )
+                Button(
+                    onClick = onNext,
+                    shape = RoundedCornerShape(50),
+                    colors = ButtonDefaults.buttonColors(containerColor = textColor)
+                ) {
+                    Text(
+                        text = stringResource(R.string.insight_lets_go),
+                        color = if (useDarkTheme) Color.Black else Color.White,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                    )
+                }
             }
         }
     }
@@ -818,6 +886,7 @@ fun WrappedIntro(textColor: Color, useDarkTheme: Boolean, onNext: () -> Unit) {
 @Composable
 fun WrappedMinutesTease(messagePair: MessagePair?, onNavigateForward: () -> Unit, isDataReady: Boolean, textColor: Color) {
     LaunchedEffect(Unit) { delay(3500); onNavigateForward() }
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         AnimatedVisibility(
             visible = messagePair != null && isDataReady,
@@ -825,12 +894,12 @@ fun WrappedMinutesTease(messagePair: MessagePair?, onNavigateForward: () -> Unit
         ) {
             AutoResizingText(
                 text = messagePair?.teaseRes?.let { stringResource(it) } ?: "",
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                maxLines = 3,
+                modifier = Modifier.fillMaxWidth(if (isLandscape) 0.9f else 0.85f),
+                maxLines = 4,
                 style = TextStyle(
                     color = textColor,
                     fontSize = 28.sp,
-                    lineHeight = 34.sp,
+                    lineHeight = 36.sp,
                     textAlign = TextAlign.Center,
                     fontFamily = bbh_bartle
                 )
@@ -843,45 +912,85 @@ fun WrappedMinutesTease(messagePair: MessagePair?, onNavigateForward: () -> Unit
 fun WrappedMinutesScreen(messagePair: MessagePair?, totalMinutes: Long, isVisible: Boolean, textColor: Color) {
     val animatedMinutes = remember { Animatable(0f) }
     val textMeasurer = rememberTextMeasurer()
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     LaunchedEffect(isVisible, totalMinutes) {
         if (isVisible && totalMinutes > 0) animatedMinutes.animateTo(targetValue = totalMinutes.toFloat(), animationSpec = tween(1500, easing = FastOutSlowInEasing))
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(vertical = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            FormattedText(
-                text = messagePair?.teaseRes?.let { stringResource(it) } ?: "",
-                modifier = Modifier.padding(horizontal = 12.dp),
-                style = MaterialTheme.typography.headlineSmall.copy(color = textColor, textAlign = TextAlign.Center, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 34.sp)
-            )
-            Spacer(modifier = Modifier.height(32.dp))
-            BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                val density = LocalDensity.current
-                val baseStyle = MaterialTheme.typography.displayLarge.copy(color = textColor, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, fontFamily = bbh_bartle, drawStyle = Stroke(with(density) { 2.dp.toPx() }))
-                val textStyle = remember(totalMinutes, maxWidth) {
-                    var style = baseStyle.copy(fontSize = 96.sp)
-                    var textWidth = textMeasurer.measure(totalMinutes.toString(), style).size.width
-                    while (textWidth > constraints.maxWidth) { style = style.copy(fontSize = style.fontSize * 0.95f); textWidth = textMeasurer.measure(totalMinutes.toString(), style).size.width }
-                    style.copy(lineHeight = style.fontSize * 1.08f)
+        if (isLandscape) {
+            Row(modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(
+                    modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    FormattedText(
+                        text = messagePair?.teaseRes?.let { stringResource(it) } ?: "",
+                        modifier = Modifier.fillMaxWidth(0.9f),
+                        style = MaterialTheme.typography.headlineSmall.copy(color = textColor, textAlign = TextAlign.Center, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 36.sp)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    FormattedText(
+                        text = messagePair?.revealRes?.let { stringResource(it, totalMinutes) } ?: "",
+                        modifier = Modifier.fillMaxWidth(0.9f),
+                        style = MaterialTheme.typography.bodyLarge.copy(color = textColor.copy(alpha = 0.8f), textAlign = TextAlign.Center)
+                    )
                 }
-                Text(
-                    text = animatedMinutes.value.toInt().toString(),
-                    style = textStyle,
-                    maxLines = 1,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center
+                BoxWithConstraints(modifier = Modifier.weight(1f).padding(horizontal = 16.dp)) {
+                    val density = LocalDensity.current
+                    val baseStyle = MaterialTheme.typography.displayLarge.copy(color = textColor, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, fontFamily = bbh_bartle, drawStyle = Stroke(with(density) { 2.dp.toPx() }))
+                    val textStyle = remember(totalMinutes, maxWidth) {
+                        var style = baseStyle.copy(fontSize = 96.sp)
+                        var textWidth = textMeasurer.measure(totalMinutes.toString(), style).size.width
+                        while (textWidth > constraints.maxWidth) { style = style.copy(fontSize = style.fontSize * 0.95f); textWidth = textMeasurer.measure(totalMinutes.toString(), style).size.width }
+                        style.copy(lineHeight = style.fontSize * 1.08f)
+                    }
+                    Text(
+                        text = animatedMinutes.value.toInt().toString(),
+                        style = textStyle,
+                        maxLines = 1,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(vertical = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                FormattedText(
+                    text = messagePair?.teaseRes?.let { stringResource(it) } ?: "",
+                    modifier = Modifier.fillMaxWidth(0.85f),
+                    style = MaterialTheme.typography.headlineSmall.copy(color = textColor, textAlign = TextAlign.Center, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 36.sp)
+                )
+                Spacer(modifier = Modifier.height(32.dp))
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                    val density = LocalDensity.current
+                    val baseStyle = MaterialTheme.typography.displayLarge.copy(color = textColor, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, fontFamily = bbh_bartle, drawStyle = Stroke(with(density) { 2.dp.toPx() }))
+                    val textStyle = remember(totalMinutes, maxWidth) {
+                        var style = baseStyle.copy(fontSize = 96.sp)
+                        var textWidth = textMeasurer.measure(totalMinutes.toString(), style).size.width
+                        while (textWidth > constraints.maxWidth) { style = style.copy(fontSize = style.fontSize * 0.95f); textWidth = textMeasurer.measure(totalMinutes.toString(), style).size.width }
+                        style.copy(lineHeight = style.fontSize * 1.08f)
+                    }
+                    Text(
+                        text = animatedMinutes.value.toInt().toString(),
+                        style = textStyle,
+                        maxLines = 1,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                FormattedText(
+                    text = messagePair?.revealRes?.let { stringResource(it, totalMinutes) } ?: "",
+                    modifier = Modifier.fillMaxWidth(0.85f),
+                    style = MaterialTheme.typography.bodyLarge.copy(color = textColor.copy(alpha = 0.8f), textAlign = TextAlign.Center)
                 )
             }
-            Spacer(modifier = Modifier.height(16.dp))
-            FormattedText(
-                text = messagePair?.revealRes?.let { stringResource(it, totalMinutes) } ?: "",
-                modifier = Modifier.padding(horizontal = 24.dp),
-                style = MaterialTheme.typography.bodyLarge.copy(color = textColor.copy(alpha = 0.8f), textAlign = TextAlign.Center)
-            )
         }
     }
 }
@@ -890,46 +999,88 @@ fun WrappedMinutesScreen(messagePair: MessagePair?, totalMinutes: Long, isVisibl
 fun WrappedTotalSongsScreen(uniqueSongCount: Int, isVisible: Boolean, textColor: Color, useDarkTheme: Boolean) {
     val animatedSongs = remember { Animatable(0f) }
     val textMeasurer = rememberTextMeasurer()
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     LaunchedEffect(isVisible, uniqueSongCount) {
         if (isVisible && uniqueSongCount > 0) animatedSongs.animateTo(targetValue = uniqueSongCount.toFloat(), animationSpec = tween(1500, easing = FastOutSlowInEasing))
     }
+    
     Box(modifier = Modifier.fillMaxSize()) {
         AnimatedBackground(shapeTypes = listOf(ShapeType.Line), textColor = textColor)
-        Column(
-            modifier = Modifier.fillMaxSize().padding(vertical = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            AutoResizingText(
-                text = stringResource(R.string.insight_total_songs_title),
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                maxLines = 2,
-                style = MaterialTheme.typography.headlineSmall.copy(color = textColor, textAlign = TextAlign.Center, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 34.sp)
-            )
-            Spacer(modifier = Modifier.height(32.dp))
-            BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                val density = LocalDensity.current
-                val baseStyle = MaterialTheme.typography.displayLarge.copy(color = textColor, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, fontFamily = bbh_bartle, drawStyle = Stroke(with(density) { 2.dp.toPx() }))
-                val textStyle = remember(uniqueSongCount, maxWidth) {
-                    var style = baseStyle.copy(fontSize = 96.sp)
-                    var textWidth = textMeasurer.measure(uniqueSongCount.toString(), style).size.width
-                    while (textWidth > constraints.maxWidth) { style = style.copy(fontSize = style.fontSize * 0.95f); textWidth = textMeasurer.measure(uniqueSongCount.toString(), style).size.width }
-                    style.copy(lineHeight = style.fontSize * 1.08f)
+        if (isLandscape) {
+            Row(modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(
+                    modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    AutoResizingText(
+                        text = stringResource(R.string.insight_total_songs_title),
+                        modifier = Modifier.fillMaxWidth(0.9f),
+                        maxLines = 3,
+                        style = MaterialTheme.typography.headlineSmall.copy(color = textColor, textAlign = TextAlign.Center, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 36.sp)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = stringResource(R.string.insight_total_songs_subtitle),
+                        modifier = Modifier.fillMaxWidth(0.9f),
+                        style = MaterialTheme.typography.bodyLarge.copy(color = textColor.copy(alpha = 0.8f), textAlign = TextAlign.Center)
+                    )
                 }
+                BoxWithConstraints(modifier = Modifier.weight(1f).padding(horizontal = 16.dp)) {
+                    val density = LocalDensity.current
+                    val baseStyle = MaterialTheme.typography.displayLarge.copy(color = textColor, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, fontFamily = bbh_bartle, drawStyle = Stroke(with(density) { 2.dp.toPx() }))
+                    val textStyle = remember(uniqueSongCount, maxWidth) {
+                        var style = baseStyle.copy(fontSize = 96.sp)
+                        var textWidth = textMeasurer.measure(uniqueSongCount.toString(), style).size.width
+                        while (textWidth > constraints.maxWidth) { style = style.copy(fontSize = style.fontSize * 0.95f); textWidth = textMeasurer.measure(uniqueSongCount.toString(), style).size.width }
+                        style.copy(lineHeight = style.fontSize * 1.08f)
+                    }
+                    Text(
+                        text = animatedSongs.value.toInt().toString(),
+                        style = textStyle,
+                        maxLines = 1,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(vertical = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                AutoResizingText(
+                    text = stringResource(R.string.insight_total_songs_title),
+                    modifier = Modifier.fillMaxWidth(0.85f),
+                    maxLines = 3,
+                    style = MaterialTheme.typography.headlineSmall.copy(color = textColor, textAlign = TextAlign.Center, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 36.sp)
+                )
+                Spacer(modifier = Modifier.height(32.dp))
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                    val density = LocalDensity.current
+                    val baseStyle = MaterialTheme.typography.displayLarge.copy(color = textColor, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, fontFamily = bbh_bartle, drawStyle = Stroke(with(density) { 2.dp.toPx() }))
+                    val textStyle = remember(uniqueSongCount, maxWidth) {
+                        var style = baseStyle.copy(fontSize = 96.sp)
+                        var textWidth = textMeasurer.measure(uniqueSongCount.toString(), style).size.width
+                        while (textWidth > constraints.maxWidth) { style = style.copy(fontSize = style.fontSize * 0.95f); textWidth = textMeasurer.measure(uniqueSongCount.toString(), style).size.width }
+                        style.copy(lineHeight = style.fontSize * 1.08f)
+                    }
+                    Text(
+                        text = animatedSongs.value.toInt().toString(),
+                        style = textStyle,
+                        maxLines = 1,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = animatedSongs.value.toInt().toString(),
-                    style = textStyle,
-                    maxLines = 1,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center
+                    text = stringResource(R.string.insight_total_songs_subtitle),
+                    modifier = Modifier.fillMaxWidth(0.85f),
+                    style = MaterialTheme.typography.bodyLarge.copy(color = textColor.copy(alpha = 0.8f), textAlign = TextAlign.Center)
                 )
             }
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = stringResource(R.string.insight_total_songs_subtitle),
-                modifier = Modifier.padding(horizontal = 24.dp),
-                style = MaterialTheme.typography.bodyLarge.copy(color = textColor.copy(alpha = 0.8f), textAlign = TextAlign.Center)
-            )
         }
     }
 }
@@ -938,58 +1089,120 @@ fun WrappedTotalSongsScreen(uniqueSongCount: Int, isVisible: Boolean, textColor:
 fun WrappedTopSongScreen(topSong: SongWithStats?, isVisible: Boolean, textColor: Color) {
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(isVisible) { if (isVisible) { delay(200); visible = true } }
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val imageSize = if (isLandscape) 140.dp else 200.dp
+    
     Box(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            AnimatedVisibility(
-                visible = visible,
-                enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
-            ) {
-                AutoResizingText(
-                    text = stringResource(R.string.insight_top_song_title),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                    style = MaterialTheme.typography.headlineSmall.copy(color = textColor, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 34.sp),
-                    textAlign = TextAlign.Center,
-                    maxLines = 2
-                )
+        if (isLandscape) {
+            Row(modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
+                    ) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current).data(topSong?.thumbnailUrl).build(),
+                            contentDescription = null,
+                            modifier = Modifier.size(imageSize).clip(RoundedCornerShape(16.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                }
+                Column(
+                    modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
+                    ) {
+                        AutoResizingText(
+                            text = stringResource(R.string.insight_top_song_title),
+                            modifier = Modifier.fillMaxWidth(0.9f),
+                            style = MaterialTheme.typography.headlineSmall.copy(color = textColor, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 36.sp),
+                            textAlign = TextAlign.Center,
+                            maxLines = 3
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
+                    ) {
+                        Text(
+                            text = topSong?.title ?: stringResource(R.string.insight_no_data),
+                            style = MaterialTheme.typography.headlineMedium.copy(color = textColor),
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(tween(1000, 1000)) + slideInVertically(tween(1000, 1000))
+                    ) {
+                        Text(
+                            text = stringResource(R.string.insight_listened_for_minutes, (topSong?.timeListened ?: 0) / 60000),
+                            style = MaterialTheme.typography.bodyLarge.copy(color = textColor.copy(alpha = 0.8f)),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
             }
-            Spacer(modifier = Modifier.height(32.dp))
-            AnimatedVisibility(
-                visible = visible,
-                enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
+        } else {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current).data(topSong?.thumbnailUrl).build(),
-                    contentDescription = null,
-                    modifier = Modifier.size(200.dp).clip(RoundedCornerShape(16.dp)),
-                    contentScale = ContentScale.Crop
-                )
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            AnimatedVisibility(
-                visible = visible,
-                enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
-            ) {
-                Text(
-                    text = topSong?.title ?: stringResource(R.string.insight_no_data),
-                    style = MaterialTheme.typography.headlineMedium.copy(color = textColor),
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            AnimatedVisibility(
-                visible = visible,
-                enter = fadeIn(tween(1000, 1000)) + slideInVertically(tween(1000, 1000))
-            ) {
-                Text(
-                    text = stringResource(R.string.insight_listened_for_minutes, (topSong?.timeListened ?: 0) / 60000),
-                    style = MaterialTheme.typography.bodyLarge.copy(color = textColor.copy(alpha = 0.8f)),
-                    textAlign = TextAlign.Center
-                )
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
+                ) {
+                    AutoResizingText(
+                        text = stringResource(R.string.insight_top_song_title),
+                        modifier = Modifier.fillMaxWidth(0.85f),
+                        style = MaterialTheme.typography.headlineSmall.copy(color = textColor, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 36.sp),
+                        textAlign = TextAlign.Center,
+                        maxLines = 3
+                    )
+                }
+                Spacer(modifier = Modifier.height(32.dp))
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
+                ) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current).data(topSong?.thumbnailUrl).build(),
+                        contentDescription = null,
+                        modifier = Modifier.size(imageSize).clip(RoundedCornerShape(16.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
+                ) {
+                    Text(
+                        text = topSong?.title ?: stringResource(R.string.insight_no_data),
+                        style = MaterialTheme.typography.headlineMedium.copy(color = textColor),
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(tween(1000, 1000)) + slideInVertically(tween(1000, 1000))
+                ) {
+                    Text(
+                        text = stringResource(R.string.insight_listened_for_minutes, (topSong?.timeListened ?: 0) / 60000),
+                        style = MaterialTheme.typography.bodyLarge.copy(color = textColor.copy(alpha = 0.8f)),
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
     }
@@ -999,57 +1212,93 @@ fun WrappedTopSongScreen(topSong: SongWithStats?, isVisible: Boolean, textColor:
 fun WrappedTop5SongsScreen(topSongs: List<SongWithStats>, isVisible: Boolean, textColor: Color, useDarkTheme: Boolean) {
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(isVisible) { if (isVisible) { delay(200); visible = true } }
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    
     Box(modifier = Modifier.fillMaxSize()) {
         AnimatedBackground(elementCount = 25, shapeTypes = listOf(ShapeType.Rect), textColor = textColor)
-        Column(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            AnimatedVisibility(
-                visible = visible,
-                enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
-            ) {
-                AutoResizingText(
-                    text = stringResource(R.string.insight_top_5_songs),
-                    maxLines = 2,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                    style = TextStyle(fontSize = 28.sp, fontFamily = bbh_bartle, color = textColor, textAlign = TextAlign.Center, lineHeight = 34.sp)
-                )
-            }
-            Spacer(modifier = Modifier.height(32.dp))
-            Column(horizontalAlignment = Alignment.Start) {
-                topSongs.forEachIndexed { index, song ->
+        if (isLandscape) {
+            Row(modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                     AnimatedVisibility(
                         visible = visible,
-                        enter = fadeIn(tween(600, 400 + (index * 200))) + slideInVertically(tween(600, 400 + (index * 200)))
+                        enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
                     ) {
-                        Row(
-                            modifier = Modifier.padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        AutoResizingText(
+                            text = stringResource(R.string.insight_top_5_songs),
+                            maxLines = 3,
+                            modifier = Modifier.fillMaxWidth(0.9f),
+                            style = TextStyle(fontSize = 28.sp, fontFamily = bbh_bartle, color = textColor, textAlign = TextAlign.Center, lineHeight = 36.sp)
+                        )
+                    }
+                }
+                Column(modifier = Modifier.weight(1.5f).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.Start) {
+                    topSongs.forEachIndexed { index, song ->
+                        AnimatedVisibility(
+                            visible = visible,
+                            enter = fadeIn(tween(600, 400 + (index * 200))) + slideInVertically(tween(600, 400 + (index * 200)))
                         ) {
-                            Text(
-                                text = "${index + 1}",
-                                fontFamily = bbh_bartle,
-                                fontSize = 36.sp,
-                                color = textColor.copy(alpha = 0.8f),
-                                modifier = Modifier.width(40.dp)
-                            )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            AsyncImage(
-                                model = song.thumbnailUrl,
-                                contentDescription = null,
-                                modifier = Modifier.size(64.dp).clip(RoundedCornerShape(16.dp)),
-                                contentScale = ContentScale.Crop
-                            )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column {
+                            Row(modifier = Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(text = "${index + 1}", fontFamily = bbh_bartle, fontSize = 36.sp, color = textColor.copy(alpha = 0.8f), modifier = Modifier.width(40.dp))
+                                Spacer(modifier = Modifier.width(16.dp))
+                                AsyncImage(model = song.thumbnailUrl, contentDescription = null, modifier = Modifier.size(64.dp).clip(RoundedCornerShape(16.dp)), contentScale = ContentScale.Crop)
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Text(text = song.title, color = textColor, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
+                ) {
+                    AutoResizingText(
+                        text = stringResource(R.string.insight_top_5_songs),
+                        maxLines = 3,
+                        modifier = Modifier.fillMaxWidth(0.85f),
+                        style = TextStyle(fontSize = 28.sp, fontFamily = bbh_bartle, color = textColor, textAlign = TextAlign.Center, lineHeight = 36.sp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(32.dp))
+                Column(horizontalAlignment = Alignment.Start) {
+                    topSongs.forEachIndexed { index, song ->
+                        AnimatedVisibility(
+                            visible = visible,
+                            enter = fadeIn(tween(600, 400 + (index * 200))) + slideInVertically(tween(600, 400 + (index * 200)))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 Text(
-                                    text = song.title,
-                                    color = textColor,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp
+                                    text = "${index + 1}",
+                                    fontFamily = bbh_bartle,
+                                    fontSize = 36.sp,
+                                    color = textColor.copy(alpha = 0.8f),
+                                    modifier = Modifier.width(40.dp)
                                 )
+                                Spacer(modifier = Modifier.width(16.dp))
+                                AsyncImage(
+                                    model = song.thumbnailUrl,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(64.dp).clip(RoundedCornerShape(16.dp)),
+                                    contentScale = ContentScale.Crop
+                                )
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column {
+                                    Text(
+                                        text = song.title,
+                                        color = textColor,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 16.sp
+                                    )
+                                }
                             }
                         }
                     }
@@ -1064,55 +1313,107 @@ fun WrappedTotalAlbumsScreen(uniqueAlbumCount: Int, isVisible: Boolean, textColo
     val animatedAlbums = remember { Animatable(0f) }
     val textMeasurer = rememberTextMeasurer()
     var visible by remember { mutableStateOf(false) }
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     LaunchedEffect(isVisible, uniqueAlbumCount) {
         if (isVisible) { visible = true; if (uniqueAlbumCount > 0) animatedAlbums.animateTo(targetValue = uniqueAlbumCount.toFloat(), animationSpec = tween(1500, easing = FastOutSlowInEasing)) }
     }
+    
     Box(modifier = Modifier.fillMaxSize()) {
         AnimatedBackground(shapeTypes = listOf(ShapeType.Circle), textColor = textColor)
-        Column(
-            modifier = Modifier.fillMaxSize().padding(vertical = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            AnimatedVisibility(
-                visible = visible,
-                enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
-            ) {
-                AutoResizingText(
-                    text = stringResource(R.string.insight_total_albums_title),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                    maxLines = 2,
-                    style = MaterialTheme.typography.headlineSmall.copy(color = textColor, textAlign = TextAlign.Center, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 34.sp)
-                )
-            }
-            Spacer(modifier = Modifier.height(32.dp))
-            BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                val density = LocalDensity.current
-                val baseStyle = MaterialTheme.typography.displayLarge.copy(color = textColor, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, fontFamily = bbh_bartle, drawStyle = Stroke(with(density) { 2.dp.toPx() }))
-                val textStyle = remember(uniqueAlbumCount, maxWidth) {
-                    var style = baseStyle.copy(fontSize = 96.sp)
-                    var textWidth = textMeasurer.measure(uniqueAlbumCount.toString(), style).size.width
-                    while (textWidth > constraints.maxWidth) { style = style.copy(fontSize = style.fontSize * 0.95f); textWidth = textMeasurer.measure(uniqueAlbumCount.toString(), style).size.width }
-                    style.copy(lineHeight = style.fontSize * 1.08f)
+        if (isLandscape) {
+            Row(modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(
+                    modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
+                    ) {
+                        AutoResizingText(
+                            text = stringResource(R.string.insight_total_albums_title),
+                            modifier = Modifier.fillMaxWidth(0.9f),
+                            maxLines = 3,
+                            style = MaterialTheme.typography.headlineSmall.copy(color = textColor, textAlign = TextAlign.Center, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 36.sp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
+                    ) {
+                        Text(
+                            text = stringResource(R.string.insight_total_albums_subtitle),
+                            modifier = Modifier.fillMaxWidth(0.9f),
+                            style = MaterialTheme.typography.bodyLarge.copy(color = textColor.copy(alpha = 0.8f), textAlign = TextAlign.Center)
+                        )
+                    }
                 }
-                Text(
-                    text = animatedAlbums.value.toInt().toString(),
-                    style = textStyle,
-                    maxLines = 1,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center
-                )
+                BoxWithConstraints(modifier = Modifier.weight(1f).padding(horizontal = 16.dp)) {
+                    val density = LocalDensity.current
+                    val baseStyle = MaterialTheme.typography.displayLarge.copy(color = textColor, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, fontFamily = bbh_bartle, drawStyle = Stroke(with(density) { 2.dp.toPx() }))
+                    val textStyle = remember(uniqueAlbumCount, maxWidth) {
+                        var style = baseStyle.copy(fontSize = 96.sp)
+                        var textWidth = textMeasurer.measure(uniqueAlbumCount.toString(), style).size.width
+                        while (textWidth > constraints.maxWidth) { style = style.copy(fontSize = style.fontSize * 0.95f); textWidth = textMeasurer.measure(uniqueAlbumCount.toString(), style).size.width }
+                        style.copy(lineHeight = style.fontSize * 1.08f)
+                    }
+                    Text(
+                        text = animatedAlbums.value.toInt().toString(),
+                        style = textStyle,
+                        maxLines = 1,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
-            Spacer(modifier = Modifier.height(16.dp))
-            AnimatedVisibility(
-                visible = visible,
-                enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
+        } else {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(vertical = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                Text(
-                    text = stringResource(R.string.insight_total_albums_subtitle),
-                    modifier = Modifier.padding(horizontal = 24.dp),
-                    style = MaterialTheme.typography.bodyLarge.copy(color = textColor.copy(alpha = 0.8f), textAlign = TextAlign.Center)
-                )
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
+                ) {
+                    AutoResizingText(
+                        text = stringResource(R.string.insight_total_albums_title),
+                        modifier = Modifier.fillMaxWidth(0.85f),
+                        maxLines = 3,
+                        style = MaterialTheme.typography.headlineSmall.copy(color = textColor, textAlign = TextAlign.Center, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 36.sp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(32.dp))
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                    val density = LocalDensity.current
+                    val baseStyle = MaterialTheme.typography.displayLarge.copy(color = textColor, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, fontFamily = bbh_bartle, drawStyle = Stroke(with(density) { 2.dp.toPx() }))
+                    val textStyle = remember(uniqueAlbumCount, maxWidth) {
+                        var style = baseStyle.copy(fontSize = 96.sp)
+                        var textWidth = textMeasurer.measure(uniqueAlbumCount.toString(), style).size.width
+                        while (textWidth > constraints.maxWidth) { style = style.copy(fontSize = style.fontSize * 0.95f); textWidth = textMeasurer.measure(uniqueAlbumCount.toString(), style).size.width }
+                        style.copy(lineHeight = style.fontSize * 1.08f)
+                    }
+                    Text(
+                        text = animatedAlbums.value.toInt().toString(),
+                        style = textStyle,
+                        maxLines = 1,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
+                ) {
+                    Text(
+                        text = stringResource(R.string.insight_total_albums_subtitle),
+                        modifier = Modifier.fillMaxWidth(0.85f),
+                        style = MaterialTheme.typography.bodyLarge.copy(color = textColor.copy(alpha = 0.8f), textAlign = TextAlign.Center)
+                    )
+                }
             }
         }
     }
@@ -1122,60 +1423,123 @@ fun WrappedTotalAlbumsScreen(uniqueAlbumCount: Int, isVisible: Boolean, textColo
 fun WrappedTopAlbumScreen(topAlbum: Album?, isVisible: Boolean, textColor: Color, useDarkTheme: Boolean) {
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(isVisible) { if (isVisible) visible = true }
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val imageSize = if (isLandscape) 140.dp else 200.dp
+    
     Box(modifier = Modifier.fillMaxSize()) {
         AnimatedBackground(shapeTypes = listOf(ShapeType.Rect), textColor = textColor)
-        Column(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            AnimatedVisibility(
-                visible = visible,
-                enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
-            ) {
-                AutoResizingText(
-                    text = stringResource(R.string.insight_top_album_title),
-                    maxLines = 2,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                    style = TextStyle(fontFamily = bbh_bartle, fontSize = 28.sp, color = textColor, textAlign = TextAlign.Center, lineHeight = 34.sp)
-                )
+        if (isLandscape) {
+            Row(modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
+                    ) {
+                        AsyncImage(
+                            model = topAlbum?.album?.thumbnailUrl,
+                            contentDescription = null,
+                            modifier = Modifier.size(imageSize).clip(RoundedCornerShape(16.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                }
+                Column(
+                    modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
+                    ) {
+                        AutoResizingText(
+                            text = stringResource(R.string.insight_top_album_title),
+                            maxLines = 3,
+                            modifier = Modifier.fillMaxWidth(0.9f),
+                            style = TextStyle(fontFamily = bbh_bartle, fontSize = 28.sp, color = textColor, textAlign = TextAlign.Center, lineHeight = 36.sp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
+                    ) {
+                        Text(
+                            text = topAlbum?.album?.title ?: stringResource(R.string.insight_no_data),
+                            fontSize = 24.sp,
+                            color = textColor,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(tween(1000, 800)) + slideInVertically(tween(1000, 800))
+                    ) {
+                        Text(
+                            text = stringResource(R.string.insight_listened_for_minutes, (topAlbum?.timeListened ?: 0) / 60000),
+                            fontSize = 16.sp,
+                            color = textColor.copy(alpha = 0.8f),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
             }
-            Spacer(modifier = Modifier.height(32.dp))
-            AnimatedVisibility(
-                visible = visible,
-                enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
+        } else {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                AsyncImage(
-                    model = topAlbum?.album?.thumbnailUrl,
-                    contentDescription = null,
-                    modifier = Modifier.size(200.dp).clip(RoundedCornerShape(16.dp)),
-                    contentScale = ContentScale.Crop
-                )
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            AnimatedVisibility(
-                visible = visible,
-                enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
-            ) {
-                Text(
-                    text = topAlbum?.album?.title ?: stringResource(R.string.insight_no_data),
-                    fontSize = 24.sp,
-                    color = textColor,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            AnimatedVisibility(
-                visible = visible,
-                enter = fadeIn(tween(1000, 800)) + slideInVertically(tween(1000, 800))
-            ) {
-                Text(
-                    text = stringResource(R.string.insight_listened_for_minutes, (topAlbum?.timeListened ?: 0) / 60000),
-                    fontSize = 16.sp,
-                    color = textColor.copy(alpha = 0.8f),
-                    textAlign = TextAlign.Center
-                )
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
+                ) {
+                    AutoResizingText(
+                        text = stringResource(R.string.insight_top_album_title),
+                        maxLines = 3,
+                        modifier = Modifier.fillMaxWidth(0.85f),
+                        style = TextStyle(fontFamily = bbh_bartle, fontSize = 28.sp, color = textColor, textAlign = TextAlign.Center, lineHeight = 36.sp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(32.dp))
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
+                ) {
+                    AsyncImage(
+                        model = topAlbum?.album?.thumbnailUrl,
+                        contentDescription = null,
+                        modifier = Modifier.size(imageSize).clip(RoundedCornerShape(16.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
+                ) {
+                    Text(
+                        text = topAlbum?.album?.title ?: stringResource(R.string.insight_no_data),
+                        fontSize = 24.sp,
+                        color = textColor,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(tween(1000, 800)) + slideInVertically(tween(1000, 800))
+                ) {
+                    Text(
+                        text = stringResource(R.string.insight_listened_for_minutes, (topAlbum?.timeListened ?: 0) / 60000),
+                        fontSize = 16.sp,
+                        color = textColor.copy(alpha = 0.8f),
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
     }
@@ -1185,63 +1549,102 @@ fun WrappedTopAlbumScreen(topAlbum: Album?, isVisible: Boolean, textColor: Color
 fun WrappedTop5AlbumsScreen(topAlbums: List<Album>, isVisible: Boolean, textColor: Color, useDarkTheme: Boolean) {
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(isVisible) { if (isVisible) { delay(200); visible = true } }
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    
     Box(modifier = Modifier.fillMaxSize()) {
         AnimatedBackground(shapeTypes = listOf(ShapeType.Circle), textColor = textColor)
-        Column(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            AnimatedVisibility(
-                visible = visible,
-                enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
-            ) {
-                AutoResizingText(
-                    text = stringResource(R.string.insight_top_5_albums),
-                    maxLines = 2,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                    style = TextStyle(fontFamily = bbh_bartle, fontSize = 28.sp, color = textColor, textAlign = TextAlign.Center, lineHeight = 34.sp)
-                )
-            }
-            Spacer(modifier = Modifier.height(32.dp))
-            Column(horizontalAlignment = Alignment.Start) {
-                topAlbums.forEachIndexed { index, album ->
+        if (isLandscape) {
+            Row(modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                     AnimatedVisibility(
                         visible = visible,
-                        enter = fadeIn(tween(600, 400 + (index * 200))) + slideInVertically(tween(600, 400 + (index * 200)))
+                        enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
                     ) {
-                        Row(
-                            modifier = Modifier.padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        AutoResizingText(
+                            text = stringResource(R.string.insight_top_5_albums),
+                            maxLines = 3,
+                            modifier = Modifier.fillMaxWidth(0.9f),
+                            style = TextStyle(fontFamily = bbh_bartle, fontSize = 28.sp, color = textColor, textAlign = TextAlign.Center, lineHeight = 36.sp)
+                        )
+                    }
+                }
+                Column(modifier = Modifier.weight(1.5f).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.Start) {
+                    topAlbums.forEachIndexed { index, album ->
+                        AnimatedVisibility(
+                            visible = visible,
+                            enter = fadeIn(tween(600, 400 + (index * 200))) + slideInVertically(tween(600, 400 + (index * 200)))
                         ) {
-                            Text(
-                                text = "${index + 1}",
-                                fontFamily = bbh_bartle,
-                                fontSize = 36.sp,
-                                color = textColor.copy(alpha = 0.8f),
-                                modifier = Modifier.width(40.dp)
-                            )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            AsyncImage(
-                                model = album.album.thumbnailUrl,
-                                contentDescription = null,
-                                modifier = Modifier.size(64.dp).clip(RoundedCornerShape(16.dp)),
-                                contentScale = ContentScale.Crop
-                            )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column {
+                            Row(modifier = Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(text = "${index + 1}", fontFamily = bbh_bartle, fontSize = 36.sp, color = textColor.copy(alpha = 0.8f), modifier = Modifier.width(40.dp))
+                                Spacer(modifier = Modifier.width(16.dp))
+                                AsyncImage(model = album.album.thumbnailUrl, contentDescription = null, modifier = Modifier.size(64.dp).clip(RoundedCornerShape(16.dp)), contentScale = ContentScale.Crop)
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column {
+                                    Text(text = album.album.title, color = textColor, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1)
+                                    Text(text = stringResource(R.string.insight_minutes_short, (album.timeListened ?: 0) / 60000), color = textColor.copy(alpha = 0.7f), fontSize = 14.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
+                ) {
+                    AutoResizingText(
+                        text = stringResource(R.string.insight_top_5_albums),
+                        maxLines = 3,
+                        modifier = Modifier.fillMaxWidth(0.85f),
+                        style = TextStyle(fontFamily = bbh_bartle, fontSize = 28.sp, color = textColor, textAlign = TextAlign.Center, lineHeight = 36.sp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(32.dp))
+                Column(horizontalAlignment = Alignment.Start) {
+                    topAlbums.forEachIndexed { index, album ->
+                        AnimatedVisibility(
+                            visible = visible,
+                            enter = fadeIn(tween(600, 400 + (index * 200))) + slideInVertically(tween(600, 400 + (index * 200)))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 Text(
-                                    text = album.album.title,
-                                    color = textColor,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp,
-                                    maxLines = 1
+                                    text = "${index + 1}",
+                                    fontFamily = bbh_bartle,
+                                    fontSize = 36.sp,
+                                    color = textColor.copy(alpha = 0.8f),
+                                    modifier = Modifier.width(40.dp)
                                 )
-                                Text(
-                                    text = stringResource(R.string.insight_minutes_short, (album.timeListened ?: 0) / 60000),
-                                    color = textColor.copy(alpha = 0.7f),
-                                    fontSize = 14.sp
+                                Spacer(modifier = Modifier.width(16.dp))
+                                AsyncImage(
+                                    model = album.album.thumbnailUrl,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(64.dp).clip(RoundedCornerShape(16.dp)),
+                                    contentScale = ContentScale.Crop
                                 )
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column {
+                                    Text(
+                                        text = album.album.title,
+                                        color = textColor,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 16.sp,
+                                        maxLines = 1
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.insight_minutes_short, (album.timeListened ?: 0) / 60000),
+                                        color = textColor.copy(alpha = 0.7f),
+                                        fontSize = 14.sp
+                                    )
+                                }
                             }
                         }
                     }
@@ -1255,46 +1658,88 @@ fun WrappedTop5AlbumsScreen(topAlbums: List<Album>, isVisible: Boolean, textColo
 fun WrappedTotalArtistsScreen(uniqueArtistCount: Int, isVisible: Boolean, textColor: Color) {
     val animatedArtists = remember { Animatable(0f) }
     val textMeasurer = rememberTextMeasurer()
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     LaunchedEffect(isVisible, uniqueArtistCount) {
         if (isVisible && uniqueArtistCount > 0) animatedArtists.animateTo(targetValue = uniqueArtistCount.toFloat(), animationSpec = tween(1500, easing = FastOutSlowInEasing))
     }
+    
     Box(modifier = Modifier.fillMaxSize()) {
         AnimatedBackground(shapeTypes = listOf(ShapeType.Line), textColor = textColor)
-        Column(
-            modifier = Modifier.fillMaxSize().padding(vertical = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            AutoResizingText(
-                text = stringResource(R.string.insight_total_artists_title),
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                maxLines = 2,
-                style = MaterialTheme.typography.headlineSmall.copy(color = textColor, textAlign = TextAlign.Center, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 34.sp)
-            )
-            Spacer(modifier = Modifier.height(32.dp))
-            BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                val density = LocalDensity.current
-                val baseStyle = MaterialTheme.typography.displayLarge.copy(color = textColor, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, fontFamily = bbh_bartle, drawStyle = Stroke(with(density) { 2.dp.toPx() }))
-                val textStyle = remember(uniqueArtistCount, maxWidth) {
-                    var style = baseStyle.copy(fontSize = 96.sp)
-                    var textWidth = textMeasurer.measure(uniqueArtistCount.toString(), style).size.width
-                    while (textWidth > constraints.maxWidth) { style = style.copy(fontSize = style.fontSize * 0.95f); textWidth = textMeasurer.measure(uniqueArtistCount.toString(), style).size.width }
-                    style.copy(lineHeight = style.fontSize * 1.08f)
+        if (isLandscape) {
+            Row(modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(
+                    modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    AutoResizingText(
+                        text = stringResource(R.string.insight_total_artists_title),
+                        modifier = Modifier.fillMaxWidth(0.9f),
+                        maxLines = 3,
+                        style = MaterialTheme.typography.headlineSmall.copy(color = textColor, textAlign = TextAlign.Center, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 36.sp)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = stringResource(R.string.insight_total_artists_subtitle),
+                        modifier = Modifier.fillMaxWidth(0.9f),
+                        style = MaterialTheme.typography.bodyLarge.copy(color = textColor.copy(alpha = 0.8f), textAlign = TextAlign.Center)
+                    )
                 }
+                BoxWithConstraints(modifier = Modifier.weight(1f).padding(horizontal = 16.dp)) {
+                    val density = LocalDensity.current
+                    val baseStyle = MaterialTheme.typography.displayLarge.copy(color = textColor, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, fontFamily = bbh_bartle, drawStyle = Stroke(with(density) { 2.dp.toPx() }))
+                    val textStyle = remember(uniqueArtistCount, maxWidth) {
+                        var style = baseStyle.copy(fontSize = 96.sp)
+                        var textWidth = textMeasurer.measure(uniqueArtistCount.toString(), style).size.width
+                        while (textWidth > constraints.maxWidth) { style = style.copy(fontSize = style.fontSize * 0.95f); textWidth = textMeasurer.measure(uniqueArtistCount.toString(), style).size.width }
+                        style.copy(lineHeight = style.fontSize * 1.08f)
+                    }
+                    Text(
+                        text = animatedArtists.value.toInt().toString(),
+                        style = textStyle,
+                        maxLines = 1,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(vertical = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                AutoResizingText(
+                    text = stringResource(R.string.insight_total_artists_title),
+                    modifier = Modifier.fillMaxWidth(0.85f),
+                    maxLines = 3,
+                    style = MaterialTheme.typography.headlineSmall.copy(color = textColor, textAlign = TextAlign.Center, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 36.sp)
+                )
+                Spacer(modifier = Modifier.height(32.dp))
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                    val density = LocalDensity.current
+                    val baseStyle = MaterialTheme.typography.displayLarge.copy(color = textColor, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, fontFamily = bbh_bartle, drawStyle = Stroke(with(density) { 2.dp.toPx() }))
+                    val textStyle = remember(uniqueArtistCount, maxWidth) {
+                        var style = baseStyle.copy(fontSize = 96.sp)
+                        var textWidth = textMeasurer.measure(uniqueArtistCount.toString(), style).size.width
+                        while (textWidth > constraints.maxWidth) { style = style.copy(fontSize = style.fontSize * 0.95f); textWidth = textMeasurer.measure(uniqueArtistCount.toString(), style).size.width }
+                        style.copy(lineHeight = style.fontSize * 1.08f)
+                    }
+                    Text(
+                        text = animatedArtists.value.toInt().toString(),
+                        style = textStyle,
+                        maxLines = 1,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = animatedArtists.value.toInt().toString(),
-                    style = textStyle,
-                    maxLines = 1,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center
+                    text = stringResource(R.string.insight_total_artists_subtitle),
+                    modifier = Modifier.fillMaxWidth(0.85f),
+                    style = MaterialTheme.typography.bodyLarge.copy(color = textColor.copy(alpha = 0.8f), textAlign = TextAlign.Center)
                 )
             }
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = stringResource(R.string.insight_total_artists_subtitle),
-                modifier = Modifier.padding(horizontal = 24.dp),
-                style = MaterialTheme.typography.bodyLarge.copy(color = textColor.copy(alpha = 0.8f), textAlign = TextAlign.Center)
-            )
         }
     }
 }
@@ -1303,58 +1748,120 @@ fun WrappedTotalArtistsScreen(uniqueArtistCount: Int, isVisible: Boolean, textCo
 fun WrappedTopArtistScreen(topArtist: Artist?, isVisible: Boolean, textColor: Color) {
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(isVisible) { if (isVisible) visible = true }
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val imageSize = if (isLandscape) 140.dp else 200.dp
+    
     Box(modifier = Modifier.fillMaxSize()) {
         AnimatedBackground(shapeTypes = listOf(ShapeType.Rect), textColor = textColor)
-        Column(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            AnimatedVisibility(
-                visible = visible,
-                enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
-            ) {
-                AutoResizingText(
-                    text = stringResource(R.string.insight_top_artist_title),
-                    maxLines = 2,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                    style = MaterialTheme.typography.headlineSmall.copy(color = textColor, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 34.sp),
-                    textAlign = TextAlign.Center
-                )
+        if (isLandscape) {
+            Row(modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
+                    ) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current).data(topArtist?.artist?.thumbnailUrl).build(),
+                            contentDescription = null,
+                            modifier = Modifier.size(imageSize).clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                }
+                Column(
+                    modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
+                    ) {
+                        AutoResizingText(
+                            text = stringResource(R.string.insight_top_artist_title),
+                            maxLines = 3,
+                            modifier = Modifier.fillMaxWidth(0.9f),
+                            style = MaterialTheme.typography.headlineSmall.copy(color = textColor, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 36.sp),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
+                    ) {
+                        Text(
+                            text = topArtist?.artist?.name ?: stringResource(R.string.insight_no_data),
+                            style = MaterialTheme.typography.headlineMedium.copy(color = textColor),
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(tween(1000, 800)) + slideInVertically(tween(1000, 800))
+                    ) {
+                        Text(
+                            text = stringResource(R.string.insight_listened_for_minutes, (topArtist?.timeListened ?: 0) / 60000),
+                            style = MaterialTheme.typography.bodyLarge.copy(color = textColor.copy(alpha = 0.8f)),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
             }
-            Spacer(modifier = Modifier.height(32.dp))
-            AnimatedVisibility(
-                visible = visible,
-                enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
+        } else {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current).data(topArtist?.artist?.thumbnailUrl).build(),
-                    contentDescription = null,
-                    modifier = Modifier.size(200.dp).clip(CircleShape),
-                    contentScale = ContentScale.Crop
-                )
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            AnimatedVisibility(
-                visible = visible,
-                enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
-            ) {
-                Text(
-                    text = topArtist?.artist?.name ?: stringResource(R.string.insight_no_data),
-                    style = MaterialTheme.typography.headlineMedium.copy(color = textColor),
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-            }
-            AnimatedVisibility(
-                visible = visible,
-                enter = fadeIn(tween(1000, 800)) + slideInVertically(tween(1000, 800))
-            ) {
-                Text(
-                    text = stringResource(R.string.insight_listened_for_minutes, (topArtist?.timeListened ?: 0) / 60000),
-                    style = MaterialTheme.typography.bodyLarge.copy(color = textColor.copy(alpha = 0.8f)),
-                    textAlign = TextAlign.Center
-                )
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
+                ) {
+                    AutoResizingText(
+                        text = stringResource(R.string.insight_top_artist_title),
+                        maxLines = 3,
+                        modifier = Modifier.fillMaxWidth(0.85f),
+                        style = MaterialTheme.typography.headlineSmall.copy(color = textColor, fontFamily = bbh_bartle, fontSize = 28.sp, lineHeight = 36.sp),
+                        textAlign = TextAlign.Center
+                    )
+                }
+                Spacer(modifier = Modifier.height(32.dp))
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
+                ) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current).data(topArtist?.artist?.thumbnailUrl).build(),
+                        contentDescription = null,
+                        modifier = Modifier.size(imageSize).clip(CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
+                ) {
+                    Text(
+                        text = topArtist?.artist?.name ?: stringResource(R.string.insight_no_data),
+                        style = MaterialTheme.typography.headlineMedium.copy(color = textColor),
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
+                }
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(tween(1000, 800)) + slideInVertically(tween(1000, 800))
+                ) {
+                    Text(
+                        text = stringResource(R.string.insight_listened_for_minutes, (topArtist?.timeListened ?: 0) / 60000),
+                        style = MaterialTheme.typography.bodyLarge.copy(color = textColor.copy(alpha = 0.8f)),
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
     }
@@ -1364,62 +1871,101 @@ fun WrappedTopArtistScreen(topArtist: Artist?, isVisible: Boolean, textColor: Co
 fun WrappedTop5ArtistsScreen(topArtists: List<Artist>, isVisible: Boolean, textColor: Color, useDarkTheme: Boolean) {
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(isVisible) { if (isVisible) { delay(200); visible = true } }
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    
     Box(modifier = Modifier.fillMaxSize()) {
         AnimatedBackground(elementCount = 15, shapeTypes = listOf(ShapeType.Line), textColor = textColor)
-        Column(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            AnimatedVisibility(
-                visible = visible,
-                enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
-            ) {
-                AutoResizingText(
-                    text = stringResource(R.string.insight_top_5_artists),
-                    maxLines = 2,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                    style = TextStyle(fontSize = 28.sp, fontFamily = bbh_bartle, color = textColor, textAlign = TextAlign.Center, lineHeight = 34.sp)
-                )
-            }
-            Spacer(modifier = Modifier.height(32.dp))
-            Column(horizontalAlignment = Alignment.Start) {
-                topArtists.forEachIndexed { index, artist ->
+        if (isLandscape) {
+            Row(modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                     AnimatedVisibility(
                         visible = visible,
-                        enter = fadeIn(tween(600, 400 + (index * 200))) + slideInVertically(tween(600, 400 + (index * 200)))
+                        enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
                     ) {
-                        Row(
-                            modifier = Modifier.padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        AutoResizingText(
+                            text = stringResource(R.string.insight_top_5_artists),
+                            maxLines = 3,
+                            modifier = Modifier.fillMaxWidth(0.9f),
+                            style = TextStyle(fontSize = 28.sp, fontFamily = bbh_bartle, color = textColor, textAlign = TextAlign.Center, lineHeight = 36.sp)
+                        )
+                    }
+                }
+                Column(modifier = Modifier.weight(1.5f).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.Start) {
+                    topArtists.forEachIndexed { index, artist ->
+                        AnimatedVisibility(
+                            visible = visible,
+                            enter = fadeIn(tween(600, 400 + (index * 200))) + slideInVertically(tween(600, 400 + (index * 200)))
                         ) {
-                            Text(
-                                text = "${index + 1}",
-                                fontFamily = bbh_bartle,
-                                fontSize = 36.sp,
-                                color = textColor.copy(alpha = 0.8f),
-                                modifier = Modifier.width(40.dp)
-                            )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            AsyncImage(
-                                model = artist.artist.thumbnailUrl,
-                                contentDescription = null,
-                                modifier = Modifier.size(64.dp).clip(CircleShape),
-                                contentScale = ContentScale.Crop
-                            )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column {
+                            Row(modifier = Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(text = "${index + 1}", fontFamily = bbh_bartle, fontSize = 36.sp, color = textColor.copy(alpha = 0.8f), modifier = Modifier.width(40.dp))
+                                Spacer(modifier = Modifier.width(16.dp))
+                                AsyncImage(model = artist.artist.thumbnailUrl, contentDescription = null, modifier = Modifier.size(64.dp).clip(CircleShape), contentScale = ContentScale.Crop)
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column {
+                                    Text(text = artist.artist.name, color = textColor, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                    Text(text = stringResource(R.string.insight_minutes_short, (artist.timeListened ?: 0) / 60000), color = textColor.copy(alpha = 0.7f), fontSize = 14.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
+                ) {
+                    AutoResizingText(
+                        text = stringResource(R.string.insight_top_5_artists),
+                        maxLines = 3,
+                        modifier = Modifier.fillMaxWidth(0.85f),
+                        style = TextStyle(fontSize = 28.sp, fontFamily = bbh_bartle, color = textColor, textAlign = TextAlign.Center, lineHeight = 36.sp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(32.dp))
+                Column(horizontalAlignment = Alignment.Start) {
+                    topArtists.forEachIndexed { index, artist ->
+                        AnimatedVisibility(
+                            visible = visible,
+                            enter = fadeIn(tween(600, 400 + (index * 200))) + slideInVertically(tween(600, 400 + (index * 200)))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 Text(
-                                    text = artist.artist.name,
-                                    color = textColor,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp
+                                    text = "${index + 1}",
+                                    fontFamily = bbh_bartle,
+                                    fontSize = 36.sp,
+                                    color = textColor.copy(alpha = 0.8f),
+                                    modifier = Modifier.width(40.dp)
                                 )
-                                Text(
-                                    text = stringResource(R.string.insight_minutes_short, (artist.timeListened ?: 0) / 60000),
-                                    color = textColor.copy(alpha = 0.7f),
-                                    fontSize = 14.sp
+                                Spacer(modifier = Modifier.width(16.dp))
+                                AsyncImage(
+                                    model = artist.artist.thumbnailUrl,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(64.dp).clip(CircleShape),
+                                    contentScale = ContentScale.Crop
                                 )
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column {
+                                    Text(
+                                        text = artist.artist.name,
+                                        color = textColor,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 16.sp
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.insight_minutes_short, (artist.timeListened ?: 0) / 60000),
+                                        color = textColor.copy(alpha = 0.7f),
+                                        fontSize = 14.sp
+                                    )
+                                }
                             }
                         }
                     }
@@ -1435,44 +1981,90 @@ fun PlaylistPage(state: WrappedState, onCreatePlaylist: () -> Unit, textColor: C
     var startAnimation by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { delay(200); startAnimation = true }
     val contentAlpha by animateFloatAsState(targetValue = if (startAnimation) 1f else 0f, animationSpec = tween(800, 200), label = "alpha")
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val imageSize = if (isLandscape) 160.dp else 256.dp
 
     Box(modifier = Modifier.fillMaxSize()) {
         AnimatedBackground(shapeTypes = listOf(ShapeType.Circle), textColor = textColor)
-        Column(
-            modifier = Modifier.fillMaxSize().padding(32.dp).alpha(contentAlpha),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            AutoResizingText(
-                text = stringResource(R.string.insight_playlist_ready),
-                maxLines = 2,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                style = TextStyle(fontFamily = bbh_bartle, fontSize = 28.sp, color = textColor, textAlign = TextAlign.Center, lineHeight = 34.sp),
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(32.dp))
-            Image(
-                painter = painterResource(R.drawable.previewalbum),
-                contentDescription = null,
-                modifier = Modifier.size(256.dp).clip(RoundedCornerShape(16.dp))
-            )
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                text = stringResource(R.string.insight_playlist_name, WrappedConstants.YEAR),
-                style = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Bold, color = textColor),
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(48.dp))
-            Button(
-                onClick = { if (playlistCreationState == PlaylistCreationState.Idle) onCreatePlaylist() },
-                shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(containerColor = textColor),
-                modifier = Modifier.height(50.dp)
+        if (isLandscape) {
+            Row(modifier = Modifier.fillMaxSize().padding(32.dp).alpha(contentAlpha), verticalAlignment = Alignment.CenterVertically) {
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    Image(
+                        painter = painterResource(R.drawable.previewalbum),
+                        contentDescription = null,
+                        modifier = Modifier.size(imageSize).clip(RoundedCornerShape(16.dp))
+                    )
+                }
+                Column(
+                    modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    AutoResizingText(
+                        text = stringResource(R.string.insight_playlist_ready),
+                        maxLines = 3,
+                        modifier = Modifier.fillMaxWidth(0.9f),
+                        style = TextStyle(fontFamily = bbh_bartle, fontSize = 28.sp, color = textColor, textAlign = TextAlign.Center, lineHeight = 36.sp),
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text(
+                        text = stringResource(R.string.insight_playlist_name, WrappedConstants.YEAR),
+                        style = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Bold, color = textColor),
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(32.dp))
+                    Button(
+                        onClick = { if (playlistCreationState == PlaylistCreationState.Idle) onCreatePlaylist() },
+                        shape = CircleShape,
+                        colors = ButtonDefaults.buttonColors(containerColor = textColor),
+                        modifier = Modifier.height(50.dp)
+                    ) {
+                        when (playlistCreationState) {
+                            is PlaylistCreationState.Idle -> Text(stringResource(R.string.insight_add_to_library), style = TextStyle(color = if (useDarkTheme) Color.Black else Color.White, fontWeight = FontWeight.Bold))
+                            is PlaylistCreationState.Creating -> CircularProgressIndicator(modifier = Modifier.size(24.dp), color = if (useDarkTheme) Color.Black else Color.White, strokeWidth = 2.dp)
+                            is PlaylistCreationState.Success -> Text(stringResource(R.string.insight_saved), style = TextStyle(color = if (useDarkTheme) Color.Black else Color.White, fontWeight = FontWeight.Bold))
+                        }
+                    }
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(32.dp).alpha(contentAlpha),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                when (playlistCreationState) {
-                    is PlaylistCreationState.Idle -> Text(stringResource(R.string.insight_add_to_library), style = TextStyle(color = if (useDarkTheme) Color.Black else Color.White, fontWeight = FontWeight.Bold))
-                    is PlaylistCreationState.Creating -> CircularProgressIndicator(modifier = Modifier.size(24.dp), color = if (useDarkTheme) Color.Black else Color.White, strokeWidth = 2.dp)
-                    is PlaylistCreationState.Success -> Text(stringResource(R.string.insight_saved), style = TextStyle(color = if (useDarkTheme) Color.Black else Color.White, fontWeight = FontWeight.Bold))
+                AutoResizingText(
+                    text = stringResource(R.string.insight_playlist_ready),
+                    maxLines = 3,
+                    modifier = Modifier.fillMaxWidth(0.85f),
+                    style = TextStyle(fontFamily = bbh_bartle, fontSize = 28.sp, color = textColor, textAlign = TextAlign.Center, lineHeight = 36.sp),
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(32.dp))
+                Image(
+                    painter = painterResource(R.drawable.previewalbum),
+                    contentDescription = null,
+                    modifier = Modifier.size(imageSize).clip(RoundedCornerShape(16.dp))
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    text = stringResource(R.string.insight_playlist_name, WrappedConstants.YEAR),
+                    style = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Bold, color = textColor),
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(48.dp))
+                Button(
+                    onClick = { if (playlistCreationState == PlaylistCreationState.Idle) onCreatePlaylist() },
+                    shape = CircleShape,
+                    colors = ButtonDefaults.buttonColors(containerColor = textColor),
+                    modifier = Modifier.height(50.dp)
+                ) {
+                    when (playlistCreationState) {
+                        is PlaylistCreationState.Idle -> Text(stringResource(R.string.insight_add_to_library), style = TextStyle(color = if (useDarkTheme) Color.Black else Color.White, fontWeight = FontWeight.Bold))
+                        is PlaylistCreationState.Creating -> CircularProgressIndicator(modifier = Modifier.size(24.dp), color = if (useDarkTheme) Color.Black else Color.White, strokeWidth = 2.dp)
+                        is PlaylistCreationState.Success -> Text(stringResource(R.string.insight_saved), style = TextStyle(color = if (useDarkTheme) Color.Black else Color.White, fontWeight = FontWeight.Bold))
+                    }
                 }
             }
         }
@@ -1481,41 +2073,84 @@ fun PlaylistPage(state: WrappedState, onCreatePlaylist: () -> Unit, textColor: C
 
 @Composable
 fun ConclusionPage(onClose: () -> Unit, textColor: Color, useDarkTheme: Boolean) {
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    
     Box(modifier = Modifier.fillMaxSize()) {
         AnimatedBackground(elementCount = 30, shapeTypes = listOf(ShapeType.Circle, ShapeType.Line), textColor = textColor)
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Image(
-                painter = painterResource(R.drawable.avidtune),
-                contentDescription = null,
-                colorFilter = ColorFilter.tint(textColor),
-                modifier = Modifier.size(96.dp).clip(CircleShape)
-            )
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                text = stringResource(R.string.insight_thank_you),
-                style = TextStyle(fontSize = 28.sp, fontWeight = FontWeight.Bold, color = textColor),
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = stringResource(R.string.insight_see_you),
-                style = TextStyle(fontSize = 16.sp, color = Color.Gray),
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(48.dp))
-            Button(
-                onClick = onClose,
-                shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(containerColor = textColor)
+        if (isLandscape) {
+            Row(modifier = Modifier.fillMaxSize().padding(32.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    Image(
+                        painter = painterResource(R.drawable.avidtune),
+                        contentDescription = null,
+                        colorFilter = ColorFilter.tint(textColor),
+                        modifier = Modifier.size(96.dp).clip(CircleShape)
+                    )
+                }
+                Column(
+                    modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = stringResource(R.string.insight_thank_you),
+                        style = TextStyle(fontSize = 28.sp, fontWeight = FontWeight.Bold, color = textColor),
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(R.string.insight_see_you),
+                        style = TextStyle(fontSize = 16.sp, color = Color.Gray),
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(32.dp))
+                    Button(
+                        onClick = onClose,
+                        shape = CircleShape,
+                        colors = ButtonDefaults.buttonColors(containerColor = textColor)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.insight_close),
+                            style = TextStyle(color = if (useDarkTheme) Color.Black else Color.White, fontWeight = FontWeight.Bold)
+                        )
+                    }
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(
-                    text = stringResource(R.string.insight_close),
-                    style = TextStyle(color = if (useDarkTheme) Color.Black else Color.White, fontWeight = FontWeight.Bold)
+                Image(
+                    painter = painterResource(R.drawable.avidtune),
+                    contentDescription = null,
+                    colorFilter = ColorFilter.tint(textColor),
+                    modifier = Modifier.size(96.dp).clip(CircleShape)
                 )
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    text = stringResource(R.string.insight_thank_you),
+                    style = TextStyle(fontSize = 28.sp, fontWeight = FontWeight.Bold, color = textColor),
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.insight_see_you),
+                    style = TextStyle(fontSize = 16.sp, color = Color.Gray),
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(48.dp))
+                Button(
+                    onClick = onClose,
+                    shape = CircleShape,
+                    colors = ButtonDefaults.buttonColors(containerColor = textColor)
+                ) {
+                    Text(
+                        text = stringResource(R.string.insight_close),
+                        style = TextStyle(color = if (useDarkTheme) Color.Black else Color.White, fontWeight = FontWeight.Bold)
+                    )
+                }
             }
         }
     }
