@@ -75,6 +75,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.PointMode
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
@@ -706,7 +707,10 @@ fun AutoResizingText(
         softWrap = true,
         onTextLayout = { textLayoutResult ->
             if (textLayoutResult.hasVisualOverflow || textLayoutResult.lineCount > maxLines || textLayoutResult.didOverflowWidth || textLayoutResult.didOverflowHeight) {
-                scaledTextStyle = scaledTextStyle.copy(fontSize = scaledTextStyle.fontSize * 0.95)
+                scaledTextStyle = scaledTextStyle.copy(
+                    fontSize = scaledTextStyle.fontSize * 0.95,
+                    lineHeight = if (scaledTextStyle.lineHeight.isSp) scaledTextStyle.lineHeight * 0.95 else scaledTextStyle.lineHeight
+                )
             } else {
                 readyToDraw = true
             }
@@ -738,7 +742,10 @@ fun FormattedText(text: String, modifier: Modifier = Modifier, style: TextStyle)
         softWrap = true,
         onTextLayout = { textLayoutResult ->
             if (textLayoutResult.hasVisualOverflow || textLayoutResult.didOverflowWidth || textLayoutResult.didOverflowHeight) {
-                scaledTextStyle = scaledTextStyle.copy(fontSize = scaledTextStyle.fontSize * 0.95)
+                scaledTextStyle = scaledTextStyle.copy(
+                    fontSize = scaledTextStyle.fontSize * 0.95,
+                    lineHeight = if (scaledTextStyle.lineHeight.isSp) scaledTextStyle.lineHeight * 0.95 else scaledTextStyle.lineHeight
+                )
             } else {
                 readyToDraw = true
             }
@@ -753,6 +760,23 @@ fun WrappedIntro(textColor: Color, useDarkTheme: Boolean, onNext: () -> Unit) {
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { delay(200); visible = true }
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    
+    // Create a native shadow effect instead of overlapping multiple AutoResizingTexts.
+    // This perfectly synchronizes scaling constraints.
+    val shadowColor = if (useDarkTheme) Color.Black else Color.Gray
+    val titleStyle = TextStyle(
+        fontFamily = bbh_bartle,
+        textAlign = TextAlign.Center,
+        letterSpacing = 1.sp,
+        fontSize = 36.sp,
+        lineHeight = 44.sp,
+        color = textColor,
+        shadow = Shadow(
+            color = shadowColor,
+            offset = Offset(6f, 6f),
+            blurRadius = 0f
+        )
+    )
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (isLandscape) {
@@ -779,11 +803,13 @@ fun WrappedIntro(textColor: Color, useDarkTheme: Boolean, onNext: () -> Unit) {
                         visible = visible,
                         enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
                     ) {
-                        val baseStyle = TextStyle(fontFamily = bbh_bartle, textAlign = TextAlign.Center, letterSpacing = 1.sp, fontSize = 32.sp, lineHeight = 38.sp)
                         Box(modifier = Modifier.fillMaxWidth(0.9f), contentAlignment = Alignment.Center) {
-                            AutoResizingText(text = stringResource(R.string.insight_title), maxLines = 3, modifier = Modifier.fillMaxWidth().padding(start = 2.dp, top = 2.dp), style = baseStyle.copy(color = Color.DarkGray))
-                            AutoResizingText(text = stringResource(R.string.insight_title), maxLines = 3, modifier = Modifier.fillMaxWidth().padding(start = 1.dp, top = 1.dp), style = baseStyle.copy(color = Color.Gray))
-                            AutoResizingText(text = stringResource(R.string.insight_title), maxLines = 3, modifier = Modifier.fillMaxWidth(), style = baseStyle.copy(color = textColor))
+                            AutoResizingText(
+                                text = stringResource(R.string.insight_title), 
+                                maxLines = 3, 
+                                modifier = Modifier.fillMaxWidth(), 
+                                style = titleStyle
+                            )
                         }
                     }
                     Spacer(modifier = Modifier.height(8.dp))
@@ -840,11 +866,13 @@ fun WrappedIntro(textColor: Color, useDarkTheme: Boolean, onNext: () -> Unit) {
                     visible = visible,
                     enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
                 ) {
-                    val baseStyle = TextStyle(fontFamily = bbh_bartle, textAlign = TextAlign.Center, letterSpacing = 1.sp, fontSize = 32.sp, lineHeight = 38.sp)
                     Box(modifier = Modifier.fillMaxWidth(0.85f), contentAlignment = Alignment.Center) {
-                        AutoResizingText(text = stringResource(R.string.insight_title), maxLines = 3, modifier = Modifier.fillMaxWidth().padding(start = 2.dp, top = 2.dp), style = baseStyle.copy(color = Color.DarkGray))
-                        AutoResizingText(text = stringResource(R.string.insight_title), maxLines = 3, modifier = Modifier.fillMaxWidth().padding(start = 1.dp, top = 1.dp), style = baseStyle.copy(color = Color.Gray))
-                        AutoResizingText(text = stringResource(R.string.insight_title), maxLines = 3, modifier = Modifier.fillMaxWidth(), style = baseStyle.copy(color = textColor))
+                        AutoResizingText(
+                            text = stringResource(R.string.insight_title), 
+                            maxLines = 3, 
+                            modifier = Modifier.fillMaxWidth(), 
+                            style = titleStyle
+                        )
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
