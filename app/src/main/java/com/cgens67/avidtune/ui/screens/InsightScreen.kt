@@ -442,9 +442,10 @@ fun InsightScreen(navController: NavController) {
         }
     }
 
-    // Auto-Scroll Logic with extremely smooth transitions
-    LaunchedEffect(pagerState.currentPage, state.isDataReady) {
-        val currentScreen = screens.getOrNull(pagerState.currentPage) ?: return@LaunchedEffect
+    // Auto-Scroll Logic with extremely smooth transitions.
+    // Fixed: Keying to `settledPage` ensures the launched effect isn't cancelled mid-animation!
+    LaunchedEffect(pagerState.settledPage, state.isDataReady) {
+        val currentScreen = screens.getOrNull(pagerState.settledPage) ?: return@LaunchedEffect
         
         // Wait on the tease screen until data finishes processing
         if (currentScreen == WrappedScreenType.MinutesTease && !state.isDataReady) {
@@ -469,9 +470,9 @@ fun InsightScreen(navController: NavController) {
             
             delay(delayTime)
             
-            if (pagerState.currentPage < screens.lastIndex) {
+            if (pagerState.settledPage < screens.lastIndex) {
                 pagerState.animateScrollToPage(
-                    page = pagerState.currentPage + 1,
+                    page = pagerState.settledPage + 1,
                     animationSpec = tween(durationMillis = 1500, easing = FastOutSlowInEasing)
                 )
             }
