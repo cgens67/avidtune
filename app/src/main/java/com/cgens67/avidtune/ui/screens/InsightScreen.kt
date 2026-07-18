@@ -13,10 +13,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.scaleIn
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -513,8 +510,8 @@ fun InsightScreen(navController: NavController) {
                             drawRect(
                                 brush = Brush.verticalGradient(
                                     0f to Color.Transparent,
-                                    0.1f to Color.Black,
-                                    0.9f to Color.Black,
+                                    0.05f to Color.Black,
+                                    0.95f to Color.Black,
                                     1f to Color.Transparent
                                 ),
                                 blendMode = BlendMode.DstIn
@@ -610,6 +607,69 @@ fun InsightScreen(navController: NavController) {
                 }
             }
         }
+    }
+}
+
+// ======= ANIMATED WRAPPERS =======
+
+@Composable
+fun FadeInSlideUp(
+    visible: Boolean,
+    delayMillis: Int,
+    durationMillis: Int = 1000,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    val alpha by animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = tween(durationMillis = durationMillis, delayMillis = delayMillis, easing = FastOutSlowInEasing),
+        label = "alpha"
+    )
+    val density = LocalDensity.current
+    val initialOffsetPx = with(density) { 40.dp.toPx() }
+    val offsetY by animateFloatAsState(
+        targetValue = if (visible) 0f else initialOffsetPx,
+        animationSpec = tween(durationMillis = durationMillis, delayMillis = delayMillis, easing = FastOutSlowInEasing),
+        label = "offset"
+    )
+
+    Box(
+        modifier = modifier.graphicsLayer {
+            this.alpha = alpha
+            this.translationY = offsetY
+        }
+    ) {
+        content()
+    }
+}
+
+@Composable
+fun FadeInScale(
+    visible: Boolean,
+    delayMillis: Int = 0,
+    durationMillis: Int = 1000,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    val alpha by animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = tween(durationMillis = durationMillis, delayMillis = delayMillis, easing = FastOutSlowInEasing),
+        label = "alpha"
+    )
+    val scale by animateFloatAsState(
+        targetValue = if (visible) 1f else 0.9f,
+        animationSpec = tween(durationMillis = durationMillis, delayMillis = delayMillis, easing = FastOutSlowInEasing),
+        label = "scale"
+    )
+
+    Box(
+        modifier = modifier.graphicsLayer {
+            this.alpha = alpha
+            this.scaleX = scale
+            this.scaleY = scale
+        }
+    ) {
+        content()
     }
 }
 
@@ -767,7 +827,7 @@ fun AutoResizingText(
             .padding(vertical = 12.dp)
             .drawWithContent { if (readyToDraw) drawContent() },
         style = scaledTextStyle,
-        maxLines = Int.MAX_VALUE, // Do not clip text bounds internally
+        maxLines = Int.MAX_VALUE,
         textAlign = textAlign,
         softWrap = true,
         onTextLayout = { textLayoutResult ->
@@ -777,7 +837,6 @@ fun AutoResizingText(
                 if (lineEnd > 0 && lineEnd < text.length) {
                     val charBefore = text[lineEnd - 1]
                     val charAfter = text[lineEnd]
-                    // If a line ends and neither character is whitespace, it forcefully split a word.
                     if (!charBefore.isWhitespace() && !charAfter.isWhitespace() && charBefore != '-') {
                         midWordBreak = true
                         break
@@ -879,10 +938,7 @@ fun WrappedIntro(textColor: Color, useDarkTheme: Boolean, onNext: () -> Unit) {
         if (isLandscape) {
             Row(modifier = Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = visible,
-                        enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
-                    ) {
+                    FadeInSlideUp(visible = visible, delayMillis = 200) {
                         Image(
                             painter = painterResource(R.drawable.avidtune),
                             contentDescription = null,
@@ -896,10 +952,7 @@ fun WrappedIntro(textColor: Color, useDarkTheme: Boolean, onNext: () -> Unit) {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = visible,
-                        enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
-                    ) {
+                    FadeInSlideUp(visible = visible, delayMillis = 400) {
                         Box(modifier = Modifier.fillMaxWidth(0.9f), contentAlignment = Alignment.Center) {
                             AutoResizingText(
                                 text = stringResource(R.string.insight_title), 
@@ -910,10 +963,7 @@ fun WrappedIntro(textColor: Color, useDarkTheme: Boolean, onNext: () -> Unit) {
                         }
                     }
                     Spacer(modifier = Modifier.height(8.dp))
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = visible,
-                        enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
-                    ) {
+                    FadeInSlideUp(visible = visible, delayMillis = 600) {
                         Text(
                             text = stringResource(R.string.insight_intro_subtitle),
                             color = textColor,
@@ -922,10 +972,7 @@ fun WrappedIntro(textColor: Color, useDarkTheme: Boolean, onNext: () -> Unit) {
                         )
                     }
                     Spacer(modifier = Modifier.height(24.dp))
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = visible,
-                        enter = fadeIn(tween(1000, 1000)) + slideInVertically(tween(1000, 1000))
-                    ) {
+                    FadeInSlideUp(visible = visible, delayMillis = 1000) {
                         Button(
                             onClick = onNext,
                             shape = RoundedCornerShape(50),
@@ -947,10 +994,7 @@ fun WrappedIntro(textColor: Color, useDarkTheme: Boolean, onNext: () -> Unit) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = visible,
-                    enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
-                ) {
+                FadeInSlideUp(visible = visible, delayMillis = 200) {
                     Image(
                         painter = painterResource(R.drawable.avidtune),
                         contentDescription = null,
@@ -959,10 +1003,7 @@ fun WrappedIntro(textColor: Color, useDarkTheme: Boolean, onNext: () -> Unit) {
                     )
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = visible,
-                    enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
-                ) {
+                FadeInSlideUp(visible = visible, delayMillis = 400) {
                     Box(modifier = Modifier.fillMaxWidth(0.85f), contentAlignment = Alignment.Center) {
                         AutoResizingText(
                             text = stringResource(R.string.insight_title), 
@@ -973,10 +1014,7 @@ fun WrappedIntro(textColor: Color, useDarkTheme: Boolean, onNext: () -> Unit) {
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = visible,
-                    enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
-                ) {
+                FadeInSlideUp(visible = visible, delayMillis = 600) {
                     Text(
                         text = stringResource(R.string.insight_intro_subtitle),
                         color = textColor,
@@ -985,9 +1023,9 @@ fun WrappedIntro(textColor: Color, useDarkTheme: Boolean, onNext: () -> Unit) {
                     )
                 }
             }
-            androidx.compose.animation.AnimatedVisibility(
-                visible = visible,
-                enter = fadeIn(tween(1000, 1000)) + slideInVertically(tween(1000, 1000)),
+            FadeInSlideUp(
+                visible = visible, 
+                delayMillis = 1000, 
                 modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 64.dp)
             ) {
                 Button(
@@ -1011,9 +1049,8 @@ fun WrappedIntro(textColor: Color, useDarkTheme: Boolean, onNext: () -> Unit) {
 fun WrappedMinutesTease(messagePair: MessagePair?, isDataReady: Boolean, textColor: Color) {
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        androidx.compose.animation.AnimatedVisibility(
-            visible = messagePair != null && isDataReady,
-            enter = fadeIn(tween(1000)) + scaleIn(initialScale = 0.9f, animationSpec = tween(1000))
+        FadeInScale(
+            visible = messagePair != null && isDataReady
         ) {
             AutoResizingText(
                 text = messagePair?.teaseRes?.let { stringResource(it) } ?: "",
@@ -1219,10 +1256,7 @@ fun WrappedTopSongScreen(topSong: SongWithStats?, isVisible: Boolean, textColor:
         if (isLandscape) {
             Row(modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = visible,
-                        enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
-                    ) {
+                    FadeInSlideUp(visible = visible, delayMillis = 400) {
                         AsyncImage(
                             model = ImageRequest.Builder(LocalContext.current).data(topSong?.thumbnailUrl).build(),
                             contentDescription = null,
@@ -1236,10 +1270,7 @@ fun WrappedTopSongScreen(topSong: SongWithStats?, isVisible: Boolean, textColor:
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = visible,
-                        enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
-                    ) {
+                    FadeInSlideUp(visible = visible, delayMillis = 200) {
                         AutoResizingText(
                             text = stringResource(R.string.insight_top_song_title),
                             modifier = Modifier.fillMaxWidth(0.9f),
@@ -1249,10 +1280,7 @@ fun WrappedTopSongScreen(topSong: SongWithStats?, isVisible: Boolean, textColor:
                         )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = visible,
-                        enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
-                    ) {
+                    FadeInSlideUp(visible = visible, delayMillis = 600) {
                         Text(
                             text = topSong?.title ?: stringResource(R.string.insight_no_data),
                             style = MaterialTheme.typography.headlineMedium.copy(color = textColor),
@@ -1261,10 +1289,7 @@ fun WrappedTopSongScreen(topSong: SongWithStats?, isVisible: Boolean, textColor:
                         )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = visible,
-                        enter = fadeIn(tween(1000, 1000)) + slideInVertically(tween(1000, 1000))
-                    ) {
+                    FadeInSlideUp(visible = visible, delayMillis = 1000) {
                         Text(
                             text = stringResource(R.string.insight_listened_for_minutes, (topSong?.timeListened ?: 0) / 60000),
                             style = MaterialTheme.typography.bodyLarge.copy(color = textColor.copy(alpha = 0.8f)),
@@ -1279,10 +1304,7 @@ fun WrappedTopSongScreen(topSong: SongWithStats?, isVisible: Boolean, textColor:
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = visible,
-                    enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
-                ) {
+                FadeInSlideUp(visible = visible, delayMillis = 200) {
                     AutoResizingText(
                         text = stringResource(R.string.insight_top_song_title),
                         modifier = Modifier.fillMaxWidth(0.85f),
@@ -1292,10 +1314,7 @@ fun WrappedTopSongScreen(topSong: SongWithStats?, isVisible: Boolean, textColor:
                     )
                 }
                 Spacer(modifier = Modifier.height(32.dp))
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = visible,
-                    enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
-                ) {
+                FadeInSlideUp(visible = visible, delayMillis = 400) {
                     AsyncImage(
                         model = ImageRequest.Builder(LocalContext.current).data(topSong?.thumbnailUrl).build(),
                         contentDescription = null,
@@ -1304,10 +1323,7 @@ fun WrappedTopSongScreen(topSong: SongWithStats?, isVisible: Boolean, textColor:
                     )
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = visible,
-                    enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
-                ) {
+                FadeInSlideUp(visible = visible, delayMillis = 600) {
                     Text(
                         text = topSong?.title ?: stringResource(R.string.insight_no_data),
                         style = MaterialTheme.typography.headlineMedium.copy(color = textColor),
@@ -1316,10 +1332,7 @@ fun WrappedTopSongScreen(topSong: SongWithStats?, isVisible: Boolean, textColor:
                     )
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = visible,
-                    enter = fadeIn(tween(1000, 1000)) + slideInVertically(tween(1000, 1000))
-                ) {
+                FadeInSlideUp(visible = visible, delayMillis = 1000) {
                     Text(
                         text = stringResource(R.string.insight_listened_for_minutes, (topSong?.timeListened ?: 0) / 60000),
                         style = MaterialTheme.typography.bodyLarge.copy(color = textColor.copy(alpha = 0.8f)),
@@ -1342,10 +1355,7 @@ fun WrappedTop5SongsScreen(topSongs: List<SongWithStats>, isVisible: Boolean, te
         if (isLandscape) {
             Row(modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = visible,
-                        enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
-                    ) {
+                    FadeInSlideUp(visible = visible, delayMillis = 200) {
                         AutoResizingText(
                             text = stringResource(R.string.insight_top_5_songs),
                             maxLines = 3,
@@ -1356,9 +1366,10 @@ fun WrappedTop5SongsScreen(topSongs: List<SongWithStats>, isVisible: Boolean, te
                 }
                 Column(modifier = Modifier.weight(1.5f).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.Start) {
                     topSongs.forEachIndexed { index, song ->
-                        androidx.compose.animation.AnimatedVisibility(
+                        FadeInSlideUp(
                             visible = visible,
-                            enter = fadeIn(tween(600, 400 + (index * 200))) + slideInVertically(tween(600, 400 + (index * 200)))
+                            delayMillis = 400 + (index * 200),
+                            durationMillis = 600
                         ) {
                             Row(modifier = Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Text(text = "${index + 1}", fontFamily = bbh_bartle, fontSize = 36.sp, color = textColor.copy(alpha = 0.8f), modifier = Modifier.width(40.dp))
@@ -1377,10 +1388,7 @@ fun WrappedTop5SongsScreen(topSongs: List<SongWithStats>, isVisible: Boolean, te
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = visible,
-                    enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
-                ) {
+                FadeInSlideUp(visible = visible, delayMillis = 200) {
                     AutoResizingText(
                         text = stringResource(R.string.insight_top_5_songs),
                         maxLines = 3,
@@ -1391,9 +1399,10 @@ fun WrappedTop5SongsScreen(topSongs: List<SongWithStats>, isVisible: Boolean, te
                 Spacer(modifier = Modifier.height(32.dp))
                 Column(horizontalAlignment = Alignment.Start) {
                     topSongs.forEachIndexed { index, song ->
-                        androidx.compose.animation.AnimatedVisibility(
+                        FadeInSlideUp(
                             visible = visible,
-                            enter = fadeIn(tween(600, 400 + (index * 200))) + slideInVertically(tween(600, 400 + (index * 200)))
+                            delayMillis = 400 + (index * 200),
+                            durationMillis = 600
                         ) {
                             Row(
                                 modifier = Modifier.padding(vertical = 8.dp),
@@ -1450,10 +1459,7 @@ fun WrappedTotalAlbumsScreen(uniqueAlbumCount: Int, isVisible: Boolean, textColo
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = visible,
-                        enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
-                    ) {
+                    FadeInSlideUp(visible = visible, delayMillis = 200) {
                         AutoResizingText(
                             text = stringResource(R.string.insight_total_albums_title),
                             modifier = Modifier.fillMaxWidth(0.9f),
@@ -1462,10 +1468,7 @@ fun WrappedTotalAlbumsScreen(uniqueAlbumCount: Int, isVisible: Boolean, textColo
                         )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = visible,
-                        enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
-                    ) {
+                    FadeInSlideUp(visible = visible, delayMillis = 600) {
                         Text(
                             text = stringResource(R.string.insight_total_albums_subtitle),
                             modifier = Modifier.fillMaxWidth(0.9f),
@@ -1497,10 +1500,7 @@ fun WrappedTotalAlbumsScreen(uniqueAlbumCount: Int, isVisible: Boolean, textColo
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = visible,
-                    enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
-                ) {
+                FadeInSlideUp(visible = visible, delayMillis = 200) {
                     AutoResizingText(
                         text = stringResource(R.string.insight_total_albums_title),
                         modifier = Modifier.fillMaxWidth(0.85f),
@@ -1527,10 +1527,7 @@ fun WrappedTotalAlbumsScreen(uniqueAlbumCount: Int, isVisible: Boolean, textColo
                     )
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = visible,
-                    enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
-                ) {
+                FadeInSlideUp(visible = visible, delayMillis = 600) {
                     Text(
                         text = stringResource(R.string.insight_total_albums_subtitle),
                         modifier = Modifier.fillMaxWidth(0.85f),
@@ -1554,10 +1551,7 @@ fun WrappedTopAlbumScreen(topAlbum: Album?, isVisible: Boolean, textColor: Color
         if (isLandscape) {
             Row(modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = visible,
-                        enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
-                    ) {
+                    FadeInSlideUp(visible = visible, delayMillis = 400) {
                         AsyncImage(
                             model = topAlbum?.album?.thumbnailUrl,
                             contentDescription = null,
@@ -1571,10 +1565,7 @@ fun WrappedTopAlbumScreen(topAlbum: Album?, isVisible: Boolean, textColor: Color
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = visible,
-                        enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
-                    ) {
+                    FadeInSlideUp(visible = visible, delayMillis = 200) {
                         AutoResizingText(
                             text = stringResource(R.string.insight_top_album_title),
                             maxLines = 3,
@@ -1583,10 +1574,7 @@ fun WrappedTopAlbumScreen(topAlbum: Album?, isVisible: Boolean, textColor: Color
                         )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = visible,
-                        enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
-                    ) {
+                    FadeInSlideUp(visible = visible, delayMillis = 600) {
                         Text(
                             text = topAlbum?.album?.title ?: stringResource(R.string.insight_no_data),
                             fontSize = 24.sp,
@@ -1596,10 +1584,7 @@ fun WrappedTopAlbumScreen(topAlbum: Album?, isVisible: Boolean, textColor: Color
                         )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = visible,
-                        enter = fadeIn(tween(1000, 800)) + slideInVertically(tween(1000, 800))
-                    ) {
+                    FadeInSlideUp(visible = visible, delayMillis = 800) {
                         Text(
                             text = stringResource(R.string.insight_listened_for_minutes, (topAlbum?.timeListened ?: 0) / 60000),
                             fontSize = 16.sp,
@@ -1615,10 +1600,7 @@ fun WrappedTopAlbumScreen(topAlbum: Album?, isVisible: Boolean, textColor: Color
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = visible,
-                    enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
-                ) {
+                FadeInSlideUp(visible = visible, delayMillis = 200) {
                     AutoResizingText(
                         text = stringResource(R.string.insight_top_album_title),
                         maxLines = 3,
@@ -1627,10 +1609,7 @@ fun WrappedTopAlbumScreen(topAlbum: Album?, isVisible: Boolean, textColor: Color
                     )
                 }
                 Spacer(modifier = Modifier.height(32.dp))
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = visible,
-                    enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
-                ) {
+                FadeInSlideUp(visible = visible, delayMillis = 400) {
                     AsyncImage(
                         model = topAlbum?.album?.thumbnailUrl,
                         contentDescription = null,
@@ -1639,10 +1618,7 @@ fun WrappedTopAlbumScreen(topAlbum: Album?, isVisible: Boolean, textColor: Color
                     )
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = visible,
-                    enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
-                ) {
+                FadeInSlideUp(visible = visible, delayMillis = 600) {
                     Text(
                         text = topAlbum?.album?.title ?: stringResource(R.string.insight_no_data),
                         fontSize = 24.sp,
@@ -1652,10 +1628,7 @@ fun WrappedTopAlbumScreen(topAlbum: Album?, isVisible: Boolean, textColor: Color
                     )
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = visible,
-                    enter = fadeIn(tween(1000, 800)) + slideInVertically(tween(1000, 800))
-                ) {
+                FadeInSlideUp(visible = visible, delayMillis = 800) {
                     Text(
                         text = stringResource(R.string.insight_listened_for_minutes, (topAlbum?.timeListened ?: 0) / 60000),
                         fontSize = 16.sp,
@@ -1679,10 +1652,7 @@ fun WrappedTop5AlbumsScreen(topAlbums: List<Album>, isVisible: Boolean, textColo
         if (isLandscape) {
             Row(modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = visible,
-                        enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
-                    ) {
+                    FadeInSlideUp(visible = visible, delayMillis = 200) {
                         AutoResizingText(
                             text = stringResource(R.string.insight_top_5_albums),
                             maxLines = 3,
@@ -1693,9 +1663,10 @@ fun WrappedTop5AlbumsScreen(topAlbums: List<Album>, isVisible: Boolean, textColo
                 }
                 Column(modifier = Modifier.weight(1.5f).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.Start) {
                     topAlbums.forEachIndexed { index, album ->
-                        androidx.compose.animation.AnimatedVisibility(
+                        FadeInSlideUp(
                             visible = visible,
-                            enter = fadeIn(tween(600, 400 + (index * 200))) + slideInVertically(tween(600, 400 + (index * 200)))
+                            delayMillis = 400 + (index * 200),
+                            durationMillis = 600
                         ) {
                             Row(modifier = Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Text(text = "${index + 1}", fontFamily = bbh_bartle, fontSize = 36.sp, color = textColor.copy(alpha = 0.8f), modifier = Modifier.width(40.dp))
@@ -1717,10 +1688,7 @@ fun WrappedTop5AlbumsScreen(topAlbums: List<Album>, isVisible: Boolean, textColo
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = visible,
-                    enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
-                ) {
+                FadeInSlideUp(visible = visible, delayMillis = 200) {
                     AutoResizingText(
                         text = stringResource(R.string.insight_top_5_albums),
                         maxLines = 3,
@@ -1731,9 +1699,10 @@ fun WrappedTop5AlbumsScreen(topAlbums: List<Album>, isVisible: Boolean, textColo
                 Spacer(modifier = Modifier.height(32.dp))
                 Column(horizontalAlignment = Alignment.Start) {
                     topAlbums.forEachIndexed { index, album ->
-                        androidx.compose.animation.AnimatedVisibility(
+                        FadeInSlideUp(
                             visible = visible,
-                            enter = fadeIn(tween(600, 400 + (index * 200))) + slideInVertically(tween(600, 400 + (index * 200)))
+                            delayMillis = 400 + (index * 200),
+                            durationMillis = 600
                         ) {
                             Row(
                                 modifier = Modifier.padding(vertical = 8.dp),
@@ -1879,10 +1848,7 @@ fun WrappedTopArtistScreen(topArtist: Artist?, isVisible: Boolean, textColor: Co
         if (isLandscape) {
             Row(modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = visible,
-                        enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
-                    ) {
+                    FadeInSlideUp(visible = visible, delayMillis = 400) {
                         AsyncImage(
                             model = ImageRequest.Builder(LocalContext.current).data(topArtist?.artist?.thumbnailUrl).build(),
                             contentDescription = null,
@@ -1896,10 +1862,7 @@ fun WrappedTopArtistScreen(topArtist: Artist?, isVisible: Boolean, textColor: Co
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = visible,
-                        enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
-                    ) {
+                    FadeInSlideUp(visible = visible, delayMillis = 200) {
                         AutoResizingText(
                             text = stringResource(R.string.insight_top_artist_title),
                             maxLines = 3,
@@ -1909,10 +1872,7 @@ fun WrappedTopArtistScreen(topArtist: Artist?, isVisible: Boolean, textColor: Co
                         )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = visible,
-                        enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
-                    ) {
+                    FadeInSlideUp(visible = visible, delayMillis = 600) {
                         Text(
                             text = topArtist?.artist?.name ?: stringResource(R.string.insight_no_data),
                             style = MaterialTheme.typography.headlineMedium.copy(color = textColor),
@@ -1921,10 +1881,7 @@ fun WrappedTopArtistScreen(topArtist: Artist?, isVisible: Boolean, textColor: Co
                         )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = visible,
-                        enter = fadeIn(tween(1000, 800)) + slideInVertically(tween(1000, 800))
-                    ) {
+                    FadeInSlideUp(visible = visible, delayMillis = 800) {
                         Text(
                             text = stringResource(R.string.insight_listened_for_minutes, (topArtist?.timeListened ?: 0) / 60000),
                             style = MaterialTheme.typography.bodyLarge.copy(color = textColor.copy(alpha = 0.8f)),
@@ -1939,10 +1896,7 @@ fun WrappedTopArtistScreen(topArtist: Artist?, isVisible: Boolean, textColor: Co
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = visible,
-                    enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
-                ) {
+                FadeInSlideUp(visible = visible, delayMillis = 200) {
                     AutoResizingText(
                         text = stringResource(R.string.insight_top_artist_title),
                         maxLines = 3,
@@ -1952,10 +1906,7 @@ fun WrappedTopArtistScreen(topArtist: Artist?, isVisible: Boolean, textColor: Co
                     )
                 }
                 Spacer(modifier = Modifier.height(32.dp))
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = visible,
-                    enter = fadeIn(tween(1000, 400)) + slideInVertically(tween(1000, 400))
-                ) {
+                FadeInSlideUp(visible = visible, delayMillis = 400) {
                     AsyncImage(
                         model = ImageRequest.Builder(LocalContext.current).data(topArtist?.artist?.thumbnailUrl).build(),
                         contentDescription = null,
@@ -1964,10 +1915,7 @@ fun WrappedTopArtistScreen(topArtist: Artist?, isVisible: Boolean, textColor: Co
                     )
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = visible,
-                    enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
-                ) {
+                FadeInSlideUp(visible = visible, delayMillis = 600) {
                     Text(
                         text = topArtist?.artist?.name ?: stringResource(R.string.insight_no_data),
                         style = MaterialTheme.typography.headlineMedium.copy(color = textColor),
@@ -1975,10 +1923,7 @@ fun WrappedTopArtistScreen(topArtist: Artist?, isVisible: Boolean, textColor: Co
                         textAlign = TextAlign.Center
                     )
                 }
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = visible,
-                    enter = fadeIn(tween(1000, 800)) + slideInVertically(tween(1000, 800))
-                ) {
+                FadeInSlideUp(visible = visible, delayMillis = 800) {
                     Text(
                         text = stringResource(R.string.insight_listened_for_minutes, (topArtist?.timeListened ?: 0) / 60000),
                         style = MaterialTheme.typography.bodyLarge.copy(color = textColor.copy(alpha = 0.8f)),
@@ -2001,10 +1946,7 @@ fun WrappedTop5ArtistsScreen(topArtists: List<Artist>, isVisible: Boolean, textC
         if (isLandscape) {
             Row(modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = visible,
-                        enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
-                    ) {
+                    FadeInSlideUp(visible = visible, delayMillis = 200) {
                         AutoResizingText(
                             text = stringResource(R.string.insight_top_5_artists),
                             maxLines = 3,
@@ -2015,9 +1957,10 @@ fun WrappedTop5ArtistsScreen(topArtists: List<Artist>, isVisible: Boolean, textC
                 }
                 Column(modifier = Modifier.weight(1.5f).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.Start) {
                     topArtists.forEachIndexed { index, artist ->
-                        androidx.compose.animation.AnimatedVisibility(
+                        FadeInSlideUp(
                             visible = visible,
-                            enter = fadeIn(tween(600, 400 + (index * 200))) + slideInVertically(tween(600, 400 + (index * 200)))
+                            delayMillis = 400 + (index * 200),
+                            durationMillis = 600
                         ) {
                             Row(modifier = Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Text(text = "${index + 1}", fontFamily = bbh_bartle, fontSize = 36.sp, color = textColor.copy(alpha = 0.8f), modifier = Modifier.width(40.dp))
@@ -2039,10 +1982,7 @@ fun WrappedTop5ArtistsScreen(topArtists: List<Artist>, isVisible: Boolean, textC
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = visible,
-                    enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
-                ) {
+                FadeInSlideUp(visible = visible, delayMillis = 200) {
                     AutoResizingText(
                         text = stringResource(R.string.insight_top_5_artists),
                         maxLines = 3,
@@ -2053,9 +1993,10 @@ fun WrappedTop5ArtistsScreen(topArtists: List<Artist>, isVisible: Boolean, textC
                 Spacer(modifier = Modifier.height(32.dp))
                 Column(horizontalAlignment = Alignment.Start) {
                     topArtists.forEachIndexed { index, artist ->
-                        androidx.compose.animation.AnimatedVisibility(
+                        FadeInSlideUp(
                             visible = visible,
-                            enter = fadeIn(tween(600, 400 + (index * 200))) + slideInVertically(tween(600, 400 + (index * 200)))
+                            delayMillis = 400 + (index * 200),
+                            durationMillis = 600
                         ) {
                             Row(
                                 modifier = Modifier.padding(vertical = 8.dp),
