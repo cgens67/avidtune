@@ -442,6 +442,42 @@ fun InsightScreen(navController: NavController) {
         }
     }
 
+    // Auto-Scroll Logic with extremely smooth transitions
+    LaunchedEffect(pagerState.currentPage, state.isDataReady) {
+        val currentScreen = screens.getOrNull(pagerState.currentPage) ?: return@LaunchedEffect
+        
+        // Wait on the tease screen until data finishes processing
+        if (currentScreen == WrappedScreenType.MinutesTease && !state.isDataReady) {
+            return@LaunchedEffect
+        }
+        
+        // Exclude screens that demand manual user interaction
+        val manualScreens = listOf(
+            WrappedScreenType.Welcome,
+            WrappedScreenType.Playlist,
+            WrappedScreenType.Conclusion
+        )
+        
+        if (currentScreen !in manualScreens) {
+            val delayTime = when (currentScreen) {
+                is WrappedScreenType.MinutesTease -> 4000L
+                is WrappedScreenType.Top5Songs,
+                is WrappedScreenType.Top5Albums,
+                is WrappedScreenType.Top5Artists -> 8000L
+                else -> 6000L
+            }
+            
+            delay(delayTime)
+            
+            if (pagerState.currentPage < screens.lastIndex) {
+                pagerState.animateScrollToPage(
+                    page = pagerState.currentPage + 1,
+                    animationSpec = tween(durationMillis = 1500, easing = FastOutSlowInEasing)
+                )
+            }
+        }
+    }
+
     WrappedBackground(modifier = Modifier.fillMaxSize(), useDarkTheme = useDarkTheme) {
         Scaffold(
             topBar = {
@@ -472,10 +508,16 @@ fun InsightScreen(navController: NavController) {
                         is WrappedScreenType.Welcome -> WrappedIntro(
                             textColor = textColor,
                             useDarkTheme = useDarkTheme
-                        ) { scope.launch { pagerState.animateScrollToPage(page = 1) } }
+                        ) { 
+                            scope.launch { 
+                                pagerState.animateScrollToPage(
+                                    page = 1, 
+                                    animationSpec = tween(durationMillis = 1500, easing = FastOutSlowInEasing)
+                                ) 
+                            } 
+                        }
                         is WrappedScreenType.MinutesTease -> WrappedMinutesTease(
                             messagePair = messagePair,
-                            onNavigateForward = { scope.launch { pagerState.animateScrollToPage(page = 2) } },
                             isDataReady = state.isDataReady,
                             textColor = textColor
                         )
@@ -937,8 +979,7 @@ fun WrappedIntro(textColor: Color, useDarkTheme: Boolean, onNext: () -> Unit) {
 }
 
 @Composable
-fun WrappedMinutesTease(messagePair: MessagePair?, onNavigateForward: () -> Unit, isDataReady: Boolean, textColor: Color) {
-    LaunchedEffect(Unit) { delay(3500); onNavigateForward() }
+fun WrappedMinutesTease(messagePair: MessagePair?, isDataReady: Boolean, textColor: Color) {
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         androidx.compose.animation.AnimatedVisibility(
