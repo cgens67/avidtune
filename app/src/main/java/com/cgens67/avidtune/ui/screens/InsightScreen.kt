@@ -706,7 +706,21 @@ fun AutoResizingText(
         textAlign = textAlign,
         softWrap = true,
         onTextLayout = { textLayoutResult ->
-            if (textLayoutResult.hasVisualOverflow || textLayoutResult.lineCount > maxLines || textLayoutResult.didOverflowWidth || textLayoutResult.didOverflowHeight) {
+            var midWordBreak = false
+            for (i in 0 until textLayoutResult.lineCount - 1) {
+                val lineEnd = textLayoutResult.getLineEnd(i)
+                if (lineEnd > 0 && lineEnd < text.length) {
+                    val charBefore = text[lineEnd - 1]
+                    val charAfter = text[lineEnd]
+                    // If a line ends and neither character is whitespace, it forcefully split a word.
+                    if (!charBefore.isWhitespace() && !charAfter.isWhitespace() && charBefore != '-') {
+                        midWordBreak = true
+                        break
+                    }
+                }
+            }
+
+            if ((textLayoutResult.hasVisualOverflow || textLayoutResult.lineCount > maxLines || textLayoutResult.didOverflowWidth || textLayoutResult.didOverflowHeight || midWordBreak) && scaledTextStyle.fontSize.value > 10f) {
                 scaledTextStyle = scaledTextStyle.copy(
                     fontSize = scaledTextStyle.fontSize * 0.95,
                     lineHeight = if (scaledTextStyle.lineHeight.isSp) scaledTextStyle.lineHeight * 0.95 else scaledTextStyle.lineHeight
@@ -741,7 +755,21 @@ fun FormattedText(text: String, modifier: Modifier = Modifier, style: TextStyle)
         style = scaledTextStyle,
         softWrap = true,
         onTextLayout = { textLayoutResult ->
-            if (textLayoutResult.hasVisualOverflow || textLayoutResult.didOverflowWidth || textLayoutResult.didOverflowHeight) {
+            var midWordBreak = false
+            val rawText = annotatedString.text
+            for (i in 0 until textLayoutResult.lineCount - 1) {
+                val lineEnd = textLayoutResult.getLineEnd(i)
+                if (lineEnd > 0 && lineEnd < rawText.length) {
+                    val charBefore = rawText[lineEnd - 1]
+                    val charAfter = rawText[lineEnd]
+                    if (!charBefore.isWhitespace() && !charAfter.isWhitespace() && charBefore != '-') {
+                        midWordBreak = true
+                        break
+                    }
+                }
+            }
+            
+            if ((textLayoutResult.hasVisualOverflow || textLayoutResult.didOverflowWidth || textLayoutResult.didOverflowHeight || midWordBreak) && scaledTextStyle.fontSize.value > 10f) {
                 scaledTextStyle = scaledTextStyle.copy(
                     fontSize = scaledTextStyle.fontSize * 0.95,
                     lineHeight = if (scaledTextStyle.lineHeight.isSp) scaledTextStyle.lineHeight * 0.95 else scaledTextStyle.lineHeight
@@ -761,8 +789,6 @@ fun WrappedIntro(textColor: Color, useDarkTheme: Boolean, onNext: () -> Unit) {
     LaunchedEffect(Unit) { delay(200); visible = true }
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     
-    // Create a native shadow effect instead of overlapping multiple AutoResizingTexts.
-    // This perfectly synchronizes scaling constraints.
     val shadowColor = if (useDarkTheme) Color.Black else Color.Gray
     val titleStyle = TextStyle(
         fontFamily = bbh_bartle,
