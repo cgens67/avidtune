@@ -1126,4 +1126,61 @@
     <string name="dislikes">点踩</string>
     <string name="itag">Itag</string>
 
+    <!-- Equalizer Profiles & Presets -->
+    <string name="import_error_title">导入错误</string>
+    <string name="error_file_read">读取文件时出错</string>
+    <string name="error_file_open">打开文件时出错: %1$s</string>
+    <string name="equalizer_header">均衡器</string>
+    <plurals name="profiles_count">
+        <item quantity="other">%1$d 个配置文件</item>
+    </plurals>
+    <string name="eq_disabled">已禁用</string>
+    <plurals name="band_count">
+        <item quantity="other">%1$d 个频段</item>
+    </plurals>
+    <string name="delete_profile_desc">删除配置文件</string>
+    <string name="delete_profile_confirmation">确定要删除 %1$s 吗？</string>
+    <string name="no_profiles">未找到配置文件</string>
+    <string name="import_profile">导入配置文件</string>
+    <string name="system_equalizer">系统均衡器</string>
+    <string name="error_title">错误</string>
+    <string name="error_eq_apply_failed">应用 EQ 失败: %1$s</string>
+    <string name="avidtune_equalizer">AvidTune 均衡器</string>
+    <string name="eq_enable_title">启用均衡器</string>
+    <string name="eq_enable_summary">切换内置参数均衡器</string>
+    <string name="eq_simple">简单</string>
+    <string name="eq_advanced">高级</string>
+    <string name="eq_save_dialog_title">保存预设</string>
+    <string name="eq_save_name_hint">预设名称</string>
+    <string name="eq_save">保存</string>
+    <string name="eq_manage_presets">管理预设</string>
+    <string name="eq_no_custom_presets">未保存自定义预设</string>
+    <string name="eq_delete_selected">删除所选</string>
+    <string name="eq_label_mid">中音</string>
+    <string name="eq_label_bass">低音</string>
+    <string name="eq_label_treble">高音</string>
+    <string name="eq_label_custom">自定义</string>
+    <string name="eq_label_avidtune">AvidTune</string>
+    <string name="eq_label_dolby">杜比</string>
+    <string name="eq_label_dirac">Dirac</string>
+    <string name="eq_preset_flat">平坦</string>
+    <string name="eq_preset_avidtune_signature">AvidTune 标志性</string>
+    <string name="eq_preset_acoustic">原声</string>
+    <string name="eq_preset_spatial">空间感</string>
+    <string name="eq_preset_bass_boost">低音增强</string>
+    <string name="eq_preset_pure_clarity">纯净清晰</string>
+    <string name="eq_preset_soft_bass">柔和低音</string>
+    <string name="eq_preset_electronic">电子乐</string>
+    <string name="eq_preset_rock">摇滚</string>
+    <string name="eq_preset_pop">流行</string>
+    <string name="eq_preset_jazz">爵士</string>
+    <string name="eq_preset_voice">人声</string>
+    <string name="eq_preset_dolby_open">杜比 开阔</string>
+    <string name="eq_preset_dolby_rich">杜比 丰富</string>
+    <string name="eq_preset_dolby_focused">杜比 专注</string>
+    <string name="eq_preset_dirac_music">Dirac 音乐</string>
+    <string name="eq_preset_dirac_movie">Dirac 电影</string>
+    <string name="eq_preset_dirac_game">Dirac 游戏</string>
+    <string name="eq_reset">重置</string>
+
 </resources>
