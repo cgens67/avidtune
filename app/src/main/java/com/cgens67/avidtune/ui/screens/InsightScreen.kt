@@ -142,6 +142,10 @@ import java.util.Calendar
 import java.util.UUID
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.random.Random
 
 // ======= STATE & MODELS =======
 
@@ -222,7 +226,7 @@ class WrappedAudioService(private val context: Context) {
     private fun initPlayer() {
         if (player == null) {
             player = ExoPlayer.Builder(context).build().apply {
-                volume = if (_isMuted.value) 0f else 1f
+                volume = 0f // Start silent so we can fade in
                 addListener(object : Player.Listener {
                     override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                         Timber.tag("WrappedAudioService").e(error, "Player error")
@@ -299,6 +303,7 @@ class WrappedAudioService(private val context: Context) {
     }
 
     fun playTrack(songId: String?) {
+        initPlayer()
         if (player?.currentMediaItem?.mediaId == songId) {
             if (player?.isPlaying == false) {
                 player?.volume = 0f
