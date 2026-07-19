@@ -37,11 +37,12 @@ import androidx.compose.ui.res.*
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.*
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
 import androidx.core.content.edit
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor
@@ -76,8 +77,6 @@ private fun fA(vararg v:Float)=floatArrayOf(*v)
 @Serializable enum class FilterType{PK,LSC,HSC,LPQ,HPQ}
 @Serializable data class ParametricEQBand(val frequency:Double,val gain:Double,val q:Double=1.41,val filterType:FilterType=FilterType.PK,val enabled:Boolean=true)
 @Serializable data class ParametricEQ(val preamp:Double,val bands:List<ParametricEQBand>,val metadata:Map<String,String> = emptyMap())
-@Serializable data class SavedEQProfile(val id:String,val name:String,val deviceModel:String,val bands:List<ParametricEQBand>,val preamp:Double=0.0,val isCustom:Boolean=false,val isActive:Boolean=false,val addedTimestamp:Long=System.currentTimeMillis())
-data class EQState(val profiles:List<SavedEQProfile> = emptyList(),val activeProfileId:String?=null,val importStatus:String?=null,val error:String?=null)
 
 class BiquadFilter(sr:Int,fq:Double,g:Double,q:Double=1.41,type:FilterType=FilterType.PK){
     private var a1=0.0;private var a2=0.0;private var b0=0.0;private var b1=0.0;private var b2=0.0
@@ -109,151 +108,75 @@ class BiquadFilter(sr:Int,fq:Double,g:Double,q:Double=1.41,type:FilterType=Filte
 }
 
 @Singleton class EqualizerService @Inject constructor(){
-    private val p=mutableListOf<CustomEqualizerAudioProcessor>();private var pd:SavedEQProfile?=null;private var sD=false
-    fun add(x:CustomEqualizerAudioProcessor){p.add(x);if(sD)x.disable()else pd?.let{x.apply(ParametricEQ(it.preamp,it.bands))}}
-    fun applyProfile(e:SavedEQProfile):Result<Unit>{pd=e;sD=false;return runCatching{p.forEach{it.apply(ParametricEQ(e.preamp,e.bands))}}}
-    fun disable(){sD=true;pd=null;p.forEach{it.disable()}}
+    private val p=mutableListOf<CustomEqualizerAudioProcessor>();private var pEq:ParametricEQ?=null;private var sD=false
+    fun add(x:CustomEqualizerAudioProcessor){p.add(x);if(sD)x.disable()else pEq?.let{x.apply(it)}}
+    fun applyProfile(e:ParametricEQ):Result<Unit>{pEq=e;sD=false;return runCatching{p.forEach{it.apply(e)}}}
+    fun disable(){sD=true;pEq=null;p.forEach{it.disable()}}
 }
 
-@Singleton class EQProfileRepository @Inject constructor(@ApplicationContext c:Context){
-    private val pf=c.getSharedPreferences("nanosonic_eq_profiles",0);private val j=Json{ignoreUnknownKeys=true;prettyPrint=true};private val _p=MutableStateFlow<List<SavedEQProfile>>(emptyList());val p=_p.asStateFlow();private val _a=MutableStateFlow<SavedEQProfile?>(null);val a=_a.asStateFlow()
-    init{runCatching{pf.getString("eq_profiles",null)?.let{j.decodeFromString<List<SavedEQProfile>>(it)}?.let{x->_p.value=x;_a.value=x.find{it.id==pf.getString("active_profile_id",null)}}}}
-    suspend fun save(e:SavedEQProfile)=withContext(Dispatchers.IO){val c=_p.value.toMutableList();val i=c.indexOfFirst{it.id==e.id};if(i>=0)c[i]=e else c.add(e);pf.edit{putString("eq_profiles",j.encodeToString(c))};_p.value=c}
-    suspend fun del(id:String)=withContext(Dispatchers.IO){val c=_p.value.filter{it.id!=id};pf.edit{putString("eq_profiles",j.encodeToString(c))};if(_a.value?.id==id){_a.value=null;pf.edit{remove("active_profile_id")}};_p.value=c}
-    suspend fun setAct(id:String?)=withContext(Dispatchers.IO){if(id==null){_a.value=null;pf.edit{remove("active_profile_id")}}else{_a.value=_p.value.find{it.id==id};pf.edit{putString("active_profile_id",id)}}}
-    suspend fun imp(n:String,e:ParametricEQ)=save(SavedEQProfile("custom_${System.currentTimeMillis()}",n,n,e.bands,e.preamp,true))
-}
-
-object ParametricEQParser{
-    fun parseText(c:String):ParametricEQ{var p=0.0;val b=mutableListOf<ParametricEQBand>()
-        c.lines().map{it.trim()}.filter{it.isNotEmpty()}.forEach{l->if(l.startsWith("Preamp:",true))p=Regex("""Preamp:\s*([-+]?\d+\.?\d*)\s*dB""",RegexOption.IGNORE_CASE).find(l)?.groupValues?.get(1)?.toDoubleOrNull()?:0.0
-        else if(l.startsWith("Filter",true)&&l.contains("ON",true)){val ft=arrayOf("LSC","HSC","PK","LPQ","HPQ").find{l.contains(it,true)}?.let{FilterType.valueOf(it)};val fc=Regex("""Fc\s+([-+]?\d+\.?\d*)\s*Hz""",RegexOption.IGNORE_CASE).find(l)?.groupValues?.get(1)?.toDoubleOrNull();val g=Regex("""Gain\s+([-+]?\d+\.?\d*)\s*dB""",RegexOption.IGNORE_CASE).find(l)?.groupValues?.get(1)?.toDoubleOrNull();val q=Regex("""Q\s+([-+]?\d+\.?\d*)""",RegexOption.IGNORE_CASE).find(l)?.groupValues?.get(1)?.toDoubleOrNull();if(ft!=null&&fc!=null&&g!=null&&q!=null)b.add(ParametricEQBand(fc,g,q,ft))}}
-        return ParametricEQ(p,b)}
-    fun validate(e:ParametricEQ)=buildList{if(e.preamp !in -50.0..50.0)add("Err");if(e.bands.isEmpty()||e.bands.size>20)add("Err");e.bands.forEach{if(it.frequency<=0.0||it.frequency>100000.0||it.gain !in -30.0..30.0||it.q<=0.0||it.q>20.0)add("Err")}}
-}
-
-@HiltViewModel class EQViewModel @Inject constructor(private val r:EQProfileRepository,private val s:EqualizerService):ViewModel(){
-    private val _st=MutableStateFlow(EQState());val st=_st.asStateFlow()
-    init{viewModelScope.launch{r.p.collect{_st.update{x->x.copy(profiles=r.p.value.filter{it.isCustom}.sortedByDescending{it.addedTimestamp})}}};viewModelScope.launch{r.a.collect{p->_st.update{x->x.copy(activeProfileId=p?.id)}}}}
-    fun sel(id:String?)=viewModelScope.launch{if(id==null){s.disable();r.setAct(null)}else{_st.value.profiles.find{it.id==id}?.let{s.applyProfile(it).onSuccess{r.setAct(id)}.onFailure{e->_st.update{x->x.copy(error=e.message)}}}}}
-    fun clr()=_st.update{it.copy(error=null)};fun del(id:String)=viewModelScope.launch{r.del(id)}
-    fun imp(n:String,s:InputStream,ok:()->Unit,er:(Exception)->Unit)=viewModelScope.launch{try{val eq=ParametricEQParser.parseText(s.bufferedReader().use{it.readText()});s.close();val e=ParametricEQParser.validate(eq);if(e.isNotEmpty())throw Exception(e.first());r.imp(n.removeSuffix(".txt"),eq);_st.update{it.copy(importStatus="Imported")};ok()}catch(e:Exception){er(e)}}
-}
-
-@HiltViewModel class AxionEqViewModel @Inject constructor(@ApplicationContext c:Context,private val s:EqualizerService,private val r:EQProfileRepository):ViewModel(){
-    private val p=c.getSharedPreferences("vivi_eq_prefs",0);val fQ=doubleArrayOf(31.0,62.0,125.0,250.0,500.0,1000.0,2000.0,4000.0,8000.0,16000.0)
+@HiltViewModel class AxionEqViewModel @Inject constructor(
+    @ApplicationContext c:Context,
+    private val s:EqualizerService
+):ViewModel(){
+    private val p=c.getSharedPreferences("vivi_eq_prefs",0)
+    val fQ=doubleArrayOf(31.0,62.0,125.0,250.0,500.0,1000.0,2000.0,4000.0,8000.0,16000.0)
     private val _en=MutableStateFlow(p.getBoolean("enabled",false));val en=_en.asStateFlow()
     private val _bG=MutableStateFlow(FloatArray(10){p.getFloat("band_$it",0f)});val bG=_bG.asStateFlow()
-    private val _m=MutableStateFlow(p.getInt("mode",0));val m=_m.asStateFlow();private val _d=MutableStateFlow(false);val d=_d.asStateFlow()
-    val cP=r.p.map{l->l.filter{it.isCustom&&it.id!="vivi_tuning"}}.stateIn(viewModelScope,SharingStarted.Lazily,emptyList())
+    private val _m=MutableStateFlow(p.getInt("mode",0));val m=_m.asStateFlow()
+    private val _d=MutableStateFlow(false);val d=_d.asStateFlow()
     init{if(_en.value)ap()}
-    fun setEn(o:Boolean){_en.value=o;p.edit().putBoolean("enabled",o).apply();if(o)ap()else{viewModelScope.launch{r.setAct(null)};s.disable()}}
+    fun setEn(o:Boolean){_en.value=o;p.edit().putBoolean("enabled",o).apply();if(o)ap()else{s.disable()}}
     fun setM(m:Int){_m.value=m;p.edit().putInt("mode",m).apply();_d.value=false}
     fun setG(i:Int,g:Float){val n=_bG.value.copyOf();n[i]=g;_bG.value=n;p.edit().putFloat("band_$i",g).apply();_d.value=true;if(_en.value)ap()}
     fun setGs(g:FloatArray,u:Boolean=false){_bG.value=g;p.edit().apply{g.forEachIndexed{i,v->putFloat("band_$i",v)}}.apply();_d.value=u;if(_en.value)ap()}
     fun rst()=setGs(FloatArray(10){0f})
-    fun sav(n:String)=viewModelScope.launch{val pf=SavedEQProfile("custom_${System.currentTimeMillis()}",n,"ViviEqualizer",_bG.value.mapIndexed{i,f->ParametricEQBand(fQ[i],f.toDouble()/50.0,1.41,FilterType.PK,true)},0.0,true,true);r.save(pf);r.setAct(pf.id);_d.value=false}
-    fun del(i:List<String>)=viewModelScope.launch{i.forEach{r.del(it)}}
-    private fun ap()=viewModelScope.launch{val pf=SavedEQProfile("vivi_tuning","Vivi Tuning","ViviEqualizer",_bG.value.mapIndexed{i,f->ParametricEQBand(fQ[i],f.toDouble()/50.0,1.41,FilterType.PK,true)},0.0,false,true);r.save(pf);r.setAct(pf.id);s.applyProfile(pf)}
+    private fun ap()=viewModelScope.launch{
+        val eq=ParametricEQ(0.0, _bG.value.mapIndexed{i,f->ParametricEQBand(fQ[i],f.toDouble()/50.0,1.41,FilterType.PK,true)})
+        s.applyProfile(eq)
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable 
-fun EqScreen(nav:NavController?=null,vm:EQViewModel=hiltViewModel()){
-    val st by vm.st.collectAsStateWithLifecycle();val c=LocalContext.current;val ply=LocalPlayerConnection.current;var er by remember{mutableStateOf<String?>(null)}
+fun EqScreen(nav:NavController?=null,vm:AxionEqViewModel=hiltViewModel()){
+    AxionEqScreen(bck = { nav?.navigateUp() }, vm = vm)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable 
+fun AxionEqScreen(bck:()->Unit,vm:AxionEqViewModel=hiltViewModel()){
+    val en by vm.en.collectAsState();val bG by vm.bG.collectAsState();val m by vm.m.collectAsState();val cS=MaterialTheme.colorScheme
+    val c = LocalContext.current
     val sys=rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()){}
-    val pkr=rememberLauncherForActivityResult(ActivityResultContracts.GetContent()){u->u?.let{try{var n="custom_eq.txt";c.contentResolver.query(it,null,null,null,null)?.use{q->if(q.moveToFirst())q.getString(q.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME))?.let{x->n=x}};c.contentResolver.openInputStream(it)?.let{s->vm.imp(n,s,{},{e->er="${c.getString(R.string.import_error_title)}:${e.message}"})}?:run{er=c.getString(R.string.error_file_read)}}catch(e:Exception){er=c.getString(R.string.error_file_open,e.message)}}}
+    val ply=LocalPlayerConnection.current
     
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Column {
-                        Text(sR(R.string.equalizer_header))
-                        Text(
-                            pluralStringResource(R.plurals.profiles_count, st.profiles.size, st.profiles.size),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
+                title = { Text(sR(R.string.vivi_equalizer)) },
                 navigationIcon = {
                     com.cgens67.avidtune.ui.component.IconButton(
-                        onClick = { nav?.navigateUp() },
+                        onClick = bck,
                         onLongClick = {}
                     ) {
                         Icon(pR(R.drawable.arrow_back), null)
                     }
                 },
                 actions = {
-                    IconButton(onClick={nav?.navigate("settings/equalizer")}){Icon(pR(R.drawable.tune),null)}
-                    IconButton(onClick={pkr.launch("text/plain")}){Icon(pR(R.drawable.add),null)}
-                    IconButton(onClick={ply?.let{p->val i=Intent(AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL).apply{putExtra(AudioEffect.EXTRA_AUDIO_SESSION,p.player.audioSessionId);putExtra(AudioEffect.EXTRA_PACKAGE_NAME,c.packageName);putExtra(AudioEffect.EXTRA_CONTENT_TYPE,0)};if(i.resolveActivity(c.packageManager)!=null)sys.launch(i)}}){Icon(pR(R.drawable.equalizer),null)}
+                    IconButton(onClick={
+                        ply?.let{p->
+                            val i=Intent(AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL).apply{
+                                putExtra(AudioEffect.EXTRA_AUDIO_SESSION,p.player.audioSessionId)
+                                putExtra(AudioEffect.EXTRA_PACKAGE_NAME,c.packageName)
+                                putExtra(AudioEffect.EXTRA_CONTENT_TYPE,0)
+                            }
+                            if(i.resolveActivity(c.packageManager)!=null)sys.launch(i)
+                        }
+                    }){Icon(pR(R.drawable.equalizer),null)}
                 }
             )
         }
     ) { pd ->
-        LazyColumn(
-            modifier = M.fillMaxSize().padding(pd),
-            contentPadding = PaddingValues(bottom = 16.dp)
-        ) {
-            item {
-                ListItem(
-                    headlineContent={Text(sR(R.string.eq_disabled),fontWeight=if(st.activeProfileId==null)FontWeight.SemiBold else FontWeight.Normal)},
-                    leadingContent={RadioButton(st.activeProfileId==null,{vm.sel(null)})},
-                    modifier=M.clickable{vm.sel(null)}.padding(horizontal=8.dp)
-                )
-            }
-            if(st.profiles.isNotEmpty()){
-                items(st.profiles){p->
-                    var dD by remember{mutableStateOf(false)};
-                    ListItem(
-                        headlineContent={Text(p.deviceModel,fontWeight=if(st.activeProfileId==p.id)FontWeight.SemiBold else FontWeight.Normal)},
-                        supportingContent={Text(pluralStringResource(R.plurals.band_count,p.bands.size,p.bands.size))},
-                        leadingContent={RadioButton(st.activeProfileId==p.id,{vm.sel(p.id)})},
-                        trailingContent={IconButton(onClick={dD=true}){Icon(pR(R.drawable.delete),null,tint=MaterialTheme.colorScheme.error)}},
-                        modifier=M.clickable{vm.sel(p.id)}.padding(horizontal=8.dp)
-                    )
-                    if(dD){
-                        AlertDialog(
-                            onDismissRequest={dD=false},
-                            confirmButton={TextButton(onClick={vm.del(p.id);dD=false}){Text(sR(android.R.string.ok))}},
-                            dismissButton={TextButton(onClick={dD=false}){Text(sR(android.R.string.cancel))}},
-                            title={Text(sR(R.string.delete_profile_desc))},
-                            text={Text(sR(R.string.delete_profile_confirmation,p.name))}
-                        )
-                    }
-                }
-            }
-            if(st.profiles.isEmpty()){
-                item{
-                    Box(M.fillMaxWidth().padding(32.dp),Alignment.Center){
-                        Column(horizontalAlignment=Alignment.CenterHorizontally){
-                            Icon(pR(R.drawable.equalizer),null,M.size(48.dp),MaterialTheme.colorScheme.onSurfaceVariant)
-                            Spacer(M.height(16.dp))
-                            Text(sR(R.string.no_profiles),style=MaterialTheme.typography.titleMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                            Spacer(M.height(8.dp))
-                            Button(onClick={pkr.launch("text/plain")}){Text(sR(R.string.import_profile))}
-                            Spacer(M.height(8.dp))
-                            OutlinedButton(onClick={sys.launch(Intent(AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL))}){Text(sR(R.string.system_equalizer))}
-                        }
-                    }
-                }
-            }
-        }
-    }
-    er?.let{
-        AlertDialog(onDismissRequest={er=null},confirmButton={TextButton(onClick={er=null}){Text(sR(android.R.string.ok))}},title={Text(sR(R.string.import_error_title))},text={Text(it)})
-    }
-    st.error?.let{
-        AlertDialog(onDismissRequest={vm.clr()},confirmButton={TextButton(onClick={vm.clr()}){Text(sR(android.R.string.ok))}},title={Text(sR(R.string.error_title))},text={Text(sR(R.string.error_eq_apply_failed,it))})
-    }
-}
-
-@Composable 
-fun AxionEqScreen(bck:()->Unit,vm:AxionEqViewModel=hiltViewModel()){
-    val en by vm.en.collectAsState();val bG by vm.bG.collectAsState();val m by vm.m.collectAsState();val dty by vm.d.collectAsState();val cP by vm.cP.collectAsState();val cS=MaterialTheme.colorScheme
-    Scaffold(topBar={TopAppBar(title={Text(sR(R.string.vivi_equalizer))},navigationIcon={com.cgens67.avidtune.ui.component.IconButton(onClick=bck,onLongClick={}){Icon(pR(R.drawable.arrow_back),null)}})}){pd->
         Column(M.fillMaxSize().verticalScroll(rememberScrollState()).padding(pd).padding(horizontal=16.dp),verticalArrangement=Arrangement.spacedBy(16.dp)){
             SettingsGeneralCategory(
                 title = null,
@@ -274,56 +197,12 @@ fun AxionEqScreen(bck:()->Unit,vm:AxionEqViewModel=hiltViewModel()){
                 ToggleButton(checked=m==1,onCheckedChange={vm.setM(1)},modifier=M.weight(1f).semantics{role=Role.RadioButton},shapes=ButtonGroupDefaults.connectedTrailingButtonShapes()){Text(sR(R.string.eq_advanced))}
             }
             AnimatedContent(targetState=m,transitionSpec={fadeIn() togetherWith fadeOut()},label=""){cM->
-                var sD by remember{mutableStateOf(false)};var mD by remember{mutableStateOf(false)}
-                if(sD){
-                    var n by remember{mutableStateOf("")};
-                    BasicAlertDialog(onDismissRequest={sD=false}){
-                        Surface(M.padding(24.dp).widthIn(max=320.dp),shape=RoundedCornerShape(30.dp),color=cS.surfaceContainerHigh,tonalElevation=8.dp){
-                            Column(M.padding(18.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
-                                Surface(shape=RoundedCornerShape(22.dp),color=cS.surfaceContainer){
-                                    Column(M.padding(14.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
-                                        Text(sR(R.string.eq_save_dialog_title),style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold);
-                                        OutlinedTextField(value=n,onValueChange={n=it},placeholder={Text(sR(R.string.eq_save_name_hint))},singleLine=true,modifier=M.fillMaxWidth(),shape=MaterialTheme.shapes.medium,textStyle=MaterialTheme.typography.bodyMedium)
-                                    }
-                                };
-                                Row(M.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp,Alignment.End)){
-                                    TextButton(onClick={sD=false}){Text(sR(R.string.cancel))};
-                                    OutlinedButton(onClick={if(n.isNotBlank()){vm.sav(n);sD=false}},enabled=n.isNotBlank()){Text(sR(R.string.eq_save))}
-                                }
-                            }
-                        }
-                    }
-                }
-                if(mD){
-                    val sel=remember{mutableStateListOf<String>()};
-                    BasicAlertDialog(onDismissRequest={mD=false}){
-                        Surface(M.padding(24.dp).widthIn(max=320.dp),shape=RoundedCornerShape(30.dp),color=cS.surfaceContainerHigh,tonalElevation=8.dp){
-                            Column(M.padding(18.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
-                                Surface(shape=RoundedCornerShape(22.dp),color=cS.surfaceContainer){
-                                    Column(M.padding(14.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
-                                        Text(sR(R.string.eq_manage_presets),style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold);
-                                        HorizontalDivider(color=cS.outlineVariant.copy(0.5f));
-                                        if(cP.isEmpty())Text(sR(R.string.eq_no_custom_presets),style=MaterialTheme.typography.bodyMedium,color=cS.onSurfaceVariant)else LazyColumn(M.heightIn(max=300.dp)){items(cP){c->Row(M.fillMaxWidth().clip(MaterialTheme.shapes.small).clickable{if(sel.contains(c.id))sel.remove(c.id)else sel.add(c.id)}.padding(vertical=4.dp),verticalAlignment=Alignment.CenterVertically){Checkbox(checked=sel.contains(c.id),onCheckedChange={if(it==true)sel.add(c.id)else sel.remove(c.id)});Spacer(M.width(8.dp));Text(c.name,style=MaterialTheme.typography.bodyLarge)}}}
-                                    }
-                                };
-                                HorizontalDivider(color=cS.outlineVariant.copy(0.5f));
-                                Row(M.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp,Alignment.End)){
-                                    TextButton(onClick={mD=false}){Text(sR(R.string.cancel))};
-                                    if(sel.isNotEmpty())OutlinedButton(onClick={vm.del(sel.toList());mD=false},colors=ButtonDefaults.outlinedButtonColors(contentColor=cS.error)){Text(sR(R.string.eq_delete_selected))}
-                                }
-                            }
-                        }
-                    }
-                }
                 if(cM==0){
                     var b by remember{mutableFloatStateOf(0f)};var md by remember{mutableFloatStateOf(0f)};var t by remember{mutableFloatStateOf(0f)};
                     LaunchedEffect(bG){b=bG[1]/50f;md=(bG[4]+bG[5])/2f/50f;t=bG[8]/50f}
                     val aEq={val bv=(b*50f).coerceIn(-600f,600f);val mv=(md*50f).coerceIn(-600f,600f);val tv=(t*50f).coerceIn(-600f,600f);vm.setGs(fA(bv*1.1f,bv,bv*0.7f+mv*0.3f,bv*0.2f+mv*0.8f,mv,mv,mv*0.8f+tv*0.2f,mv*0.3f+tv*0.7f,tv,tv*1.15f),true)}
                     Column(horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(16.dp)){
                         CircularEqControl(b,md,t,en,{b=it;aEq()},{md=it;aEq()},{t=it;aEq()},M.fillMaxWidth(0.9f).padding(horizontal=8.dp).aspectRatio(1f))
-                        AnimatedVisibility(dty&&en,enter=expandVertically()+fadeIn(),exit=shrinkVertically()+fadeOut()){OutlinedButton(onClick={sD=true},M.padding(bottom=8.dp)){Icon(Icons.Rounded.Check,null,M.size(18.dp));Spacer(M.width(8.dp));Text(sR(R.string.eq_save))}}
-                        
-                        if(cP.isNotEmpty())PresetSection(sR(R.string.eq_label_custom),cP.map{-1 to it.bands.map{x->x.gain.toFloat()*50f}.toFloatArray()},cP.map{it.name},{mD=true},en,bG,{if(en)vm.setGs(it)})
                         
                         listOf(
                             listOf<Pair<Int,FloatArray>>(R.string.eq_preset_flat to fA(0f,0f,0f,0f,0f,0f,0f,0f,0f,0f),R.string.eq_preset_vivi_signature to fA(150f,100f,50f,0f,-20f,0f,80f,150f,200f,150f),R.string.eq_preset_acoustic to fA(150f,150f,50f,75f,100f,75f,125f,175f,150f,75f),R.string.eq_preset_spatial to fA(75f,50f,25f,-50f,-25f,0f,50f,75f,100f,75f)),
@@ -398,7 +277,14 @@ private fun PresetSection(
                         else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
                     }
                 ) {
-                    Text(names?.getOrNull(i) ?: sR(nr), style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                    Text(
+                        text = names?.getOrNull(i) ?: sR(nr), 
+                        style = MaterialTheme.typography.labelSmall, 
+                        maxLines = 2,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 12.sp,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
         }
