@@ -243,6 +243,8 @@ import java.net.URL
 import java.net.URLDecoder
 import java.net.URLEncoder
 import javax.inject.Inject
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntOffset
 
 // El codigo original de la aplicacion pertenece a : Arturo Cervantes Galindo (cgens67) Cualquier parecido es copia y pega de mi codigo original
 
