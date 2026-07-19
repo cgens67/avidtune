@@ -1,11 +1,11 @@
 @file:OptIn(
-    androidx.compose.material3.ExperimentalMaterial3Api::class,
-    androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class,
-    androidx.compose.foundation.layout.ExperimentalLayoutApi::class,
-    androidx.compose.foundation.ExperimentalFoundationApi::class,
-    androidx.media3.common.util.UnstableApi::class,
-    androidx.compose.material.ExperimentalMaterialApi::class
+    ExperimentalMaterial3Api::class,
+    ExperimentalMaterial3ExpressiveApi::class,
+    ExperimentalLayoutApi::class,
+    UnstableApi::class
 )
+@file:Suppress("OPT_IN_USAGE", "OPT_IN_USAGE_ERROR")
+
 package com.cgens67.avidtune.playback
 
 import android.content.Context
@@ -14,6 +14,7 @@ import android.media.audiofx.AudioEffect
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.OptIn
 import androidx.compose.animation.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.*
@@ -44,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor
+import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
 import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
@@ -91,7 +93,7 @@ class BiquadFilter(sr:Int,fq:Double,g:Double,q:Double=1.41,type:FilterType=Filte
     fun rst(){x1L=0.0;x2L=0.0;y1L=0.0;y2L=0.0;x1R=0.0;x2R=0.0;y1R=0.0;y2R=0.0}
 }
 
-class CustomEqualizerAudioProcessor:AudioProcessor{
+@UnstableApi class CustomEqualizerAudioProcessor:AudioProcessor{
     private var sr=0;private var ch=0;private var enc=C.ENCODING_INVALID;private var act=false;private var en=false;private var end=false
     private var oB=ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder());private var f=emptyList<BiquadFilter>();private var pA=1.0;private var pEq:ParametricEQ?=null
     @Synchronized fun apply(p:ParametricEQ){if(sr==0){pEq=p;return};pA=10.0.pow(p.preamp/20.0);f=p.bands.filter{it.enabled&&it.frequency<sr/2.0}.map{BiquadFilter(sr,it.frequency,it.gain,it.q,it.filterType)};en=true;f.forEach{it.rst()}}
@@ -255,7 +257,7 @@ fun AxionEqScreen(bck:()->Unit,vm:AxionEqViewModel=hiltViewModel()){
                                     Column(M.padding(14.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
                                         Text(sR(R.string.eq_manage_presets),style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold);
                                         HorizontalDivider(color=cS.outlineVariant.copy(0.5f));
-                                        if(cP.isEmpty())Text(sR(R.string.eq_no_custom_presets),style=MaterialTheme.typography.bodyMedium,color=cS.onSurfaceVariant)else LazyColumn(M.heightIn(max=300.dp)){items(cP){c->Row(M.fillMaxWidth().clip(MaterialTheme.shapes.small).clickable{if(sel.contains(c.id))sel.remove(c.id)else sel.add(c.id)}.padding(vertical=4.dp),verticalAlignment=Alignment.CenterVertically){Checkbox(checked=sel.contains(c.id),onCheckedChange={if(it==true)sel.add(c.id)else sel.remove(c.id)});Spacer(M.width(8.dp));Text(c.name,style=MaterialTheme.typography.bodyLarge)}}}}
+                                        if(cP.isEmpty())Text(sR(R.string.eq_no_custom_presets),style=MaterialTheme.typography.bodyMedium,color=cS.onSurfaceVariant)else LazyColumn(M.heightIn(max=300.dp)){items(cP){c->Row(M.fillMaxWidth().clip(MaterialTheme.shapes.small).clickable{if(sel.contains(c.id))sel.remove(c.id)else sel.add(c.id)}.padding(vertical=4.dp),verticalAlignment=Alignment.CenterVertically){Checkbox(checked=sel.contains(c.id),onCheckedChange={if(it==true)sel.add(c.id)else sel.remove(c.id)});Spacer(M.width(8.dp));Text(c.name,style=MaterialTheme.typography.bodyLarge)}}}
                                     }
                                 };
                                 HorizontalDivider(color=cS.outlineVariant.copy(0.5f));
