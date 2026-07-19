@@ -1,4 +1,3 @@
-// app/src/main/java/com/cgens67/avidtune/ui/menu/PlayerMenu.kt
 @file:OptIn(ExperimentalMaterial3Api::class)
 
 package com.cgens67.avidtune.ui.menu
