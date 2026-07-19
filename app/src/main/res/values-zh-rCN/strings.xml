@@ -1094,7 +1094,7 @@
     <string name="download_as_audio_file">下载为音频文件</string>
     <string name="format">格式</string>
     <string name="api_source">API 来源</string>
-    <string name="export_note_mp3">注意：MP3 格式利用后端转码器在音轨中嵌入丰富的元数据（专辑封面、标题、艺术家）。原生提取（M4A/Opus）可确保原始音频流。</string>
+    <string name="export_note_mp3">注意：MP3 格式利用后端转码器在音轨中嵌入丰富的元数据（专辑封面、标题、歌手）。原生提取（M4A/Opus）可确保原始音频流。</string>
     <string name="securing_stream">正在获取音频流…</string>
     <string name="working">正在处理…</string>
     <string name="downloaded_size">已下载：%1$s</string>
@@ -1182,5 +1182,34 @@
     <string name="eq_preset_dirac_movie">Dirac 电影</string>
     <string name="eq_preset_dirac_game">Dirac 游戏</string>
     <string name="eq_reset">重置</string>
+    
+    <!-- Music Recognition -->
+    <string name="music_recognition_notification_channel_name">音乐识别</string>
+    <string name="music_recognition_notification_channel_description">后台音乐识别的通知</string>
+    <string name="music_recognition_notification_listening_title">正在聆听音乐</string>
+    <string name="music_recognition_notification_listening_text">正在识别周围播放的歌曲...</string>
+    <string name="music_recognition_notification_status_listening">聆听中</string>
+    <string name="music_recognition_notification_processing_title">正在处理音频</string>
+    <string name="music_recognition_notification_processing_text">正在分析录制的音频...</string>
+    <string name="music_recognition_notification_status_processing">处理中</string>
+    <string name="music_recognition_notification_artist">歌手：%s</string>
+    <string name="music_recognition_notification_album">专辑：%s</string>
+    <string name="music_recognition_notification_genre">流派：%s</string>
+    <string name="music_recognition_notification_release">发行：%s</string>
+    <string name="music_recognition_notification_label">厂牌：%s</string>
+    <string name="music_recognition_notification_isrc">ISRC：%s</string>
+    <string name="music_recognition_notification_status_result">找到匹配</string>
+    <string name="music_recognition_notification_no_match_title">未找到匹配</string>
+    <string name="music_recognition_notification_recording_failed_title">录音失败</string>
+    <string name="music_recognition_signature_failed">无法创建音频签名</string>
+    <string name="music_recognition_recognition_failed">识别失败</string>
+    <string name="music_recognition_notification_no_match_text">无法识别这首歌</string>
+    <string name="music_recognition_notification_recording_failed_text">麦克风访问被拒绝或正忙</string>
+    <string name="music_recognition_notification_signature_failed_text">音频无法处理</string>
+    <string name="music_recognition_notification_recognition_failed_text">连接识别服务失败</string>
+    <string name="music_recognition">音乐识别</string>
+    <string name="music_recognition_tap_to_listen">点击开始聆听</string>
+    <string name="music_recognition_listening">聆听中…</string>
+    <string name="music_recognition_processing">处理中…</string>    
 
 </resources>
