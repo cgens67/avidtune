@@ -130,8 +130,6 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAny
 import androidx.compose.ui.util.fastFirstOrNull
 import androidx.compose.ui.util.fastForEach
@@ -185,6 +183,8 @@ import com.cgens67.avidtune.db.MusicDatabase
 import com.cgens67.avidtune.db.entities.SearchHistory
 import com.cgens67.avidtune.extensions.toEnum
 import com.cgens67.avidtune.models.toMediaMetadata
+import com.cgens67.avidtune.musicrecognition.ACTION_MUSIC_RECOGNITION
+import com.cgens67.avidtune.musicrecognition.openMusicRecognition
 import com.cgens67.avidtune.playback.DownloadUtil
 import com.cgens67.avidtune.playback.MusicService
 import com.cgens67.avidtune.playback.MusicService.MusicBinder
@@ -338,7 +338,9 @@ class MainActivity : ComponentActivity() {
                 }
         }
 
-        intent?.let { handlevideoIdIntent(it) }
+        if (intent?.action != ACTION_MUSIC_RECOGNITION) {
+            intent?.let { handlevideoIdIntent(it) }
+        }
 
         setContent {
             LaunchedEffect(Unit) {
@@ -509,6 +511,12 @@ class MainActivity : ComponentActivity() {
                         val navController = rememberNavController()
                         val navBackStackEntry by navController.currentBackStackEntryAsState()
                         val (previousTab) = rememberSaveable { mutableStateOf("home") }
+
+                        LaunchedEffect(Unit) {
+                            if (intent?.action == ACTION_MUSIC_RECOGNITION) {
+                                navController.openMusicRecognition()
+                            }
+                        }
 
                         val navigationItems = remember { Screens.MainScreens }
                         val (slimNav) = rememberPreference(SlimNavBarKey, defaultValue = false)
@@ -733,6 +741,10 @@ class MainActivity : ComponentActivity() {
                         DisposableEffect(Unit) {
                             val listener =
                                 Consumer<Intent> { intent ->
+                                    if (intent.action == ACTION_MUSIC_RECOGNITION) {
+                                        navController.openMusicRecognition()
+                                        return@Consumer
+                                    }
                                     val uri = intent.data ?: intent.extras?.getString(Intent.EXTRA_TEXT)
                                         ?.toUri() ?: return@Consumer
                                     when (val path = uri.pathSegments.firstOrNull()) {
@@ -1325,6 +1337,7 @@ class MainActivity : ComponentActivity() {
                                                 items = navigationItems,
                                                 pureBlack = pureBlack,
                                                 slimNav = slimNav,
+                                                onMusicRecognitionClick = { navController.openMusicRecognition() },
                                                 isSelected = { screen ->
                                                     navBackStackEntry?.destination?.hierarchy?.any {
                                                         it.route == screen.route
