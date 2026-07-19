@@ -115,7 +115,6 @@ import com.cgens67.avidtune.constants.AudioQualityKey
 import com.cgens67.innertube.models.AccountInfo
 import com.cgens67.avidtune.db.entities.Album
 import com.cgens67.avidtune.db.entities.Artist
-import com.cgens67.avidtune.db.entities.PlaylistEntity
 import com.cgens67.avidtune.db.entities.SongWithStats
 import com.cgens67.avidtune.utils.YTPlayerUtils
 import com.cgens67.avidtune.utils.dataStore
@@ -135,13 +134,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
-import java.io.File
-import java.io.FileOutputStream
-import java.time.LocalDateTime
 import java.util.Calendar
-import java.util.UUID
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -226,7 +219,7 @@ class WrappedAudioService(private val context: Context) {
     private fun initPlayer() {
         if (player == null) {
             player = ExoPlayer.Builder(context).build().apply {
-                volume = 0f // Start silent so we can fade in
+                volume = 0f
                 addListener(object : Player.Listener {
                     override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                         Timber.tag("WrappedAudioService").e(error, "Player error")
@@ -239,13 +232,15 @@ class WrappedAudioService(private val context: Context) {
 
     fun toggleMute() {
         _isMuted.value = !_isMuted.value
-        if (fadeJob?.isActive != true) {
-            player?.volume = if (_isMuted.value) 0f else 1f
-        }
+        fadeJob?.cancel()
+        player?.volume = if (_isMuted.value) 0f else 1f
     }
 
     private suspend fun prepareTrack(songId: String?) {
         initPlayer()
+        withContext(Dispatchers.Main) {
+            player?.volume = 0f
+        }
         val songUri = getSongUri(songId)
         withContext(Dispatchers.Main) {
             if (songUri != null) {
@@ -262,17 +257,16 @@ class WrappedAudioService(private val context: Context) {
     private fun fadeOut(onDone: () -> Unit) {
         fadeJob?.cancel()
         fadeJob = scope.launch {
-            val startVol = player?.volume ?: 1f
-            if (startVol > 0f) {
-                val steps = 15
-                for (i in steps downTo 1) {
-                    if (!isActive) break
-                    player?.volume = startVol * (i.toFloat() / steps)
+            var vol = player?.volume ?: 1f
+            val targetVol = if (_isMuted.value) 0f else 1f
+            if (vol > 0f && targetVol > 0f) {
+                while (vol > 0f) {
+                    vol -= 0.1f
+                    if (vol < 0f) vol = 0f
+                    player?.volume = vol
                     delay(30)
                 }
             }
-            player?.volume = 0f
-            player?.pause()
             onDone()
         }
     }
@@ -280,48 +274,41 @@ class WrappedAudioService(private val context: Context) {
     private fun fadeIn() {
         fadeJob?.cancel()
         fadeJob = scope.launch {
-            player?.volume = 0f
-            
-            // Wait until the player is actually playing (buffering finished and rendering audio)
-            var timeout = 0
-            while (player?.isPlaying != true && timeout < 200) { // wait up to 10 seconds
+            var checks = 0
+            while (player?.playbackState != Player.STATE_READY && checks < 100) {
                 delay(50)
-                timeout++
+                checks++
             }
+            if (player?.playbackState != Player.STATE_READY) return@launch
             
+            player?.volume = 0f
+            var vol = 0f
             val targetVol = if (_isMuted.value) 0f else 1f
             if (targetVol > 0f) {
-                val steps = 25
-                val delayMs = 1500L / steps
-                for (i in 1..steps) {
-                    if (!isActive) break
-                    player?.volume = targetVol * (i.toFloat() / steps)
-                    delay(delayMs)
+                while (vol < targetVol) {
+                    vol += 0.05f
+                    if (vol > targetVol) vol = targetVol
+                    player?.volume = vol
+                    delay(40)
                 }
-                player?.volume = targetVol
-            } else {
-                player?.volume = 0f
             }
         }
     }
 
     fun playTrack(songId: String?) {
-        initPlayer()
         if (player?.currentMediaItem?.mediaId == songId) {
             if (player?.isPlaying == false) {
-                player?.volume = 0f
                 player?.play()
                 fadeIn()
             }
             return
         }
 
-        val doPlay: () -> Unit = {
+        val doPlay = {
             playbackJob?.cancel()
             playbackJob = scope.launch {
                 try {
                     withContext(Dispatchers.Main) {
-                        player?.pause()
                         player?.volume = 0f
                     }
                     prepareTrack(songId)
@@ -331,7 +318,6 @@ class WrappedAudioService(private val context: Context) {
                         } else {
                             player?.seekTo(0)
                         }
-                        player?.volume = 0f
                         player?.play()
                         fadeIn()
                     }
@@ -367,11 +353,20 @@ class WrappedAudioService(private val context: Context) {
         }
     }
 
-    fun pause() = player?.pause()
-    fun resume() = player?.play()
+    fun pause() {
+        player?.pause()
+    }
+    
+    fun resume() {
+        if (player?.isPlaying == false) {
+            player?.play()
+            fadeIn()
+        }
+    }
+    
     fun release() {
-        playbackJob?.cancel()
         fadeJob?.cancel()
+        playbackJob?.cancel()
         player?.release()
         player = null
     }
