@@ -19,6 +19,8 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.cgens67.avidtune.BuildConfig
+import com.cgens67.avidtune.playback.AxionEqScreen
+import com.cgens67.avidtune.playback.EqScreen
 import com.cgens67.avidtune.ui.screens.settings.ChangelogScreen
 import com.cgens67.avidtune.ui.screens.artist.ArtistItemsScreen
 import com.cgens67.avidtune.ui.screens.artist.ArtistScreen
@@ -91,6 +93,13 @@ fun NavGraphBuilder.navigationBuilder(
 
     composable("apple_music_trending") {
         AppleMusicTrendingScreen(navController)
+    }
+
+    composable("equalizer") {
+        EqScreen(navController)
+    }
+    composable("settings/equalizer") {
+        AxionEqScreen(bck = { navController.popBackStack() })
     }
 
     composable(
