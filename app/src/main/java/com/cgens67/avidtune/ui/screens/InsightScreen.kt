@@ -262,12 +262,12 @@ class WrappedAudioService(private val context: Context) {
     private fun fadeOut(onDone: () -> Unit) {
         fadeJob?.cancel()
         fadeJob = scope.launch {
-            var vol = player?.volume ?: 1f
-            if (vol > 0f) {
-                while (vol > 0f) {
-                    vol -= 0.05f
-                    if (vol < 0f) vol = 0f
-                    player?.volume = vol
+            val startVol = player?.volume ?: 1f
+            if (startVol > 0f) {
+                val steps = 15
+                for (i in steps downTo 1) {
+                    if (!isActive) break
+                    player?.volume = startVol * (i.toFloat() / steps)
                     delay(30)
                 }
             }
@@ -282,25 +282,23 @@ class WrappedAudioService(private val context: Context) {
         fadeJob = scope.launch {
             player?.volume = 0f
             
-            // Wait until the player is actually ready to play (buffering finished)
+            // Wait until the player is actually playing (buffering finished and rendering audio)
             var timeout = 0
-            while (player?.playbackState != Player.STATE_READY && timeout < 100) {
+            while (player?.isPlaying != true && timeout < 200) { // wait up to 10 seconds
                 delay(50)
                 timeout++
             }
             
-            // Wait just a bit for the audio pipeline to start rendering frames
-            delay(150)
-            
-            var vol = 0f
             val targetVol = if (_isMuted.value) 0f else 1f
             if (targetVol > 0f) {
-                while (vol < targetVol) {
-                    vol += 0.02f
-                    if (vol > targetVol) vol = targetVol
-                    player?.volume = vol
-                    delay(40) // Smooth fade in over ~2 seconds
+                val steps = 25
+                val delayMs = 1500L / steps
+                for (i in 1..steps) {
+                    if (!isActive) break
+                    player?.volume = targetVol * (i.toFloat() / steps)
+                    delay(delayMs)
                 }
+                player?.volume = targetVol
             } else {
                 player?.volume = 0f
             }
