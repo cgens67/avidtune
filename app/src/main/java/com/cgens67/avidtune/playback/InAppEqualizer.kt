@@ -11,7 +11,6 @@ package com.cgens67.avidtune.playback
 import android.content.Context
 import android.content.Intent
 import android.media.audiofx.AudioEffect
-import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.OptIn
@@ -20,6 +19,7 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -37,8 +37,6 @@ import androidx.compose.ui.res.*
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.*
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
 import androidx.core.content.edit
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -60,9 +58,6 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
-import androidx.compose.foundation.shape.RoundedCornerShape
-import java.io.InputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import javax.inject.Inject
@@ -114,11 +109,11 @@ class BiquadFilter(sr:Int,fq:Double,g:Double,q:Double=1.41,type:FilterType=Filte
     fun disable(){sD=true;pEq=null;p.forEach{it.disable()}}
 }
 
-@HiltViewModel class AxionEqViewModel @Inject constructor(
+@HiltViewModel class AvidTuneEqViewModel @Inject constructor(
     @ApplicationContext c:Context,
     private val s:EqualizerService
 ):ViewModel(){
-    private val p=c.getSharedPreferences("vivi_eq_prefs",0)
+    private val p=c.getSharedPreferences("avidtune_eq_prefs",0)
     val fQ=doubleArrayOf(31.0,62.0,125.0,250.0,500.0,1000.0,2000.0,4000.0,8000.0,16000.0)
     private val _en=MutableStateFlow(p.getBoolean("enabled",false));val en=_en.asStateFlow()
     private val _bG=MutableStateFlow(FloatArray(10){p.getFloat("band_$it",0f)});val bG=_bG.asStateFlow()
@@ -138,13 +133,13 @@ class BiquadFilter(sr:Int,fq:Double,g:Double,q:Double=1.41,type:FilterType=Filte
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable 
-fun EqScreen(nav:NavController?=null,vm:AxionEqViewModel=hiltViewModel()){
-    AxionEqScreen(bck = { nav?.navigateUp() }, vm = vm)
+fun EqScreen(nav:NavController?=null,vm:AvidTuneEqViewModel=hiltViewModel()){
+    AvidTuneEqScreen(bck = { nav?.navigateUp() }, vm = vm)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable 
-fun AxionEqScreen(bck:()->Unit,vm:AxionEqViewModel=hiltViewModel()){
+fun AvidTuneEqScreen(bck:()->Unit,vm:AvidTuneEqViewModel=hiltViewModel()){
     val en by vm.en.collectAsState();val bG by vm.bG.collectAsState();val m by vm.m.collectAsState();val cS=MaterialTheme.colorScheme
     val c = LocalContext.current
     val sys=rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()){}
@@ -153,7 +148,7 @@ fun AxionEqScreen(bck:()->Unit,vm:AxionEqViewModel=hiltViewModel()){
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(sR(R.string.vivi_equalizer)) },
+                title = { Text("AvidTune Equalizer") },
                 navigationIcon = {
                     com.cgens67.avidtune.ui.component.IconButton(
                         onClick = bck,
@@ -203,15 +198,6 @@ fun AxionEqScreen(bck:()->Unit,vm:AxionEqViewModel=hiltViewModel()){
                     val aEq={val bv=(b*50f).coerceIn(-600f,600f);val mv=(md*50f).coerceIn(-600f,600f);val tv=(t*50f).coerceIn(-600f,600f);vm.setGs(fA(bv*1.1f,bv,bv*0.7f+mv*0.3f,bv*0.2f+mv*0.8f,mv,mv,mv*0.8f+tv*0.2f,mv*0.3f+tv*0.7f,tv,tv*1.15f),true)}
                     Column(horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(16.dp)){
                         CircularEqControl(b,md,t,en,{b=it;aEq()},{md=it;aEq()},{t=it;aEq()},M.fillMaxWidth(0.9f).padding(horizontal=8.dp).aspectRatio(1f))
-                        
-                        listOf(
-                            listOf<Pair<Int,FloatArray>>(R.string.eq_preset_flat to fA(0f,0f,0f,0f,0f,0f,0f,0f,0f,0f),R.string.eq_preset_vivi_signature to fA(150f,100f,50f,0f,-20f,0f,80f,150f,200f,150f),R.string.eq_preset_acoustic to fA(150f,150f,50f,75f,100f,75f,125f,175f,150f,75f),R.string.eq_preset_spatial to fA(75f,50f,25f,-50f,-25f,0f,50f,75f,100f,75f)),
-                            listOf<Pair<Int,FloatArray>>(R.string.eq_preset_bass_boost to fA(500f,400f,250f,100f,0f,-50f,0f,100f,200f,300f),R.string.eq_preset_pure_clarity to fA(-100f,-50f,0f,50f,150f,250f,300f,250f,150f,100f),R.string.eq_preset_soft_bass to fA(200f,180f,140f,80f,30f,20f,60f,90f,110f,130f),R.string.eq_preset_electronic to fA(350f,280f,120f,-50f,-150f,50f,180f,300f,400f,500f)),
-                            listOf<Pair<Int,FloatArray>>(R.string.eq_preset_rock to fA(300f,220f,150f,50f,-100f,120f,200f,250f,320f,380f),R.string.eq_preset_pop to fA(-150f,0f,100f,180f,250f,220f,150f,80f,-50f,-120f),R.string.eq_preset_jazz to fA(150f,100f,60f,140f,200f,180f,120f,180f,220f,200f),R.string.eq_preset_voice to fA(-250f,-150f,0f,200f,400f,380f,200f,120f,0f,-120f))
-                        ).forEachIndexed{i,c->PresetSection(if(i==0)sR(R.string.eq_label_vivi)else "",c,null,null,en,bG,{if(en)vm.setGs(it)})}
-                        
-                        PresetSection(sR(R.string.eq_label_dolby),listOf<Pair<Int,FloatArray>>(R.string.eq_preset_dolby_open to fA(150f,180f,220f,180f,160f,210f,250f,280f,180f,80f),R.string.eq_preset_dolby_rich to fA(100f,160f,200f,220f,280f,260f,240f,200f,150f,50f),R.string.eq_preset_dolby_focused to fA(-300f,-50f,130f,180f,220f,120f,140f,100f,-50f,-300f)),null,null,en,bG,{if(en)vm.setGs(it)})
-                        PresetSection(sR(R.string.eq_label_dirac),listOf<Pair<Int,FloatArray>>(R.string.eq_preset_dirac_music to fA(200f,140f,80f,0f,30f,80f,140f,200f,280f,350f),R.string.eq_preset_dirac_movie to fA(300f,250f,150f,0f,70f,120f,180f,250f,320f,400f),R.string.eq_preset_dirac_game to fA(150f,250f,200f,0f,80f,150f,300f,450f,400f,280f)),null,null,en,bG,{if(en)vm.setGs(it)})
                     }
                 }else{val ls=arrayOf("31","62","125","250","500","1k","2k","4k","8k","16k")
                     Column(verticalArrangement=Arrangement.spacedBy(16.dp)){
@@ -237,56 +223,6 @@ fun AxionEqScreen(bck:()->Unit,vm:AxionEqViewModel=hiltViewModel()){
                 }
             }
             Spacer(M.height(60.dp))
-        }
-    }
-}
-
-@Composable
-private fun PresetSection(
-    title: String,
-    list: List<Pair<Int, FloatArray>>,
-    names: List<String>?,
-    onEdit: (() -> Unit)?,
-    enabled: Boolean,
-    currentGains: FloatArray,
-    onSetGains: (FloatArray) -> Unit
-) {
-    val cS = MaterialTheme.colorScheme
-    Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (title.isNotEmpty()) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text(title, style = MaterialTheme.typography.titleSmall, color = cS.primary, modifier = Modifier.padding(start = 4.dp, bottom = 4.dp))
-                if (onEdit != null && enabled) {
-                    androidx.compose.material3.IconButton(onClick = onEdit, modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Rounded.Edit, null, tint = cS.primary, modifier = Modifier.size(16.dp))
-                    }
-                }
-            }
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
-            list.forEachIndexed { i, (nr, f) ->
-                val isSelected = currentGains.size == f.size && currentGains.zip(f).all { abs(it.first - it.second) < 10f }
-                ToggleButton(
-                    checked = isSelected,
-                    onCheckedChange = { if (enabled) onSetGains(f) },
-                    modifier = Modifier.weight(1f).semantics { role = Role.RadioButton },
-                    enabled = enabled,
-                    shapes = when {
-                        list.size == 1 || i == 0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                        i == list.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
-                        else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-                    }
-                ) {
-                    Text(
-                        text = names?.getOrNull(i) ?: sR(nr), 
-                        style = MaterialTheme.typography.labelSmall, 
-                        maxLines = 2,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 12.sp,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
         }
     }
 }
