@@ -85,6 +85,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.contentColorFor
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -243,6 +245,8 @@ import javax.inject.Inject
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
 import com.cgens67.avidtune.musicrecognition.openMusicRecognition
+import com.cgens67.avidtune.musicrecognition.ACTION_MUSIC_RECOGNITION
+import com.cgens67.avidtune.models.toMediaMetadata
 
 @Suppress("DEPRECATION", "ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
 @AndroidEntryPoint
@@ -452,7 +456,7 @@ class MainActivity : ComponentActivity() {
                         ) {
                             Surface(
                                 modifier = Modifier
-                                    .fillMaxWidth(0.9f)
+                                    .fillMaxWidth()
                                     .fillMaxHeight(0.85f),
                                 shape = RoundedCornerShape(24.dp),
                                 color = MaterialTheme.colorScheme.surfaceContainer
