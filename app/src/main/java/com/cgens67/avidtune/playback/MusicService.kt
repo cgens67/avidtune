@@ -1366,7 +1366,6 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
                 .setAudioProcessorChain(
                     DefaultAudioSink.DefaultAudioProcessorChain(
-                        emptyArray(),
                         SilenceSkippingAudioProcessor(2_000_000, 20_000, 256),
                         SonicAudioProcessor(),
                         customEqualizerAudioProcessor
