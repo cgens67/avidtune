@@ -168,6 +168,11 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
 
     @Inject
     lateinit var mediaLibrarySessionCallback: MediaLibrarySessionCallback
+    
+    @Inject
+    lateinit var equalizerService: EqualizerService
+
+    private val customEqualizerAudioProcessor = CustomEqualizerAudioProcessor()
 
     private lateinit var audioManager: AudioManager
     private var audioFocusRequest: AudioFocusRequest? = null
@@ -239,6 +244,8 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     override fun onCreate() {
         super.onCreate()
         val seekIncrementMs = dataStore.get(SeekIncrementKey, 5) * 1000L
+        
+        equalizerService.add(customEqualizerAudioProcessor)
 
         setMediaNotificationProvider(
             DefaultMediaNotificationProvider(
@@ -375,7 +382,6 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         currentMediaMetadata.distinctUntilChangedBy { it?.id }.collectLatest(scope) { metadata ->
             currentSkipSegments.value = emptyList()
             lastSkippedSegment = null
-            // Check metadata.isVideo so SponsorBlock only skips segments on true Videos, not Songs
             if (metadata != null && sponsorBlockEnabled.value && metadata.isVideo) {
                 val segments = withContext(Dispatchers.IO) {
                     com.cgens67.avidtune.models.SponsorBlock.getSkipSegments(metadata.id)
@@ -967,7 +973,6 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         if (isAudioEffectSessionOpened) return
         isAudioEffectSessionOpened = true
         setupLoudnessEnhancer()
-        com.cgens67.avidtune.playback.AudioEffectManager.init(player.audioSessionId, this)
         sendBroadcast(
             Intent(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION).apply {
                 putExtra(AudioEffect.EXTRA_AUDIO_SESSION, player.audioSessionId)
@@ -981,7 +986,6 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         if (!isAudioEffectSessionOpened) return
         isAudioEffectSessionOpened = false
         releaseLoudnessEnhancer()
-        com.cgens67.avidtune.playback.AudioEffectManager.release()
         sendBroadcast(
             Intent(AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION).apply {
                 putExtra(AudioEffect.EXTRA_AUDIO_SESSION, player.audioSessionId)
@@ -1365,6 +1369,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                         emptyArray(),
                         SilenceSkippingAudioProcessor(2_000_000, 20_000, 256),
                         SonicAudioProcessor(),
+                        customEqualizerAudioProcessor
                     ),
                 ).build()
         }
