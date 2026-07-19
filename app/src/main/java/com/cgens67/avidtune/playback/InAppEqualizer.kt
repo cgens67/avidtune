@@ -1,3 +1,11 @@
+@file:OptIn(
+    androidx.compose.material3.ExperimentalMaterial3Api::class,
+    androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class,
+    androidx.compose.foundation.layout.ExperimentalLayoutApi::class,
+    androidx.compose.foundation.ExperimentalFoundationApi::class,
+    androidx.media3.common.util.UnstableApi::class,
+    androidx.compose.material.ExperimentalMaterialApi::class
+)
 package com.cgens67.avidtune.playback
 
 import android.content.Context
@@ -6,7 +14,6 @@ import android.media.audiofx.AudioEffect
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.OptIn
 import androidx.compose.animation.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.*
@@ -37,7 +44,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor
-import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
 import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
@@ -85,7 +91,7 @@ class BiquadFilter(sr:Int,fq:Double,g:Double,q:Double=1.41,type:FilterType=Filte
     fun rst(){x1L=0.0;x2L=0.0;y1L=0.0;y2L=0.0;x1R=0.0;x2R=0.0;y1R=0.0;y2R=0.0}
 }
 
-@UnstableApi class CustomEqualizerAudioProcessor:AudioProcessor{
+class CustomEqualizerAudioProcessor:AudioProcessor{
     private var sr=0;private var ch=0;private var enc=C.ENCODING_INVALID;private var act=false;private var en=false;private var end=false
     private var oB=ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder());private var f=emptyList<BiquadFilter>();private var pA=1.0;private var pEq:ParametricEQ?=null
     @Synchronized fun apply(p:ParametricEQ){if(sr==0){pEq=p;return};pA=10.0.pow(p.preamp/20.0);f=p.bands.filter{it.enabled&&it.frequency<sr/2.0}.map{BiquadFilter(sr,it.frequency,it.gain,it.q,it.filterType)};en=true;f.forEach{it.rst()}}
@@ -102,9 +108,9 @@ class BiquadFilter(sr:Int,fq:Double,g:Double,q:Double=1.41,type:FilterType=Filte
 
 @Singleton class EqualizerService @Inject constructor(){
     private val p=mutableListOf<CustomEqualizerAudioProcessor>();private var pd:SavedEQProfile?=null;private var sD=false
-    @OptIn(UnstableApi::class) fun add(x:CustomEqualizerAudioProcessor){p.add(x);if(sD)x.disable()else pd?.let{x.apply(ParametricEQ(it.preamp,it.bands))}}
-    @OptIn(UnstableApi::class) fun applyProfile(e:SavedEQProfile):Result<Unit>{pd=e;sD=false;return runCatching{p.forEach{it.apply(ParametricEQ(e.preamp,e.bands))}}}
-    @OptIn(UnstableApi::class) fun disable(){sD=true;pd=null;p.forEach{it.disable()}}
+    fun add(x:CustomEqualizerAudioProcessor){p.add(x);if(sD)x.disable()else pd?.let{x.apply(ParametricEQ(it.preamp,it.bands))}}
+    fun applyProfile(e:SavedEQProfile):Result<Unit>{pd=e;sD=false;return runCatching{p.forEach{it.apply(ParametricEQ(e.preamp,e.bands))}}}
+    fun disable(){sD=true;pd=null;p.forEach{it.disable()}}
 }
 
 @Singleton class EQProfileRepository @Inject constructor(@ApplicationContext c:Context){
@@ -149,7 +155,6 @@ object ParametricEQParser{
     private fun ap()=viewModelScope.launch{val pf=SavedEQProfile("vivi_tuning","Vivi Tuning","ViviEqualizer",_bG.value.mapIndexed{i,f->ParametricEQBand(fQ[i],f.toDouble()/50.0,1.41,FilterType.PK,true)},0.0,false,true);r.save(pf);r.setAct(pf.id);s.applyProfile(pf)}
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable 
 fun EqScreen(nav:NavController?=null,vm:EQViewModel=hiltViewModel()){
     val st by vm.st.collectAsStateWithLifecycle();val c=LocalContext.current;val ply=LocalPlayerConnection.current;var er by remember{mutableStateOf<String?>(null)}
@@ -197,7 +202,6 @@ fun EqScreen(nav:NavController?=null,vm:EQViewModel=hiltViewModel()){
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class,ExperimentalMaterial3ExpressiveApi::class,ExperimentalLayoutApi::class)
 @Composable 
 fun AxionEqScreen(bck:()->Unit,vm:AxionEqViewModel=hiltViewModel()){
     val en by vm.en.collectAsState();val bG by vm.bG.collectAsState();val m by vm.m.collectAsState();val dty by vm.d.collectAsState();val cP by vm.cP.collectAsState();val cS=MaterialTheme.colorScheme
@@ -251,7 +255,7 @@ fun AxionEqScreen(bck:()->Unit,vm:AxionEqViewModel=hiltViewModel()){
                                     Column(M.padding(14.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
                                         Text(sR(R.string.eq_manage_presets),style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold);
                                         HorizontalDivider(color=cS.outlineVariant.copy(0.5f));
-                                        if(cP.isEmpty())Text(sR(R.string.eq_no_custom_presets),style=MaterialTheme.typography.bodyMedium,color=cS.onSurfaceVariant)else LazyColumn(M.heightIn(max=300.dp)){items(cP){c->Row(M.fillMaxWidth().clip(MaterialTheme.shapes.small).clickable{if(sel.contains(c.id))sel.remove(c.id)else sel.add(c.id)}.padding(vertical=4.dp),verticalAlignment=Alignment.CenterVertically){Checkbox(checked=sel.contains(c.id),onCheckedChange={if(it==true)sel.add(c.id)else sel.remove(c.id)});Spacer(M.width(8.dp));Text(c.name,style=MaterialTheme.typography.bodyLarge)}}}
+                                        if(cP.isEmpty())Text(sR(R.string.eq_no_custom_presets),style=MaterialTheme.typography.bodyMedium,color=cS.onSurfaceVariant)else LazyColumn(M.heightIn(max=300.dp)){items(cP){c->Row(M.fillMaxWidth().clip(MaterialTheme.shapes.small).clickable{if(sel.contains(c.id))sel.remove(c.id)else sel.add(c.id)}.padding(vertical=4.dp),verticalAlignment=Alignment.CenterVertically){Checkbox(checked=sel.contains(c.id),onCheckedChange={if(it==true)sel.add(c.id)else sel.remove(c.id)});Spacer(M.width(8.dp));Text(c.name,style=MaterialTheme.typography.bodyLarge)}}}}
                                     }
                                 };
                                 HorizontalDivider(color=cS.outlineVariant.copy(0.5f));
@@ -310,7 +314,6 @@ fun AxionEqScreen(bck:()->Unit,vm:AxionEqViewModel=hiltViewModel()){
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun PresetSection(
     title: String,
