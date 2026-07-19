@@ -10,7 +10,9 @@ import android.media.projection.*
 import android.net.Uri
 import android.os.*
 import android.service.quicksettings.*
+import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.*
@@ -18,6 +20,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -40,6 +43,7 @@ import com.cgens67.avidtune.shazamkit.*
 import com.cgens67.avidtune.utils.dataStore
 import org.json.*
 import timber.log.Timber
+import java.net.URLEncoder
 import java.text.DateFormat
 import java.util.Date
 import javax.inject.Inject
@@ -81,7 +85,7 @@ class MusicRecognitionNotificationManager @Inject constructor(@ApplicationContex
 }
 
 @Singleton class MusicRecognitionRepository @Inject constructor(@ApplicationContext private val context: Context) {
-    fun observeHistory(): Flow<List<RecognitionHistoryEntry>> = context.dataStore.data.map { p -> decode(p[stringPreferencesKey("musicRecognitionHistoryJson")]) }.catch { if (it is CancellationException) throw it; Timber.e(it); emit(emptyList()) }.flowOn(Dispatchers.IO)
+    fun observeHistory(): Flow<List<RecognitionHistoryEntry>> = context.dataStore.data.map { p -> decode(p[stringPreferencesKey("musicRecognitionHistoryJson")]) }.catch { if (it is CancellationException) throw it; Emit(emptyList()) }.flowOn(Dispatchers.IO)
     fun observeBackgroundRecognitionEnabled() = context.dataStore.data.map { it[booleanPreferencesKey("musicRecognitionBackgroundEnabled")] ?: true }.distinctUntilChanged().flowOn(Dispatchers.IO)
     suspend fun isBackgroundRecognitionEnabled() = withContext(Dispatchers.IO) { context.dataStore.data.first()[booleanPreferencesKey("musicRecognitionBackgroundEnabled")] ?: true }
     suspend fun setBackgroundRecognitionEnabled(enabled: Boolean) = withContext(Dispatchers.IO) { context.dataStore.edit { it[booleanPreferencesKey("musicRecognitionBackgroundEnabled")] = enabled } }
@@ -170,7 +174,7 @@ sealed interface MusicRecognitionEvent { data object RequestMicrophonePermission
     }
     private fun mic() { if (job?.isActive == true) return; startFg(if (Build.VERSION.SDK_INT >= 30) ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0); job = scope.launch { runRec { recognize { onPhase(it) } } } }
     private fun startFg(type: Int) { MusicRecognitionRuntimeState.update(BackgroundRecognitionState.Listening); refresh(); ServiceCompat.startForeground(this, 9410, notif.listening(), type) }
-    private suspend fun runRec(r: suspend () -> Result<RecognizedTrack>) { try { r().fold(onSuccess = { finishFg(); notif.notify(notif.result(it)) }, onFailure = { if (it is CancellationException) throw it; finishFg(); notif.notify(notif.failure((it as? MusicRecognitionException)?.failure ?: MusicRecognitionFailure.RecognitionFailed)) }) } catch (e: CancellationException) { throw e } catch (e: Exception) { finishFg(); notif.notify(notif.failure(MusicRecognitionFailure.RecognitionFailed)) } finally { release(); job = null; MusicRecognitionRuntimeState.update(BackgroundRecognitionState.Idle); refresh(); stopSelf() } }
+    private suspend fun runRec(r: suspend () -> Result<RecognizedTrack>) { try { r().fold(onSuccess = { finishFg(); notif.notify(notif.result(it)) }, onFailure = { if (it is CancellationException) throw it; finishFg(); notif.notify(notif.failure((it as? MusicRecognitionException)?.failure ?: MusicRecognitionFailure.RecordingFailed)) }) } catch (e: CancellationException) { throw e } catch (e: Exception) { finishFg(); notif.notify(notif.failure(MusicRecognitionFailure.RecognitionFailed)) } finally { release(); job = null; MusicRecognitionRuntimeState.update(BackgroundRecognitionState.Idle); refresh(); stopSelf() } }
     private fun onPhase(p: RecognitionPhase) { MusicRecognitionRuntimeState.update(if (p == RecognitionPhase.Listening) BackgroundRecognitionState.Listening else BackgroundRecognitionState.Processing); notif.notify(if (p == RecognitionPhase.Listening) notif.listening() else notif.processing()); refresh() }
     private fun cancel() { job?.cancel(); job = null; release(); MusicRecognitionRuntimeState.update(BackgroundRecognitionState.Idle); refresh(); stopForeground(STOP_FOREGROUND_REMOVE); notif.cancel(); stopSelf() }
     private fun publish(f: MusicRecognitionFailure) { finishFg(); notif.notify(notif.failure(f)); MusicRecognitionRuntimeState.update(BackgroundRecognitionState.Idle); refresh(); stopSelf() }
@@ -204,6 +208,44 @@ fun MusicRecognitionScreen(
     viewModel: MusicRecognitionViewModel = hiltViewModel()
 ) {
     val state by viewModel.screenState.collectAsState()
+    val context = LocalContext.current
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        viewModel.onMicrophonePermissionResult(isGranted)
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { event ->
+            when (event) {
+                is MusicRecognitionEvent.RequestMicrophonePermission -> {
+                    val hasPermission = ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.RECORD_AUDIO
+                    ) == PackageManager.PERMISSION_GRANTED
+                    if (hasPermission) {
+                        viewModel.onMicrophonePermissionResult(true)
+                    } else {
+                        permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    }
+                }
+                is MusicRecognitionEvent.Search -> {
+                    navController.navigate("search/${URLEncoder.encode(event.query, "UTF-8")}")
+                }
+                is MusicRecognitionEvent.OpenUri -> {
+                    try {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(event.uri)))
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "App not found to open link.", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                is MusicRecognitionEvent.RecognitionStarted -> {
+                    // No-op or log
+                }
+            }
+        }
+    }
     
     Scaffold(
         topBar = {
