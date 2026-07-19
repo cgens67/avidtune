@@ -1147,5 +1147,64 @@
     <string name="likes">Likes</string>
     <string name="dislikes">Dislikes</string>
     <string name="itag">Itag</string>
+
+    <!-- Equalizer & Profiles -->
+    <string name="import_error_title">Import Error</string>
+    <string name="error_file_read">Error reading file</string>
+    <string name="error_file_open">Error opening file: %1$s</string>
+    <string name="equalizer_header">Equalizer</string>
+    <plurals name="profiles_count">
+        <item quantity="one">%1$d profile</item>
+        <item quantity="other">%1$d profiles</item>
+    </plurals>
+    <string name="eq_disabled">Disabled</string>
+    <plurals name="band_count">
+        <item quantity="one">%1$d band</item>
+        <item quantity="other">%1$d bands</item>
+    </plurals>
+    <string name="delete_profile_desc">Delete Profile</string>
+    <string name="delete_profile_confirmation">Are you sure you want to delete %1$s?</string>
+    <string name="no_profiles">No profiles found</string>
+    <string name="import_profile">Import Profile</string>
+    <string name="system_equalizer">System Equalizer</string>
+    <string name="error_title">Error</string>
+    <string name="error_eq_apply_failed">Failed to apply EQ: %1$s</string>
+    <string name="vivi_equalizer">AvidTune Equalizer</string>
+    <string name="eq_enable_title">Enable Equalizer</string>
+    <string name="eq_enable_summary">Toggle the built-in parametric equalizer</string>
+    <string name="eq_simple">Simple</string>
+    <string name="eq_advanced">Advanced</string>
+    <string name="eq_save_dialog_title">Save Preset</string>
+    <string name="eq_save_name_hint">Preset Name</string>
+    <string name="eq_save">Save</string>
+    <string name="eq_manage_presets">Manage Presets</string>
+    <string name="eq_no_custom_presets">No custom presets saved</string>
+    <string name="eq_delete_selected">Delete Selected</string>
+    <string name="eq_label_mid">Mid</string>
+    <string name="eq_label_bass">Bass</string>
+    <string name="eq_label_treble">Treble</string>
+    <string name="eq_label_custom">Custom</string>
+    <string name="eq_label_vivi">AvidTune</string>
+    <string name="eq_label_dolby">Dolby</string>
+    <string name="eq_label_dirac">Dirac</string>
+    <string name="eq_preset_flat">Flat</string>
+    <string name="eq_preset_vivi_signature">AvidTune Signature</string>
+    <string name="eq_preset_acoustic">Acoustic</string>
+    <string name="eq_preset_spatial">Spatial</string>
+    <string name="eq_preset_bass_boost">Bass Boost</string>
+    <string name="eq_preset_pure_clarity">Pure Clarity</string>
+    <string name="eq_preset_soft_bass">Soft Bass</string>
+    <string name="eq_preset_electronic">Electronic</string>
+    <string name="eq_preset_rock">Rock</string>
+    <string name="eq_preset_pop">Pop</string>
+    <string name="eq_preset_jazz">Jazz</string>
+    <string name="eq_preset_voice">Voice</string>
+    <string name="eq_preset_dolby_open">Dolby Open</string>
+    <string name="eq_preset_dolby_rich">Dolby Rich</string>
+    <string name="eq_preset_dolby_focused">Dolby Focused</string>
+    <string name="eq_preset_dirac_music">Dirac Music</string>
+    <string name="eq_preset_dirac_movie">Dirac Movie</string>
+    <string name="eq_preset_dirac_game">Dirac Game</string>
+    <string name="eq_reset">Reset</string>
     
 </resources>
