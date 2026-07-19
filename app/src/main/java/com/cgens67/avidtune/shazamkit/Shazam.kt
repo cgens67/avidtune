@@ -190,7 +190,7 @@ class ShazamSignatureGenerator(private val maxTimeSeconds: Double = 3.1, private
             }
             write(ByteBuffer.allocate(48).order(ByteOrder.LITTLE_ENDIAN).apply { putInt(0xCAFE2580.toInt()); putInt(0); putInt(cont.size() + 8); putInt(0x94119C00.toInt()); putInt(0); putInt(0); putInt(0); putInt(3 shl 27); putInt(0); putInt(0); putInt((signatureNumberSamples + sampleRateHz * 0.24).toInt()); putInt((15 shl 19) + 0x40000) }.array())
             writeLittleInt(0x40000000); writeLittleInt(cont.size() + 8); write(cont.toByteArray())
-        }.toByteArray().apply { val crc = CRC32().apply { update(this@apply, 8, size - 8) }.value.toInt(); ByteBuffer.wrap(this).order(ByteOrder.LITTLE_ENDIAN).putInt(4, crc) }), (signatureNumberSamples * 1000L) / sampleRateHz)
+        }.toByteArray().also { bytes -> val crc = CRC32().apply { update(bytes, 8, bytes.size - 8) }.value.toInt(); ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).putInt(4, crc) }), (signatureNumberSamples * 1000L) / sampleRateHz)
         reset(); return sig
     }
     private data class FrequencyPeak(val fftPassNumber: Int, val peakMagnitude: Int, val correctedPeakFrequencyBin: Int)
