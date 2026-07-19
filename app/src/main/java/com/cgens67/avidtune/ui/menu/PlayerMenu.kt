@@ -196,16 +196,6 @@ fun ColumnScope.PlayerMenu(
         mutableStateOf(false)
     }
 
-    var showInAppEqualizer by rememberSaveable {
-        mutableStateOf(false)
-    }
-
-    if (showInAppEqualizer) {
-        com.cgens67.avidtune.playback.InAppEqualizerBottomSheet(
-            onDismiss = { showInAppEqualizer = false }
-        )
-    }
-
     var showExportSheet by rememberSaveable {
         mutableStateOf(false)
     }
@@ -883,7 +873,8 @@ fun ColumnScope.PlayerMenu(
                                     )
                                 },
                                 onClick = {
-                                    showInAppEqualizer = true
+                                    onDismiss()
+                                    navController.navigate("equalizer")
                                 }
                             )
                         )
