@@ -19,6 +19,7 @@ import android.util.Log
 import android.view.View
 import android.view.WindowManager
 import android.widget.Toast
+import android.widget.Toast.LENGTH_SHORT
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -61,7 +62,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -81,7 +81,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -91,7 +90,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -101,6 +99,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -182,9 +181,12 @@ import com.cgens67.avidtune.constants.StopMusicOnTaskClearKey
 import com.cgens67.avidtune.db.MusicDatabase
 import com.cgens67.avidtune.db.entities.SearchHistory
 import com.cgens67.avidtune.extensions.toEnum
-import com.cgens67.avidtune.models.toMediaMetadata
-import com.cgens67.avidtune.musicrecognition.ACTION_MUSIC_RECOGNITION
-import com.cgens67.avidtune.musicrecognition.openMusicRecognition
+import com.cgens67.avidtune.extensions.toInetSocketAddress
+import com.cgens67.avidtune.utils.dataStore
+import com.cgens67.avidtune.utils.get
+import com.cgens67.avidtune.utils.rememberEnumPreference
+import com.cgens67.avidtune.utils.rememberPreference
+import com.cgens67.avidtune.utils.reportException
 import com.cgens67.avidtune.playback.DownloadUtil
 import com.cgens67.avidtune.playback.MusicService
 import com.cgens67.avidtune.playback.MusicService.MusicBinder
@@ -221,11 +223,6 @@ import com.cgens67.avidtune.ui.utils.backToMain
 import com.cgens67.avidtune.ui.utils.resetHeightOffset
 import com.cgens67.avidtune.utils.SyncUtils
 import com.cgens67.avidtune.utils.Updater
-import com.cgens67.avidtune.utils.dataStore
-import com.cgens67.avidtune.utils.get
-import com.cgens67.avidtune.utils.rememberEnumPreference
-import com.cgens67.avidtune.utils.rememberPreference
-import com.cgens67.avidtune.utils.reportException
 import com.cgens67.avidtune.viewmodels.NewReleaseViewModel
 import com.valentinilk.shimmer.LocalShimmerTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -245,8 +242,7 @@ import java.net.URLEncoder
 import javax.inject.Inject
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
-
-// El codigo original de la aplicacion pertenece a : Arturo Cervantes Galindo (cgens67) Cualquier parecido es copia y pega de mi codigo original
+import com.cgens67.avidtune.musicrecognition.openMusicRecognition
 
 @Suppress("DEPRECATION", "ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
 @AndroidEntryPoint
@@ -1048,6 +1044,39 @@ class MainActivity : ComponentActivity() {
                                                             Icon(
                                                                 painter = painterResource(R.drawable.group),
                                                                 contentDescription = stringResource(R.string.music_together),
+                                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                                            )
+                                                        }
+
+                                                        // Music Recognition Button
+                                                        val musicRecogInteractionSource = remember { MutableInteractionSource() }
+                                                        val isMusicRecogPressed by musicRecogInteractionSource.collectIsPressedAsState()
+                                                        val musicRecogScale by animateFloatAsState(
+                                                            targetValue = if (isMusicRecogPressed) 0.8f else 1f,
+                                                            animationSpec = spring<Float>(stiffness = Spring.StiffnessMedium),
+                                                            label = "music_recog_scale"
+                                                        )
+
+                                                        IconButton(
+                                                            onClick = {
+                                                                try {
+                                                                    navController.openMusicRecognition()
+                                                                } catch (e: Exception) {
+                                                                    e.printStackTrace()
+                                                                    Toast.makeText(
+                                                                        context,
+                                                                        R.string.navigation_error,
+                                                                        Toast.LENGTH_SHORT
+                                                                    ).show()
+                                                                }
+                                                            },
+                                                            onLongClick = {},
+                                                            interactionSource = musicRecogInteractionSource,
+                                                            modifier = Modifier.scale(musicRecogScale)
+                                                        ) {
+                                                            Icon(
+                                                                painter = painterResource(R.drawable.music_note),
+                                                                contentDescription = stringResource(R.string.music_recognition),
                                                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                                                             )
                                                         }
