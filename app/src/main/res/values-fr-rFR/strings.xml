@@ -1181,5 +1181,34 @@
     <string name="eq_preset_dirac_movie">Dirac Film</string>
     <string name="eq_preset_dirac_game">Dirac Jeu</string>
     <string name="eq_reset">Réinitialiser</string>
+    
+    <!-- Music Recognition -->
+    <string name="music_recognition_notification_channel_name">Reconnaissance musicale</string>
+    <string name="music_recognition_notification_channel_description">Notifications pour la reconnaissance musicale en arrière-plan</string>
+    <string name="music_recognition_notification_listening_title">Écoute en cours</string>
+    <string name="music_recognition_notification_listening_text">Identification de la chanson en cours de lecture...</string>
+    <string name="music_recognition_notification_status_listening">Écoute</string>
+    <string name="music_recognition_notification_processing_title">Traitement audio</string>
+    <string name="music_recognition_notification_processing_text">Analyse de l\'audio enregistré...</string>
+    <string name="music_recognition_notification_status_processing">Traitement</string>
+    <string name="music_recognition_notification_artist">Artiste : %s</string>
+    <string name="music_recognition_notification_album">Album : %s</string>
+    <string name="music_recognition_notification_genre">Genre : %s</string>
+    <string name="music_recognition_notification_release">Sortie : %s</string>
+    <string name="music_recognition_notification_label">Label : %s</string>
+    <string name="music_recognition_notification_isrc">ISRC : %s</string>
+    <string name="music_recognition_notification_status_result">Correspondance trouvée</string>
+    <string name="music_recognition_notification_no_match_title">Aucune correspondance</string>
+    <string name="music_recognition_notification_recording_failed_title">Échec de l\'enregistrement</string>
+    <string name="music_recognition_signature_failed">Échec de la création de la signature audio</string>
+    <string name="music_recognition_recognition_failed">Échec de la reconnaissance</string>
+    <string name="music_recognition_notification_no_match_text">Impossible d\'identifier la chanson</string>
+    <string name="music_recognition_notification_recording_failed_text">Accès au microphone refusé ou occupé</string>
+    <string name="music_recognition_notification_signature_failed_text">L\'audio n\'a pas pu être traité</string>
+    <string name="music_recognition_notification_recognition_failed_text">Échec de la connexion au service de reconnaissance</string>
+    <string name="music_recognition">Reconnaissance musicale</string>
+    <string name="music_recognition_tap_to_listen">Appuyez pour écouter</string>
+    <string name="music_recognition_listening">Écoute en cours…</string>
+    <string name="music_recognition_processing">Traitement…</string>    
 
 </resources>
