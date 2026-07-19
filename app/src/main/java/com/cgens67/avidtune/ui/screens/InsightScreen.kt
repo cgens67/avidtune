@@ -239,7 +239,9 @@ class WrappedAudioService(private val context: Context) {
 
     fun toggleMute() {
         _isMuted.value = !_isMuted.value
-        player?.volume = if (_isMuted.value) 0f else 1f
+        if (fadeJob?.isActive != true) {
+            player?.volume = if (_isMuted.value) 0f else 1f
+        }
     }
 
     private suspend fun prepareTrack(songId: String?) {
@@ -261,8 +263,7 @@ class WrappedAudioService(private val context: Context) {
         fadeJob?.cancel()
         fadeJob = scope.launch {
             var vol = player?.volume ?: 1f
-            val targetVol = if (_isMuted.value) 0f else 1f
-            if (vol > 0f && targetVol > 0f) {
+            if (vol > 0f) {
                 while (vol > 0f) {
                     vol -= 0.05f
                     if (vol < 0f) vol = 0f
@@ -271,6 +272,7 @@ class WrappedAudioService(private val context: Context) {
                 }
             }
             player?.volume = 0f
+            player?.pause()
             onDone()
         }
     }
@@ -286,6 +288,9 @@ class WrappedAudioService(private val context: Context) {
                 delay(50)
                 timeout++
             }
+            
+            // Wait just a bit for the audio pipeline to start rendering frames
+            delay(150)
             
             var vol = 0f
             val targetVol = if (_isMuted.value) 0f else 1f
@@ -313,11 +318,14 @@ class WrappedAudioService(private val context: Context) {
             return
         }
 
-        val doPlay = {
+        val doPlay: () -> Unit = {
             playbackJob?.cancel()
             playbackJob = scope.launch {
                 try {
-                    player?.volume = 0f
+                    withContext(Dispatchers.Main) {
+                        player?.pause()
+                        player?.volume = 0f
+                    }
                     prepareTrack(songId)
                     withContext(Dispatchers.Main) {
                         if (songId != null && songId != "2-p9DM2Xvsc") {
