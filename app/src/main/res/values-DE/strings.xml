@@ -823,7 +823,7 @@
 
     <string name="sync_offset">Synchronisations-Offset</string>
     <string name="lyrics_sync_offset">Songtext-Synchronisations-Offset</string>
-    <string name="sync_offset_description">Timing anpassen, wenn der Songtext nicht synchron ist.\nPositiv (+ms) lässt den Text früher erscheinen.\nNegativ (-ms) lässt den Text später erscheinen.</string>
+    <string name="sync_offset_description">Timing anpassen, wenn der Songtext nicht synchron ist.\nPositif (+ms) lässt den Text früher erscheinen.\nNegativ (-ms) lässt den Text später erscheinen.</string>
 
     <string name="romanize">Romanisieren</string>
     <string name="hide_romanized">Umschrift ausblenden</string>
@@ -1139,5 +1139,64 @@
     <string name="likes">Mag ich</string>
     <string name="dislikes">Mag ich nicht</string>
     <string name="itag">Itag</string>
+
+    <!-- Equalizer Profiles & Presets -->
+    <string name="import_error_title">Importfehler</string>
+    <string name="error_file_read">Fehler beim Lesen der Datei</string>
+    <string name="error_file_open">Fehler beim Öffnen der Datei: %1$s</string>
+    <string name="equalizer_header">Equalizer</string>
+    <plurals name="profiles_count">
+        <item quantity="one">%1$d Profil</item>
+        <item quantity="other">%1$d Profile</item>
+    </plurals>
+    <string name="eq_disabled">Deaktiviert</string>
+    <plurals name="band_count">
+        <item quantity="one">%1$d Band</item>
+        <item quantity="other">%1$d Bänder</item>
+    </plurals>
+    <string name="delete_profile_desc">Profil löschen</string>
+    <string name="delete_profile_confirmation">Möchten Sie %1$s wirklich löschen?</string>
+    <string name="no_profiles">Keine Profile gefunden</string>
+    <string name="import_profile">Profil importieren</string>
+    <string name="system_equalizer">System-Equalizer</string>
+    <string name="error_title">Fehler</string>
+    <string name="error_eq_apply_failed">EQ konnte nicht angewendet werden: %1$s</string>
+    <string name="avidtune_equalizer">AvidTune Equalizer</string>
+    <string name="eq_enable_title">Equalizer aktivieren</string>
+    <string name="eq_enable_summary">Eingebauten parametrischen Equalizer umschalten</string>
+    <string name="eq_simple">Einfach</string>
+    <string name="eq_advanced">Erweitert</string>
+    <string name="eq_save_dialog_title">Voreinstellung speichern</string>
+    <string name="eq_save_name_hint">Voreinstellungsname</string>
+    <string name="eq_save">Speichern</string>
+    <string name="eq_manage_presets">Voreinstellungen verwalten</string>
+    <string name="eq_no_custom_presets">Keine benutzerdefinierten Voreinstellungen</string>
+    <string name="eq_delete_selected">Ausgewählte löschen</string>
+    <string name="eq_label_mid">Mitten</string>
+    <string name="eq_label_bass">Bass</string>
+    <string name="eq_label_treble">Höhen</string>
+    <string name="eq_label_custom">Benutzerdefiniert</string>
+    <string name="eq_label_avidtune">AvidTune</string>
+    <string name="eq_label_dolby">Dolby</string>
+    <string name="eq_label_dirac">Dirac</string>
+    <string name="eq_preset_flat">Flach</string>
+    <string name="eq_preset_avidtune_signature">AvidTune Signatur</string>
+    <string name="eq_preset_acoustic">Akustisch</string>
+    <string name="eq_preset_spatial">Räumlich</string>
+    <string name="eq_preset_bass_boost">Bass-Boost</string>
+    <string name="eq_preset_pure_clarity">Reine Klarheit</string>
+    <string name="eq_preset_soft_bass">Weicher Bass</string>
+    <string name="eq_preset_electronic">Elektronisch</string>
+    <string name="eq_preset_rock">Rock</string>
+    <string name="eq_preset_pop">Pop</string>
+    <string name="eq_preset_jazz">Jazz</string>
+    <string name="eq_preset_voice">Stimme</string>
+    <string name="eq_preset_dolby_open">Dolby Offen</string>
+    <string name="eq_preset_dolby_rich">Dolby Reichhaltig</string>
+    <string name="eq_preset_dolby_focused">Dolby Fokussiert</string>
+    <string name="eq_preset_dirac_music">Dirac Musik</string>
+    <string name="eq_preset_dirac_movie">Dirac Film</string>
+    <string name="eq_preset_dirac_game">Dirac Spiel</string>
+    <string name="eq_reset">Zurücksetzen</string>
 
 </resources>
