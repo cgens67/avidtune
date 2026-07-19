@@ -1122,4 +1122,64 @@
     <string name="likes">J\'aime</string>
     <string name="dislikes">Je n\'aime pas</string>
     <string name="itag">Itag</string>
+
+    <!-- Equalizer Profiles & Presets -->
+    <string name="import_error_title">Erreur d\'importation</string>
+    <string name="error_file_read">Erreur de lecture du fichier</string>
+    <string name="error_file_open">Erreur d\'ouverture du fichier : %1$s</string>
+    <string name="equalizer_header">Égaliseur</string>
+    <plurals name="profiles_count">
+        <item quantity="one">%1$d profil</item>
+        <item quantity="other">%1$d profils</item>
+    </plurals>
+    <string name="eq_disabled">Désactivé</string>
+    <plurals name="band_count">
+        <item quantity="one">%1$d bande</item>
+        <item quantity="other">%1$d bandes</item>
+    </plurals>
+    <string name="delete_profile_desc">Supprimer le profil</string>
+    <string name="delete_profile_confirmation">Voulez-vous vraiment supprimer %1$s ?</string>
+    <string name="no_profiles">Aucun profil trouvé</string>
+    <string name="import_profile">Importer un profil</string>
+    <string name="system_equalizer">Égaliseur système</string>
+    <string name="error_title">Erreur</string>
+    <string name="error_eq_apply_failed">Échec de l\'application de l\'EQ : %1$s</string>
+    <string name="avidtune_equalizer">Égaliseur AvidTune</string>
+    <string name="eq_enable_title">Activer l\'égaliseur</string>
+    <string name="eq_enable_summary">Basculer l\'égaliseur paramétrique intégré</string>
+    <string name="eq_simple">Simple</string>
+    <string name="eq_advanced">Avancé</string>
+    <string name="eq_save_dialog_title">Enregistrer le préréglage</string>
+    <string name="eq_save_name_hint">Nom du préréglage</string>
+    <string name="eq_save">Enregistrer</string>
+    <string name="eq_manage_presets">Gérer les préréglages</string>
+    <string name="eq_no_custom_presets">Aucun préréglage personnalisé</string>
+    <string name="eq_delete_selected">Supprimer la sélection</string>
+    <string name="eq_label_mid">Médiums</string>
+    <string name="eq_label_bass">Basses</string>
+    <string name="eq_label_treble">Aigus</string>
+    <string name="eq_label_custom">Personnalisé</string>
+    <string name="eq_label_avidtune">AvidTune</string>
+    <string name="eq_label_dolby">Dolby</string>
+    <string name="eq_label_dirac">Dirac</string>
+    <string name="eq_preset_flat">Plat</string>
+    <string name="eq_preset_avidtune_signature">Signature AvidTune</string>
+    <string name="eq_preset_acoustic">Acoustique</string>
+    <string name="eq_preset_spatial">Spatial</string>
+    <string name="eq_preset_bass_boost">Amplification des basses</string>
+    <string name="eq_preset_pure_clarity">Clarté pure</string>
+    <string name="eq_preset_soft_bass">Basses douces</string>
+    <string name="eq_preset_electronic">Électronique</string>
+    <string name="eq_preset_rock">Rock</string>
+    <string name="eq_preset_pop">Pop</string>
+    <string name="eq_preset_jazz">Jazz</string>
+    <string name="eq_preset_voice">Voix</string>
+    <string name="eq_preset_dolby_open">Dolby Ouvert</string>
+    <string name="eq_preset_dolby_rich">Dolby Riche</string>
+    <string name="eq_preset_dolby_focused">Dolby Ciblé</string>
+    <string name="eq_preset_dirac_music">Dirac Musique</string>
+    <string name="eq_preset_dirac_movie">Dirac Film</string>
+    <string name="eq_preset_dirac_game">Dirac Jeu</string>
+    <string name="eq_reset">Réinitialiser</string>
+
 </resources>
