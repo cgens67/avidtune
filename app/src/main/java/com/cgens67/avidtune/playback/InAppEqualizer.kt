@@ -203,7 +203,7 @@ fun AvidTuneEqScreen(bck:()->Unit,vm:AvidTuneEqViewModel=hiltViewModel()){
                         
                         val avidTunePresets = listOf<Pair<Int,FloatArray>>(
                             R.string.eq_preset_flat to fA(0f,0f,0f,0f,0f,0f,0f,0f,0f,0f),
-                            R.string.eq_preset_vivi_signature to fA(150f,100f,50f,0f,-20f,0f,80f,150f,200f,150f),
+                            R.string.eq_preset_avidtune_signature to fA(150f,100f,50f,0f,-20f,0f,80f,150f,200f,150f),
                             R.string.eq_preset_acoustic to fA(150f,150f,50f,75f,100f,75f,125f,175f,150f,75f),
                             R.string.eq_preset_spatial to fA(75f,50f,25f,-50f,-25f,0f,50f,75f,100f,75f),
                             R.string.eq_preset_bass_boost to fA(500f,400f,250f,100f,0f,-50f,0f,100f,200f,300f),
