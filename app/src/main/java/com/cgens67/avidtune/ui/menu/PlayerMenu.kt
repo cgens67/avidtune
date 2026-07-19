@@ -875,7 +875,7 @@ fun ColumnScope.PlayerMenu(
                                 onClick = {
                                     playerBottomSheetState.collapseSoft()
                                     onDismiss()
-                                    navController.navigate("equalizer")
+                                    navController.navigate("settings/equalizer")
                                 }
                             )
                         )
