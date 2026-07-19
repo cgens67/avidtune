@@ -157,39 +157,85 @@ object ParametricEQParser{
     private fun ap()=viewModelScope.launch{val pf=SavedEQProfile("vivi_tuning","Vivi Tuning","ViviEqualizer",_bG.value.mapIndexed{i,f->ParametricEQBand(fQ[i],f.toDouble()/50.0,1.41,FilterType.PK,true)},0.0,false,true);r.save(pf);r.setAct(pf.id);s.applyProfile(pf)}
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable 
 fun EqScreen(nav:NavController?=null,vm:EQViewModel=hiltViewModel()){
     val st by vm.st.collectAsStateWithLifecycle();val c=LocalContext.current;val ply=LocalPlayerConnection.current;var er by remember{mutableStateOf<String?>(null)}
     val sys=rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()){}
     val pkr=rememberLauncherForActivityResult(ActivityResultContracts.GetContent()){u->u?.let{try{var n="custom_eq.txt";c.contentResolver.query(it,null,null,null,null)?.use{q->if(q.moveToFirst())q.getString(q.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME))?.let{x->n=x}};c.contentResolver.openInputStream(it)?.let{s->vm.imp(n,s,{},{e->er="${c.getString(R.string.import_error_title)}:${e.message}"})}?:run{er=c.getString(R.string.error_file_read)}}catch(e:Exception){er=c.getString(R.string.error_file_open,e.message)}}}
-    Surface(shape=RoundedCornerShape(28.dp),color=MaterialTheme.colorScheme.surfaceContainerHigh,tonalElevation=6.dp,modifier=M.fillMaxWidth(0.9f).heightIn(max=600.dp).padding(vertical=24.dp)){
-        Column{
-            Row(M.fillMaxWidth().padding(24.dp,16.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween){
-                Column{Text(sR(R.string.equalizer_header),style=MaterialTheme.typography.headlineSmall);Text(pluralStringResource(R.plurals.profiles_count,st.profiles.size,st.profiles.size),style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)};
-                Row{
-                    IconButton(onClick={nav?.navigate("settings/equalizer")}){Icon(pR(R.drawable.tune),null)};
-                    IconButton(onClick={pkr.launch("text/plain")}){Icon(pR(R.drawable.add),null)};
+    
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text(sR(R.string.equalizer_header))
+                        Text(
+                            pluralStringResource(R.plurals.profiles_count, st.profiles.size, st.profiles.size),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
+                navigationIcon = {
+                    com.cgens67.avidtune.ui.component.IconButton(
+                        onClick = { nav?.navigateUp() },
+                        onLongClick = {}
+                    ) {
+                        Icon(pR(R.drawable.arrow_back), null)
+                    }
+                },
+                actions = {
+                    IconButton(onClick={nav?.navigate("settings/equalizer")}){Icon(pR(R.drawable.tune),null)}
+                    IconButton(onClick={pkr.launch("text/plain")}){Icon(pR(R.drawable.add),null)}
                     IconButton(onClick={ply?.let{p->val i=Intent(AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL).apply{putExtra(AudioEffect.EXTRA_AUDIO_SESSION,p.player.audioSessionId);putExtra(AudioEffect.EXTRA_PACKAGE_NAME,c.packageName);putExtra(AudioEffect.EXTRA_CONTENT_TYPE,0)};if(i.resolveActivity(c.packageManager)!=null)sys.launch(i)}}){Icon(pR(R.drawable.equalizer),null)}
                 }
+            )
+        }
+    ) { pd ->
+        LazyColumn(
+            modifier = M.fillMaxSize().padding(pd),
+            contentPadding = PaddingValues(bottom = 16.dp)
+        ) {
+            item {
+                ListItem(
+                    headlineContent={Text(sR(R.string.eq_disabled),fontWeight=if(st.activeProfileId==null)FontWeight.SemiBold else FontWeight.Normal)},
+                    leadingContent={RadioButton(st.activeProfileId==null,{vm.sel(null)})},
+                    modifier=M.clickable{vm.sel(null)}.padding(horizontal=8.dp)
+                )
             }
-            LazyColumn(M.fillMaxWidth(),contentPadding=PaddingValues(bottom=16.dp)){
-                item{
-                    ListItem(headlineContent={Text(sR(R.string.eq_disabled),fontWeight=if(st.activeProfileId==null)FontWeight.SemiBold else FontWeight.Normal)},leadingContent={RadioButton(st.activeProfileId==null,{vm.sel(null)})},modifier=M.clickable{vm.sel(null)}.padding(horizontal=8.dp))
-                }
-                if(st.profiles.isNotEmpty()){
-                    items(st.profiles){p->
-                        var dD by remember{mutableStateOf(false)};
-                        ListItem(headlineContent={Text(p.deviceModel,fontWeight=if(st.activeProfileId==p.id)FontWeight.SemiBold else FontWeight.Normal)},supportingContent={Text(pluralStringResource(R.plurals.band_count,p.bands.size,p.bands.size))},leadingContent={RadioButton(st.activeProfileId==p.id,{vm.sel(p.id)})},trailingContent={IconButton(onClick={dD=true}){Icon(pR(R.drawable.delete),null,tint=MaterialTheme.colorScheme.error)}},modifier=M.clickable{vm.sel(p.id)}.padding(horizontal=8.dp))
-                        if(dD){
-                            AlertDialog(onDismissRequest={dD=false},confirmButton={TextButton(onClick={vm.del(p.id);dD=false}){Text(sR(android.R.string.ok))}},dismissButton={TextButton(onClick={dD=false}){Text(sR(android.R.string.cancel))}},title={Text(sR(R.string.delete_profile_desc))},text={Text(sR(R.string.delete_profile_confirmation,p.name))})
-                        }
+            if(st.profiles.isNotEmpty()){
+                items(st.profiles){p->
+                    var dD by remember{mutableStateOf(false)};
+                    ListItem(
+                        headlineContent={Text(p.deviceModel,fontWeight=if(st.activeProfileId==p.id)FontWeight.SemiBold else FontWeight.Normal)},
+                        supportingContent={Text(pluralStringResource(R.plurals.band_count,p.bands.size,p.bands.size))},
+                        leadingContent={RadioButton(st.activeProfileId==p.id,{vm.sel(p.id)})},
+                        trailingContent={IconButton(onClick={dD=true}){Icon(pR(R.drawable.delete),null,tint=MaterialTheme.colorScheme.error)}},
+                        modifier=M.clickable{vm.sel(p.id)}.padding(horizontal=8.dp)
+                    )
+                    if(dD){
+                        AlertDialog(
+                            onDismissRequest={dD=false},
+                            confirmButton={TextButton(onClick={vm.del(p.id);dD=false}){Text(sR(android.R.string.ok))}},
+                            dismissButton={TextButton(onClick={dD=false}){Text(sR(android.R.string.cancel))}},
+                            title={Text(sR(R.string.delete_profile_desc))},
+                            text={Text(sR(R.string.delete_profile_confirmation,p.name))}
+                        )
                     }
                 }
-                if(st.profiles.isEmpty()){
-                    item{
-                        Box(M.fillMaxWidth().padding(32.dp),Alignment.Center){
-                            Column(horizontalAlignment=Alignment.CenterHorizontally){Icon(pR(R.drawable.equalizer),null,M.size(48.dp),MaterialTheme.colorScheme.onSurfaceVariant);Spacer(M.height(16.dp));Text(sR(R.string.no_profiles),style=MaterialTheme.typography.titleMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);Spacer(M.height(8.dp));Button(onClick={pkr.launch("text/plain")}){Text(sR(R.string.import_profile))};Spacer(M.height(8.dp));OutlinedButton(onClick={sys.launch(Intent(AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL))}){Text(sR(R.string.system_equalizer))}
-                            }
+            }
+            if(st.profiles.isEmpty()){
+                item{
+                    Box(M.fillMaxWidth().padding(32.dp),Alignment.Center){
+                        Column(horizontalAlignment=Alignment.CenterHorizontally){
+                            Icon(pR(R.drawable.equalizer),null,M.size(48.dp),MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(M.height(16.dp))
+                            Text(sR(R.string.no_profiles),style=MaterialTheme.typography.titleMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(M.height(8.dp))
+                            Button(onClick={pkr.launch("text/plain")}){Text(sR(R.string.import_profile))}
+                            Spacer(M.height(8.dp))
+                            OutlinedButton(onClick={sys.launch(Intent(AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL))}){Text(sR(R.string.system_equalizer))}
                         }
                     }
                 }
