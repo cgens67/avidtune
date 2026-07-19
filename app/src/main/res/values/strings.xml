@@ -1169,7 +1169,7 @@
     <string name="system_equalizer">System Equalizer</string>
     <string name="error_title">Error</string>
     <string name="error_eq_apply_failed">Failed to apply EQ: %1$s</string>
-    <string name="vivi_equalizer">AvidTune Equalizer</string>
+    <string name="avidtune_equalizer">AvidTune Equalizer</string>
     <string name="eq_enable_title">Enable Equalizer</string>
     <string name="eq_enable_summary">Toggle the built-in parametric equalizer</string>
     <string name="eq_simple">Simple</string>
@@ -1184,11 +1184,11 @@
     <string name="eq_label_bass">Bass</string>
     <string name="eq_label_treble">Treble</string>
     <string name="eq_label_custom">Custom</string>
-    <string name="eq_label_vivi">AvidTune</string>
+    <string name="eq_label_avidtune">AvidTune</string>
     <string name="eq_label_dolby">Dolby</string>
     <string name="eq_label_dirac">Dirac</string>
     <string name="eq_preset_flat">Flat</string>
-    <string name="eq_preset_vivi_signature">AvidTune Signature</string>
+    <string name="eq_preset_avidtune_signature">AvidTune Signature</string>
     <string name="eq_preset_acoustic">Acoustic</string>
     <string name="eq_preset_spatial">Spatial</string>
     <string name="eq_preset_bass_boost">Bass Boost</string>
