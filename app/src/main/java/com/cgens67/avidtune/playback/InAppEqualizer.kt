@@ -251,7 +251,7 @@ fun AxionEqScreen(bck:()->Unit,vm:AxionEqViewModel=hiltViewModel()){
                                     Column(M.padding(14.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
                                         Text(sR(R.string.eq_manage_presets),style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold);
                                         HorizontalDivider(color=cS.outlineVariant.copy(0.5f));
-                                        if(cP.isEmpty())Text(sR(R.string.eq_no_custom_presets),style=MaterialTheme.typography.bodyMedium,color=cS.onSurfaceVariant)else LazyColumn(M.heightIn(max=300.dp)){items(cP){c->Row(M.fillMaxWidth().clip(MaterialTheme.shapes.small).clickable{if(sel.contains(c.id))sel.remove(c.id)else sel.add(c.id)}.padding(vertical=4.dp),verticalAlignment=Alignment.CenterVertically){Checkbox(checked=sel.contains(c.id),onCheckedChange={if(it==true)sel.add(c.id)else sel.remove(c.id)});Spacer(M.width(8.dp));Text(c.name,style=MaterialTheme.typography.bodyLarge)}}}}
+                                        if(cP.isEmpty())Text(sR(R.string.eq_no_custom_presets),style=MaterialTheme.typography.bodyMedium,color=cS.onSurfaceVariant)else LazyColumn(M.heightIn(max=300.dp)){items(cP){c->Row(M.fillMaxWidth().clip(MaterialTheme.shapes.small).clickable{if(sel.contains(c.id))sel.remove(c.id)else sel.add(c.id)}.padding(vertical=4.dp),verticalAlignment=Alignment.CenterVertically){Checkbox(checked=sel.contains(c.id),onCheckedChange={if(it==true)sel.add(c.id)else sel.remove(c.id)});Spacer(M.width(8.dp));Text(c.name,style=MaterialTheme.typography.bodyLarge)}}}
                                     }
                                 };
                                 HorizontalDivider(color=cS.outlineVariant.copy(0.5f));
