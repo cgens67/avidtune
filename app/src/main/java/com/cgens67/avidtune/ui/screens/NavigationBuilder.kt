@@ -19,6 +19,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.cgens67.avidtune.BuildConfig
+import com.cgens67.avidtune.discord.DiscordSettings
 import com.cgens67.avidtune.playback.AvidTuneEqScreen
 import com.cgens67.avidtune.playback.EqScreen
 import com.cgens67.avidtune.ui.screens.settings.ChangelogScreen
