@@ -67,9 +67,14 @@ import com.cgens67.avidtune.ui.screens.settings.EnhancedRichPresence
 import com.cgens67.avidtune.ui.utils.backToMain
 import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
+import com.cgens67.avidtune.utils.dataStore
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -91,14 +96,14 @@ data class DiscordAccount(val id: String, val username: String, val displayName:
 data class DiscordAuthSession(val accessToken: String, val refreshToken: String?, val expiresAtMillis: Long, val account: DiscordAccount?)
 
 @Serializable
-private data class TokenResponse(
+data class TokenResponse(
     @SerialName("access_token") val accessToken: String,
     @SerialName("refresh_token") val refreshToken: String? = null,
     @SerialName("expires_in") val expiresInSeconds: Long = 0L
 )
 
 @Serializable
-private data class UserInfoResponse(
+data class UserInfoResponse(
     @SerialName("id") val id: String? = null,
     @SerialName("sub") val sub: String? = null,
     @SerialName("avatar") val avatar: String? = null,
@@ -316,6 +321,17 @@ object DiscordOAuthRepository {
     }
 
     private fun String.urlEncode(): String = URLEncoder.encode(this, Charsets.UTF_8.name())
+    
+    private fun randomUrlSafeString(byteCount: Int): String {
+        val bytes = ByteArray(byteCount)
+        secureRandom.nextBytes(bytes)
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
+    }
+
+    private fun sha256Base64Url(value: String): String {
+        val digest = MessageDigest.getInstance("SHA-256").digest(value.toByteArray(Charsets.US_ASCII))
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(digest)
+    }
 }
 
 class DiscordOAuthCallbackActivity : Activity() {
