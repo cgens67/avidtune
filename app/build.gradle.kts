@@ -130,7 +130,7 @@ dependencies {
     implementation(libs.coil.gif)
     implementation(libs.shimmer)
 
-    implementation(libs.media3)
+    media3 = libs.media3
     implementation(libs.media3.session)
     implementation(libs.media3.okhttp)
     implementation(libs.media3.hls)
@@ -161,7 +161,6 @@ dependencies {
     implementation(projects.innertube)
     implementation(projects.kugou)
     implementation(projects.lrclib)
-    implementation(projects.kizzy)
     implementation(project(":jossredconnect"))
     implementation(project(":betterlyrics"))
     implementation(project(":paxsenix"))
