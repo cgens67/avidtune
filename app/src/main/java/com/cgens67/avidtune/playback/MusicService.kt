@@ -68,9 +68,7 @@ import com.cgens67.avidtune.constants.DiscordUseDetailsKey
 import com.cgens67.avidtune.constants.EnableDiscordRPCKey
 import com.cgens67.avidtune.constants.HideExplicitKey
 import com.cgens67.avidtune.constants.HistoryDuration
-import com.cgens67.avidtune.constants.MediaSessionConstants.CommandToggleLike
-import com.cgens67.avidtune.constants.MediaSessionConstants.CommandToggleRepeatMode
-import com.cgens67.avidtune.constants.MediaSessionConstants.CommandToggleShuffle
+import com.cgens67.avidtune.constants.LastNewReleaseCheckKey
 import com.cgens67.avidtune.constants.PauseListenHistoryKey
 import com.cgens67.avidtune.constants.PersistentQueueKey
 import com.cgens67.avidtune.constants.PlayerVolumeKey
@@ -80,6 +78,7 @@ import com.cgens67.avidtune.constants.ShowLyricsKey
 import com.cgens67.avidtune.constants.SimilarContent
 import com.cgens67.avidtune.constants.SkipSilenceKey
 import com.cgens67.avidtune.constants.SponsorBlockEnabledKey
+import com.cgens67.avidtune.constants.StopMusicOnTaskClearKey
 import com.cgens67.avidtune.db.MusicDatabase
 import com.cgens67.avidtune.db.entities.Event
 import com.cgens67.avidtune.db.entities.FormatEntity
@@ -87,6 +86,8 @@ import com.cgens67.avidtune.db.entities.LyricsEntity
 import com.cgens67.avidtune.db.entities.RelatedSongMap
 import com.cgens67.avidtune.di.DownloadCache
 import com.cgens67.avidtune.di.PlayerCache
+import com.cgens67.avidtune.discord.DiscordRPC
+import com.cgens67.avidtune.discord.DiscordPresenceManager
 import com.cgens67.avidtune.extensions.SilentHandler
 import com.cgens67.avidtune.extensions.collect
 import com.cgens67.avidtune.extensions.collectLatest
@@ -107,7 +108,6 @@ import com.cgens67.avidtune.playback.queues.filterExplicit
 import com.cgens67.avidtune.together.TogetherManager
 import com.cgens67.avidtune.together.TogetherRoomSettings
 import com.cgens67.avidtune.utils.CoilBitmapLoader
-import com.cgens67.avidtune.utils.DiscordRPC
 import com.cgens67.avidtune.utils.NetworkConnectivityObserver
 import com.cgens67.avidtune.utils.YTPlayerUtils
 import com.cgens67.avidtune.utils.dataStore
@@ -139,10 +139,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.plus
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import timber.log.Timber
@@ -1473,6 +1470,19 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             Log.e(TAG, "Error in saveQueueToDisk", e)
             reportException(e)
         }
+    }
+
+    suspend fun refreshDiscordNow(): Boolean {
+        val songObj = currentSong.value
+        val position = player.currentPosition
+        val isPaused = !player.isPlaying
+        return DiscordPresenceManager.updateNow(
+            context = this,
+            token = dataStore.get(DiscordTokenKey, ""),
+            song = songObj,
+            positionMs = position,
+            isPaused = isPaused
+        )
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
