@@ -1,5 +1,6 @@
 package com.cgens67.avidtune.discord
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -36,10 +37,12 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
@@ -47,6 +50,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -62,12 +66,13 @@ import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.*
 import com.cgens67.avidtune.ui.component.*
-import com.cgens67.avidtune.ui.screens.settings.DiscordPresenceManager
-import com.cgens67.avidtune.ui.screens.settings.EnhancedRichPresence
+import com.cgens67.avidtune.utils.DiscordPresenceManager
 import com.cgens67.avidtune.ui.utils.backToMain
 import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
 import com.cgens67.avidtune.utils.dataStore
+import com.cgens67.avidtune.utils.makeTimeString
+import com.cgens67.avidtune.db.entities.Song
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.collectLatest
@@ -311,15 +316,6 @@ object DiscordOAuthRepository {
         return connection.readResponse()
     }
 
-    private fun HttpURLConnection.readResponse(): String {
-        val status = responseCode
-        val stream = if (status in 200..299) inputStream else errorStream
-        val body = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
-        disconnect()
-        if (status !in 200..299) throw IOException("Discord OAuth request failed with HTTP $status: $body")
-        return body
-    }
-
     private fun String.urlEncode(): String = URLEncoder.encode(this, Charsets.UTF_8.name())
     
     private fun randomUrlSafeString(byteCount: Int): String {
@@ -446,4 +442,1135 @@ fun DiscordLoginScreen(navController: NavController) {
     )
 
     BackHandler(enabled = webView?.canGoBack() == true) { webView?.goBack() }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DiscordSettings(
+    navController: NavController,
+    scrollBehavior: TopAppBarScrollBehavior,
+) {
+    val playerConnection = LocalPlayerConnection.current ?: return
+    val song by playerConnection.currentSong.collectAsState(null)
+    val isPlaying by playerConnection.isPlaying.collectAsState()
+
+    val playbackState by playerConnection.playbackState.collectAsState()
+    var position by rememberSaveable(playbackState) {
+        mutableLongStateOf(playerConnection.player.currentPosition)
+    }
+    var duration by rememberSaveable(playbackState) {
+        mutableLongStateOf(playerConnection.player.duration)
+    }
+
+    val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    var discordToken by rememberPreference(DiscordTokenKey, "")
+    var discordUsername by rememberPreference(DiscordUsernameKey, "")
+    var discordName by rememberPreference(DiscordNameKey, "")
+    var discordAvatarUrl by rememberPreference(DiscordAvatarUrlKey, "")
+    var authorizedToken by rememberSaveable { mutableStateOf("") }
+    var authorizedUsername by rememberSaveable { mutableStateOf("") }
+    var authorizedName by rememberSaveable { mutableStateOf("") }
+    var authorizedAvatarUrl by rememberSaveable { mutableStateOf("") }
+    var showLogoutConfirm by rememberSaveable { mutableStateOf(false) }
+    var authorizationSession by remember {
+        mutableStateOf(DiscordOAuthRepository.createAuthorizationSession())
+    }
+    var authorizationUiModeName by rememberSaveable {
+        mutableStateOf(DiscordAuthorizationUiMode.Idle.name)
+    }
+    var authorizationMessage by rememberSaveable { mutableStateOf<String?>(null) }
+    var currentTimeMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
+
+    val authorizationUiMode =
+        remember(authorizationUiModeName) {
+            DiscordAuthorizationUiMode.valueOf(authorizationUiModeName)
+        }
+
+    val discordTokenExpiresAt by rememberPreference(DiscordTokenExpiresAtKey, 0L)
+
+    LaunchedEffect(discordTokenExpiresAt) {
+        currentTimeMillis = System.currentTimeMillis()
+        if (discordTokenExpiresAt > currentTimeMillis) {
+            delay((discordTokenExpiresAt - currentTimeMillis).coerceAtLeast(1_000L))
+            currentTimeMillis = System.currentTimeMillis()
+        }
+    }
+
+    LaunchedEffect(discordToken) {
+        val token = discordToken
+        if (token.isBlank()) {
+            authorizedToken = ""
+            authorizedUsername = ""
+            authorizedName = ""
+            authorizedAvatarUrl = ""
+            return@LaunchedEffect
+        }
+
+        if (token == authorizedToken) {
+            authorizedToken = ""
+        }
+
+        if (token.isNotBlank()) {
+            runCatching {
+                DiscordOAuthRepository.fetchAccount(token)
+            }.onSuccess {
+                discordUsername = it.username
+                discordName = it.displayName
+                discordAvatarUrl = it.avatarUrl.orEmpty()
+            }.onFailure {
+                Timber.tag("DiscordSettings").w(it, "Discord account lookup failed")
+            }
+        }
+    }
+
+    val (discordRPC, onDiscordRPCChange) =
+        rememberPreference(
+            key = EnableDiscordRPCKey,
+            defaultValue = true,
+        )
+
+    LaunchedEffect(discordToken, discordRPC) {
+        if (discordRPC && discordToken.isNotBlank()) {
+            Timber.tag("DiscordSettings").d("Discord Rich Presence enabled, MusicService will handle start")
+        } else {
+            Timber.tag("DiscordSettings").d("Discord Rich Presence disabled or not authorized, MusicService will handle stop")
+        }
+    }
+
+    val activeDiscordToken = authorizedToken.ifBlank { discordToken }
+    val activeDiscordUsername = authorizedUsername.ifBlank { discordUsername }
+    val activeDiscordName = authorizedName.ifBlank { discordName }
+    val activeDiscordAvatarUrl = authorizedAvatarUrl.ifBlank { discordAvatarUrl }
+    val isLoggedIn = remember(activeDiscordToken) { activeDiscordToken.isNotBlank() }
+    val isAccessTokenExpired =
+        remember(isLoggedIn, discordTokenExpiresAt, currentTimeMillis) {
+            isLoggedIn && discordTokenExpiresAt > 0L && currentTimeMillis >= discordTokenExpiresAt
+        }
+    val accountDisplayName =
+        remember(isLoggedIn, activeDiscordName, activeDiscordUsername, context) {
+            when {
+                activeDiscordName.isNotBlank() -> activeDiscordName
+                activeDiscordUsername.isNotBlank() -> activeDiscordUsername
+                isLoggedIn -> context.getString(R.string.account)
+                else -> context.getString(R.string.not_logged_in)
+            }
+        }
+
+    val launchAuthorization: () -> Unit = {
+        val session = DiscordOAuthRepository.createAuthorizationSession()
+        authorizationSession = session
+        authorizationMessage = null
+        authorizationUiModeName = DiscordAuthorizationUiMode.Waiting.name
+
+        runCatching {
+            context.startActivity(
+                Intent(Intent.ACTION_VIEW, session.authorizationUri).apply {
+                    addCategory(Intent.CATEGORY_BROWSABLE)
+                },
+            )
+        }.onFailure {
+            authorizationUiModeName = DiscordAuthorizationUiMode.Failure.name
+            authorizationMessage = it.message ?: context.getString(R.string.discord_authorization_failed)
+        }
+    }
+
+    LaunchedEffect(authorizationSession.state, authorizationUiMode) {
+        if (authorizationUiMode != DiscordAuthorizationUiMode.Waiting) {
+            return@LaunchedEffect
+        }
+
+        DiscordAuthCoordinator.redirects.collectLatest { redirect ->
+            if (redirect.getQueryParameter("state") != authorizationSession.state) {
+                return@collectLatest
+            }
+
+            DiscordOAuthRepository
+                .completeAuthorization(
+                    context = context,
+                    session = authorizationSession,
+                    redirect = redirect,
+                ).onSuccess { session ->
+                    val account =
+                        session.account
+                            ?: runCatching { DiscordOAuthRepository.fetchAccount(session.accessToken) }.getOrNull()
+
+                    authorizedToken = session.accessToken
+                    authorizedUsername = account?.username.orEmpty()
+                    authorizedName = account?.displayName.orEmpty()
+                    authorizedAvatarUrl = account?.avatarUrl.orEmpty()
+                    discordUsername = authorizedUsername
+                    discordName = authorizedName
+                    discordAvatarUrl = authorizedAvatarUrl
+                    authorizationMessage = context.getString(R.string.discord_authorization_success)
+                    authorizationUiModeName = DiscordAuthorizationUiMode.Success.name
+                    authorizationSession = DiscordOAuthRepository.createAuthorizationSession()
+                }.onFailure {
+                    authorizationMessage = it.message ?: context.getString(R.string.discord_authorization_failed)
+                    authorizationUiModeName = DiscordAuthorizationUiMode.Failure.name
+                    authorizationSession = DiscordOAuthRepository.createAuthorizationSession()
+                }
+        }
+    }
+
+    LaunchedEffect(authorizationUiMode) {
+        if (authorizationUiMode == DiscordAuthorizationUiMode.Success ||
+            authorizationUiMode == DiscordAuthorizationUiMode.Failure
+        ) {
+            delay(2600)
+            if (authorizationUiModeName == authorizationUiMode.name) {
+                authorizationUiModeName = DiscordAuthorizationUiMode.Idle.name
+                authorizationMessage = null
+            }
+        }
+    }
+
+    BackHandler(enabled = authorizationUiMode == DiscordAuthorizationUiMode.Waiting) {
+        authorizationUiModeName = DiscordAuthorizationUiMode.Idle.name
+        authorizationMessage = null
+        authorizationSession = DiscordOAuthRepository.createAuthorizationSession()
+    }
+
+    val (largeImageType, onLargeImageTypeChange) =
+        rememberPreference(
+            key = DiscordLargeImageTypeKey,
+            defaultValue = "thumbnail",
+        )
+    val (largeImageCustomUrl, onLargeImageCustomUrlChange) =
+        rememberPreference(
+            key = DiscordLargeImageCustomUrlKey,
+            defaultValue = "",
+        )
+    val (smallImageType, onSmallImageTypeChange) =
+        rememberPreference(
+            key = DiscordSmallImageTypeKey,
+            defaultValue = "artist",
+        )
+    val (smallImageCustomUrl, onSmallImageCustomUrlChange) =
+        rememberPreference(
+            key = DiscordSmallImageCustomUrlKey,
+            defaultValue = "",
+        )
+    var isRefreshing by remember { mutableStateOf(false) }
+
+    val (activityStatusSelection, onActivityStatusSelectionChange) =
+        rememberPreference(
+            key = DiscordPresenceStatusKey,
+            defaultValue = "online",
+        )
+
+    val (platformSelection, onPlatformSelectionChange) =
+        rememberPreference(
+            key = DiscordActivityPlatformKey,
+            defaultValue = "android",
+        )
+
+    val (nameSource, onNameSourceChange) =
+        rememberEnumPreference(
+            key = DiscordActivityNameKey,
+            defaultValue = ActivitySource.APP,
+        )
+    val (detailsSource, onDetailsSourceChange) =
+        rememberEnumPreference(
+            key = DiscordActivityDetailsKey,
+            defaultValue = ActivitySource.SONG,
+        )
+    val (stateSource, onStateSourceChange) =
+        rememberEnumPreference(
+            key = DiscordActivityStateKey,
+            defaultValue = ActivitySource.ARTIST,
+        )
+
+    val (button1Label) =
+        rememberPreference(
+            key = DiscordActivityButton1LabelKey,
+            defaultValue = "Listen on YouTube Music",
+        )
+    val (button1Enabled) =
+        rememberPreference(
+            key = DiscordActivityButton1EnabledKey,
+            defaultValue = true,
+        )
+    val (button2Label) =
+        rememberPreference(
+            key = DiscordActivityButton2LabelKey,
+            defaultValue = "Go to ArchiveTune",
+        )
+    val (button2Enabled) =
+        rememberPreference(
+            key = DiscordActivityButton2EnabledKey,
+            defaultValue = true,
+        )
+    val (button1UrlSource) =
+        rememberPreference(
+            key = DiscordActivityButton1UrlSourceKey,
+            defaultValue = "songurl",
+        )
+    val (button1CustomUrl) =
+        rememberPreference(
+            key = DiscordActivityButton1CustomUrlKey,
+            defaultValue = "",
+        )
+    val (button2UrlSource) =
+        rememberPreference(
+            key = DiscordActivityButton2UrlSourceKey,
+            defaultValue = "custom",
+        )
+    val (button2CustomUrl) =
+        rememberPreference(
+            key = DiscordActivityButton2CustomUrlKey,
+            defaultValue = "https://github.com/rukamori/ArchiveTune",
+        )
+
+    val (activityType, onActivityTypeChange) =
+        rememberPreference(
+            key = DiscordActivityTypeKey,
+            defaultValue = "LISTENING",
+        )
+    var showWhenPaused by rememberPreference(
+        key = DiscordShowWhenPausedKey,
+        defaultValue = false,
+    )
+
+    val (largeTextSource, onLargeTextSourceChange) =
+        rememberPreference(
+            key = DiscordLargeTextSourceKey,
+            defaultValue = "album",
+        )
+    val (largeTextCustom, onLargeTextCustomChange) =
+        rememberPreference(
+            key = DiscordLargeTextCustomKey,
+            defaultValue = "",
+        )
+
+    LaunchedEffect(largeImageType, smallImageType) {
+        com.cgens67.avidtune.utils.DiscordImageResolver.clearCache()
+    }
+
+    SettingsPage(
+        title = stringResource(R.string.discord_integration),
+        navController = navController,
+        scrollBehavior = scrollBehavior
+    ) {
+        // Banner info
+        AnimatedVisibility(
+            visible = !infoDismissed,
+            enter = fadeIn(),
+            exit = fadeOut()
+        ) {
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.info),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.padding(end = 16.dp)
+                    )
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.discord_integration),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = stringResource(R.string.discord_information),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+
+                TextButton(
+                    onClick = { infoDismissed = true },
+                    modifier = Modifier
+                        .align(Alignment.End)
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Text(stringResource(R.string.dismiss))
+                }
+            }
+        }
+
+        // Account category
+        SettingsGeneralCategory(
+            title = stringResource(R.string.account),
+            items = buildList {
+                add {
+                    PreferenceEntry(
+                        title = {
+                            Text(if (isLoggedIn) accountDisplayName else stringResource(R.string.not_logged_in))
+                        },
+                        description = if (isLoggedIn && activeDiscordUsername.isNotEmpty()) "@$activeDiscordUsername" else null,
+                        icon = { Icon(painterResource(R.drawable.discord), null) },
+                        trailingContent = {
+                            if (isLoggedIn) {
+                                OutlinedButton(
+                                    onClick = {
+                                        showLogoutConfirm = true
+                                    }
+                                ) {
+                                    Text(stringResource(R.string.logout))
+                                }
+                            } else {
+                                FilledTonalButton(
+                                    onClick = { navController.navigate("settings/discord/login") }
+                                ) {
+                                    Text(stringResource(R.string.action_login))
+                                }
+                            }
+                        },
+                        onClick = {
+                            if (!isLoggedIn) navController.navigate("settings/discord/login")
+                        }
+                    )
+                }
+
+                if (!isLoggedIn) {
+                    add {
+                        PreferenceEntry(
+                            title = { Text(stringResource(R.string.advanced_login)) },
+                            icon = { Icon(painterResource(R.drawable.token), null) },
+                            onClick = { showTokenDialog = true }
+                        )
+                    }
+                }
+            }
+        )
+
+        // Options category
+        SettingsGeneralCategory(
+            title = stringResource(R.string.options),
+            items = buildList {
+                add {
+                    SwitchPreference(
+                        title = { Text(stringResource(R.string.enable_discord_rpc)) },
+                        icon = { Icon(painterResource(R.drawable.discord), null) },
+                        checked = discordRPC,
+                        onCheckedChange = onDiscordRPCChange,
+                        isEnabled = isLoggedIn,
+                    )
+                }
+                add {
+                    SwitchPreference(
+                        title = { Text(stringResource(R.string.discord_use_details)) },
+                        description = stringResource(R.string.discord_use_details_description),
+                        icon = { Icon(painterResource(R.drawable.info), null) },
+                        checked = useDetails,
+                        onCheckedChange = onUseDetailsChange,
+                        isEnabled = isLoggedIn && discordRPC,
+                    )
+                }
+            }
+        )
+
+        // Connection options
+        SettingsGeneralCategory(
+            title = stringResource(R.string.discord_connection_settings),
+            items = listOf(
+                {
+                    ListPreference(
+                        title = { Text(stringResource(R.string.activity_status)) },
+                        icon = { Icon(painterResource(R.drawable.status), null) },
+                        selectedValue = activityStatusSelection,
+                        values = DiscordActivityStatusOptions,
+                        valueText = { discordPresenceStatusLabel(it) },
+                        onValueSelected = onActivityStatusSelectionChange,
+                    )
+                },
+                {
+                    ListPreference(
+                        title = { Text(stringResource(R.string.platform_status)) },
+                        icon = { Icon(painterResource(R.drawable.desktop_windows), null) },
+                        selectedValue = platformSelection,
+                        values = DiscordPlatformOptions,
+                        valueText = { discordPlatformLabel(it) },
+                        onValueSelected = onPlatformSelectionChange,
+                    )
+                }
+            )
+        )
+
+        // Display configuration
+        SettingsGeneralCategory(
+            title = stringResource(R.string.discord_activity_content),
+            items = listOf(
+                {
+                    EnumListPreference(
+                        title = { Text(stringResource(R.string.discord_activity_name)) },
+                        selectedValue = nameSource,
+                        onValueSelected = onNameSourceChange,
+                        valueText = { activitySourceLabel(it) },
+                        icon = { Icon(painterResource(R.drawable.text_fields), null) },
+                    )
+                },
+                {
+                    EnumListPreference(
+                        title = { Text(stringResource(R.string.discord_activity_details)) },
+                        selectedValue = detailsSource,
+                        onValueSelected = onDetailsSourceChange,
+                        valueText = { activitySourceLabel(it) },
+                        icon = { Icon(painterResource(R.drawable.text_fields), null) },
+                    )
+                },
+                {
+                    EnumListPreference(
+                        title = { Text(stringResource(R.string.discord_activity_state)) },
+                        selectedValue = stateSource,
+                        onValueSelected = onStateSourceChange,
+                        valueText = { activitySourceLabel(it) },
+                        icon = { Icon(painterResource(R.drawable.text_fields), null) },
+                    )
+                },
+                {
+                    SwitchPreference(
+                        title = { Text(stringResource(R.string.discord_show_when_paused)) },
+                        description = stringResource(R.string.discord_show_when_paused_desc),
+                        icon = { Icon(painterResource(R.drawable.ic_pause_white), null) },
+                        checked = showWhenPaused,
+                        onCheckedChange = { showWhenPaused = it },
+                    )
+                },
+                {
+                    ListPreference(
+                        title = { Text(stringResource(R.string.discord_activity_type)) },
+                        icon = { Icon(painterResource(R.drawable.discord), null) },
+                        selectedValue = activityType,
+                        values = DiscordActivityTypeOptions,
+                        valueText = { discordActivityTypeLabel(it) },
+                        onValueSelected = onActivityTypeChange,
+                    )
+                }
+            )
+        )
+
+        // Image options
+        SettingsGeneralCategory(
+            title = stringResource(R.string.discord_image_options),
+            items = listOf(
+                {
+                    ListPreference(
+                        title = { Text(stringResource(R.string.large_image)) },
+                        icon = { Icon(painterResource(R.drawable.image), null) },
+                        selectedValue = largeImageType,
+                        values = DiscordImageOptions,
+                        valueText = { discordImageTypeLabel(it) },
+                        onValueSelected = onLargeImageTypeChange,
+                    )
+                },
+                {
+                    AnimatedVisibility(visible = largeImageType == "custom") {
+                        EditTextPreference(
+                            title = { Text(stringResource(R.string.large_image_custom_url)) },
+                            icon = { Icon(painterResource(R.drawable.link), null) },
+                            value = largeImageCustomUrl,
+                            onValueChange = onLargeImageCustomUrlChange,
+                            isInputValid = { true },
+                        )
+                    }
+                },
+                {
+                    ListPreference(
+                        title = { Text(stringResource(R.string.large_text)) },
+                        icon = { Icon(painterResource(R.drawable.text_fields), null) },
+                        selectedValue = largeTextSource,
+                        values = DiscordLargeTextOptions,
+                        valueText = { discordLargeTextSourceLabel(it) },
+                        onValueSelected = onLargeTextSourceChange,
+                    )
+                },
+                {
+                    AnimatedVisibility(visible = largeTextSource == "custom") {
+                        EditTextPreference(
+                            title = { Text(stringResource(R.string.custom_large_text)) },
+                            icon = { Icon(painterResource(R.drawable.text_fields), null) },
+                            value = largeTextCustom,
+                            onValueChange = onLargeTextCustomChange,
+                            isInputValid = { true },
+                        )
+                    }
+                },
+                {
+                    ListPreference(
+                        title = { Text(stringResource(R.string.small_image)) },
+                        icon = { Icon(painterResource(R.drawable.image), null) },
+                        selectedValue = smallImageType,
+                        values = DiscordSmallImageOptions,
+                        valueText = { discordImageTypeLabel(it) },
+                        onValueSelected = onSmallImageTypeChange,
+                    )
+                },
+                {
+                    AnimatedVisibility(visible = smallImageType == "custom") {
+                        EditTextPreference(
+                            title = { Text(stringResource(R.string.small_image_custom_url)) },
+                            icon = { Icon(painterResource(R.drawable.link), null) },
+                            value = smallImageCustomUrl,
+                            onValueChange = onSmallImageCustomUrlChange,
+                            isInputValid = { true },
+                        )
+                    }
+                }
+            )
+        )
+
+        // Preview section
+        PreferenceGroupTitle(title = stringResource(R.string.preview))
+
+        EnhancedRichPresence(
+            song = song,
+            position = position,
+            duration = duration,
+            isPlaying = isPlaying,
+            sliderStyle = sliderStyle
+        )
+
+        Spacer(Modifier.height(16.dp))
+    }
+
+    if (showLogoutConfirm) {
+        AlertDialog(
+            onDismissRequest = { showLogoutConfirm = false },
+            title = { Text(stringResource(R.string.logout_confirm_title)) },
+            text = { Text(stringResource(R.string.logout_confirm_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            DiscordOAuthRepository.clearSession(context)
+                        }
+                        authorizedToken = ""
+                        authorizedUsername = ""
+                        authorizedName = ""
+                        authorizedAvatarUrl = ""
+                        authorizationUiModeName = DiscordAuthorizationUiMode.Idle.name
+                        authorizationMessage = null
+                        authorizationSession = DiscordOAuthRepository.createAuthorizationSession()
+                        showLogoutConfirm = false
+                    },
+                    shapes = ButtonDefaults.shapes(),
+                ) {
+                    Text(stringResource(R.string.logout_confirm_yes))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showLogoutConfirm = false },
+                    shapes = ButtonDefaults.shapes(),
+                ) {
+                    Text(stringResource(R.string.logout_confirm_no))
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun activitySourceLabel(source: ActivitySource): String =
+    when (source) {
+        ActivitySource.ARTIST -> stringResource(R.string.artist_name)
+        ActivitySource.ALBUM -> stringResource(R.string.album_name)
+        ActivitySource.SONG -> stringResource(R.string.song_title)
+        ActivitySource.APP -> stringResource(R.string.app_name)
+    }
+
+@Composable
+private fun discordPresenceStatusLabel(value: String): String =
+    when (value) {
+        "online" -> stringResource(R.string.discord_presence_online)
+        "dnd" -> stringResource(R.string.discord_presence_do_not_disturb)
+        "idle" -> stringResource(R.string.discord_presence_idle)
+        "streaming" -> stringResource(R.string.discord_presence_streaming)
+        else -> stringResource(R.string.discord_presence_online)
+    }
+
+@Composable
+private fun discordPlatformLabel(value: String): String =
+    when (value) {
+        "desktop" -> stringResource(R.string.discord_platform_desktop)
+        "xbox" -> stringResource(R.string.discord_platform_xbox)
+        "samsung" -> stringResource(R.string.discord_platform_samsung)
+        "ios" -> stringResource(R.string.discord_platform_ios)
+        "android" -> stringResource(R.string.discord_platform_android)
+        "embedded" -> stringResource(R.string.discord_platform_embedded)
+        "ps4" -> stringResource(R.string.discord_platform_ps4)
+        "ps5" -> stringResource(R.string.discord_platform_ps5)
+        else -> stringResource(R.string.discord_platform_android)
+    }
+
+@Composable
+private fun discordActivityTypeLabel(value: String): String =
+    when (value) {
+        "PLAYING" -> stringResource(R.string.discord_activity_type_playing_label)
+        "STREAMING" -> stringResource(R.string.discord_activity_type_streaming_label)
+        "LISTENING" -> stringResource(R.string.discord_activity_type_listening_label)
+        "WATCHING" -> stringResource(R.string.discord_activity_type_watching_label)
+        "COMPETING" -> stringResource(R.string.discord_activity_type_competing_label)
+        else -> value
+    }
+
+@Composable
+private fun discordImageTypeLabel(value: String): String =
+    when (value.lowercase()) {
+        "thumbnail" -> stringResource(R.string.discord_image_album_artwork)
+        "artist" -> stringResource(R.string.discord_image_artist_artwork)
+        "appicon" -> stringResource(R.string.app_icon)
+        "custom" -> stringResource(R.string.custom)
+        "dontshow" -> stringResource(R.string.dont_show)
+        else -> value
+    }
+
+@Composable
+private fun discordLargeTextSourceLabel(value: String): String =
+    when (value.lowercase()) {
+        "song" -> stringResource(R.string.song_title)
+        "artist" -> stringResource(R.string.artist_name)
+        "album" -> stringResource(R.string.album_name)
+        "app" -> stringResource(R.string.app_name)
+        "custom" -> stringResource(R.string.custom)
+        "dontshow" -> stringResource(R.string.dont_show)
+        else -> value
+    }
+
+@Composable
+fun EnhancedRichPresence(
+    song: Song?,
+    position: Long,
+    duration: Long,
+    isPlaying: Boolean,
+    sliderStyle: SliderStyle
+) {
+    val context = LocalContext.current
+    val gradientAlpha by animateFloatAsState(
+        targetValue = if (song != null) 0.15f else 0f,
+        animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing),
+        label = "gradientAlpha"
+    )
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Box {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(300.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = gradientAlpha),
+                                MaterialTheme.colorScheme.surface
+                            )
+                        )
+                    )
+            )
+
+            Column(
+                modifier = Modifier.padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .shadow(4.dp, CircleShape)
+                                .background(
+                                    Brush.radialGradient(
+                                        colors = listOf(
+                                            MaterialTheme.colorScheme.primary,
+                                            MaterialTheme.colorScheme.primaryContainer
+                                        )
+                                    ),
+                                    CircleShape
+                                )
+                                .border(
+                                    2.dp,
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                                    CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.discord),
+                                contentDescription = "Discord",
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Column {
+                            Text(
+                                text = "AvidTune",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = "Listening on Discord",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    if (song != null && isPlaying) {
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            border = BorderStroke(
+                                1.dp,
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                            ),
+                            shadowElevation = 2.dp
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.play),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "LIVE",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Row(
+                    verticalAlignment = Alignment.Top,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(120.dp)
+                            .shadow(8.dp, RoundedCornerShape(16.dp))
+                    ) {
+                        Card(
+                            modifier = Modifier.fillMaxSize(),
+                            shape = RoundedCornerShape(16.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                        ) {
+                            Box(Modifier.fillMaxSize()) {
+                                AsyncImage(
+                                    model = song?.song?.thumbnailUrl,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .run {
+                                            if (song == null) {
+                                                background(MaterialTheme.colorScheme.surfaceVariant)
+                                            } else this
+                                        },
+                                    contentScale = ContentScale.Crop
+                                )
+
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(
+                                            Brush.verticalGradient(
+                                                colors = listOf(
+                                                    Color.Transparent,
+                                                    Color.Black.copy(alpha = 0.1f)
+                                                )
+                                            )
+                                        )
+                                )
+
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .padding(8.dp)
+                                ) {
+                                    val artistAvatar = song?.artists?.firstOrNull()?.thumbnailUrl
+
+                                    Card(
+                                        modifier = Modifier.size(36.dp),
+                                        shape = CircleShape,
+                                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = MaterialTheme.colorScheme.surface
+                                        )
+                                    ) {
+                                        Box(
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (artistAvatar != null) {
+                                                AsyncImage(
+                                                    model = artistAvatar,
+                                                    contentDescription = "Artist",
+                                                    modifier = Modifier.fillMaxSize(),
+                                                    contentScale = ContentScale.Crop
+                                                )
+                                            } else {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                        .background(
+                                                            Brush.linearGradient(
+                                                                colors = listOf(
+                                                                    MaterialTheme.colorScheme.primary,
+                                                                    MaterialTheme.colorScheme.secondary
+                                                                )
+                                                            )
+                                                        ),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Image(
+                                                        painter = painterResource(R.drawable.avidtune),
+                                                        contentDescription = "AvidTune",
+                                                        modifier = Modifier
+                                                            .size(20.dp)
+                                                            .alpha(0.9f),
+                                                        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimary)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = song?.song?.title ?: "No song playing",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Text(
+                            text = song?.artists?.joinToString { it.name } ?: "Unknown Artist",
+                            style = MaterialTheme.typography.bodyLarge,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        song?.song?.albumName?.let { albumTitle ->
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = albumTitle,
+                                style = MaterialTheme.typography.bodyMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            )
+                        }
+                    }
+                }
+
+                if (song != null) {
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    EnhancedProgressBar(
+                        position = position,
+                        duration = duration,
+                        isPlaying = isPlaying,
+                        sliderStyle = sliderStyle
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    FilledTonalButton(
+                        enabled = song != null,
+                        onClick = {
+                            val intent = Intent(
+                                Intent.ACTION_VIEW,
+                                "https://music.youtube.com/watch?v=${song?.id}".toUri()
+                            )
+                            context.startActivity(intent)
+                        },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        )
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.play),
+                            contentDescription = "YouTube Music",
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("YouTube Music", maxLines = 1, fontWeight = FontWeight.Medium)
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            val intent = Intent(
+                                Intent.ACTION_VIEW,
+                                "https://github.com/cgens67/AvidTune".toUri()
+                            )
+                            context.startActivity(intent)
+                        },
+                        modifier = Modifier.weight(1f),
+                        border = BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                        )
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(18.dp)
+                                .background(
+                                    Brush.linearGradient(
+                                        colors = listOf(
+                                            MaterialTheme.colorScheme.primary,
+                                            MaterialTheme.colorScheme.secondary
+                                        )
+                                    ),
+                                    CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Image(
+                                painter = painterResource(R.drawable.avidtune),
+                                contentDescription = "AvidTune",
+                                modifier = Modifier.size(12.dp),
+                                colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimary)
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Text("AvidTune", maxLines = 1, fontWeight = FontWeight.Medium)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EnhancedProgressBar(
+    position: Long,
+    duration: Long,
+    isPlaying: Boolean,
+    sliderStyle: SliderStyle
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        when (sliderStyle) {
+            SliderStyle.DEFAULT -> {
+                Slider(
+                    value = position.toFloat(),
+                    valueRange = 0f..duration.toFloat().coerceAtLeast(1f),
+                    onValueChange = {},
+                    enabled = false,
+                    colors = SliderDefaults.colors(
+                        activeTrackColor = MaterialTheme.colorScheme.primary,
+                        inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                        disabledActiveTrackColor = MaterialTheme.colorScheme.primary,
+                        disabledInactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                        disabledThumbColor = MaterialTheme.colorScheme.primary
+                    )
+                )
+            }
+
+            SliderStyle.SQUIGGLY -> {
+                SquigglySlider(
+                    value = position.toFloat(),
+                    valueRange = 0f..duration.toFloat().coerceAtLeast(1f),
+                    onValueChange = {},
+                    enabled = false,
+                    colors = SliderDefaults.colors(
+                        activeTrackColor = MaterialTheme.colorScheme.primary,
+                        inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                        disabledActiveTrackColor = MaterialTheme.colorScheme.primary,
+                        disabledInactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                        disabledThumbColor = MaterialTheme.colorScheme.primary
+                    ),
+                    squigglesSpec = SquigglySlider.SquigglesSpec(
+                        amplitude = if (isPlaying) 2.dp else 0.dp,
+                        strokeWidth = 3.dp
+                    )
+                )
+            }
+
+            SliderStyle.SLIM -> {
+                LinearProgressIndicator(
+                    progress = { (position.toFloat() / duration.toFloat().coerceAtLeast(1f)) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp)),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = makeTimeString(position),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = makeTimeString(duration),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
 }
