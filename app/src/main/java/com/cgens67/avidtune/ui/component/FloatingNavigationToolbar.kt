@@ -192,7 +192,7 @@ private fun FloatingToolbarOverflowAction(
             tonalElevation = 6.dp,
         ) {
             DropdownMenuItem(
-                text = { Text(stringResource(R.string.music_recognition)) },
+                text = { Text(stringResource(R.string.search)) },
                 onClick = {
                     fabMenuExpanded = false
                     onMusicRecognitionClick?.invoke()
@@ -206,10 +206,10 @@ private fun FloatingToolbarOverflowAction(
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
-                                painter = painterResource(R.drawable.music_note),
+                                painter = painterResource(R.drawable.search),
                                 contentDescription =
                                     musicRecognitionContentDescription.ifEmpty {
-                                        stringResource(R.string.music_recognition)
+                                        stringResource(R.string.search)
                                     },
                             )
                         }

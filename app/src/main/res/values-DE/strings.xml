@@ -1198,34 +1198,5 @@
     <string name="eq_preset_dirac_movie">Dirac Film</string>
     <string name="eq_preset_dirac_game">Dirac Spiel</string>
     <string name="eq_reset">Zurücksetzen</string>
-    
-    <!-- Music Recognition -->
-    <string name="music_recognition_notification_channel_name">Musikerkennung</string>
-    <string name="music_recognition_notification_channel_description">Benachrichtigungen für Musikerkennung im Hintergrund</string>
-    <string name="music_recognition_notification_listening_title">Höre auf Musik</string>
-    <string name="music_recognition_notification_listening_text">Identifiziere das aktuell spielende Lied...</string>
-    <string name="music_recognition_notification_status_listening">Zuhören</string>
-    <string name="music_recognition_notification_processing_title">Audio wird verarbeitet</string>
-    <string name="music_recognition_notification_processing_text">Analysiere das aufgenommene Audio...</string>
-    <string name="music_recognition_notification_status_processing">Verarbeitung</string>
-    <string name="music_recognition_notification_artist">Künstler: %s</string>
-    <string name="music_recognition_notification_album">Album: %s</string>
-    <string name="music_recognition_notification_genre">Genre: %s</string>
-    <string name="music_recognition_notification_release">Veröffentlicht: %s</string>
-    <string name="music_recognition_notification_label">Label: %s</string>
-    <string name="music_recognition_notification_isrc">ISRC: %s</string>
-    <string name="music_recognition_notification_status_result">Treffer gefunden</string>
-    <string name="music_recognition_notification_no_match_title">Kein Treffer gefunden</string>
-    <string name="music_recognition_notification_recording_failed_title">Aufnahme fehlgeschlagen</string>
-    <string name="music_recognition_signature_failed">Audio-Signatur konnte nicht erstellt werden</string>
-    <string name="music_recognition_recognition_failed">Erkennung fehlgeschlagen</string>
-    <string name="music_recognition_notification_no_match_text">Das Lied konnte nicht identifiziert werden</string>
-    <string name="music_recognition_notification_recording_failed_text">Mikrofon-Zugriff verweigert oder belegt</string>
-    <string name="music_recognition_notification_signature_failed_text">Audio konnte nicht verarbeitet werden</string>
-    <string name="music_recognition_notification_recognition_failed_text">Verbindung zum Erkennungsdienst fehlgeschlagen</string>
-    <string name="music_recognition">Musikerkennung</string>
-    <string name="music_recognition_tap_to_listen">Zum Zuhören tippen</string>
-    <string name="music_recognition_listening">Zuhören…</string>
-    <string name="music_recognition_processing">Verarbeitung…</string>    
-    
+
 </resources>

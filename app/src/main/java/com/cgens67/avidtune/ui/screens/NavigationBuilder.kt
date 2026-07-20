@@ -46,8 +46,6 @@ import com.cgens67.avidtune.ui.screens.settings.PlayerSettings
 import com.cgens67.avidtune.ui.screens.settings.PrivacySettings
 import com.cgens67.avidtune.ui.screens.settings.SettingsScreen
 import com.cgens67.avidtune.ui.screens.settings.StorageSettings
-import com.cgens67.avidtune.musicrecognition.MusicRecognitionRoute
-import com.cgens67.avidtune.musicrecognition.MusicRecognitionScreen
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @SuppressLint("UnrememberedMutableState")
@@ -316,8 +314,5 @@ fun NavGraphBuilder.navigationBuilder(
     }
     composable("login") {
         LoginScreen(navController)
-    }
-    composable(MusicRecognitionRoute) {
-        MusicRecognitionScreen(navController)
     }
 }
