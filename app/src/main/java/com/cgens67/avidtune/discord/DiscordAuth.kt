@@ -1,6 +1,8 @@
 package com.cgens67.avidtune.discord
 
 import android.app.Activity
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -12,10 +14,16 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -25,12 +33,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -51,10 +65,8 @@ import com.cgens67.avidtune.ui.component.*
 import com.cgens67.avidtune.ui.screens.settings.DiscordPresenceManager
 import com.cgens67.avidtune.ui.screens.settings.EnhancedRichPresence
 import com.cgens67.avidtune.ui.utils.backToMain
-import com.cgens67.avidtune.utils.dataStore
 import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
-import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.collectLatest
@@ -77,6 +89,37 @@ val DiscordShowWhenPausedKey = booleanPreferencesKey("discord_show_when_paused")
 data class DiscordAuthorizationSession(val state: String, val codeVerifier: String, val authorizationUri: Uri)
 data class DiscordAccount(val id: String, val username: String, val displayName: String, val avatarUrl: String?)
 data class DiscordAuthSession(val accessToken: String, val refreshToken: String?, val expiresAtMillis: Long, val account: DiscordAccount?)
+
+@Serializable
+private data class TokenResponse(
+    @SerialName("access_token") val accessToken: String,
+    @SerialName("refresh_token") val refreshToken: String? = null,
+    @SerialName("expires_in") val expiresInSeconds: Long = 0L
+)
+
+@Serializable
+private data class UserInfoResponse(
+    @SerialName("id") val id: String? = null,
+    @SerialName("sub") val sub: String? = null,
+    @SerialName("avatar") val avatar: String? = null,
+    @SerialName("picture") val picture: String? = null,
+    @SerialName("discriminator") val discriminator: String? = null,
+    @SerialName("preferred_username") val preferredUsername: String? = null,
+    @SerialName("name") val name: String? = null,
+    @SerialName("nickname") val nickname: String? = null,
+    @SerialName("username") val username: String? = null,
+    @SerialName("global_name") val globalName: String? = null
+)
+
+enum class ActivitySource { ARTIST, ALBUM, SONG, APP }
+private enum class DiscordAuthorizationUiMode { Idle, Waiting, Success, Failure }
+
+private val DiscordImageOptions = listOf("thumbnail", "artist", "appicon", "custom")
+private val DiscordSmallImageOptions = listOf("thumbnail", "artist", "appicon", "custom", "dontshow")
+private val DiscordActivityStatusOptions = listOf("online", "dnd", "idle", "streaming")
+private val DiscordPlatformOptions = listOf("desktop", "xbox", "samsung", "ios", "android", "embedded", "ps4", "ps5")
+private val DiscordActivityTypeOptions = listOf("PLAYING", "STREAMING", "LISTENING", "WATCHING", "COMPETING")
+private val DiscordLargeTextOptions = listOf("song", "artist", "album", "app", "custom", "dontshow")
 
 object DiscordAuthCoordinator {
     val redirects = MutableSharedFlow<Uri>(replay = 1, extraBufferCapacity = 1)
@@ -272,21 +315,7 @@ object DiscordOAuthRepository {
         return body
     }
 
-    private fun randomUrlSafeString(byteCount: Int): String {
-        val bytes = ByteArray(byteCount)
-        secureRandom.nextBytes(bytes)
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
-    }
-
-    private fun sha256Base64Url(value: String): String {
-        val digest = MessageDigest.getInstance("SHA-256").digest(value.toByteArray(Charsets.US_ASCII))
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(digest)
-    }
-
     private fun String.urlEncode(): String = URLEncoder.encode(this, Charsets.UTF_8.name())
-
-    @Serializable private data class TokenResponse(@SerialName("access_token") val accessToken: String, @SerialName("refresh_token") val refreshToken: String? = null, @SerialName("expires_in") val expiresInSeconds: Long = 0L)
-    @Serializable private data class UserInfoResponse(@SerialName("id") val id: String? = null, @SerialName("sub") val sub: String? = null, @SerialName("avatar") val avatar: String? = null, @SerialName("picture") val picture: String? = null, @SerialName("discriminator") val discriminator: String? = null, @SerialName("preferred_username") val preferredUsername: String? = null, @SerialName("name") val name: String? = null, @SerialName("nickname") val nickname: String? = null, @SerialName("username") val username: String? = null, @SerialName("global_name") val globalName: String? = null)
 }
 
 class DiscordOAuthCallbackActivity : Activity() {
