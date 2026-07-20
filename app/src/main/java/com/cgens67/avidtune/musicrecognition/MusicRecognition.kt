@@ -74,7 +74,7 @@ class MusicRecognitionNotificationManager @Inject constructor(@ApplicationContex
     }
     fun failure(failure: MusicRecognitionFailure): Notification {
         val title = when (failure) { MusicRecognitionFailure.NoMatch -> R.string.music_recognition_notification_no_match_title; MusicRecognitionFailure.RecordingFailed -> R.string.music_recognition_notification_recording_failed_title; MusicRecognitionFailure.SignatureFailed -> R.string.music_recognition_signature_failed; MusicRecognitionFailure.RecognitionFailed -> R.string.music_recognition_recognition_failed }
-        val text = when (failure) { MusicRecognitionFailure.NoMatch -> R.string.music_recognition_notification_no_match_text; MusicRecognitionFailure.RecordingFailed -> R.string.music_recognition_notification_recording_failed_text; MusicRecognitionFailure.SignatureFailed -> R.string.music_recognition_notification_signature_failed_text; MusicRecognitionFailure.RecognitionFailed -> R.string.music_recognition_notification_recognition_failed_text }
+        val text = when (failure) { MusicRecognitionFailure.NoMatch -> R.string.music_recognition_notification_no_match_text; MusicRecognitionFailure.RecordingFailed -> R.string.music_recognition_notification_recording_failed_text; MusicRecognitionFailure.SignatureFailed -> R.string.music_recognition_signature_failed_text; MusicRecognitionFailure.RecognitionFailed -> R.string.music_recognition_notification_recognition_failed_text }
         return baseBuilder(context.getString(title), context.getString(text), R.string.music_recognition_notification_status_result, true).setStyle(NotificationCompat.BigTextStyle().bigText(context.getString(text))).setTimeoutAfter(300000L).build()
     }
     fun notify(notification: Notification) = NotificationManagerCompat.from(context).notify(9410, notification)
@@ -85,7 +85,7 @@ class MusicRecognitionNotificationManager @Inject constructor(@ApplicationContex
 }
 
 @Singleton class MusicRecognitionRepository @Inject constructor(@ApplicationContext private val context: Context) {
-    fun observeHistory(): Flow<List<RecognitionHistoryEntry>> = context.dataStore.data.map { p -> decode(p[stringPreferencesKey("musicRecognitionHistoryJson")]) }.catch { if (it is CancellationException) throw it; Emit(emptyList()) }.flowOn(Dispatchers.IO)
+    fun observeHistory(): Flow<List<RecognitionHistoryEntry>> = context.dataStore.data.map { p -> decode(p[stringPreferencesKey("musicRecognitionHistoryJson")]) }.catch { if (it is CancellationException) throw it; emit(emptyList()) }.flowOn(Dispatchers.IO)
     fun observeBackgroundRecognitionEnabled() = context.dataStore.data.map { it[booleanPreferencesKey("musicRecognitionBackgroundEnabled")] ?: true }.distinctUntilChanged().flowOn(Dispatchers.IO)
     suspend fun isBackgroundRecognitionEnabled() = withContext(Dispatchers.IO) { context.dataStore.data.first()[booleanPreferencesKey("musicRecognitionBackgroundEnabled")] ?: true }
     suspend fun setBackgroundRecognitionEnabled(enabled: Boolean) = withContext(Dispatchers.IO) { context.dataStore.edit { it[booleanPreferencesKey("musicRecognitionBackgroundEnabled")] = enabled } }
