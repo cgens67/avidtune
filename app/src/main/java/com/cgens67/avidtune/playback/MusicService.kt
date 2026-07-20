@@ -79,6 +79,9 @@ import com.cgens67.avidtune.constants.SimilarContent
 import com.cgens67.avidtune.constants.SkipSilenceKey
 import com.cgens67.avidtune.constants.SponsorBlockEnabledKey
 import com.cgens67.avidtune.constants.StopMusicOnTaskClearKey
+import com.cgens67.avidtune.constants.MediaSessionConstants.CommandToggleLike
+import com.cgens67.avidtune.constants.MediaSessionConstants.CommandToggleRepeatMode
+import com.cgens67.avidtune.constants.MediaSessionConstants.CommandToggleShuffle
 import com.cgens67.avidtune.db.MusicDatabase
 import com.cgens67.avidtune.db.entities.Event
 import com.cgens67.avidtune.db.entities.FormatEntity
@@ -140,6 +143,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import timber.log.Timber
@@ -428,7 +433,9 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             .distinctUntilChanged()
             .collect(scope) { (key, enabled) ->
                 if (discordRpc?.isRpcRunning() == true) {
-                    discordRpc?.closeRPC()
+                    runBlocking {
+                        discordRpc?.closeRPC()
+                    }
                 }
                 discordRpc = null
                 if (key != null && enabled) {
@@ -588,27 +595,6 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 hasAudioFocus = true
                 player.volume = playerVolume.value
                 lastAudioFocusState = focusChange
-            }
-        }
-    }
-
-    @RequiresApi(Build.VERSION_CODES.O)
-    private fun requestAudioFocus(): Boolean {
-        if (hasAudioFocus) return true
-        audioFocusRequest?.let { request ->
-            val result = audioManager.requestAudioFocus(request)
-            hasAudioFocus = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
-            return hasAudioFocus
-        }
-        return false
-    }
-
-    @RequiresApi(Build.VERSION_CODES.O)
-    private fun abandonAudioFocus() {
-        if (hasAudioFocus) {
-            audioFocusRequest?.let { request ->
-                audioManager.abandonAudioFocusRequest(request)
-                hasAudioFocus = false
             }
         }
     }
@@ -920,10 +906,10 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 }
                 
                 if (normalizeAudio && currentMediaId != null) {
-                    val format = withContext(Dispatchers.IO) {
+                    val formatObj = withContext(Dispatchers.IO) {
                         database.format(currentMediaId).first()
                     }
-                    val loudnessDb = format?.loudnessDb
+                    val loudnessDb = formatObj?.loudnessDb
                     withContext(Dispatchers.Main) {
                         if (loudnessDb != null) {
                             val targetGain = (-loudnessDb * 100).toInt()
@@ -1252,17 +1238,17 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                     }
                 }
                 
-                val format = playbackData.format
+                val selectedFormat = playbackData.format
                 database.query {
                     upsert(
                         FormatEntity(
                             id = mediaId,
-                            itag = format.itag,
-                            mimeType = format.mimeType.split(";")[0],
-                            codecs = format.mimeType.split("codecs=")[1].removeSurrounding("\""),
-                            bitrate = format.bitrate,
-                            sampleRate = format.audioSampleRate,
-                            contentLength = format.contentLength!!,
+                            itag = selectedFormat.itag,
+                            mimeType = selectedFormat.mimeType.split(";")[0],
+                            codecs = selectedFormat.mimeType.split("codecs=")[1].removeSurrounding("\""),
+                            bitrate = selectedFormat.bitrate,
+                            sampleRate = selectedFormat.audioSampleRate,
+                            contentLength = selectedFormat.contentLength!!,
                             loudnessDb = playbackData.audioConfig?.loudnessDb,
                             playbackUrl = playbackData.streamUrl
                         )
@@ -1274,7 +1260,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 }
                 
                 val streamUrl = playbackData.streamUrl
-                songUrlCache[mediaId] = streamUrl to System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L)
+                songUrlCache[mediaId] = streamUrl to (System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L))
                 return@Factory dataSpec.withUri(streamUrl.toUri())
             } catch (e: Exception) {
                 Timber.tag(ytLogTag).e(e, "YouTube playback error, trying JossRed as fallback")
@@ -1297,9 +1283,9 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                                 JossRedClient.getStreamingUrl(mediaId)
                             }
                         }
-                    }.getOrNull()
+                    }.getOrNull() as? String
                     
-                    if (alternativeUrl != null) {
+                    if (!alternativeUrl.isNullOrBlank()) {
                         val client = OkHttpClient.Builder()
                             .connectTimeout(2, TimeUnit.SECONDS)
                             .readTimeout(2, TimeUnit.SECONDS)
@@ -1318,7 +1304,9 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                                 }
                                 return@Factory dataSpec.withUri(alternativeUrl.toUri())
                             } else {
-                                Timber.tag(JRlogTag).w("JossRed URL unreachable (HTTP ${response.code}), throwing original error")
+                                Timber.tag(JRlogTag).withLock {
+                                    Timber.tag(JRlogTag).w("JossRed URL unreachable (HTTP ${response.code}), throwing original error")
+                                }
                                 throw e
                             }
                         } catch (jrException: Exception) {
@@ -1485,13 +1473,14 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         )
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
     override fun onDestroy() {
         if (dataStore.get(PersistentQueueKey, true)) {
             saveQueueToDisk()
         }
         if (discordRpc?.isRpcRunning() == true) {
-            discordRpc?.closeRPC()
+            runBlocking {
+                discordRpc?.closeRPC()
+            }
         }
         discordRpc = null
         abandonAudioFocus()
