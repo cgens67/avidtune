@@ -79,6 +79,7 @@ import com.cgens67.avidtune.constants.SimilarContent
 import com.cgens67.avidtune.constants.SkipSilenceKey
 import com.cgens67.avidtune.constants.SponsorBlockEnabledKey
 import com.cgens67.avidtune.constants.StopMusicOnTaskClearKey
+import com.cgens67.avidtune.constants.MediaSessionConstants.CommandToggleLibrary
 import com.cgens67.avidtune.constants.MediaSessionConstants.CommandToggleLike
 import com.cgens67.avidtune.constants.MediaSessionConstants.CommandToggleRepeatMode
 import com.cgens67.avidtune.constants.MediaSessionConstants.CommandToggleShuffle
@@ -89,8 +90,8 @@ import com.cgens67.avidtune.db.entities.LyricsEntity
 import com.cgens67.avidtune.db.entities.RelatedSongMap
 import com.cgens67.avidtune.di.DownloadCache
 import com.cgens67.avidtune.di.PlayerCache
-import com.cgens67.avidtune.discord.DiscordRPC
-import com.cgens67.avidtune.discord.DiscordPresenceManager
+import com.cgens67.avidtune.utils.DiscordRPC
+import com.cgens67.avidtune.utils.DiscordPresenceManager
 import com.cgens67.avidtune.extensions.SilentHandler
 import com.cgens67.avidtune.extensions.collect
 import com.cgens67.avidtune.extensions.collectLatest
@@ -145,6 +146,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.sync.withLock
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import timber.log.Timber
@@ -468,7 +470,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             runCatching {
                 filesDir.resolve(PERSISTENT_QUEUE_FILE).inputStream().use { fis ->
                     ObjectInputStream(fis).use { oos ->
-                        oos.readObject() as PersistQueue
+                        oos.writeObject(persistQueue)
                     }
                 }
             }.onSuccess { queue ->
@@ -482,7 +484,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             runCatching {
                 filesDir.resolve(PERSISTENT_AUTOMIX_FILE).inputStream().use { fis ->
                     ObjectInputStream(fis).use { oos ->
-                        oos.readObject() as PersistQueue
+                        oos.writeObject(persistQueue)
                     }
                 }
             }.onSuccess { queue ->
@@ -494,7 +496,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             runCatching {
                 filesDir.resolve(PERSISTENT_PLAYER_STATE_FILE).inputStream().use { fis ->
                     ObjectInputStream(fis).use { oos ->
-                        oos.readObject() as PersistPlayerState
+                        oos.writeObject(playerState)
                     }
                 }
             }.onSuccess { playerState ->
@@ -595,6 +597,27 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 hasAudioFocus = true
                 player.volume = playerVolume.value
                 lastAudioFocusState = focusChange
+            }
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun requestAudioFocus(): Boolean {
+        if (hasAudioFocus) return true
+        audioFocusRequest?.let { request ->
+            val result = audioManager.requestAudioFocus(request)
+            hasAudioFocus = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+            return hasAudioFocus
+        }
+        return false
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun abandonAudioFocus() {
+        if (hasAudioFocus) {
+            audioFocusRequest?.let { request ->
+                audioManager.abandonAudioFocusRequest(request)
+                hasAudioFocus = false
             }
         }
     }
@@ -1304,9 +1327,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                                 }
                                 return@Factory dataSpec.withUri(alternativeUrl.toUri())
                             } else {
-                                Timber.tag(JRlogTag).withLock {
-                                    Timber.tag(JRlogTag).w("JossRed URL unreachable (HTTP ${response.code}), throwing original error")
-                                }
+                                Timber.tag(JRlogTag).w("JossRed URL unreachable (HTTP ${response.code}), throwing original error")
                                 throw e
                             }
                         } catch (jrException: Exception) {
@@ -1473,6 +1494,27 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         )
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun requestAudioFocus(): Boolean {
+        if (hasAudioFocus) return true
+        audioFocusRequest?.let { request ->
+            val result = audioManager.requestAudioFocus(request)
+            hasAudioFocus = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+            return hasAudioFocus
+        }
+        return false
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun abandonAudioFocus() {
+        if (hasAudioFocus) {
+            audioFocusRequest?.let { request ->
+                audioManager.abandonAudioFocusRequest(request)
+                hasAudioFocus = false
+            }
+        }
+    }
+
     override fun onDestroy() {
         if (dataStore.get(PersistentQueueKey, true)) {
             saveQueueToDisk()
@@ -1483,7 +1525,9 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             }
         }
         discordRpc = null
-        abandonAudioFocus()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            abandonAudioFocus()
+        }
         releaseLoudnessEnhancer()
         mediaSession.release()
         player.removeListener(this)
