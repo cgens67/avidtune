@@ -1,14 +1,11 @@
 package com.cgens67.avidtune.utils
 
 import android.content.Context
-import android.os.Handler
-import android.os.Looper
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.luminance
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.palette.graphics.Palette
 import coil.imageLoader
 import coil.request.ImageRequest
@@ -47,13 +44,32 @@ class DiscordRPC(
         currentPlaybackTimeMillis: Long,
         playbackSpeed: Float = 1.0f,
         useDetails: Boolean = false,
-    ) = runCatching {
+    ): Result<Unit> {
+        val isPaused = !PlayerConnection.instance?.player?.isPlaying!!
+        return updateSongInternal(song, currentPlaybackTimeMillis, isPaused, playbackSpeed, useDetails)
+    }
+
+    suspend fun updateSong(
+        song: Song,
+        currentPlaybackTimeMillis: Long,
+        isPaused: Boolean,
+    ): Result<Unit> {
+        return updateSongInternal(song, currentPlaybackTimeMillis, isPaused)
+    }
+
+    private suspend fun updateSongInternal(
+        song: Song,
+        currentPlaybackTimeMillis: Long,
+        isPaused: Boolean,
+        playbackSpeed: Float = 1.0f,
+        useDetails: Boolean = false
+    ): Result<Unit> = runCatching {
         DiscordPresenceManager.updateNow(
             context = context,
             token = accessToken,
             song = song,
             positionMs = currentPlaybackTimeMillis,
-            isPaused = !PlayerConnection.instance?.player?.isPlaying!!,
+            isPaused = isPaused,
             isMusicVideo = false
         )
     }
@@ -78,7 +94,6 @@ object DiscordPresenceManager {
     private val cleanupScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private var scope: CoroutineScope? = null
-    private var lifecycleObserver: LifecycleEventObserver? = null
     private var rpcInstance: DiscordRPC? = null
     private var rpcToken: String? = null
 
@@ -95,26 +110,6 @@ object DiscordPresenceManager {
     fun setLastRpcTimestamps(start: Long?, end: Long?) {
         lastRpcStartTimeState.value = start
         lastRpcEndTimeState.value = end
-    }
-
-    private fun addLifecycleObserverOnMain(observer: LifecycleEventObserver) {
-        if (Looper.myLooper() == Looper.getMainLooper()) {
-            ProcessLifecycleOwner.get().lifecycle.addObserver(observer)
-        } else {
-            Handler(Looper.getMainLooper()).post {
-                ProcessLifecycleOwner.get().lifecycle.addObserver(observer)
-            }
-        }
-    }
-
-    private fun removeLifecycleObserverOnMain(observer: LifecycleEventObserver) {
-        if (Looper.myLooper() == Looper.getMainLooper()) {
-            ProcessLifecycleOwner.get().lifecycle.removeObserver(observer)
-        } else {
-            Handler(Looper.getMainLooper()).post {
-                ProcessLifecycleOwner.get().lifecycle.removeObserver(observer)
-            }
-        }
     }
 
     private suspend fun getOrCreateRpc(context: Context, token: String): DiscordRPC {
@@ -193,7 +188,7 @@ object DiscordPresenceManager {
                 if (generation != updateGeneration.get()) return@withLock true
 
                 val rpc = getOrCreateRpc(appContext, activeToken)
-                val result = rpc.updateSong(song, positionMs, isPaused = isPaused)
+                val result = rpc.updateSong(song, positionMs, isPaused)
                 if (result.isSuccess) {
                     consecutiveFailures = 0
                     updateLastTimestamps(song, positionMs, isPaused)
@@ -215,10 +210,6 @@ object DiscordPresenceManager {
         if (!started.getAndSet(true)) {
             consecutiveFailures = 0
             scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-            lifecycleObserver = LifecycleEventObserver { _, event ->
-                if (event == Lifecycle.Event.ON_DESTROY) stop()
-            }
-            addLifecycleObserverOnMain(lifecycleObserver!!)
         }
         if (token.isNotBlank()) rpcToken = token
     }
@@ -262,9 +253,6 @@ object DiscordPresenceManager {
         updateGeneration.incrementAndGet()
         scope?.cancel()
         scope = null
-
-        lifecycleObserver?.let { removeLifecycleObserverOnMain(it) }
-        lifecycleObserver = null
 
         val rpcToClose = rpcInstance
         rpcInstance = null
