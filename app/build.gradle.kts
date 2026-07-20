@@ -86,6 +86,7 @@ android {
         unitTests.isReturnDefaultValues = true
     }
 
+    @Suppress("UnstableApiUsage")
     lint {
         disable += "MissingTranslation"
     }
@@ -94,11 +95,14 @@ android {
         includeInApk = false
         includeInBundle = false
     }
-
 }
 
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
+}
+
+kapt {
+    correctErrorTypes = true
 }
 
 dependencies {
