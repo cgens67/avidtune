@@ -40,7 +40,6 @@ import com.cgens67.avidtune.ui.screens.settings.AppearanceSettings
 import com.cgens67.avidtune.ui.screens.settings.BackupAndRestore
 import com.cgens67.avidtune.ui.screens.settings.ContentSettings
 import com.cgens67.avidtune.ui.screens.settings.DiscordLoginScreen
-import com.cgens67.avidtune.ui.screens.settings.DiscordSettings
 import com.cgens67.avidtune.ui.screens.settings.PalettePickerScreen
 import com.cgens67.avidtune.ui.screens.settings.PerformanceSettings
 import com.cgens67.avidtune.ui.screens.settings.PlayerSettings
