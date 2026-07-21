@@ -35,6 +35,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -486,6 +487,11 @@ fun DiscordLoginScreen(navController: NavController) {
     BackHandler(enabled = webView?.canGoBack() == true) { webView?.goBack() }
 }
 
+val DiscordAuthorizationSessionSaver = listSaver<DiscordAuthorizationSession, String>(
+    save = { listOf(it.state, it.codeVerifier, it.authorizationUri.toString()) },
+    restore = { DiscordAuthorizationSession(it[0], it[1], Uri.parse(it[2])) }
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiscordSettings(
@@ -518,7 +524,8 @@ fun DiscordSettings(
     var authorizedAvatarUrl by rememberSaveable { mutableStateOf("") }
     var showLogoutConfirm by rememberSaveable { mutableStateOf(false) }
     var showTokenDialog by remember { mutableStateOf(false) }
-    var authorizationSession by remember {
+    
+    var authorizationSession by rememberSaveable(stateSaver = DiscordAuthorizationSessionSaver) {
         mutableStateOf(DiscordOAuthRepository.createAuthorizationSession())
     }
     var authorizationUiModeName by rememberSaveable {
@@ -1220,11 +1227,11 @@ private fun discordLargeTextSourceLabel(value: String): String =
 
 @Composable
 fun EnhancedRichPresence(
-    song: Song?,
-    position: Long,
-    duration: Long,
-    isPlaying: Boolean,
-    sliderStyle: SliderStyle
+    song = song,
+    position = position,
+    duration = duration,
+    isPlaying = isPlaying,
+    sliderStyle = sliderStyle
 ) {
     val context = LocalContext.current
     val gradientAlpha by animateFloatAsState(
