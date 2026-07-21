@@ -1,3 +1,6 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+@file:Suppress("OPT_IN_USAGE_ERROR", "OPT_IN_USAGE")
+
 package com.cgens67.avidtune.discord
 
 import android.annotation.SuppressLint
@@ -90,11 +93,34 @@ import java.net.URLEncoder
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Base64
+import androidx.compose.animation.core.FastOutSlowInEasing
+import timber.log.Timber
 
 val DiscordRefreshTokenKey = stringPreferencesKey("discord_refresh_token")
 val DiscordTokenExpiresAtKey = longPreferencesKey("discord_token_expires_at")
 val DiscordAvatarUrlKey = stringPreferencesKey("discordAvatarUrl")
 val DiscordShowWhenPausedKey = booleanPreferencesKey("discord_show_when_paused")
+
+val DiscordLargeImageTypeKey = stringPreferencesKey("discord_large_image_type")
+val DiscordLargeImageCustomUrlKey = stringPreferencesKey("discord_large_image_custom_url")
+val DiscordSmallImageTypeKey = stringPreferencesKey("discord_small_image_type")
+val DiscordSmallImageCustomUrlKey = stringPreferencesKey("discord_small_image_custom_url")
+val DiscordPresenceStatusKey = stringPreferencesKey("discord_presence_status")
+val DiscordActivityPlatformKey = stringPreferencesKey("discord_activity_platform")
+val DiscordActivityNameKey = stringPreferencesKey("discord_activity_name")
+val DiscordActivityDetailsKey = stringPreferencesKey("discord_activity_details")
+val DiscordActivityStateKey = stringPreferencesKey("discord_activity_state")
+val DiscordActivityButton1LabelKey = stringPreferencesKey("discord_activity_button1_label")
+val DiscordActivityButton1EnabledKey = booleanPreferencesKey("discord_activity_button1_enabled")
+val DiscordActivityButton2LabelKey = stringPreferencesKey("discord_activity_button2_label")
+val DiscordActivityButton2EnabledKey = booleanPreferencesKey("discord_activity_button2_enabled")
+val DiscordActivityButton1UrlSourceKey = stringPreferencesKey("discord_activity_button1_url_source")
+val DiscordActivityButton1CustomUrlKey = stringPreferencesKey("discord_activity_button1_custom_url")
+val DiscordActivityButton2UrlSourceKey = stringPreferencesKey("discord_activity_button2_url_source")
+val DiscordActivityButton2CustomUrlKey = stringPreferencesKey("discord_activity_button2_custom_url")
+val DiscordActivityTypeKey = stringPreferencesKey("discord_activity_type")
+val DiscordLargeTextSourceKey = stringPreferencesKey("discord_large_text_source")
+val DiscordLargeTextCustomKey = stringPreferencesKey("discord_large_text_custom")
 
 data class DiscordAuthorizationSession(val state: String, val codeVerifier: String, val authorizationUri: Uri)
 data class DiscordAccount(val id: String, val username: String, val displayName: String, val avatarUrl: String?)
@@ -134,6 +160,11 @@ private val DiscordLargeTextOptions = listOf("song", "artist", "album", "app", "
 object DiscordAuthCoordinator {
     val redirects = MutableSharedFlow<Uri>(replay = 1, extraBufferCapacity = 1)
     fun emit(uri: Uri) { redirects.tryEmit(uri) }
+}
+
+private fun HttpURLConnection.readResponse(): String {
+    val stream = if (responseCode >= 400) errorStream else inputStream
+    return stream?.bufferedReader()?.use { it.readText() }.orEmpty()
 }
 
 object DiscordOAuthRepository {
@@ -475,6 +506,7 @@ fun DiscordSettings(
     var authorizedName by rememberSaveable { mutableStateOf("") }
     var authorizedAvatarUrl by rememberSaveable { mutableStateOf("") }
     var showLogoutConfirm by rememberSaveable { mutableStateOf(false) }
+    var showTokenDialog by remember { mutableStateOf(false) }
     var authorizationSession by remember {
         mutableStateOf(DiscordOAuthRepository.createAuthorizationSession())
     }
@@ -573,7 +605,7 @@ fun DiscordSettings(
             )
         }.onFailure {
             authorizationUiModeName = DiscordAuthorizationUiMode.Failure.name
-            authorizationMessage = it.message ?: context.getString(R.string.discord_authorization_failed)
+            authorizationMessage = it.message ?: "Authorization failed"
         }
     }
 
@@ -604,11 +636,11 @@ fun DiscordSettings(
                     discordUsername = authorizedUsername
                     discordName = authorizedName
                     discordAvatarUrl = authorizedAvatarUrl
-                    authorizationMessage = context.getString(R.string.discord_authorization_success)
+                    authorizationMessage = "Authorization successful"
                     authorizationUiModeName = DiscordAuthorizationUiMode.Success.name
                     authorizationSession = DiscordOAuthRepository.createAuthorizationSession()
                 }.onFailure {
-                    authorizationMessage = it.message ?: context.getString(R.string.discord_authorization_failed)
+                    authorizationMessage = it.message ?: "Authorization failed"
                     authorizationUiModeName = DiscordAuthorizationUiMode.Failure.name
                     authorizationSession = DiscordOAuthRepository.createAuthorizationSession()
                 }
@@ -745,6 +777,21 @@ fun DiscordSettings(
             defaultValue = "",
         )
 
+    val (useDetails, onUseDetailsChange) = rememberPreference(
+        key = com.cgens67.avidtune.constants.DiscordUseDetailsKey,
+        defaultValue = false
+    )
+
+    val (sliderStyle) = rememberEnumPreference(
+        key = com.cgens67.avidtune.constants.SliderStyleKey,
+        defaultValue = com.cgens67.avidtune.constants.SliderStyle.SQUIGGLY
+    )
+
+    var infoDismissed by rememberPreference(
+        key = com.cgens67.avidtune.constants.DiscordInfoDismissedKey,
+        defaultValue = false
+    )
+
     LaunchedEffect(largeImageType, smallImageType) {
         com.cgens67.avidtune.utils.DiscordImageResolver.clearCache()
     }
@@ -809,8 +856,8 @@ fun DiscordSettings(
         // Account category
         SettingsGeneralCategory(
             title = stringResource(R.string.account),
-            items = buildList {
-                add {
+            items = listOf(
+                @Composable {
                     PreferenceEntry(
                         title = {
                             Text(if (isLoggedIn) accountDisplayName else stringResource(R.string.not_logged_in))
@@ -838,10 +885,9 @@ fun DiscordSettings(
                             if (!isLoggedIn) navController.navigate("settings/discord/login")
                         }
                     )
-                }
-
-                if (!isLoggedIn) {
-                    add {
+                },
+                @Composable {
+                    if (!isLoggedIn) {
                         PreferenceEntry(
                             title = { Text(stringResource(R.string.advanced_login)) },
                             icon = { Icon(painterResource(R.drawable.token), null) },
@@ -849,14 +895,14 @@ fun DiscordSettings(
                         )
                     }
                 }
-            }
+            )
         )
 
         // Options category
         SettingsGeneralCategory(
             title = stringResource(R.string.options),
-            items = buildList {
-                add {
+            items = listOf(
+                @Composable {
                     SwitchPreference(
                         title = { Text(stringResource(R.string.enable_discord_rpc)) },
                         icon = { Icon(painterResource(R.drawable.discord), null) },
@@ -864,8 +910,8 @@ fun DiscordSettings(
                         onCheckedChange = onDiscordRPCChange,
                         isEnabled = isLoggedIn,
                     )
-                }
-                add {
+                },
+                @Composable {
                     SwitchPreference(
                         title = { Text(stringResource(R.string.discord_use_details)) },
                         description = stringResource(R.string.discord_use_details_description),
@@ -875,26 +921,26 @@ fun DiscordSettings(
                         isEnabled = isLoggedIn && discordRPC,
                     )
                 }
-            }
+            )
         )
 
         // Connection options
         SettingsGeneralCategory(
-            title = stringResource(R.string.discord_connection_settings),
+            title = "Discord Connection Settings",
             items = listOf(
-                {
+                @Composable {
                     ListPreference(
-                        title = { Text(stringResource(R.string.activity_status)) },
-                        icon = { Icon(painterResource(R.drawable.status), null) },
+                        title = { Text("Activity Status") },
+                        icon = { Icon(painterResource(R.drawable.bedtime), null) },
                         selectedValue = activityStatusSelection,
                         values = DiscordActivityStatusOptions,
                         valueText = { discordPresenceStatusLabel(it) },
                         onValueSelected = onActivityStatusSelectionChange,
                     )
                 },
-                {
+                @Composable {
                     ListPreference(
-                        title = { Text(stringResource(R.string.platform_status)) },
+                        title = { Text("Platform Status") },
                         icon = { Icon(painterResource(R.drawable.desktop_windows), null) },
                         selectedValue = platformSelection,
                         values = DiscordPlatformOptions,
@@ -907,47 +953,47 @@ fun DiscordSettings(
 
         // Display configuration
         SettingsGeneralCategory(
-            title = stringResource(R.string.discord_activity_content),
+            title = "Discord Activity Content",
             items = listOf(
-                {
+                @Composable {
                     EnumListPreference(
-                        title = { Text(stringResource(R.string.discord_activity_name)) },
+                        title = { Text("Activity Name") },
                         selectedValue = nameSource,
                         onValueSelected = onNameSourceChange,
                         valueText = { activitySourceLabel(it) },
                         icon = { Icon(painterResource(R.drawable.text_fields), null) },
                     )
                 },
-                {
+                @Composable {
                     EnumListPreference(
-                        title = { Text(stringResource(R.string.discord_activity_details)) },
+                        title = { Text("Activity Details") },
                         selectedValue = detailsSource,
                         onValueSelected = onDetailsSourceChange,
                         valueText = { activitySourceLabel(it) },
                         icon = { Icon(painterResource(R.drawable.text_fields), null) },
                     )
                 },
-                {
+                @Composable {
                     EnumListPreference(
-                        title = { Text(stringResource(R.string.discord_activity_state)) },
+                        title = { Text("Activity State") },
                         selectedValue = stateSource,
                         onValueSelected = onStateSourceChange,
                         valueText = { activitySourceLabel(it) },
                         icon = { Icon(painterResource(R.drawable.text_fields), null) },
                     )
                 },
-                {
+                @Composable {
                     SwitchPreference(
-                        title = { Text(stringResource(R.string.discord_show_when_paused)) },
-                        description = stringResource(R.string.discord_show_when_paused_desc),
-                        icon = { Icon(painterResource(R.drawable.ic_pause_white), null) },
+                        title = { Text("Show When Paused") },
+                        description = "Show your status when music is paused",
+                        icon = { Icon(painterResource(R.drawable.play), null) },
                         checked = showWhenPaused,
                         onCheckedChange = { showWhenPaused = it },
                     )
                 },
-                {
+                @Composable {
                     ListPreference(
-                        title = { Text(stringResource(R.string.discord_activity_type)) },
+                        title = { Text("Activity Type") },
                         icon = { Icon(painterResource(R.drawable.discord), null) },
                         selectedValue = activityType,
                         values = DiscordActivityTypeOptions,
@@ -960,11 +1006,11 @@ fun DiscordSettings(
 
         // Image options
         SettingsGeneralCategory(
-            title = stringResource(R.string.discord_image_options),
+            title = "Discord Image Options",
             items = listOf(
-                {
+                @Composable {
                     ListPreference(
-                        title = { Text(stringResource(R.string.large_image)) },
+                        title = { Text("Large Image") },
                         icon = { Icon(painterResource(R.drawable.image), null) },
                         selectedValue = largeImageType,
                         values = DiscordImageOptions,
@@ -972,10 +1018,10 @@ fun DiscordSettings(
                         onValueSelected = onLargeImageTypeChange,
                     )
                 },
-                {
+                @Composable {
                     AnimatedVisibility(visible = largeImageType == "custom") {
                         EditTextPreference(
-                            title = { Text(stringResource(R.string.large_image_custom_url)) },
+                            title = { Text("Large Image Custom URL") },
                             icon = { Icon(painterResource(R.drawable.link), null) },
                             value = largeImageCustomUrl,
                             onValueChange = onLargeImageCustomUrlChange,
@@ -983,9 +1029,9 @@ fun DiscordSettings(
                         )
                     }
                 },
-                {
+                @Composable {
                     ListPreference(
-                        title = { Text(stringResource(R.string.large_text)) },
+                        title = { Text("Large Text") },
                         icon = { Icon(painterResource(R.drawable.text_fields), null) },
                         selectedValue = largeTextSource,
                         values = DiscordLargeTextOptions,
@@ -993,10 +1039,10 @@ fun DiscordSettings(
                         onValueSelected = onLargeTextSourceChange,
                     )
                 },
-                {
+                @Composable {
                     AnimatedVisibility(visible = largeTextSource == "custom") {
                         EditTextPreference(
-                            title = { Text(stringResource(R.string.custom_large_text)) },
+                            title = { Text("Custom Large Text") },
                             icon = { Icon(painterResource(R.drawable.text_fields), null) },
                             value = largeTextCustom,
                             onValueChange = onLargeTextCustomChange,
@@ -1004,9 +1050,9 @@ fun DiscordSettings(
                         )
                     }
                 },
-                {
+                @Composable {
                     ListPreference(
-                        title = { Text(stringResource(R.string.small_image)) },
+                        title = { Text("Small Image") },
                         icon = { Icon(painterResource(R.drawable.image), null) },
                         selectedValue = smallImageType,
                         values = DiscordSmallImageOptions,
@@ -1014,10 +1060,10 @@ fun DiscordSettings(
                         onValueSelected = onSmallImageTypeChange,
                     )
                 },
-                {
+                @Composable {
                     AnimatedVisibility(visible = smallImageType == "custom") {
                         EditTextPreference(
-                            title = { Text(stringResource(R.string.small_image_custom_url)) },
+                            title = { Text("Small Image Custom URL") },
                             icon = { Icon(painterResource(R.drawable.link), null) },
                             value = smallImageCustomUrl,
                             onValueChange = onSmallImageCustomUrlChange,
@@ -1045,8 +1091,8 @@ fun DiscordSettings(
     if (showLogoutConfirm) {
         AlertDialog(
             onDismissRequest = { showLogoutConfirm = false },
-            title = { Text(stringResource(R.string.logout_confirm_title)) },
-            text = { Text(stringResource(R.string.logout_confirm_message)) },
+            title = { Text("Logout") },
+            text = { Text("Are you sure you want to log out of Discord?") },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -1061,20 +1107,33 @@ fun DiscordSettings(
                         authorizationMessage = null
                         authorizationSession = DiscordOAuthRepository.createAuthorizationSession()
                         showLogoutConfirm = false
-                    },
-                    shapes = ButtonDefaults.shapes(),
+                    }
                 ) {
-                    Text(stringResource(R.string.logout_confirm_yes))
+                    Text("Log out")
                 }
             },
             dismissButton = {
                 TextButton(
-                    onClick = { showLogoutConfirm = false },
-                    shapes = ButtonDefaults.shapes(),
+                    onClick = { showLogoutConfirm = false }
                 ) {
-                    Text(stringResource(R.string.logout_confirm_no))
+                    Text("Cancel")
                 }
             },
+        )
+    }
+
+    if (showTokenDialog) {
+        com.cgens67.avidtune.ui.component.TextFieldDialog(
+            title = { Text(stringResource(R.string.advanced_login)) },
+            initialTextFieldValue = TextFieldValue(discordToken),
+            onDismiss = { showTokenDialog = false },
+            onDone = { token ->
+                discordToken = token.trim()
+                showTokenDialog = false
+            },
+            singleLine = false,
+            maxLines = 10,
+            isInputValid = { it.isNotBlank() }
         )
     }
 }
@@ -1083,7 +1142,7 @@ fun DiscordSettings(
 private fun activitySourceLabel(source: ActivitySource): String =
     when (source) {
         ActivitySource.ARTIST -> stringResource(R.string.artist_name)
-        ActivitySource.ALBUM -> stringResource(R.string.album_name)
+        ActivitySource.ALBUM -> "Album"
         ActivitySource.SONG -> stringResource(R.string.song_title)
         ActivitySource.APP -> stringResource(R.string.app_name)
     }
@@ -1091,46 +1150,46 @@ private fun activitySourceLabel(source: ActivitySource): String =
 @Composable
 private fun discordPresenceStatusLabel(value: String): String =
     when (value) {
-        "online" -> stringResource(R.string.discord_presence_online)
-        "dnd" -> stringResource(R.string.discord_presence_do_not_disturb)
-        "idle" -> stringResource(R.string.discord_presence_idle)
-        "streaming" -> stringResource(R.string.discord_presence_streaming)
-        else -> stringResource(R.string.discord_presence_online)
+        "online" -> "Online"
+        "dnd" -> "Do Not Disturb"
+        "idle" -> "Idle"
+        "streaming" -> "Streaming"
+        else -> "Online"
     }
 
 @Composable
 private fun discordPlatformLabel(value: String): String =
     when (value) {
-        "desktop" -> stringResource(R.string.discord_platform_desktop)
-        "xbox" -> stringResource(R.string.discord_platform_xbox)
-        "samsung" -> stringResource(R.string.discord_platform_samsung)
-        "ios" -> stringResource(R.string.discord_platform_ios)
-        "android" -> stringResource(R.string.discord_platform_android)
-        "embedded" -> stringResource(R.string.discord_platform_embedded)
-        "ps4" -> stringResource(R.string.discord_platform_ps4)
-        "ps5" -> stringResource(R.string.discord_platform_ps5)
-        else -> stringResource(R.string.discord_platform_android)
+        "desktop" -> "Desktop"
+        "xbox" -> "Xbox"
+        "samsung" -> "Samsung"
+        "ios" -> "iOS"
+        "android" -> "Android"
+        "embedded" -> "Web/Embedded"
+        "ps4" -> "PlayStation 4"
+        "ps5" -> "PlayStation 5"
+        else -> "Android"
     }
 
 @Composable
 private fun discordActivityTypeLabel(value: String): String =
     when (value) {
-        "PLAYING" -> stringResource(R.string.discord_activity_type_playing_label)
-        "STREAMING" -> stringResource(R.string.discord_activity_type_streaming_label)
-        "LISTENING" -> stringResource(R.string.discord_activity_type_listening_label)
-        "WATCHING" -> stringResource(R.string.discord_activity_type_watching_label)
-        "COMPETING" -> stringResource(R.string.discord_activity_type_competing_label)
+        "PLAYING" -> "Playing"
+        "STREAMING" -> "Streaming"
+        "LISTENING" -> "Listening to"
+        "WATCHING" -> "Watching"
+        "COMPETING" -> "Competing in"
         else -> value
     }
 
 @Composable
 private fun discordImageTypeLabel(value: String): String =
     when (value.lowercase()) {
-        "thumbnail" -> stringResource(R.string.discord_image_album_artwork)
-        "artist" -> stringResource(R.string.discord_image_artist_artwork)
-        "appicon" -> stringResource(R.string.app_icon)
-        "custom" -> stringResource(R.string.custom)
-        "dontshow" -> stringResource(R.string.dont_show)
+        "thumbnail" -> "Album Artwork"
+        "artist" -> "Artist Artwork"
+        "appicon" -> "App Icon"
+        "custom" -> "Custom URL"
+        "dontshow" -> "Don't Show"
         else -> value
     }
 
@@ -1139,10 +1198,10 @@ private fun discordLargeTextSourceLabel(value: String): String =
     when (value.lowercase()) {
         "song" -> stringResource(R.string.song_title)
         "artist" -> stringResource(R.string.artist_name)
-        "album" -> stringResource(R.string.album_name)
+        "album" -> "Album"
         "app" -> stringResource(R.string.app_name)
-        "custom" -> stringResource(R.string.custom)
-        "dontshow" -> stringResource(R.string.dont_show)
+        "custom" -> "Custom"
+        "dontshow" -> "Don't Show"
         else -> value
     }
 
@@ -1521,22 +1580,15 @@ fun EnhancedProgressBar(
             }
 
             SliderStyle.SQUIGGLY -> {
-                SquigglySlider(
-                    value = position.toFloat(),
-                    valueRange = 0f..duration.toFloat().coerceAtLeast(1f),
+                com.cgens67.avidtune.ui.player.PlayerSliderV4(
+                    sliderStyle = SliderStyle.SQUIGGLY,
+                    sliderPosition = null,
+                    position = position,
+                    duration = duration,
+                    isPlaying = isPlaying,
+                    textBackgroundColor = MaterialTheme.colorScheme.primary,
                     onValueChange = {},
-                    enabled = false,
-                    colors = SliderDefaults.colors(
-                        activeTrackColor = MaterialTheme.colorScheme.primary,
-                        inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant,
-                        disabledActiveTrackColor = MaterialTheme.colorScheme.primary,
-                        disabledInactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant,
-                        disabledThumbColor = MaterialTheme.colorScheme.primary
-                    ),
-                    squigglesSpec = SquigglySlider.SquigglesSpec(
-                        amplitude = if (isPlaying) 2.dp else 0.dp,
-                        strokeWidth = 3.dp
-                    )
+                    onValueChangeFinished = {}
                 )
             }
 
