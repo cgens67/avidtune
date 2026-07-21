@@ -14,6 +14,7 @@ import android.os.Bundle
 import android.os.Build
 import android.view.ViewGroup
 import android.webkit.*
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -60,7 +61,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
@@ -215,7 +215,10 @@ object DiscordOAuthRepository {
     suspend fun completeAuthorization(context: Context, session: DiscordAuthorizationSession, redirect: Uri): Result<DiscordAuthSession> = withContext(Dispatchers.IO) {
         runCatching {
             require(redirect.scheme == "discord-1529054924053418054") { "Unexpected Discord redirect scheme" }
-            require(redirect.path == "/authorize/callback") { "Unexpected Discord redirect target" }
+            val path = redirect.path
+            require(path == "/authorize/callback" || path == "/callback" || path?.endsWith("/callback") == true) { 
+                "Unexpected Discord redirect target: $path (URI: $redirect)" 
+            }
 
             redirect.getQueryParameter("error")?.let { error ->
                 val description = redirect.getQueryParameter("error_description")
@@ -379,7 +382,7 @@ class DiscordOAuthCallbackActivity : Activity() {
         handleIntent(intent)
         finish()
     }
-    override fun onNewIntent(intent: Intent) {
+    override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
         handleIntent(intent)
         finish()
@@ -662,6 +665,14 @@ fun DiscordSettings(
                     authorizationUiModeName = DiscordAuthorizationUiMode.Failure.name
                     authorizationSession = DiscordOAuthRepository.createAuthorizationSession()
                 }
+        }
+    }
+
+    LaunchedEffect(authorizationUiModeName, authorizationMessage) {
+        if (authorizationUiModeName == DiscordAuthorizationUiMode.Success.name) {
+            Toast.makeText(context, "Discord authorized successfully!", Toast.LENGTH_SHORT).show()
+        } else if (authorizationUiModeName == DiscordAuthorizationUiMode.Failure.name) {
+            Toast.makeText(context, "Failed: ${authorizationMessage ?: "Unknown error"}", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -1480,7 +1491,7 @@ fun EnhancedRichPresence(
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = albumTitle,
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = MaterialTheme.typography.bodySmall,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
