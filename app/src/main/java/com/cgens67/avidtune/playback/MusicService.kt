@@ -905,7 +905,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             val metadata = currentMediaMetadata.value ?: return@transaction
             val song = getSongById(metadata.id)
             if (song != null) {
-                update(song.toggleLibrary())
+                update(song.song.toggleLibrary())
             } else {
                 insert(metadata) { it.toggleLibrary() }
             }
@@ -917,7 +917,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             val metadata = currentMediaMetadata.value ?: return@transaction
             val song = getSongById(metadata.id)
             if (song != null) {
-                update(song.toggleLike())
+                update(song.song.toggleLike())
             } else {
                 insert(metadata) { it.toggleLike() }
             }
