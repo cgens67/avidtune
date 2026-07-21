@@ -10,6 +10,7 @@ import org.json.JSONObject
 import timber.log.Timber
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.random.Random
+import com.cgens67.avidtune.utils.DiscordAssetRegistrar
 
 private const val TAG = "GatewayClient"
 
