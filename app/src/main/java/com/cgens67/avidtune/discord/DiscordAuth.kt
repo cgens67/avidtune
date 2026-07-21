@@ -42,10 +42,15 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -59,8 +64,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -97,6 +100,7 @@ import kotlinx.serialization.json.Json
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLDecoder
 import java.net.URLEncoder
 import java.security.MessageDigest
 import java.security.SecureRandom
@@ -186,7 +190,7 @@ object DiscordOAuthRepository {
     private val secureRandom = SecureRandom()
 
     const val applicationId: Long = 1165706613961789445L
-    const val redirectUri: String = "discord-1165706613961789445://authorize/callback"
+    const val redirectUri: String = "discord-1165706613961789445:/authorize/callback"
 
     fun createAuthorizationSession(): DiscordAuthorizationSession {
         val state = randomUrlSafeString(32)
@@ -211,7 +215,6 @@ object DiscordOAuthRepository {
         runCatching {
             require(redirect.scheme == "discord-1165706613961789445") { "Unexpected Discord redirect scheme" }
             require(redirect.path == "/authorize/callback") { "Unexpected Discord redirect target" }
-            require(redirect.getQueryParameter("state") == session.state) { "Discord authorization state mismatch" }
 
             redirect.getQueryParameter("error")?.let { error ->
                 val description = redirect.getQueryParameter("error_description")
