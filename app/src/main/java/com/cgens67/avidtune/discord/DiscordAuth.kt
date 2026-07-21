@@ -216,6 +216,8 @@ object DiscordOAuthRepository {
             require(redirect.scheme == "discord-1165706613961789445") { "Unexpected Discord redirect scheme" }
             require(redirect.path == "/authorize/callback") { "Unexpected Discord redirect target" }
 
+            redirect.getQueryParameter("state") == session.state
+
             redirect.getQueryParameter("error")?.let { error ->
                 val description = redirect.getQueryParameter("error_description")
                 throw IllegalStateException(description ?: error)
@@ -739,7 +741,7 @@ fun DiscordSettings(
     val (button2Label) =
         rememberPreference(
             key = DiscordActivityButton2LabelKey,
-            defaultValue = "Go to ArchiveTune",
+            defaultValue = "Go to AvidTune",
         )
     val (button2Enabled) =
         rememberPreference(
@@ -764,7 +766,7 @@ fun DiscordSettings(
     val (button2CustomUrl) =
         rememberPreference(
             key = DiscordActivityButton2CustomUrlKey,
-            defaultValue = "https://github.com/rukamori/ArchiveTune",
+            defaultValue = "https://github.com/cgens67/AvidTune",
         )
 
     val (activityType, onActivityTypeChange) =
@@ -1035,7 +1037,7 @@ fun DiscordSettings(
                             title = { Text("Large Image Custom URL") },
                             icon = { Icon(painterResource(R.drawable.link), null) },
                             value = largeImageCustomUrl,
-                            onValueChange = onLargeImageCustomUrlChange,
+                            onValueChange = rgeImageCustomUrlChange,
                             isInputValid = { true },
                         )
                     }
@@ -1077,7 +1079,7 @@ fun DiscordSettings(
                             title = { Text("Small Image Custom URL") },
                             icon = { Icon(painterResource(R.drawable.link), null) },
                             value = smallImageCustomUrl,
-                            onValueChange = onSmallImageCustomUrlChange,
+                            onValueChange = smallImageCustomUrlChange,
                             isInputValid = { true },
                         )
                     }
