@@ -17,8 +17,6 @@ import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.core.content.getSystemService
 import androidx.core.net.toUri
-import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.core.edit
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -68,7 +66,6 @@ import com.cgens67.avidtune.constants.DiscordUseDetailsKey
 import com.cgens67.avidtune.constants.EnableDiscordRPCKey
 import com.cgens67.avidtune.constants.HideExplicitKey
 import com.cgens67.avidtune.constants.HistoryDuration
-import com.cgens67.avidtune.constants.LastNewReleaseCheckKey
 import com.cgens67.avidtune.constants.PauseListenHistoryKey
 import com.cgens67.avidtune.constants.PersistentQueueKey
 import com.cgens67.avidtune.constants.PlayerVolumeKey
@@ -123,6 +120,7 @@ import com.cgens67.innertube.models.SongItem
 import com.cgens67.innertube.models.WatchEndpoint
 import com.cgens67.jossredconnect.JossRedClient
 import com.google.common.util.concurrent.MoreExecutors
+import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -152,13 +150,55 @@ import okhttp3.Request
 import timber.log.Timber
 import java.io.ObjectInputStream
 import java.io.ObjectOutputStream
+import java.io.ObjectStreamClass
+import java.io.Serializable
+import java.io.InputStream
+import java.io.IOException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.time.LocalDateTime
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
+import javax.inject.Singleton
 import kotlin.time.Duration.Companion.seconds
+
+class SafeObjectInputStream(inputStream: InputStream, private val allowedClasses: List<Class<*>>) : ObjectInputStream(inputStream) {
+    override fun resolveClass(desc: ObjectStreamClass?): Class<*> {
+        val clazz = super.resolveClass(desc)
+        if (allowedClasses.contains(clazz) || AllowedSerializables.allowed.any { it.isAssignableFrom(clazz) }) {
+            return clazz
+        }
+        throw SecurityException("Deserialization of class ${desc?.name} is blocked")
+    }
+}
+
+object AllowedSerializables {
+    val allowed: List<Class<*>> = listOf(
+        PersistQueue::class.java,
+        PersistPlayerState::class.java,
+        MediaMetadata::class.java,
+        MediaMetadata.Artist::class.java,
+        MediaMetadata.Album::class.java,
+        com.cgens67.avidtune.models.QueueType::class.java,
+        com.cgens67.avidtune.models.QueueType.LIST::class.java,
+        com.cgens67.avidtune.models.QueueType.YOUTUBE::class.java,
+        com.cgens67.avidtune.models.QueueType.YOUTUBE_ALBUM_RADIO::class.java,
+        com.cgens67.avidtune.models.QueueType.LOCAL_ALBUM_RADIO::class.java,
+        com.cgens67.avidtune.models.QueueData::class.java,
+        com.cgens67.avidtune.models.QueueData.YouTubeData::class.java,
+        com.cgens67.avidtune.models.QueueData.YouTubeAlbumRadioData::class.java,
+        com.cgens67.avidtune.models.QueueData.LocalAlbumRadioData::class.java,
+        java.util.ArrayList::class.java,
+        java.lang.String::class.java,
+        java.lang.Integer::class.java,
+        java.lang.Long::class.java,
+        java.lang.Float::class.java,
+        java.lang.Boolean::class.java,
+        java.lang.Number::class.java,
+        java.lang.Enum::class.java
+    )
+}
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 @AndroidEntryPoint
@@ -183,7 +223,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     private var lastAudioFocusState = AudioManager.AUDIOFOCUS_NONE
     private var wasPlayingBeforeAudioFocusLoss = false
     private var hasAudioFocus = false
-    private var scope = CoroutineScope(Dispatchers.Main) + Job()
+    private var scope = CoroutineScope(Dispatchers.Main + Job())
     private val binder = MusicBinder()
 
     val togetherManager by lazy { TogetherManager(scope, player) }
@@ -469,8 +509,8 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         if (dataStore.get(PersistentQueueKey, true)) {
             runCatching {
                 filesDir.resolve(PERSISTENT_QUEUE_FILE).inputStream().use { fis ->
-                    ObjectInputStream(fis).use { oos ->
-                        oos.writeObject(persistQueue)
+                    SafeObjectInputStream(fis, AllowedSerializables.allowed).use { ois ->
+                        ois.readObject() as PersistQueue
                     }
                 }
             }.onSuccess { queue ->
@@ -483,8 +523,8 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
 
             runCatching {
                 filesDir.resolve(PERSISTENT_AUTOMIX_FILE).inputStream().use { fis ->
-                    ObjectInputStream(fis).use { oos ->
-                        oos.writeObject(persistQueue)
+                    SafeObjectInputStream(fis, AllowedSerializables.allowed).use { ois ->
+                        ois.readObject() as PersistQueue
                     }
                 }
             }.onSuccess { queue ->
@@ -495,8 +535,8 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
 
             runCatching {
                 filesDir.resolve(PERSISTENT_PLAYER_STATE_FILE).inputStream().use { fis ->
-                    ObjectInputStream(fis).use { oos ->
-                        oos.writeObject(playerState)
+                    SafeObjectInputStream(fis, AllowedSerializables.allowed).use { ois ->
+                        ois.readObject() as PersistPlayerState
                     }
                 }
             }.onSuccess { playerState ->
@@ -601,31 +641,6 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
-    private fun requestAudioFocus(): Boolean {
-        if (hasAudioFocus) return true
-        audioFocusRequest?.let { request ->
-            val result = audioManager.requestAudioFocus(request)
-            hasAudioFocus = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
-            return hasAudioFocus
-        }
-        return false
-    }
-
-    @RequiresApi(Build.VERSION_CODES.O)
-    private fun abandonAudioFocus() {
-        if (hasAudioFocus) {
-            audioFocusRequest?.let { request ->
-                audioManager.abandonAudioFocusRequest(request)
-                hasAudioFocus = false
-            }
-        }
-    }
-
-    fun hasAudioFocusForPlayback(): Boolean {
-        return hasAudioFocus
-    }
-
     private fun waitOnNetworkError() {
         waitingForNetworkConnection.value = true
     }
@@ -724,7 +739,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     }
 
     fun playQueue(queue: Queue, playWhenReady: Boolean = true) {
-        if (!scope.isActive) scope = CoroutineScope(Dispatchers.Main) + Job()
+        if (!scope.isActive) scope = CoroutineScope(Dispatchers.Main + Job())
         currentQueue = queue
         queueTitle = null
         player.shuffleModeEnabled = false
