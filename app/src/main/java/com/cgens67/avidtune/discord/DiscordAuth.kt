@@ -1227,11 +1227,11 @@ private fun discordLargeTextSourceLabel(value: String): String =
 
 @Composable
 fun EnhancedRichPresence(
-    song = song,
-    position = position,
-    duration = duration,
-    isPlaying = isPlaying,
-    sliderStyle = sliderStyle
+    song: Song?,
+    position: Long,
+    duration: Long,
+    isPlaying: Boolean,
+    sliderStyle: SliderStyle
 ) {
     val context = LocalContext.current
     val gradientAlpha by animateFloatAsState(
