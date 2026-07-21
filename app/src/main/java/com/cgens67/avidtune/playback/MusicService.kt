@@ -1,6 +1,7 @@
 @file:Suppress("DEPRECATION")
 package com.cgens67.avidtune.playback
 
+import android.app.Notification
 import android.app.PendingIntent
 import android.content.ComponentName
 import android.content.Context
@@ -17,6 +18,8 @@ import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.core.content.getSystemService
 import androidx.core.net.toUri
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -102,6 +105,7 @@ import com.cgens67.avidtune.lyrics.LyricsHelper
 import com.cgens67.avidtune.models.PersistPlayerState
 import com.cgens67.avidtune.models.PersistQueue
 import com.cgens67.avidtune.models.toMediaMetadata
+import com.cgens67.avidtune.models.MediaMetadata
 import com.cgens67.avidtune.playback.queues.EmptyQueue
 import com.cgens67.avidtune.playback.queues.Queue
 import com.cgens67.avidtune.playback.queues.YouTubeQueue
@@ -641,6 +645,10 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         }
     }
 
+    fun hasAudioFocusForPlayback(): Boolean {
+        return hasAudioFocus
+    }
+
     private fun waitOnNetworkError() {
         waitingForNetworkConnection.value = true
     }
@@ -897,7 +905,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             val metadata = currentMediaMetadata.value ?: return@transaction
             val song = getSongById(metadata.id)
             if (song != null) {
-                update(song.song.toggleLibrary())
+                update(song.toggleLibrary())
             } else {
                 insert(metadata) { it.toggleLibrary() }
             }
@@ -909,7 +917,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             val metadata = currentMediaMetadata.value ?: return@transaction
             val song = getSongById(metadata.id)
             if (song != null) {
-                update(song.song.toggleLike())
+                update(song.toggleLike())
             } else {
                 insert(metadata) { it.toggleLike() }
             }
