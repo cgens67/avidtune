@@ -25,6 +25,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -37,6 +39,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -54,6 +58,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -62,6 +67,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.navigation.NavController
+import androidx.core.net.toUri
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
@@ -856,7 +862,7 @@ fun DiscordSettings(
         // Account category
         SettingsGeneralCategory(
             title = stringResource(R.string.account),
-            items = listOf(
+            items = listOfNotNull(
                 @Composable {
                     PreferenceEntry(
                         title = {
@@ -886,15 +892,15 @@ fun DiscordSettings(
                         }
                     )
                 },
-                @Composable {
-                    if (!isLoggedIn) {
+                if (!isLoggedIn) {
+                    @Composable {
                         PreferenceEntry(
                             title = { Text(stringResource(R.string.advanced_login)) },
                             icon = { Icon(painterResource(R.drawable.token), null) },
                             onClick = { showTokenDialog = true }
                         )
                     }
-                }
+                } else null
             )
         )
 
