@@ -39,8 +39,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -58,7 +56,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -183,8 +180,8 @@ object DiscordOAuthRepository {
     private val json = Json { ignoreUnknownKeys = true }
     private val secureRandom = SecureRandom()
 
-    const val applicationId: Long = 1411019391843172514L
-    const val redirectUri: String = "avidtune-discord://authorize/callback"
+    const val applicationId: Long = 1165706613961789445L
+    const val redirectUri: String = "discord-1165706613961789445://authorize/callback"
 
     fun createAuthorizationSession(): DiscordAuthorizationSession {
         val state = randomUrlSafeString(32)
@@ -207,7 +204,7 @@ object DiscordOAuthRepository {
 
     suspend fun completeAuthorization(context: Context, session: DiscordAuthorizationSession, redirect: Uri): Result<DiscordAuthSession> = withContext(Dispatchers.IO) {
         runCatching {
-            require(redirect.scheme == "avidtune-discord") { "Unexpected Discord redirect scheme" }
+            require(redirect.scheme == "discord-1165706613961789445") { "Unexpected Discord redirect scheme" }
             require(redirect.path == "/authorize/callback") { "Unexpected Discord redirect target" }
             require(redirect.getQueryParameter("state") == session.state) { "Discord authorization state mismatch" }
 
@@ -881,14 +878,14 @@ fun DiscordSettings(
                                 }
                             } else {
                                 FilledTonalButton(
-                                    onClick = { navController.navigate("settings/discord/login") }
+                                    onClick = launchAuthorization
                                 ) {
                                     Text(stringResource(R.string.action_login))
                                 }
                             }
                         },
                         onClick = {
-                            if (!isLoggedIn) navController.navigate("settings/discord/login")
+                            if (!isLoggedIn) launchAuthorization()
                         }
                     )
                 },
