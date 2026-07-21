@@ -151,7 +151,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="avidtune-discord" />
+                <data android:scheme="discord-1529054924053418054" />
             </intent-filter>
         </activity>
 
