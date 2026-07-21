@@ -10,7 +10,6 @@ import org.json.JSONObject
 import timber.log.Timber
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.random.Random
-import com.cgens67.avidtune.utils.DiscordAssetRegistrar
 
 private const val TAG = "GatewayClient"
 
@@ -374,9 +373,9 @@ class GatewayClient {
         d.put("token", token)
         val properties = JSONObject()
         properties.put("os", "Android")
-        properties.put("browser", "ArchiveTune")
+        properties.put("browser", "AvidTune")
         properties.put("device", "Android")
-        properties.put("browser_user_agent", "ArchiveTune")
+        properties.put("browser_user_agent", "AvidTune")
         properties.put("browser_version", "1.0")
         properties.put("client_version", "1.0")
         properties.put("client_build_number", 1)
