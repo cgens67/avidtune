@@ -189,8 +189,8 @@ object DiscordOAuthRepository {
     private val json = Json { ignoreUnknownKeys = true }
     private val secureRandom = SecureRandom()
 
-    const val applicationId: Long = 1165706613961789445L
-    const val redirectUri: String = "discord-1165706613961789445:/authorize/callback"
+    const val applicationId: Long = 1529054924053418054L
+    const val redirectUri: String = "discord-1529054924053418054:/authorize/callback"
 
     fun createAuthorizationSession(): DiscordAuthorizationSession {
         val state = randomUrlSafeString(32)
@@ -213,10 +213,8 @@ object DiscordOAuthRepository {
 
     suspend fun completeAuthorization(context: Context, session: DiscordAuthorizationSession, redirect: Uri): Result<DiscordAuthSession> = withContext(Dispatchers.IO) {
         runCatching {
-            require(redirect.scheme == "discord-1165706613961789445") { "Unexpected Discord redirect scheme" }
+            require(redirect.scheme == "discord-1529054924053418054") { "Unexpected Discord redirect scheme" }
             require(redirect.path == "/authorize/callback") { "Unexpected Discord redirect target" }
-
-            redirect.getQueryParameter("state") == session.state
 
             redirect.getQueryParameter("error")?.let { error ->
                 val description = redirect.getQueryParameter("error_description")
@@ -1011,7 +1009,9 @@ fun DiscordSettings(
                         selectedValue = activityType,
                         values = DiscordActivityTypeOptions,
                         valueText = { discordActivityTypeLabel(it) },
-                        onValueSelected = onActivityTypeChange,
+                        onValueSelected = onValueChange@ { activityType ->
+                            onActivityTypeChange(activityType)
+                        }
                     )
                 }
             )
@@ -1037,7 +1037,7 @@ fun DiscordSettings(
                             title = { Text("Large Image Custom URL") },
                             icon = { Icon(painterResource(R.drawable.link), null) },
                             value = largeImageCustomUrl,
-                            onValueChange = rgeImageCustomUrlChange,
+                            onValueChange = onLargeImageCustomUrlChange,
                             isInputValid = { true },
                         )
                     }
@@ -1079,7 +1079,7 @@ fun DiscordSettings(
                             title = { Text("Small Image Custom URL") },
                             icon = { Icon(painterResource(R.drawable.link), null) },
                             value = smallImageCustomUrl,
-                            onValueChange = smallImageCustomUrlChange,
+                            onValueChange = onSmallImageCustomUrlChange,
                             isInputValid = { true },
                         )
                     }
