@@ -72,6 +72,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -105,6 +106,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -348,7 +350,7 @@ fun SettingsScreen(
             hasUpdate = true
             fetchedLatestVersion = newVersion
         }
-        
+
         val newBetaVersion = checkForBetaUpdates()
         if (newBetaVersion != null && isNewerVersion(newBetaVersion, BuildConfig.VERSION_NAME)) {
             if (newVersion == null || isNewerVersion(newBetaVersion, newVersion)) {
@@ -512,7 +514,7 @@ fun SettingsScreen(
 
                 if (hasRequestedPermissions && !shouldShowRationale) {
                     val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                        data = Uri.parse("package", context.packageName, null)
+                        data = Uri.fromParts("package", context.packageName, null)
                     }
                     context.startActivity(intent)
                 } else {
