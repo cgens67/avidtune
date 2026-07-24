@@ -365,6 +365,6 @@ This program is distributed in the hope that it will be useful, but **WITHOUT AN
   <br>
   
   [![GitHub](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white)](https://github.com/cgens67)
-  [![Email](https://img.shields.io/badge/Email-D14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:cervantescgens67@gmail.com)
+  [![Email](https://img.shields.io/badge/Email-D14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:cgenshin587@gmail.com)
   
 </div>
