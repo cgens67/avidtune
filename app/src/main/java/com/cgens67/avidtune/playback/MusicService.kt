@@ -1,7 +1,6 @@
 @file:Suppress("DEPRECATION")
 package com.cgens67.avidtune.playback
 
-import android.app.Notification
 import android.app.PendingIntent
 import android.content.ComponentName
 import android.content.Context
@@ -69,6 +68,9 @@ import com.cgens67.avidtune.constants.DiscordUseDetailsKey
 import com.cgens67.avidtune.constants.EnableDiscordRPCKey
 import com.cgens67.avidtune.constants.HideExplicitKey
 import com.cgens67.avidtune.constants.HistoryDuration
+import com.cgens67.avidtune.constants.MediaSessionConstants.CommandToggleLike
+import com.cgens67.avidtune.constants.MediaSessionConstants.CommandToggleRepeatMode
+import com.cgens67.avidtune.constants.MediaSessionConstants.CommandToggleShuffle
 import com.cgens67.avidtune.constants.PauseListenHistoryKey
 import com.cgens67.avidtune.constants.PersistentQueueKey
 import com.cgens67.avidtune.constants.PlayerVolumeKey
@@ -78,11 +80,6 @@ import com.cgens67.avidtune.constants.ShowLyricsKey
 import com.cgens67.avidtune.constants.SimilarContent
 import com.cgens67.avidtune.constants.SkipSilenceKey
 import com.cgens67.avidtune.constants.SponsorBlockEnabledKey
-import com.cgens67.avidtune.constants.StopMusicOnTaskClearKey
-import com.cgens67.avidtune.constants.MediaSessionConstants.CommandToggleLibrary
-import com.cgens67.avidtune.constants.MediaSessionConstants.CommandToggleLike
-import com.cgens67.avidtune.constants.MediaSessionConstants.CommandToggleRepeatMode
-import com.cgens67.avidtune.constants.MediaSessionConstants.CommandToggleShuffle
 import com.cgens67.avidtune.db.MusicDatabase
 import com.cgens67.avidtune.db.entities.Event
 import com.cgens67.avidtune.db.entities.FormatEntity
@@ -90,8 +87,6 @@ import com.cgens67.avidtune.db.entities.LyricsEntity
 import com.cgens67.avidtune.db.entities.RelatedSongMap
 import com.cgens67.avidtune.di.DownloadCache
 import com.cgens67.avidtune.di.PlayerCache
-import com.cgens67.avidtune.utils.DiscordRPC
-import com.cgens67.avidtune.utils.DiscordPresenceManager
 import com.cgens67.avidtune.extensions.SilentHandler
 import com.cgens67.avidtune.extensions.collect
 import com.cgens67.avidtune.extensions.collectLatest
@@ -105,7 +100,6 @@ import com.cgens67.avidtune.lyrics.LyricsHelper
 import com.cgens67.avidtune.models.PersistPlayerState
 import com.cgens67.avidtune.models.PersistQueue
 import com.cgens67.avidtune.models.toMediaMetadata
-import com.cgens67.avidtune.models.MediaMetadata
 import com.cgens67.avidtune.playback.queues.EmptyQueue
 import com.cgens67.avidtune.playback.queues.Queue
 import com.cgens67.avidtune.playback.queues.YouTubeQueue
@@ -113,6 +107,7 @@ import com.cgens67.avidtune.playback.queues.filterExplicit
 import com.cgens67.avidtune.together.TogetherManager
 import com.cgens67.avidtune.together.TogetherRoomSettings
 import com.cgens67.avidtune.utils.CoilBitmapLoader
+import com.cgens67.avidtune.utils.DiscordRPC
 import com.cgens67.avidtune.utils.NetworkConnectivityObserver
 import com.cgens67.avidtune.utils.YTPlayerUtils
 import com.cgens67.avidtune.utils.dataStore
@@ -124,7 +119,6 @@ import com.cgens67.innertube.models.SongItem
 import com.cgens67.innertube.models.WatchEndpoint
 import com.cgens67.jossredconnect.JossRedClient
 import com.google.common.util.concurrent.MoreExecutors
-import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -145,64 +139,22 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.plus
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.sync.withLock
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import timber.log.Timber
 import java.io.ObjectInputStream
 import java.io.ObjectOutputStream
-import java.io.ObjectStreamClass
-import java.io.Serializable
-import java.io.InputStream
-import java.io.IOException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.time.LocalDateTime
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
-import javax.inject.Singleton
 import kotlin.time.Duration.Companion.seconds
-
-class SafeObjectInputStream(inputStream: InputStream, private val allowedClasses: List<Class<*>>) : ObjectInputStream(inputStream) {
-    override fun resolveClass(desc: ObjectStreamClass?): Class<*> {
-        val clazz = super.resolveClass(desc)
-        if (allowedClasses.contains(clazz) || AllowedSerializables.allowed.any { it.isAssignableFrom(clazz) }) {
-            return clazz
-        }
-        throw SecurityException("Deserialization of class ${desc?.name} is blocked")
-    }
-}
-
-object AllowedSerializables {
-    val allowed: List<Class<*>> = listOf(
-        PersistQueue::class.java,
-        PersistPlayerState::class.java,
-        MediaMetadata::class.java,
-        MediaMetadata.Artist::class.java,
-        MediaMetadata.Album::class.java,
-        com.cgens67.avidtune.models.QueueType::class.java,
-        com.cgens67.avidtune.models.QueueType.LIST::class.java,
-        com.cgens67.avidtune.models.QueueType.YOUTUBE::class.java,
-        com.cgens67.avidtune.models.QueueType.YOUTUBE_ALBUM_RADIO::class.java,
-        com.cgens67.avidtune.models.QueueType.LOCAL_ALBUM_RADIO::class.java,
-        com.cgens67.avidtune.models.QueueData::class.java,
-        com.cgens67.avidtune.models.QueueData.YouTubeData::class.java,
-        com.cgens67.avidtune.models.QueueData.YouTubeAlbumRadioData::class.java,
-        com.cgens67.avidtune.models.QueueData.LocalAlbumRadioData::class.java,
-        java.util.ArrayList::class.java,
-        java.lang.String::class.java,
-        java.lang.Integer::class.java,
-        java.lang.Long::class.java,
-        java.lang.Float::class.java,
-        java.lang.Boolean::class.java,
-        java.lang.Number::class.java,
-        java.lang.Enum::class.java
-    )
-}
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 @AndroidEntryPoint
@@ -227,7 +179,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     private var lastAudioFocusState = AudioManager.AUDIOFOCUS_NONE
     private var wasPlayingBeforeAudioFocusLoss = false
     private var hasAudioFocus = false
-    private var scope = CoroutineScope(Dispatchers.Main + Job())
+    private var scope = CoroutineScope(Dispatchers.Main) + Job()
     private val binder = MusicBinder()
 
     val togetherManager by lazy { TogetherManager(scope, player) }
@@ -479,9 +431,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             .distinctUntilChanged()
             .collect(scope) { (key, enabled) ->
                 if (discordRpc?.isRpcRunning() == true) {
-                    runBlocking {
-                        discordRpc?.closeRPC()
-                    }
+                    discordRpc?.closeRPC()
                 }
                 discordRpc = null
                 if (key != null && enabled) {
@@ -513,8 +463,8 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         if (dataStore.get(PersistentQueueKey, true)) {
             runCatching {
                 filesDir.resolve(PERSISTENT_QUEUE_FILE).inputStream().use { fis ->
-                    SafeObjectInputStream(fis, AllowedSerializables.allowed).use { ois ->
-                        ois.readObject() as PersistQueue
+                    ObjectInputStream(fis).use { oos ->
+                        oos.readObject() as PersistQueue
                     }
                 }
             }.onSuccess { queue ->
@@ -527,8 +477,8 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
 
             runCatching {
                 filesDir.resolve(PERSISTENT_AUTOMIX_FILE).inputStream().use { fis ->
-                    SafeObjectInputStream(fis, AllowedSerializables.allowed).use { ois ->
-                        ois.readObject() as PersistQueue
+                    ObjectInputStream(fis).use { oos ->
+                        oos.readObject() as PersistQueue
                     }
                 }
             }.onSuccess { queue ->
@@ -539,8 +489,8 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
 
             runCatching {
                 filesDir.resolve(PERSISTENT_PLAYER_STATE_FILE).inputStream().use { fis ->
-                    SafeObjectInputStream(fis, AllowedSerializables.allowed).use { ois ->
-                        ois.readObject() as PersistPlayerState
+                    ObjectInputStream(fis).use { oos ->
+                        oos.readObject() as PersistPlayerState
                     }
                 }
             }.onSuccess { playerState ->
@@ -641,6 +591,27 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 hasAudioFocus = true
                 player.volume = playerVolume.value
                 lastAudioFocusState = focusChange
+            }
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun requestAudioFocus(): Boolean {
+        if (hasAudioFocus) return true
+        audioFocusRequest?.let { request ->
+            val result = audioManager.requestAudioFocus(request)
+            hasAudioFocus = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+            return hasAudioFocus
+        }
+        return false
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun abandonAudioFocus() {
+        if (hasAudioFocus) {
+            audioFocusRequest?.let { request ->
+                audioManager.abandonAudioFocusRequest(request)
+                hasAudioFocus = false
             }
         }
     }
@@ -747,7 +718,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     }
 
     fun playQueue(queue: Queue, playWhenReady: Boolean = true) {
-        if (!scope.isActive) scope = CoroutineScope(Dispatchers.Main + Job())
+        if (!scope.isActive) scope = CoroutineScope(Dispatchers.Main) + Job()
         currentQueue = queue
         queueTitle = null
         player.shuffleModeEnabled = false
@@ -952,10 +923,10 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 }
                 
                 if (normalizeAudio && currentMediaId != null) {
-                    val formatObj = withContext(Dispatchers.IO) {
+                    val format = withContext(Dispatchers.IO) {
                         database.format(currentMediaId).first()
                     }
-                    val loudnessDb = formatObj?.loudnessDb
+                    val loudnessDb = format?.loudnessDb
                     withContext(Dispatchers.Main) {
                         if (loudnessDb != null) {
                             val targetGain = (-loudnessDb * 100).toInt()
@@ -1284,17 +1255,17 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                     }
                 }
                 
-                val selectedFormat = playbackData.format
+                val format = playbackData.format
                 database.query {
                     upsert(
                         FormatEntity(
                             id = mediaId,
-                            itag = selectedFormat.itag,
-                            mimeType = selectedFormat.mimeType.split(";")[0],
-                            codecs = selectedFormat.mimeType.split("codecs=")[1].removeSurrounding("\""),
-                            bitrate = selectedFormat.bitrate,
-                            sampleRate = selectedFormat.audioSampleRate,
-                            contentLength = selectedFormat.contentLength!!,
+                            itag = format.itag,
+                            mimeType = format.mimeType.split(";")[0],
+                            codecs = format.mimeType.split("codecs=")[1].removeSurrounding("\""),
+                            bitrate = format.bitrate,
+                            sampleRate = format.audioSampleRate,
+                            contentLength = format.contentLength!!,
                             loudnessDb = playbackData.audioConfig?.loudnessDb,
                             playbackUrl = playbackData.streamUrl
                         )
@@ -1306,7 +1277,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 }
                 
                 val streamUrl = playbackData.streamUrl
-                songUrlCache[mediaId] = streamUrl to (System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L))
+                songUrlCache[mediaId] = streamUrl to System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L)
                 return@Factory dataSpec.withUri(streamUrl.toUri())
             } catch (e: Exception) {
                 Timber.tag(ytLogTag).e(e, "YouTube playback error, trying JossRed as fallback")
@@ -1329,9 +1300,9 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                                 JossRedClient.getStreamingUrl(mediaId)
                             }
                         }
-                    }.getOrNull() as? String
+                    }.getOrNull()
                     
-                    if (!alternativeUrl.isNullOrBlank()) {
+                    if (alternativeUrl != null) {
                         val client = OkHttpClient.Builder()
                             .connectTimeout(2, TimeUnit.SECONDS)
                             .readTimeout(2, TimeUnit.SECONDS)
@@ -1504,53 +1475,16 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         }
     }
 
-    suspend fun refreshDiscordNow(): Boolean {
-        val songObj = currentSong.value
-        val position = player.currentPosition
-        val isPaused = !player.isPlaying
-        return DiscordPresenceManager.updateNow(
-            context = this,
-            token = dataStore.get(DiscordTokenKey, ""),
-            song = songObj,
-            positionMs = position,
-            isPaused = isPaused
-        )
-    }
-
     @RequiresApi(Build.VERSION_CODES.O)
-    private fun requestAudioFocus(): Boolean {
-        if (hasAudioFocus) return true
-        audioFocusRequest?.let { request ->
-            val result = audioManager.requestAudioFocus(request)
-            hasAudioFocus = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
-            return hasAudioFocus
-        }
-        return false
-    }
-
-    @RequiresApi(Build.VERSION_CODES.O)
-    private fun abandonAudioFocus() {
-        if (hasAudioFocus) {
-            audioFocusRequest?.let { request ->
-                audioManager.abandonAudioFocusRequest(request)
-                hasAudioFocus = false
-            }
-        }
-    }
-
     override fun onDestroy() {
         if (dataStore.get(PersistentQueueKey, true)) {
             saveQueueToDisk()
         }
         if (discordRpc?.isRpcRunning() == true) {
-            runBlocking {
-                discordRpc?.closeRPC()
-            }
+            discordRpc?.closeRPC()
         }
         discordRpc = null
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            abandonAudioFocus()
-        }
+        abandonAudioFocus()
         releaseLoudnessEnhancer()
         mediaSession.release()
         player.removeListener(this)

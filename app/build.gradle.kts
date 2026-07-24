@@ -86,7 +86,6 @@ android {
         unitTests.isReturnDefaultValues = true
     }
 
-    @Suppress("UnstableApiUsage")
     lint {
         disable += "MissingTranslation"
     }
@@ -95,14 +94,11 @@ android {
         includeInApk = false
         includeInBundle = false
     }
+
 }
 
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
-}
-
-kapt {
-    correctErrorTypes = true
 }
 
 dependencies {
@@ -165,6 +161,7 @@ dependencies {
     implementation(projects.innertube)
     implementation(projects.kugou)
     implementation(projects.lrclib)
+    implementation(projects.kizzy)
     implementation(project(":jossredconnect"))
     implementation(project(":betterlyrics"))
     implementation(project(":paxsenix"))

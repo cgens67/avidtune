@@ -19,7 +19,6 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.cgens67.avidtune.BuildConfig
-import com.cgens67.avidtune.discord.DiscordSettings
 import com.cgens67.avidtune.playback.AvidTuneEqScreen
 import com.cgens67.avidtune.playback.EqScreen
 import com.cgens67.avidtune.ui.screens.settings.ChangelogScreen
@@ -40,6 +39,7 @@ import com.cgens67.avidtune.ui.screens.settings.AppearanceSettings
 import com.cgens67.avidtune.ui.screens.settings.BackupAndRestore
 import com.cgens67.avidtune.ui.screens.settings.ContentSettings
 import com.cgens67.avidtune.ui.screens.settings.DiscordLoginScreen
+import com.cgens67.avidtune.ui.screens.settings.DiscordSettings
 import com.cgens67.avidtune.ui.screens.settings.PalettePickerScreen
 import com.cgens67.avidtune.ui.screens.settings.PerformanceSettings
 import com.cgens67.avidtune.ui.screens.settings.PlayerSettings
