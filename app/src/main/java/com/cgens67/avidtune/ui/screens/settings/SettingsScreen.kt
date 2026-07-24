@@ -512,7 +512,7 @@ fun SettingsScreen(
 
                 if (hasRequestedPermissions && !shouldShowRationale) {
                     val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                        data = Uri.fromParts("package", context.packageName, null)
+                        data = Uri.parse("package", context.packageName, null)
                     }
                     context.startActivity(intent)
                 } else {
@@ -837,23 +837,7 @@ private fun buildSettingsGroups(
                     icon = painterResource(R.drawable.link),
                     title = stringResource(R.string.open_supported_links),
                     keywords = listOf("open", "supported", "links", "default"),
-                    onClick = { 
-                        resetSearch()
-                        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                            Intent(Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS).apply {
-                                data = Uri.parse("package:${context.packageName}")
-                            }
-                        } else {
-                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                data = Uri.parse("package:${context.packageName}")
-                            }
-                        }
-                        try {
-                            context.startActivity(intent)
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
-                    }
+                    onClick = { resetSearch(); navController.navigate("settings/open_links") }
                 ),
                 SettingsItem(
                     icon = painterResource(R.drawable.info),
@@ -1332,23 +1316,7 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
             icon = painterResource(R.drawable.link),
             title = stringResource(R.string.open_supported_links),
             keywords = listOf("open", "supported", "links", "default"),
-            onClick = {
-                resetSearch()
-                val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    Intent(Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS).apply {
-                        data = Uri.parse("package:${context.packageName}")
-                    }
-                } else {
-                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                        data = Uri.parse("package:${context.packageName}")
-                    }
-                }
-                try {
-                    context.startActivity(intent)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
+            onClick = { resetSearch(); navController.navigate("settings/open_links") }
         )
     )
 }
