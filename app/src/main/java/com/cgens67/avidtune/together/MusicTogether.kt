@@ -99,6 +99,7 @@ import kotlinx.serialization.json.Json
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
+import java.net.NetworkInterface
 import java.net.SocketTimeoutException
 import java.net.URI
 import java.net.URLDecoder
@@ -176,7 +177,7 @@ const val TogetherProtocolVersion: Int = 2
 @Serializable @SerialName("send_reaction") data class SendReactionMsg(val reaction: TogetherReaction) : TogetherMessage
 @Serializable @SerialName("request_track") data class RequestTrackMsg(val track: TogetherTrack, val requestedById: String, val requestedByName: String) : TogetherMessage
 @Serializable @SerialName("vote_request") data class VoteRequestMsg(val trackId: String, val participantId: String, val isUpvote: Boolean = true) : TogetherMessage
-@Serializable @SerialName("manage_request") data class ManageRequestMsg(val trackId: String, val action: String) : TogetherMessage // "APPROVE", "REJECT"
+@Serializable @SerialName("manage_request") data class ManageRequestMsg(val trackId: String, val action: String) : TogetherMessage
 
 @Serializable enum class ServerRole { HOST, GUEST }
 
@@ -190,14 +191,39 @@ object TogetherLink {
     fun encode(info: TogetherJoinInfo) = info.toDeepLink()
     fun decode(raw: String): TogetherJoinInfo? {
         val trimmed = raw.trim().replace("\\s+".toRegex(), "")
+        if (trimmed.isEmpty()) return null
+
+        // 1. Try Deep Link (AvidTune://together?host=192.168.1.76&port=42117&...)
         runCatching { URI(trimmed) }.getOrNull()?.let { uri ->
             if (uri.scheme?.lowercase() == "avidtune" && uri.authority?.lowercase() == "together") {
-                val params = uri.rawQuery?.split("&")?.associate { val p = it.split("="); p[0] to URLDecoder.decode(p[1], "UTF-8") } ?: emptyMap()
-                return TogetherJoinInfo(params["host"] ?: return null, params["port"]?.toIntOrNull() ?: return null, params["sid"] ?: return null, params["key"] ?: return null)
+                val params = uri.rawQuery?.split("&")?.associate {
+                    val p = it.split("=")
+                    p[0] to URLDecoder.decode(p.getOrElse(1) { "" }, "UTF-8")
+                } ?: emptyMap()
+                return TogetherJoinInfo(
+                    host = params["host"] ?: return null,
+                    port = params["port"]?.toIntOrNull() ?: 42117,
+                    sessionId = params["sid"] ?: "direct",
+                    sessionKey = params["key"] ?: "direct"
+                )
             }
         }
+
+        // 2. Try Pipe format (host|port|sid|key)
         val p = trimmed.split("|")
-        if (p.size == 4) return TogetherJoinInfo(p[0], p[1].toIntOrNull() ?: return null, p[2], p[3])
+        if (p.size == 4) {
+            return TogetherJoinInfo(p[0], p[1].toIntOrNull() ?: 42117, p[2], p[3])
+        }
+
+        // 3. Try Direct IP or IP:Port (e.g. 192.168.1.76:42117 or 192.168.1.76)
+        val cleanHostPort = trimmed.removePrefix("http://").removePrefix("https://").removePrefix("ws://").removePrefix("wss://")
+        val parts = cleanHostPort.split(":")
+        val host = parts[0]
+        if (host.matches(Regex("^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$")) || host.contains(".")) {
+            val port = parts.getOrNull(1)?.toIntOrNull() ?: 42117
+            return TogetherJoinInfo(host = host, port = port, sessionId = "direct", sessionKey = "direct")
+        }
+
         return null
     }
 }
@@ -267,7 +293,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
         val addresses = mutableListOf<InetAddress>()
         try {
             addresses.add(InetAddress.getByName("255.255.255.255"))
-            val interfaces = java.net.NetworkInterface.getNetworkInterfaces()
+            val interfaces = NetworkInterface.getNetworkInterfaces()
             while (interfaces.hasMoreElements()) {
                 val networkInterface = interfaces.nextElement()
                 if (networkInterface.isLoopback || !networkInterface.isUp) continue
@@ -712,7 +738,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
             val info = TogetherLink.decode(input) ?: resolvePin(input)?.joinInfo
             if (info == null) {
                 withContext(Dispatchers.Main) {
-                    sessionState.value = TogetherSessionState.Error("Invalid link or PIN not found on LAN.")
+                    sessionState.value = TogetherSessionState.Error("Invalid link or IP address. Make sure the host is on the same Wi-Fi.")
                 }
                 return@launch
             }
@@ -781,7 +807,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
             } catch (e: Exception) {
                 e.printStackTrace()
                 withContext(Dispatchers.Main) {
-                    sessionState.value = TogetherSessionState.Error("Failed to connect: ${e.message}")
+                    sessionState.value = TogetherSessionState.Error("Failed to connect to ${info.host}:${info.port}. Check host IP.")
                 }
             }
         }
@@ -790,7 +816,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
             delay(10_000L)
             if (sessionState.value is TogetherSessionState.Joining) {
                 joinJob.cancel()
-                sessionState.value = TogetherSessionState.Error("Connection timed out. Please check host network.")
+                sessionState.value = TogetherSessionState.Error("Connection timed out. Check if host's IP/Wi-Fi is reachable.")
             }
         }
     }
@@ -883,9 +909,23 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
         }
     }
 
-    private fun getIpAddress(): String? = java.net.NetworkInterface.getNetworkInterfaces().toList()
-        .flatMap { it.inetAddresses.toList() }
-        .firstOrNull { !it.isLoopbackAddress && it is java.net.Inet4Address }?.hostAddress
+    private fun getIpAddress(): String? {
+        try {
+            val interfaces = NetworkInterface.getNetworkInterfaces().toList()
+            // 1st priority: wlan / wifi interfaces
+            val wifiIp = interfaces.filter { it.isUp && !it.isLoopback && (it.name.contains("wlan", true) || it.name.contains("eth", true)) }
+                .flatMap { it.inetAddresses.toList() }
+                .firstOrNull { !it.isLoopbackAddress && it is java.net.Inet4Address }?.hostAddress
+            if (wifiIp != null) return wifiIp
+
+            // 2nd priority: any valid non-loopback IPv4 address
+            return interfaces.filter { it.isUp && !it.isLoopback }
+                .flatMap { it.inetAddresses.toList() }
+                .firstOrNull { !it.isLoopbackAddress && it is java.net.Inet4Address }?.hostAddress
+        } catch (e: Exception) {
+            return null
+        }
+    }
 }
 
 // --- UI COMPONENTS ---
@@ -922,7 +962,7 @@ private fun AnimatedReactionParticle(reaction: TogetherReaction, onFinished: () 
         coroutineScope {
             launch {
                 animOffsetY.animateTo(
-                    targetValue = -350f,
+                    targetValue = -380f,
                     animationSpec = tween(durationMillis = 2200, easing = LinearEasing)
                 )
             }
@@ -950,7 +990,7 @@ private fun AnimatedReactionParticle(reaction: TogetherReaction, onFinished: () 
         Surface(
             shape = CircleShape,
             color = MaterialTheme.colorScheme.primaryContainer,
-            shadowElevation = 4.dp
+            shadowElevation = 6.dp
         ) {
             Text(
                 text = reaction.emoji,
@@ -1355,9 +1395,19 @@ private fun SearchAndRequestTrackDialog(
         onDismissRequest = onDismiss,
         shape = RoundedCornerShape(28.dp),
         containerColor = MaterialTheme.colorScheme.surface,
-        title = { Text("Request a Track", style = MaterialTheme.typography.titleLarge) },
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Box(
+                    modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(painterResource(R.drawable.search), contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(20.dp))
+                }
+                Text("Request a Track", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            }
+        },
         text = {
-            Column(modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp)) {
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
@@ -1378,21 +1428,28 @@ private fun SearchAndRequestTrackDialog(
                             }
                         }
                     }),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(16.dp)
                 )
 
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(14.dp))
 
                 if (isSearching) {
-                    Box(modifier = Modifier.fillMaxWidth().height(150.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
+                    Box(modifier = Modifier.fillMaxWidth().height(160.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(strokeWidth = 3.dp)
+                    }
+                } else if (searchResults.isEmpty() && query.isNotBlank()) {
+                    Box(modifier = Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.Center) {
+                        Text("No songs found", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 } else {
                     LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
                         items(searchResults) { song ->
-                            Row(
+                            Surface(
+                                shape = RoundedCornerShape(14.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainerLow,
                                 modifier = Modifier
                                     .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
                                     .clickable {
                                         val track = TogetherTrack(
                                             id = song.id,
@@ -1403,19 +1460,23 @@ private fun SearchAndRequestTrackDialog(
                                         )
                                         onRequestTrack(track)
                                     }
-                                    .padding(vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                AsyncImage(
-                                    model = song.thumbnail,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)),
-                                    contentScale = ContentScale.Crop
-                                )
-                                Spacer(Modifier.width(12.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(song.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Text(song.artists.joinToString(", ") { it.name }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Row(
+                                    modifier = Modifier.padding(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    AsyncImage(
+                                        model = song.thumbnail,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                    Spacer(Modifier.width(12.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(song.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(song.artists.joinToString(", ") { it.name }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
+                                    Icon(painterResource(R.drawable.add), null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
                                 }
                             }
                         }
@@ -1427,6 +1488,7 @@ private fun SearchAndRequestTrackDialog(
     )
 }
 
+// --- REDESIGNED TRACK REQUESTS CARD ---
 @Composable
 private fun TrackRequestsCard(
     requests: List<TogetherTrackRequest>,
@@ -1440,77 +1502,209 @@ private fun TrackRequestsCard(
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier.fillMaxWidth().animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)),
+        modifier = modifier
+            .fillMaxWidth()
+            .animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)),
         shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            // Header Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(
-                        modifier = Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                                    )
+                                )
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(painterResource(R.drawable.playlist_add), null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        Icon(painterResource(R.drawable.playlist_add), null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
                     }
-                    Text("Requested Tracks (${requests.size})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Column {
+                        Text(
+                            text = "Song Requests",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "${requests.size} pending",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
 
                 if (allowGuestAdd || isHost) {
-                    FilledTonalButton(onClick = onRequestClick, shape = RoundedCornerShape(12.dp), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)) {
+                    Button(
+                        onClick = onRequestClick,
+                        shape = RoundedCornerShape(14.dp),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
                         Icon(painterResource(R.drawable.add), null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Request", style = MaterialTheme.typography.labelMedium)
+                        Spacer(Modifier.width(6.dp))
+                        Text("Request", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                     }
                 }
             }
 
             if (requests.isEmpty()) {
-                Text("No pending requests in queue.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Box(
+                        modifier = Modifier.padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No track requests right now. Tap 'Request' to suggest a song!",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
             } else {
                 requests.forEach { req ->
                     val hasVoted = req.upvotes.contains(selfParticipantId)
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+
+                    Card(
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
                             modifier = Modifier.padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            // Cover Thumbnail
                             AsyncImage(
                                 model = req.track.thumbnailUrl,
                                 contentDescription = null,
-                                modifier = Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)),
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
                                 contentScale = ContentScale.Crop
                             )
+
                             Spacer(Modifier.width(12.dp))
+
+                            // Details
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(req.track.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text("${req.track.artists.joinToString(", ")} • by ${req.requestedByName}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(
+                                    text = req.track.title,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = req.track.artists.joinToString(", "),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+                                    modifier = Modifier.padding(top = 4.dp)
+                                ) {
+                                    Text(
+                                        text = "Req by ${req.requestedByName}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
                             }
 
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                FilterChip(
-                                    selected = hasVoted,
+                            Spacer(Modifier.width(8.dp))
+
+                            // Upvote + Host Approval Actions
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                // Upvote Chip
+                                Surface(
                                     onClick = { onVote(req.track.id) },
-                                    label = { Text("${req.upvotes.size}") },
-                                    leadingIcon = { Icon(painterResource(R.drawable.arrow_upward), null, modifier = Modifier.size(14.dp)) },
-                                    shape = CircleShape
-                                )
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (hasVoted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                                    border = if (hasVoted) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+                                    modifier = Modifier.height(36.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(R.drawable.favorite),
+                                            contentDescription = "Upvote",
+                                            modifier = Modifier.size(14.dp),
+                                            tint = if (hasVoted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            text = "${req.upvotes.size}",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (hasVoted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                }
 
                                 if (isHost) {
-                                    Surface(onClick = { onApprove(req.track.id) }, shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(32.dp)) {
-                                        Box(contentAlignment = Alignment.Center) { Icon(painterResource(R.drawable.play), null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer) }
+                                    // Play / Approve
+                                    Surface(
+                                        onClick = { onApprove(req.track.id) },
+                                        shape = CircleShape,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                painter = painterResource(R.drawable.play),
+                                                contentDescription = "Play",
+                                                modifier = Modifier.size(18.dp),
+                                                tint = MaterialTheme.colorScheme.onPrimary
+                                            )
+                                        }
                                     }
-                                    Surface(onClick = { onReject(req.track.id) }, shape = CircleShape, color = MaterialTheme.colorScheme.errorContainer, modifier = Modifier.size(32.dp)) {
-                                        Box(contentAlignment = Alignment.Center) { Icon(painterResource(R.drawable.close), null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onErrorContainer) }
+                                    // Reject / Remove
+                                    Surface(
+                                        onClick = { onReject(req.track.id) },
+                                        shape = CircleShape,
+                                        color = MaterialTheme.colorScheme.errorContainer,
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                painter = painterResource(R.drawable.close),
+                                                contentDescription = "Reject",
+                                                modifier = Modifier.size(16.dp),
+                                                tint = MaterialTheme.colorScheme.onErrorContainer
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -1519,115 +1713,6 @@ private fun TrackRequestsCard(
                 }
             }
         }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun CustomJoinDialog(initialValue: String, onDismiss: () -> Unit, onJoin: (String) -> Unit) {
-    var isPinMode by remember { mutableStateOf(initialValue.length <= 6 && initialValue.all { it.isDigit() }) }
-    var pinInput by remember { mutableStateOf(if (isPinMode) initialValue else "") }
-    var linkInput by remember { mutableStateOf(if (!isPinMode) initialValue else "") }
-
-    val focusRequester = remember { FocusRequester() }
-    val keyboardController = LocalSoftwareKeyboardController.current
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(28.dp),
-        containerColor = MaterialTheme.colorScheme.surface,
-        title = {
-            Text(
-                text = stringResource(if (isPinMode) R.string.together_join_via_pin else R.string.together_join_via_link),
-                style = MaterialTheme.typography.titleLarge
-            )
-        },
-        text = {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                TabRow(
-                    selectedTabIndex = if (isPinMode) 0 else 1,
-                    containerColor = Color.Transparent,
-                    divider = { },
-                    indicator = { },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                ) {
-                    val pinBg = if (isPinMode) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-                    val linkBg = if (!isPinMode) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-
-                    Tab(
-                        selected = isPinMode,
-                        onClick = { isPinMode = true },
-                        modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(pinBg),
-                        text = { Text(stringResource(R.string.together_pin), color = if (isPinMode) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant) }
-                    )
-                    Tab(
-                        selected = !isPinMode,
-                        onClick = { isPinMode = false },
-                        modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(linkBg),
-                        text = { Text(stringResource(R.string.together_link), color = if (!isPinMode) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant) }
-                    )
-                }
-
-                if (isPinMode) {
-                    BasicTextField(
-                        value = pinInput,
-                        onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) pinInput = it },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = { if (pinInput.length == 6) onJoin(pinInput) }),
-                        modifier = Modifier.focusRequester(focusRequester).fillMaxWidth(),
-                        decorationBox = {
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), modifier = Modifier.fillMaxWidth()) {
-                                repeat(6) { index ->
-                                    val char = pinInput.getOrNull(index)?.toString() ?: ""
-                                    val isFocused = pinInput.length == index || (pinInput.length == 6 && index == 5)
-                                    Box(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .aspectRatio(0.8f)
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                                            .border(width = 2.dp, color = if (isFocused) MaterialTheme.colorScheme.primary else Color.Transparent, shape = RoundedCornerShape(8.dp)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(text = char, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
-                                    }
-                                }
-                            }
-                        }
-                    )
-                } else {
-                    OutlinedTextField(
-                        value = linkInput,
-                        onValueChange = { linkInput = it },
-                        placeholder = { Text(stringResource(R.string.together_paste_link_placeholder)) },
-                        modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
-                        singleLine = false,
-                        minLines = 3,
-                        maxLines = 4,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = { if (linkInput.isNotBlank()) onJoin(linkInput) }),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onJoin(if (isPinMode) pinInput else linkInput) },
-                enabled = if (isPinMode) pinInput.length == 6 else linkInput.isNotBlank()
-            ) { Text(stringResource(R.string.join)) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) } }
-    )
-
-    LaunchedEffect(isPinMode) {
-        delay(100)
-        focusRequester.requestFocus()
-        keyboardController?.show()
     }
 }
 
