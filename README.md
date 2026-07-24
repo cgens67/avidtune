@@ -291,8 +291,7 @@ Help translate AvidTune into your language or improve existing translations:
 
 <div align="center">
   
-[![Telegram Chat](https://img.shields.io/badge/Telegram-Chat-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/AvidTune_chat)
-[![Telegram Updates](https://img.shields.io/badge/Telegram-Updates-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/avidtune_updates)
+[![Telegram Updates](https://img.shields.io/badge/Telegram-Updates-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/avidtuneupdates)
 
 </div>
 
