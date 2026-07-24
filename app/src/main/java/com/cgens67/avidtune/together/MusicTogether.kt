@@ -1,7 +1,9 @@
 package com.cgens67.avidtune.together
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
+import android.net.wifi.WifiManager
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -54,6 +56,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.zIndex
 import androidx.datastore.preferences.core.*
 import androidx.media3.common.MediaItem
@@ -177,7 +181,7 @@ const val TogetherProtocolVersion: Int = 2
 @Serializable @SerialName("send_reaction") data class SendReactionMsg(val reaction: TogetherReaction) : TogetherMessage
 @Serializable @SerialName("request_track") data class RequestTrackMsg(val track: TogetherTrack, val requestedById: String, val requestedByName: String) : TogetherMessage
 @Serializable @SerialName("vote_request") data class VoteRequestMsg(val trackId: String, val participantId: String, val isUpvote: Boolean = true) : TogetherMessage
-@Serializable @SerialName("manage_request") data class ManageRequestMsg(val trackId: String, val action: String) : TogetherMessage
+@Serializable @SerialName("manage_request") data class ManageRequestMsg(val trackId: String, val action: String) : TogetherMessage // "APPROVE", "REJECT"
 
 @Serializable enum class ServerRole { HOST, GUEST }
 
@@ -187,43 +191,43 @@ object TogetherJson { val json = Json { ignoreUnknownKeys = true; explicitNulls 
     fun toWebSocketUrl() = "ws://$host:$port/together"
     fun toDeepLink() = "AvidTune://together?host=$host&port=$port&sid=$sessionId&key=$sessionKey"
 }
+
 object TogetherLink {
     fun encode(info: TogetherJoinInfo) = info.toDeepLink()
     fun decode(raw: String): TogetherJoinInfo? {
         val trimmed = raw.trim().replace("\\s+".toRegex(), "")
         if (trimmed.isEmpty()) return null
 
-        // 1. Try Deep Link (AvidTune://together?host=192.168.1.76&port=42117&...)
         runCatching { URI(trimmed) }.getOrNull()?.let { uri ->
             if (uri.scheme?.lowercase() == "avidtune" && uri.authority?.lowercase() == "together") {
                 val params = uri.rawQuery?.split("&")?.associate {
                     val p = it.split("=")
-                    p[0] to URLDecoder.decode(p.getOrElse(1) { "" }, "UTF-8")
+                    if (p.size >= 2) p[0] to URLDecoder.decode(p[1], "UTF-8") else p[0] to ""
                 } ?: emptyMap()
-                return TogetherJoinInfo(
-                    host = params["host"] ?: return null,
-                    port = params["port"]?.toIntOrNull() ?: 42117,
-                    sessionId = params["sid"] ?: "direct",
-                    sessionKey = params["key"] ?: "direct"
-                )
+                val host = params["host"]
+                val port = params["port"]?.toIntOrNull()
+                val sid = params["sid"]
+                val key = params["key"]
+                if (!host.isNullOrBlank() && port != null && !sid.isNullOrBlank() && !key.isNullOrBlank()) {
+                    return TogetherJoinInfo(host, port, sid, key)
+                }
             }
         }
 
-        // 2. Try Pipe format (host|port|sid|key)
+        // Direct IP:Port fallback parsing (e.g. "192.168.1.5:42117")
+        if (trimmed.contains(":") && !trimmed.contains("//")) {
+            val parts = trimmed.split(":")
+            if (parts.size == 2) {
+                val host = parts[0]
+                val port = parts[1].toIntOrNull()
+                if (!host.isNullOrBlank() && port != null) {
+                    return TogetherJoinInfo(host, port, "manual_session", "manual_key")
+                }
+            }
+        }
+
         val p = trimmed.split("|")
-        if (p.size == 4) {
-            return TogetherJoinInfo(p[0], p[1].toIntOrNull() ?: 42117, p[2], p[3])
-        }
-
-        // 3. Try Direct IP or IP:Port (e.g. 192.168.1.76:42117 or 192.168.1.76)
-        val cleanHostPort = trimmed.removePrefix("http://").removePrefix("https://").removePrefix("ws://").removePrefix("wss://")
-        val parts = cleanHostPort.split(":")
-        val host = parts[0]
-        if (host.matches(Regex("^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$")) || host.contains(".")) {
-            val port = parts.getOrNull(1)?.toIntOrNull() ?: 42117
-            return TogetherJoinInfo(host = host, port = port, sessionId = "direct", sessionKey = "direct")
-        }
-
+        if (p.size == 4) return TogetherJoinInfo(p[0], p[1].toIntOrNull() ?: return null, p[2], p[3])
         return null
     }
 }
@@ -249,6 +253,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
     // UDP Discovery features
     private var discoverySocket: DatagramSocket? = null
     private var discoveryJob: Job? = null
+    private var multicastLock: WifiManager.MulticastLock? = null
     private var currentPin: String = ""
     private var currentHostName: String = ""
     private var currentJoinInfo: TogetherJoinInfo? = null
@@ -289,33 +294,61 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
         player.addListener(playerListener)
     }
 
+    private fun acquireMulticastLock(context: Context) {
+        try {
+            if (multicastLock == null) {
+                val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+                multicastLock = wifiManager?.createMulticastLock("TogetherMulticastLock")?.apply {
+                    setReferenceCounted(true)
+                }
+            }
+            multicastLock?.acquire()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun releaseMulticastLock() {
+        try {
+            if (multicastLock?.isHeld == true) {
+                multicastLock?.release()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     private fun getBroadcastAddresses(): List<InetAddress> {
-        val addresses = mutableListOf<InetAddress>()
+        val addresses = mutableSetOf<InetAddress>()
         try {
             addresses.add(InetAddress.getByName("255.255.255.255"))
-            val interfaces = NetworkInterface.getNetworkInterfaces()
-            while (interfaces.hasMoreElements()) {
-                val networkInterface = interfaces.nextElement()
-                if (networkInterface.isLoopback || !networkInterface.isUp) continue
-                for (address in networkInterface.interfaceAddresses) {
-                    address.broadcast?.let { addresses.add(it) }
+            val interfaces = NetworkInterface.getNetworkInterfaces()?.toList().orEmpty()
+            for (iface in interfaces) {
+                if (!iface.isUp || iface.isLoopback) continue
+                for (addr in iface.interfaceAddresses) {
+                    addr.broadcast?.let { addresses.add(it) }
                 }
             }
         } catch (e: Exception) { e.printStackTrace() }
-        return addresses
+        return addresses.toList()
     }
 
-    private fun startUdpDiscoveryServer() {
+    private fun startUdpDiscoveryServer(context: Context) {
         discoveryJob?.cancel()
         discoverySocket?.close()
+        acquireMulticastLock(context)
+
         discoveryJob = scope.launch(Dispatchers.IO) {
             try {
-                discoverySocket = DatagramSocket(42118).apply { broadcast = true }
+                discoverySocket = DatagramSocket(42118).apply {
+                    reuseAddress = true
+                    broadcast = true
+                }
                 val buffer = ByteArray(1024)
                 while (isActive) {
                     val packet = DatagramPacket(buffer, buffer.size)
                     discoverySocket?.receive(packet)
-                    val msg = String(packet.data, 0, packet.length, Charsets.UTF_8)
+                    val msg = String(packet.data, 0, packet.length, Charsets.UTF_8).trim()
                     if (msg == "AVIDTUNE_DISCOVER_ALL" || msg == "AVIDTUNE_DISCOVER_PIN:$currentPin") {
                         val info = currentJoinInfo ?: continue
                         val replyInfo = DiscoveredSession(currentPin, currentHostName, info)
@@ -329,22 +362,47 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
         }
     }
 
-    suspend fun discoverSessions(): List<DiscoveredSession> = withContext(Dispatchers.IO) {
+    suspend fun discoverSessions(context: Context): List<DiscoveredSession> = withContext(Dispatchers.IO) {
         val results = mutableListOf<DiscoveredSession>()
+        acquireMulticastLock(context)
         var socket: DatagramSocket? = null
         try {
-            socket = DatagramSocket().apply { broadcast = true; soTimeout = 2000 }
+            socket = DatagramSocket().apply {
+                reuseAddress = true
+                broadcast = true
+                soTimeout = 2000
+            }
             val msg = "AVIDTUNE_DISCOVER_ALL".toByteArray(Charsets.UTF_8)
+
+            // Broadcast to all broadcast targets
             for (address in getBroadcastAddresses()) {
                 try { socket.send(DatagramPacket(msg, msg.size, address, 42118)) } catch(e: Exception){}
             }
+
+            // Subnet direct unicast sweep to handle routers with broadcast isolation
+            getIpAddress()?.let { localIp ->
+                if (localIp.contains(".")) {
+                    val prefix = localIp.substringBeforeLast(".")
+                    coroutineScope {
+                        (1..254).map { i ->
+                            async {
+                                try {
+                                    val target = InetAddress.getByName("$prefix.$i")
+                                    socket.send(DatagramPacket(msg, msg.size, target, 42118))
+                                } catch (e: Exception) {}
+                            }
+                        }
+                    }
+                }
+            }
+
             val buffer = ByteArray(2048)
             val end = System.currentTimeMillis() + 2000
             while (System.currentTimeMillis() < end) {
                 try {
                     val packet = DatagramPacket(buffer, buffer.size)
                     socket.receive(packet)
-                    val replyStr = String(packet.data, 0, packet.length, Charsets.UTF_8)
+                    val replyStr = String(packet.data, 0, packet.length, Charsets.UTF_8).trim()
                     val session = TogetherJson.json.decodeFromString(DiscoveredSession.serializer(), replyStr)
                     if (results.none { it.pin == session.pin }) {
                         results.add(session)
@@ -354,28 +412,53 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
         } catch (e: Exception) {
         } finally {
             socket?.close()
+            releaseMulticastLock()
         }
         results
     }
 
-    suspend fun resolvePin(pin: String): DiscoveredSession? = withContext(Dispatchers.IO) {
+    suspend fun resolvePin(context: Context, pin: String): DiscoveredSession? = withContext(Dispatchers.IO) {
         var result: DiscoveredSession? = null
+        acquireMulticastLock(context)
         var socket: DatagramSocket? = null
         try {
-            socket = DatagramSocket().apply { broadcast = true; soTimeout = 2000 }
+            socket = DatagramSocket().apply {
+                reuseAddress = true
+                broadcast = true
+                soTimeout = 2000
+            }
             val msg = "AVIDTUNE_DISCOVER_PIN:$pin".toByteArray(Charsets.UTF_8)
             for (address in getBroadcastAddresses()) {
                 try { socket.send(DatagramPacket(msg, msg.size, address, 42118)) } catch(e: Exception){}
             }
+
+            // Subnet direct unicast sweep
+            getIpAddress()?.let { localIp ->
+                if (localIp.contains(".")) {
+                    val prefix = localIp.substringBeforeLast(".")
+                    coroutineScope {
+                        (1..254).map { i ->
+                            async {
+                                try {
+                                    val target = InetAddress.getByName("$prefix.$i")
+                                    socket.send(DatagramPacket(msg, msg.size, target, 42118))
+                                } catch (e: Exception) {}
+                            }
+                        }
+                    }
+                }
+            }
+
             val buffer = ByteArray(2048)
             try {
                 val packet = DatagramPacket(buffer, buffer.size)
                 socket.receive(packet)
-                val replyStr = String(packet.data, 0, packet.length, Charsets.UTF_8)
+                val replyStr = String(packet.data, 0, packet.length, Charsets.UTF_8).trim()
                 result = TogetherJson.json.decodeFromString(DiscoveredSession.serializer(), replyStr)
             } catch (e: Exception) {}
         } finally {
             socket?.close()
+            releaseMulticastLock()
         }
         result
     }
@@ -593,7 +676,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
         }
     }
 
-    fun startTogetherHost(port: Int, displayName: String, settings: TogetherRoomSettings, avatar: String? = null) {
+    fun startTogetherHost(context: Context, port: Int, displayName: String, settings: TogetherRoomSettings, avatar: String? = null) {
         leaveTogether()
         isHost = true
         scope.launch(Dispatchers.IO) {
@@ -714,7 +797,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                 serverEngine = engine
 
                 val link = TogetherLink.encode(currentJoinInfo!!)
-                startUdpDiscoveryServer()
+                startUdpDiscoveryServer(context)
 
                 withContext(Dispatchers.Main) {
                     val rs = getCurrentRoomState(sId)
@@ -730,15 +813,15 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
         }
     }
 
-    fun joinTogether(inputLink: String, displayName: String, avatar: String? = null) {
+    fun joinTogether(context: Context, inputLink: String, displayName: String, avatar: String? = null) {
         leaveTogether()
         isHost = false
         val joinJob = scope.launch(Dispatchers.IO) {
             val input = inputLink.trim()
-            val info = TogetherLink.decode(input) ?: resolvePin(input)?.joinInfo
+            val info = TogetherLink.decode(input) ?: resolvePin(context, input)?.joinInfo
             if (info == null) {
                 withContext(Dispatchers.Main) {
-                    sessionState.value = TogetherSessionState.Error("Invalid link or IP address. Make sure the host is on the same Wi-Fi.")
+                    sessionState.value = TogetherSessionState.Error("Invalid link or PIN not found on LAN.")
                 }
                 return@launch
             }
@@ -807,7 +890,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
             } catch (e: Exception) {
                 e.printStackTrace()
                 withContext(Dispatchers.Main) {
-                    sessionState.value = TogetherSessionState.Error("Failed to connect to ${info.host}:${info.port}. Check host IP.")
+                    sessionState.value = TogetherSessionState.Error("Failed to connect: ${e.message}")
                 }
             }
         }
@@ -816,7 +899,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
             delay(10_000L)
             if (sessionState.value is TogetherSessionState.Joining) {
                 joinJob.cancel()
-                sessionState.value = TogetherSessionState.Error("Connection timed out. Check if host's IP/Wi-Fi is reachable.")
+                sessionState.value = TogetherSessionState.Error("Connection timed out. Please check host network.")
             }
         }
     }
@@ -856,6 +939,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
         broadcastJob?.cancel()
         discoveryJob?.cancel()
         discoverySocket?.close()
+        releaseMulticastLock()
         val engineToStop = serverEngine
         serverEngine = null
         val sessionToClose = clientSession
@@ -910,21 +994,27 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
     }
 
     private fun getIpAddress(): String? {
-        try {
-            val interfaces = NetworkInterface.getNetworkInterfaces().toList()
-            // 1st priority: wlan / wifi interfaces
-            val wifiIp = interfaces.filter { it.isUp && !it.isLoopback && (it.name.contains("wlan", true) || it.name.contains("eth", true)) }
-                .flatMap { it.inetAddresses.toList() }
-                .firstOrNull { !it.isLoopbackAddress && it is java.net.Inet4Address }?.hostAddress
-            if (wifiIp != null) return wifiIp
+        val interfaces = NetworkInterface.getNetworkInterfaces()?.toList().orEmpty()
+        
+        // Priority 1: Active Wi-Fi / Ethernet site-local IPv4
+        val preferredIp = interfaces.filter { iface ->
+            iface.isUp && !iface.isLoopback && (
+                iface.name.contains("wlan", ignoreCase = true) ||
+                iface.name.contains("eth", ignoreCase = true) ||
+                iface.name.contains("en", ignoreCase = true)
+            )
+        }.flatMap { it.inetAddresses.toList() }
+            .firstOrNull { it is java.net.Inet4Address && !it.isLoopbackAddress && it.isSiteLocalAddress }?.hostAddress
 
-            // 2nd priority: any valid non-loopback IPv4 address
-            return interfaces.filter { it.isUp && !it.isLoopback }
-                .flatMap { it.inetAddresses.toList() }
-                .firstOrNull { !it.isLoopbackAddress && it is java.net.Inet4Address }?.hostAddress
-        } catch (e: Exception) {
-            return null
-        }
+        if (preferredIp != null) return preferredIp
+
+        // Priority 2: Any IPv4 non-cellular/non-VPN interface
+        return interfaces.filter { iface ->
+            iface.isUp && !iface.isLoopback && 
+            !iface.name.contains("rmnet", ignoreCase = true) && 
+            !iface.name.contains("tun", ignoreCase = true)
+        }.flatMap { it.inetAddresses.toList() }
+            .firstOrNull { it is java.net.Inet4Address && !it.isLoopbackAddress }?.hostAddress
     }
 }
 
@@ -962,7 +1052,7 @@ private fun AnimatedReactionParticle(reaction: TogetherReaction, onFinished: () 
         coroutineScope {
             launch {
                 animOffsetY.animateTo(
-                    targetValue = -380f,
+                    targetValue = -350f,
                     animationSpec = tween(durationMillis = 2200, easing = LinearEasing)
                 )
             }
@@ -1175,7 +1265,7 @@ fun MusicTogetherScreen(
     LaunchedEffect(isIdle) {
         if (isIdle) {
             while(isActive) {
-                val sessions = playerConnection?.service?.togetherManager?.discoverSessions() ?: emptyList()
+                val sessions = playerConnection?.service?.togetherManager?.discoverSessions(context) ?: emptyList()
                 discoveredSessions = sessions
                 delay(5000)
             }
@@ -1217,7 +1307,7 @@ fun MusicTogetherScreen(
                 val trimmed = raw.trim()
                 joinInput = trimmed
                 setLastJoinLink(trimmed)
-                playerConnection?.service?.joinTogether(trimmed, displayName, currentAvatar)
+                playerConnection?.service?.joinTogether(context, trimmed, displayName, currentAvatar)
                 showJoinDialog = false
             }
         )
@@ -1328,7 +1418,7 @@ fun MusicTogetherScreen(
                                 val link = TogetherLink.encode(session.joinInfo)
                                 joinInput = link
                                 setLastJoinLink(link)
-                                playerConnection?.service?.joinTogether(link, displayName, currentAvatar)
+                                playerConnection?.service?.joinTogether(context, link, displayName, currentAvatar)
                             },
                             modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)
                         )
@@ -1341,7 +1431,7 @@ fun MusicTogetherScreen(
                         onAllowAddTracksChange = setAllowAddTracks, onAllowControlPlaybackChange = setAllowControlPlayback,
                         onRequireApprovalChange = setRequireApproval, isStartEnabled = !isCreatingSessionLoading && !isJoining && !isHosting && sessionState !is TogetherSessionState.Joined,
                         isLoading = isCreatingSessionLoading,
-                        onStartSession = { playerConnection?.service?.startTogetherHost(port = port, displayName = displayName, settings = TogetherRoomSettings(allowGuestsToAddTracks = allowAddTracks, allowGuestsToControlPlayback = allowControlPlayback, requireHostApprovalToJoin = requireApproval), avatar = currentAvatar) },
+                        onStartSession = { playerConnection?.service?.startTogetherHost(context = context, port = port, displayName = displayName, settings = TogetherRoomSettings(allowGuestsToAddTracks = allowAddTracks, allowGuestsToControlPlayback = allowControlPlayback, requireHostApprovalToJoin = requireApproval), avatar = currentAvatar) },
                         modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)
                     )
                 }
@@ -1357,10 +1447,10 @@ fun MusicTogetherScreen(
                                 joinInput = text
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 setLastJoinLink(text)
-                                playerConnection?.service?.joinTogether(text, displayName, currentAvatar)
+                                playerConnection?.service?.joinTogether(context, text, displayName, currentAvatar)
                             }
                         },
-                        onJoin = { val trimmed = joinInput.trim(); setLastJoinLink(trimmed); playerConnection?.service?.joinTogether(trimmed, displayName, currentAvatar) },
+                        onJoin = { val trimmed = joinInput.trim(); setLastJoinLink(trimmed); playerConnection?.service?.joinTogether(context, trimmed, displayName, currentAvatar) },
                         modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp)
                     )
                 }
@@ -1380,6 +1470,8 @@ fun MusicTogetherScreen(
     }
 }
 
+// --- REDESIGNED TRACK REQUEST DIALOG & UI ---
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SearchAndRequestTrackDialog(
@@ -1390,66 +1482,203 @@ private fun SearchAndRequestTrackDialog(
     var searchResults by remember { mutableStateOf<List<SongItem>>(emptyList()) }
     var isSearching by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
+    val focusRequester = remember { FocusRequester() }
 
-    AlertDialog(
+    Dialog(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(28.dp),
-        containerColor = MaterialTheme.colorScheme.surface,
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Box(
-                    modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(painterResource(R.drawable.search), contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(20.dp))
-                }
-                Text("Request a Track", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            }
-        },
-        text = {
-            Column(modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp)) {
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    placeholder = { Text("Search songs...") },
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .fillMaxHeight(0.85f),
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 6.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(20.dp)
+            ) {
+                // Dialog Header
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = {
-                        if (query.isNotBlank()) {
-                            isSearching = true
-                            coroutineScope.launch(Dispatchers.IO) {
-                                YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).onSuccess { res ->
-                                    withContext(Dispatchers.Main) {
-                                        searchResults = res.items.filterIsInstance<SongItem>()
-                                        isSearching = false
-                                    }
-                                }.onFailure { withContext(Dispatchers.Main) { isSearching = false } }
-                            }
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.playlist_add),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(22.dp)
+                            )
                         }
-                    }),
-                    shape = RoundedCornerShape(16.dp)
-                )
-
-                Spacer(Modifier.height(14.dp))
-
-                if (isSearching) {
-                    Box(modifier = Modifier.fillMaxWidth().height(160.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(strokeWidth = 3.dp)
+                        Column {
+                            Text(
+                                text = "Request a Track",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Search YouTube Music to queue a song",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
-                } else if (searchResults.isEmpty() && query.isNotBlank()) {
-                    Box(modifier = Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.Center) {
-                        Text("No songs found", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                    AtIconButton(onClick = onDismiss, onLongClick = {}) {
+                        Icon(
+                            painter = painterResource(R.drawable.close),
+                            contentDescription = "Close",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // Search Input Field
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.search),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+
+                        BasicTextField(
+                            value = query,
+                            onValueChange = { newQuery ->
+                                query = newQuery
+                                if (newQuery.isNotBlank()) {
+                                    isSearching = true
+                                    coroutineScope.launch(Dispatchers.IO) {
+                                        delay(300) // Debounce
+                                        YouTube.search(newQuery, YouTube.SearchFilter.FILTER_SONG).onSuccess { res ->
+                                            withContext(Dispatchers.Main) {
+                                                searchResults = res.items.filterIsInstance<SongItem>()
+                                                isSearching = false
+                                            }
+                                        }.onFailure { withContext(Dispatchers.Main) { isSearching = false } }
+                                    }
+                                } else {
+                                    searchResults = emptyList()
+                                    isSearching = false
+                                }
+                            },
+                            singleLine = true,
+                            textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                            keyboardActions = KeyboardActions(onSearch = {
+                                if (query.isNotBlank()) {
+                                    isSearching = true
+                                    coroutineScope.launch(Dispatchers.IO) {
+                                        YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).onSuccess { res ->
+                                            withContext(Dispatchers.Main) {
+                                                searchResults = res.items.filterIsInstance<SongItem>()
+                                                isSearching = false
+                                            }
+                                        }.onFailure { withContext(Dispatchers.Main) { isSearching = false } }
+                                    }
+                                }
+                            }),
+                            modifier = Modifier
+                                .weight(1f)
+                                .focusRequester(focusRequester),
+                            decorationBox = { innerTextField ->
+                                if (query.isEmpty()) {
+                                    Text(
+                                        "Search track or artist name...",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                    )
+                                }
+                                innerTextField()
+                            }
+                        )
+
+                        if (query.isNotEmpty()) {
+                            Icon(
+                                painter = painterResource(R.drawable.close),
+                                contentDescription = "Clear",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .clip(CircleShape)
+                                    .clickable { query = ""; searchResults = emptyList() }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // Results Container
+                if (isSearching) {
+                    Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    }
+                } else if (searchResults.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.search),
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                            )
+                            Text(
+                                text = if (query.isBlank()) "Type above to search songs" else "No songs found for \"$query\"",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 } else {
-                    LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
-                        items(searchResults) { song ->
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(searchResults, key = { it.id }) { song ->
                             Surface(
-                                shape = RoundedCornerShape(14.dp),
-                                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                                shape = RoundedCornerShape(16.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainer,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
                                     .clickable {
                                         val track = TogetherTrack(
                                             id = song.id,
@@ -1462,33 +1691,79 @@ private fun SearchAndRequestTrackDialog(
                                     }
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(10.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     AsyncImage(
                                         model = song.thumbnail,
                                         contentDescription = null,
-                                        modifier = Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)),
+                                        modifier = Modifier
+                                            .size(52.dp)
+                                            .clip(RoundedCornerShape(12.dp)),
                                         contentScale = ContentScale.Crop
                                     )
+
                                     Spacer(Modifier.width(12.dp))
+
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text(song.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        Text(song.artists.joinToString(", ") { it.name }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(
+                                            text = song.title,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Spacer(Modifier.height(2.dp))
+                                        Text(
+                                            text = song.artists.joinToString(", ") { it.name },
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
                                     }
-                                    Icon(painterResource(R.drawable.add), null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+
+                                    Spacer(Modifier.width(8.dp))
+
+                                    Button(
+                                        onClick = {
+                                            val track = TogetherTrack(
+                                                id = song.id,
+                                                title = song.title,
+                                                artists = song.artists.map { it.name },
+                                                durationSec = song.duration ?: -1,
+                                                thumbnailUrl = song.thumbnail
+                                            )
+                                            onRequestTrack(track)
+                                        },
+                                        shape = RoundedCornerShape(12.dp),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(R.drawable.add),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("Request", style = MaterialTheme.typography.labelMedium)
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) } }
-    )
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        delay(150)
+        focusRequester.requestFocus()
+    }
 }
 
-// --- REDESIGNED TRACK REQUESTS CARD ---
 @Composable
 private fun TrackRequestsCard(
     requests: List<TogetherTrackRequest>,
@@ -1502,61 +1777,32 @@ private fun TrackRequestsCard(
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)),
+        modifier = modifier.fillMaxWidth().animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)),
         shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            // Header Row
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(
-                                Brush.linearGradient(
-                                    listOf(
-                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
-                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-                                    )
-                                )
-                            ),
+                        modifier = Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(painterResource(R.drawable.playlist_add), null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+                        Icon(painterResource(R.drawable.playlist_add), null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                     }
-                    Column {
-                        Text(
-                            text = "Song Requests",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "${requests.size} pending",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Text("Song Requests (${requests.size})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
 
                 if (allowGuestAdd || isHost) {
-                    Button(
-                        onClick = onRequestClick,
-                        shape = RoundedCornerShape(14.dp),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                    ) {
+                    FilledTonalButton(onClick = onRequestClick, shape = RoundedCornerShape(14.dp), contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)) {
                         Icon(painterResource(R.drawable.add), null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Request", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        Text("Request Track", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -1567,144 +1813,53 @@ private fun TrackRequestsCard(
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Box(
+                    Text(
+                        text = if (allowGuestAdd || isHost) "No pending track requests. Tap 'Request Track' to add one!" else "Track requesting is disabled by the host.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(16.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "No track requests right now. Tap 'Request' to suggest a song!",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center
-                        )
-                    }
+                        textAlign = TextAlign.Center
+                    )
                 }
             } else {
                 requests.forEach { req ->
                     val hasVoted = req.upvotes.contains(selfParticipantId)
-
-                    Card(
+                    Surface(
                         shape = RoundedCornerShape(18.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-                        ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
                             modifier = Modifier.padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Cover Thumbnail
                             AsyncImage(
                                 model = req.track.thumbnailUrl,
                                 contentDescription = null,
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)),
                                 contentScale = ContentScale.Crop
                             )
-
                             Spacer(Modifier.width(12.dp))
-
-                            // Details
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = req.track.title,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Text(
-                                    text = req.track.artists.joinToString(", "),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
-                                    modifier = Modifier.padding(top = 4.dp)
-                                ) {
-                                    Text(
-                                        text = "Req by ${req.requestedByName}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                    )
-                                }
+                                Text(req.track.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("${req.track.artists.joinToString(", ")} • requested by ${req.requestedByName}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
 
-                            Spacer(Modifier.width(8.dp))
-
-                            // Upvote + Host Approval Actions
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                // Upvote Chip
-                                Surface(
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                FilterChip(
+                                    selected = hasVoted,
                                     onClick = { onVote(req.track.id) },
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = if (hasVoted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-                                    border = if (hasVoted) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
-                                    modifier = Modifier.height(36.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 10.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                    ) {
-                                        Icon(
-                                            painter = painterResource(R.drawable.favorite),
-                                            contentDescription = "Upvote",
-                                            modifier = Modifier.size(14.dp),
-                                            tint = if (hasVoted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                        Text(
-                                            text = "${req.upvotes.size}",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (hasVoted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-                                        )
-                                    }
-                                }
+                                    label = { Text("${req.upvotes.size}", fontWeight = FontWeight.Bold) },
+                                    leadingIcon = { Icon(painterResource(R.drawable.arrow_upward), null, modifier = Modifier.size(14.dp)) },
+                                    shape = CircleShape
+                                )
 
                                 if (isHost) {
-                                    // Play / Approve
-                                    Surface(
-                                        onClick = { onApprove(req.track.id) },
-                                        shape = CircleShape,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(36.dp)
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Icon(
-                                                painter = painterResource(R.drawable.play),
-                                                contentDescription = "Play",
-                                                modifier = Modifier.size(18.dp),
-                                                tint = MaterialTheme.colorScheme.onPrimary
-                                            )
-                                        }
+                                    Surface(onClick = { onApprove(req.track.id) }, shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(34.dp)) {
+                                        Box(contentAlignment = Alignment.Center) { Icon(painterResource(R.drawable.play), null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer) }
                                     }
-                                    // Reject / Remove
-                                    Surface(
-                                        onClick = { onReject(req.track.id) },
-                                        shape = CircleShape,
-                                        color = MaterialTheme.colorScheme.errorContainer,
-                                        modifier = Modifier.size(36.dp)
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Icon(
-                                                painter = painterResource(R.drawable.close),
-                                                contentDescription = "Reject",
-                                                modifier = Modifier.size(16.dp),
-                                                tint = MaterialTheme.colorScheme.onErrorContainer
-                                            )
-                                        }
+                                    Surface(onClick = { onReject(req.track.id) }, shape = CircleShape, color = MaterialTheme.colorScheme.errorContainer, modifier = Modifier.size(34.dp)) {
+                                        Box(contentAlignment = Alignment.Center) { Icon(painterResource(R.drawable.close), null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onErrorContainer) }
                                     }
                                 }
                             }
