@@ -53,30 +53,6 @@ fun OpenLinksSettings(
         }
     }
 
-    val openDefaultLinkSettings: () -> Unit = {
-        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            Intent(Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS).apply {
-                data = Uri.fromParts("package", context.packageName, null)
-            }
-        } else {
-            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                data = Uri.fromParts("package", context.packageName, null)
-            }
-        }
-        try {
-            context.startActivity(intent)
-        } catch (e: Exception) {
-            try {
-                val fallbackIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                    data = Uri.fromParts("package", context.packageName, null)
-                }
-                context.startActivity(fallbackIntent)
-            } catch (e2: Exception) {
-                e2.printStackTrace()
-            }
-        }
-    }
-
     SettingsPage(
         title = stringResource(R.string.open_supported_links),
         navController = navController,
@@ -88,7 +64,7 @@ fun OpenLinksSettings(
                 {
                     PreferenceEntry(
                         title = { Text(if (isVerified) "Links are opening in AvidTune" else "Links are not opening in AvidTune") },
-                        description = if (isVerified) "AvidTune is set as the default app for supported links. Tap to manage." else "Tap to open system settings and allow AvidTune to open supported links. Be sure to add all supported links.",
+                        description = if (isVerified) "AvidTune is set as the default app for supported links." else "Tap to open system settings and allow AvidTune to open supported links. Be sure to add all supported links.",
                         icon = {
                             Icon(
                                 painter = painterResource(if (isVerified) R.drawable.check_circle else R.drawable.info),
@@ -96,7 +72,22 @@ fun OpenLinksSettings(
                                 tint = if (isVerified) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                             )
                         },
-                        onClick = openDefaultLinkSettings
+                        onClick = {
+                            val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                Intent(Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS).apply {
+                                    data = Uri.parse("package:${context.packageName}")
+                                }
+                            } else {
+                                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                    data = Uri.parse("package:${context.packageName}")
+                                }
+                            }
+                            try {
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                        }
                     )
                 }
             )
@@ -112,9 +103,8 @@ fun OpenLinksSettings(
                 {
                     PreferenceEntry(
                         title = { Text(domain) },
-                        description = "Tap to configure link defaults in Android settings",
                         icon = { Icon(painterResource(R.drawable.link), null) },
-                        onClick = openDefaultLinkSettings
+                        isEnabled = false
                     )
                 }
             }
@@ -127,11 +117,8 @@ private fun checkVerificationStatus(context: Context): Boolean {
         val manager = context.getSystemService(DomainVerificationManager::class.java)
         val userState = manager?.getDomainVerificationUserState(context.packageName)
         val domains = userState?.hostToStateMap
-        domains?.values?.any {
-            it == DomainVerificationUserState.DOMAIN_STATE_VERIFIED ||
-                    it == DomainVerificationUserState.DOMAIN_STATE_SELECTED
-        } == true
+        domains?.any { it.value == DomainVerificationUserState.DOMAIN_STATE_VERIFIED } == true
     } else {
-        true // Pre-Android 12 automatically handles links if intent-filters match
+        true // Pre-Android 12 automatically handles links if intent filters match
     }
 }
