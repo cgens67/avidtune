@@ -130,6 +130,7 @@ import com.cgens67.avidtune.utils.joinByBullet
 import com.cgens67.avidtune.utils.makeTimeString
 import com.cgens67.avidtune.utils.rememberPreference
 import com.cgens67.avidtune.utils.getPlaylistImageUri
+import com.cgens67.avidtune.utils.reportException
 import kotlin.math.roundToInt
 
 const val ActiveBoxAlpha = 0.6f
