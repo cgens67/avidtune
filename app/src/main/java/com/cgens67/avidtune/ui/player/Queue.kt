@@ -19,8 +19,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.*
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -143,11 +145,16 @@ fun Queue(
         }
     }
 
-    val effectiveOnBgColor = if (isCustomBackground) Color.White else onBackgroundColor
     val sheetBgColor = when {
         isCustomBackground -> Color.Transparent
         useDarkTheme && pureBlack -> Color.Black
         else -> backgroundColor
+    }
+
+    val effectiveOnBgColor = when {
+        isCustomBackground -> Color.White
+        sheetBgColor.luminance() < 0.5f -> Color.White
+        else -> MaterialTheme.colorScheme.onSurface
     }
 
     fun clearSelection() {
@@ -355,147 +362,149 @@ fun Queue(
                     onLockClick = { locked = !locked }
                 )
 
-                LazyColumn(
-                    state = lazyListState,
-                    contentPadding = WindowInsets.systemBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)
-                        .add(WindowInsets(bottom = ListItemHeight + if (selection) 88.dp else 8.dp))
-                        .asPaddingValues(),
-                    modifier = Modifier.weight(1f).nestedScroll(state.preUpPostDownNestedScrollConnection)
-                ) {
-                    item { Spacer(modifier = Modifier.animateContentSize().height(if (selection) 48.dp else 0.dp)) }
+                CompositionLocalProvider(LocalContentColor provides effectiveOnBgColor) {
+                    LazyColumn(
+                        state = lazyListState,
+                        contentPadding = WindowInsets.systemBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)
+                            .add(WindowInsets(bottom = ListItemHeight + if (selection) 88.dp else 8.dp))
+                            .asPaddingValues(),
+                        modifier = Modifier.weight(1f).nestedScroll(state.preUpPostDownNestedScrollConnection)
+                    ) {
+                        item { Spacer(modifier = Modifier.animateContentSize().height(if (selection) 48.dp else 0.dp)) }
 
-                    itemsIndexed(items = mutableQueueWindows, key = { _, item -> itemKey(item) }) { index, window ->
-                        ReorderableItem(state = reorderableState, key = itemKey(window)) {
-                            val currentItem by rememberUpdatedState(window)
-                            val isActive = index == currentWindowIndex
-                            val dismissBoxState = rememberSwipeToDismissBoxState(positionalThreshold = { it })
-                            var processedDismiss by remember { mutableStateOf(false) }
+                        itemsIndexed(items = mutableQueueWindows, key = { _, item -> itemKey(item) }) { index, window ->
+                            ReorderableItem(state = reorderableState, key = itemKey(window)) {
+                                val currentItem by rememberUpdatedState(window)
+                                val isActive = index == currentWindowIndex
+                                val dismissBoxState = rememberSwipeToDismissBoxState(positionalThreshold = { it })
+                                var processedDismiss by remember { mutableStateOf(false) }
 
-                            LaunchedEffect(dismissBoxState.currentValue) {
-                                val dv = dismissBoxState.currentValue
-                                if (!processedDismiss && (dv == SwipeToDismissBoxValue.StartToEnd || dv == SwipeToDismissBoxValue.EndToStart)) {
-                                    processedDismiss = true
-                                    onRemoveMultipleWithUndo(listOf(currentItem))
+                                LaunchedEffect(dismissBoxState.currentValue) {
+                                    val dv = dismissBoxState.currentValue
+                                    if (!processedDismiss && (dv == SwipeToDismissBoxValue.StartToEnd || dv == SwipeToDismissBoxValue.EndToStart)) {
+                                        processedDismiss = true
+                                        onRemoveMultipleWithUndo(listOf(currentItem))
+                                    }
+                                    if (dv == SwipeToDismissBoxValue.Settled) processedDismiss = false
                                 }
-                                if (dv == SwipeToDismissBoxValue.Settled) processedDismiss = false
+
+                                val content: @Composable () -> Unit = {
+                                    Row(
+                                        horizontalArrangement = Arrangement.Center,
+                                        modifier = Modifier.graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+                                    ) {
+                                        MediaMetadataListItem(
+                                            mediaMetadata = window.mediaItem.metadata!!,
+                                            isSelected = selection && window.mediaItem.metadata!! in selectedSongs,
+                                            isActive = isActive,
+                                            isPlaying = isPlaying && isActive,
+                                            trailingContent = {
+                                                IconButton(onClick = {
+                                                    menuState.show {
+                                                        SelectionMediaMetadataMenu(
+                                                            songSelection = selectedSongs,
+                                                            onDismiss = { menuState.dismiss() },
+                                                            clearAction = { clearSelection() },
+                                                            currentItems = selectedItems
+                                                        )
+                                                    }
+                                                }) {
+                                                    Icon(painterResource(R.drawable.more_vert), null, tint = effectiveOnBgColor)
+                                                }
+                                                if (!locked) {
+                                                    IconButton(
+                                                        onClick = {},
+                                                        modifier = Modifier.draggableHandle().graphicsLayer { alpha = 0.99f }
+                                                    ) {
+                                                        Icon(painterResource(R.drawable.drag_handle), null, tint = effectiveOnBgColor)
+                                                    }
+                                                }
+                                            },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .background(
+                                                    if (isActive && isCustomBackground) Color.White.copy(alpha = 0.18f)
+                                                    else if (isActive) MaterialTheme.colorScheme.secondaryContainer
+                                                    else sheetBgColor
+                                                )
+                                                .combinedClickable(
+                                                    onClick = {
+                                                        if (selection) {
+                                                            if (window.mediaItem.metadata!! in selectedSongs) {
+                                                                selectedSongs.remove(window.mediaItem.metadata!!)
+                                                                selectedItems.remove(currentItem)
+                                                                if (selectedSongs.isEmpty()) selection = false
+                                                            } else {
+                                                                selectedSongs.add(window.mediaItem.metadata!!)
+                                                                selectedItems.add(currentItem)
+                                                            }
+                                                        } else {
+                                                            if (index == currentWindowIndex) {
+                                                                playerConnection.player.togglePlayPause()
+                                                            } else {
+                                                                playerConnection.player.seekToDefaultPosition(window.firstPeriodIndex)
+                                                                playerConnection.player.playWhenReady = true
+                                                            }
+                                                        }
+                                                    },
+                                                    onLongClick = {
+                                                        if (enableHapticFeedback) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                        selection = true
+                                                        selectedSongs.clear()
+                                                        selectedItems.clear()
+                                                        selectedSongs.add(window.mediaItem.metadata!!)
+                                                        selectedItems.add(currentItem)
+                                                    }
+                                                )
+                                        )
+                                    }
+                                }
+
+                                if (locked) content() else SwipeToDismissBox(state = dismissBoxState, backgroundContent = {}) { content() }
+                            }
+                        }
+
+                        if (automix.isNotEmpty()) {
+                            item {
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
+                                    color = effectiveOnBgColor.copy(alpha = 0.12f)
+                                )
+                                ItemWithGlowingIcon()
                             }
 
-                            val content: @Composable () -> Unit = {
-                                Row(
-                                    horizontalArrangement = Arrangement.Center,
-                                    modifier = Modifier.graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
-                                ) {
+                            itemsIndexed(items = automix, key = { _, it -> it.mediaId }) { index, item ->
+                                Row(horizontalArrangement = Arrangement.Center) {
                                     MediaMetadataListItem(
-                                        mediaMetadata = window.mediaItem.metadata!!,
-                                        isSelected = selection && window.mediaItem.metadata!! in selectedSongs,
-                                        isActive = isActive,
-                                        isPlaying = isPlaying && isActive,
+                                        mediaMetadata = item.metadata!!,
                                         trailingContent = {
-                                            IconButton(onClick = {
-                                                menuState.show {
-                                                    SelectionMediaMetadataMenu(
-                                                        songSelection = selectedSongs,
-                                                        onDismiss = { menuState.dismiss() },
-                                                        clearAction = { clearSelection() },
-                                                        currentItems = selectedItems
-                                                    )
-                                                }
-                                            }) {
-                                                Icon(painterResource(R.drawable.more_vert), null, tint = effectiveOnBgColor)
+                                            IconButton(onClick = { playerConnection.service.playNextAutomix(item, index) }) {
+                                                Icon(painterResource(R.drawable.playlist_play), null, tint = effectiveOnBgColor)
                                             }
-                                            if (!locked) {
-                                                IconButton(
-                                                    onClick = {},
-                                                    modifier = Modifier.draggableHandle().graphicsLayer { alpha = 0.99f }
-                                                ) {
-                                                    Icon(painterResource(R.drawable.drag_handle), null, tint = effectiveOnBgColor)
-                                                }
+                                            IconButton(onClick = { playerConnection.service.addToQueueAutomix(item, index) }) {
+                                                Icon(painterResource(R.drawable.queue_music), null, tint = effectiveOnBgColor)
                                             }
                                         },
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .background(
-                                                if (isActive && isCustomBackground) Color.White.copy(alpha = 0.15f)
-                                                else if (isActive) MaterialTheme.colorScheme.secondaryContainer
-                                                else sheetBgColor
-                                            )
                                             .combinedClickable(
-                                                onClick = {
-                                                    if (selection) {
-                                                        if (window.mediaItem.metadata!! in selectedSongs) {
-                                                            selectedSongs.remove(window.mediaItem.metadata!!)
-                                                            selectedItems.remove(currentItem)
-                                                            if (selectedSongs.isEmpty()) selection = false
-                                                        } else {
-                                                            selectedSongs.add(window.mediaItem.metadata!!)
-                                                            selectedItems.add(currentItem)
-                                                        }
-                                                    } else {
-                                                        if (index == currentWindowIndex) {
-                                                            playerConnection.player.togglePlayPause()
-                                                        } else {
-                                                            playerConnection.player.seekToDefaultPosition(window.firstPeriodIndex)
-                                                            playerConnection.player.playWhenReady = true
-                                                        }
-                                                    }
-                                                },
+                                                onClick = {},
                                                 onLongClick = {
-                                                    if (enableHapticFeedback) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                    selection = true
-                                                    selectedSongs.clear()
-                                                    selectedItems.clear()
-                                                    selectedSongs.add(window.mediaItem.metadata!!)
-                                                    selectedItems.add(currentItem)
+                                                    menuState.show {
+                                                        PlayerMenu(
+                                                            mediaMetadata = item.metadata!!,
+                                                            navController = navController,
+                                                            playerBottomSheetState = playerBottomSheetState,
+                                                            isQueueTrigger = true,
+                                                            onShowDetailsDialog = { showDetailsDialog = true },
+                                                            onDismiss = { menuState.dismiss() }
+                                                        )
+                                                    }
                                                 }
                                             )
+                                            .animateItem()
                                     )
                                 }
-                            }
-
-                            if (locked) content() else SwipeToDismissBox(state = dismissBoxState, backgroundContent = {}) { content() }
-                        }
-                    }
-
-                    if (automix.isNotEmpty()) {
-                        item {
-                            HorizontalDivider(
-                                modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
-                                color = effectiveOnBgColor.copy(alpha = 0.12f)
-                            )
-                            ItemWithGlowingIcon()
-                        }
-
-                        itemsIndexed(items = automix, key = { _, it -> it.mediaId }) { index, item ->
-                            Row(horizontalArrangement = Arrangement.Center) {
-                                MediaMetadataListItem(
-                                    mediaMetadata = item.metadata!!,
-                                    trailingContent = {
-                                        IconButton(onClick = { playerConnection.service.playNextAutomix(item, index) }) {
-                                            Icon(painterResource(R.drawable.playlist_play), null, tint = effectiveOnBgColor)
-                                        }
-                                        IconButton(onClick = { playerConnection.service.addToQueueAutomix(item, index) }) {
-                                            Icon(painterResource(R.drawable.queue_music), null, tint = effectiveOnBgColor)
-                                        }
-                                    },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .combinedClickable(
-                                            onClick = {},
-                                            onLongClick = {
-                                                menuState.show {
-                                                    PlayerMenu(
-                                                        mediaMetadata = item.metadata!!,
-                                                        navController = navController,
-                                                        playerBottomSheetState = playerBottomSheetState,
-                                                        isQueueTrigger = true,
-                                                        onShowDetailsDialog = { showDetailsDialog = true },
-                                                        onDismiss = { menuState.dismiss() }
-                                                    )
-                                                }
-                                            }
-                                        )
-                                        .animateItem()
-                                )
                             }
                         }
                     }
