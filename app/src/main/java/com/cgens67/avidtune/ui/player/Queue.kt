@@ -422,11 +422,7 @@ fun Queue(
                                             },
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .background(
-                                                    if (isActive && isCustomBackground) Color.White.copy(alpha = 0.18f)
-                                                    else if (isActive) MaterialTheme.colorScheme.secondaryContainer
-                                                    else sheetBgColor
-                                                )
+                                                .background(sheetBgColor)
                                                 .combinedClickable(
                                                     onClick = {
                                                         if (selection) {
