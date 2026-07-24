@@ -143,26 +143,24 @@ inline fun ListItem(
     thumbnailContent: @Composable () -> Unit,
     crossinline trailingContent: @Composable RowScope.() -> Unit = {},
     isActive: Boolean = false,
+    isSelected: Boolean = false,
 ) {
     val defaultContentColor = LocalContentColor.current.takeOrElse { MaterialTheme.colorScheme.onSurface }
-    val titleColor =
-        if (isActive) {
-            MaterialTheme.colorScheme.onSecondaryContainer
-        } else {
-            defaultContentColor
-        }
-    val subtitleContentColor =
-        if (isActive) {
-            MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
-        } else {
-            defaultContentColor.copy(alpha = 0.7f)
-        }
-    val trailingContentColor =
-        if (isActive) {
-            MaterialTheme.colorScheme.onSecondaryContainer
-        } else {
-            defaultContentColor
-        }
+    val titleColor = when {
+        isActive -> MaterialTheme.colorScheme.onSecondaryContainer
+        isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
+        else -> defaultContentColor
+    }
+    val subtitleContentColor = when {
+        isActive -> MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+        isSelected -> MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
+        else -> defaultContentColor.copy(alpha = 0.7f)
+    }
+    val trailingContentColor = when {
+        isActive -> MaterialTheme.colorScheme.onSecondaryContainer
+        isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
+        else -> defaultContentColor
+    }
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -172,13 +170,15 @@ inline fun ListItem(
                 .height(ListItemHeight)
                 .padding(horizontal = 8.dp)
                 .then(
-                    if (isActive) {
-                        Modifier
+                    when {
+                        isActive -> Modifier
                             .clip(RoundedCornerShape(8.dp))
                             .background(MaterialTheme.colorScheme.secondaryContainer)
-                    } else {
-                        Modifier
-                    },
+                        isSelected -> Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f))
+                        else -> Modifier
+                    }
                 ),
     ) {
         Box(Modifier.padding(8.dp), contentAlignment = Alignment.Center) { thumbnailContent() }
@@ -221,24 +221,23 @@ fun ListItem(
     thumbnailContent: @Composable () -> Unit,
     trailingContent: @Composable RowScope.() -> Unit = {},
     isActive: Boolean = false,
+    isSelected: Boolean = false,
 ) = ListItem(
     title = title,
     modifier = modifier,
     isActive = isActive,
+    isSelected = isSelected,
     subtitle = {
         badges()
         if (!subtitle.isNullOrEmpty()) {
             val defaultSubtitleColor = LocalContentColor.current.takeOrElse { MaterialTheme.colorScheme.onSurfaceVariant }
             Text(
                 text = subtitle,
-                color =
-                    if (isActive) {
-                        MaterialTheme.colorScheme.onSecondaryContainer.copy(
-                            alpha = 0.7f,
-                        )
-                    } else {
-                        defaultSubtitleColor.copy(alpha = 0.7f)
-                    },
+                color = when {
+                    isActive -> MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                    isSelected -> MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
+                    else -> defaultSubtitleColor.copy(alpha = 0.7f)
+                },
                 style = MaterialTheme.typography.bodySmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -393,6 +392,7 @@ fun SongListItem(
             trailingContent = trailingContent,
             modifier = modifier,
             isActive = isActive,
+            isSelected = isSelected,
         )
     }
 
@@ -1311,6 +1311,7 @@ fun MediaMetadataListItem(
         trailingContent = trailingContent,
         modifier = modifier,
         isActive = isActive,
+        isSelected = isSelected,
     )
 }
 
@@ -1389,6 +1390,7 @@ fun YouTubeListItem(
             trailingContent = trailingContent,
             modifier = modifier,
             isActive = isActive,
+            isSelected = isSelected,
         )
     }
 
@@ -1701,12 +1703,22 @@ fun ItemThumbnail(
                         .fillMaxSize()
                         .zIndex(1f)
                         .clip(shape)
-                        .background(Color.Black.copy(alpha = 0.5f)),
+                        .background(Color.Black.copy(alpha = 0.45f)),
             ) {
-                Icon(
-                    painter = painterResource(R.drawable.done),
-                    contentDescription = null,
-                )
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.done),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
             }
         }
 
