@@ -70,6 +70,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -128,7 +129,6 @@ import com.cgens67.avidtune.ui.utils.resize
 import com.cgens67.avidtune.utils.joinByBullet
 import com.cgens67.avidtune.utils.makeTimeString
 import com.cgens67.avidtune.utils.rememberPreference
-import com.cgens67.avidtune.utils.reportException
 import com.cgens67.avidtune.utils.getPlaylistImageUri
 import kotlin.math.roundToInt
 
@@ -143,23 +143,24 @@ inline fun ListItem(
     crossinline trailingContent: @Composable RowScope.() -> Unit = {},
     isActive: Boolean = false,
 ) {
+    val defaultContentColor = LocalContentColor.current.takeOrElse { MaterialTheme.colorScheme.onSurface }
     val titleColor =
         if (isActive) {
             MaterialTheme.colorScheme.onSecondaryContainer
         } else {
-            MaterialTheme.colorScheme.onSurface
+            defaultContentColor
         }
     val subtitleContentColor =
         if (isActive) {
             MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
         } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
+            defaultContentColor.copy(alpha = 0.7f)
         }
     val trailingContentColor =
         if (isActive) {
             MaterialTheme.colorScheme.onSecondaryContainer
         } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
+            defaultContentColor
         }
 
     Row(
@@ -226,6 +227,7 @@ fun ListItem(
     subtitle = {
         badges()
         if (!subtitle.isNullOrEmpty()) {
+            val defaultSubtitleColor = LocalContentColor.current.takeOrElse { MaterialTheme.colorScheme.onSurfaceVariant }
             Text(
                 text = subtitle,
                 color =
@@ -234,7 +236,7 @@ fun ListItem(
                             alpha = 0.7f,
                         )
                     } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
+                        defaultSubtitleColor.copy(alpha = 0.7f)
                     },
                 style = MaterialTheme.typography.bodySmall,
                 maxLines = 1,
@@ -763,7 +765,7 @@ fun PlaylistGridItem(
     autoPlaylist: Boolean = false,
     badges: @Composable RowScope.() -> Unit = {},
     fillMaxWidth: Boolean = false,
-    context: Context = LocalContext.current // from avidtune to preserve integration
+    context: Context = LocalContext.current
 ) = GridItem(
     title = {
         Text(
