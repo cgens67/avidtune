@@ -470,8 +470,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                         }
                     }
                 } catch (e: Exception) {
-                    e.printStackTrace()
-                }
+                    e.printStackTrace}
             }
         }
     }
@@ -867,13 +866,13 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
         if (isHost) {
             val existing = hostRequestedQueue[trackId]
             if (existing != null) {
-                val currentUpvotes = existing.upvotes.toMutableList()
-                if (currentUpvotes.contains(voterId)) {
-                    currentUpvotes.remove(voterId)
+                val upvotes = existing.upvotes.toMutableList()
+                if (upvotes.contains(voterId)) {
+                    upvotes.remove(voterId)
                 } else {
-                    currentUpvotes.add(voterId)
+                    upvotes.add(voterId)
                 }
-                hostRequestedQueue[trackId] = existing.copy(upvotes = currentUpvotes)
+                hostRequestedQueue[trackId] = existing.copy(upvotes = upvotes)
                 broadcastRoomState()
             }
         } else {
@@ -994,22 +993,28 @@ private fun FloatingReactionItem(
     LaunchedEffect(reaction.id) {
         animProgress.animateTo(
             targetValue = 1f,
-            animationSpec = tween(durationMillis = 2800, easing = FastOutSlowInEasing)
+            animationSpec = tween(durationMillis = 2800, easing = LinearEasing)
         )
         onAnimationEnd()
     }
 
-    val yOffset = (1f - animProgress.value) * 350.dp.value - 50.dp.value
+    // In Compose coordinates, negative Y moves UPWARDS.
+    // Start above the navigation bar/overlay controls (-120dp) and float up to -550dp.
+    val startY = -120f
+    val endY = -550f
+    val currentY = startY + (animProgress.value * (endY - startY))
+
     val alpha = when {
-        animProgress.value < 0.2f -> animProgress.value / 0.2f
-        animProgress.value > 0.7f -> (1f - animProgress.value) / 0.3f
+        animProgress.value < 0.15f -> animProgress.value / 0.15f
+        animProgress.value > 0.75f -> (1f - animProgress.value) / 0.25f
         else -> 1f
     }
-    val xOffset = sin(animProgress.value * 3 * PI).toFloat() * 30.dp.value + (reaction.randomXFactor * 120 - 60)
+    
+    val xOffset = sin(animProgress.value * 3 * PI).toFloat() * 30f + (reaction.randomXFactor * 160f - 80f)
 
     Box(
         modifier = Modifier
-            .offset(x = xOffset.dp, y = yOffset.dp)
+            .offset(x = xOffset.dp, y = currentY.dp)
             .graphicsLayer {
                 this.alpha = alpha.coerceIn(0f, 1f)
                 scaleX = 0.8f + (animProgress.value * 0.4f)
@@ -1018,7 +1023,7 @@ private fun FloatingReactionItem(
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(text = reaction.emoji, fontSize = 36.sp)
+            Text(text = reaction.emoji, fontSize = 38.sp)
             Surface(
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.85f),
@@ -1028,8 +1033,9 @@ private fun FloatingReactionItem(
                     text = reaction.senderName,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                    fontSize = 10.sp
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium
                 )
             }
         }
@@ -1053,7 +1059,8 @@ private fun FloatingReactionsOverlay(
 
     Box(
         modifier = modifier
-            .fillMaxSize(),
+            .fillMaxSize()
+            .navigationBarsPadding(),
         contentAlignment = Alignment.BottomCenter
     ) {
         activeReactions.forEach { reaction ->
