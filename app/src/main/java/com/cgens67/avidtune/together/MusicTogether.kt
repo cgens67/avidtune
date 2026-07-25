@@ -1,6 +1,7 @@
 package com.cgens67.avidtune.together
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.widget.Toast
@@ -207,6 +208,7 @@ object TogetherLink {
 
 // --- MANAGER ---
 class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
+    private val context: Context = player.context
     val sessionState = MutableStateFlow<TogetherSessionState>(TogetherSessionState.Idle)
     val reactionsFlow = MutableSharedFlow<FloatingReaction>(extraBufferCapacity = 64)
 
@@ -658,7 +660,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
             } catch (e: Exception) {
                 e.printStackTrace()
                 withContext(Dispatchers.Main) {
-                    sessionState.value = TogetherSessionState.Error(e.message ?: "Failed to start server")
+                    sessionState.value = TogetherSessionState.Error(context.getString(R.string.together_error_failed_start_server))
                 }
             }
         }
@@ -672,7 +674,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
             val info = TogetherLink.decode(input) ?: resolvePin(input)?.joinInfo
             if (info == null) {
                 withContext(Dispatchers.Main) {
-                    sessionState.value = TogetherSessionState.Error("Invalid link or PIN not found on LAN.")
+                    sessionState.value = TogetherSessionState.Error(context.getString(R.string.together_error_invalid_link_pin))
                 }
                 return@launch
             }
@@ -712,7 +714,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                                     is HostCommand -> {
                                         if (msg.command == "KICK") {
                                             withContext(Dispatchers.Main) {
-                                                sessionState.value = TogetherSessionState.Error("You have been disconnected from the session.")
+                                                sessionState.value = TogetherSessionState.Error(context.getString(R.string.together_disconnected_msg))
                                             }
                                             close()
                                         }
@@ -720,7 +722,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                                     is JoinDecision -> {
                                         if (!msg.approved) {
                                             withContext(Dispatchers.Main) {
-                                                sessionState.value = TogetherSessionState.Error("Your request to join was denied.")
+                                                sessionState.value = TogetherSessionState.Error(context.getString(R.string.together_error_request_denied))
                                             }
                                             close()
                                         }
@@ -739,14 +741,14 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                     withContext(Dispatchers.Main) {
                         val curr = sessionState.value
                         if (curr is TogetherSessionState.Joined || curr is TogetherSessionState.Joining) {
-                            sessionState.value = TogetherSessionState.Error("Connection closed by host")
+                            sessionState.value = TogetherSessionState.Error(context.getString(R.string.together_error_connection_closed))
                         }
                     }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
                 withContext(Dispatchers.Main) {
-                    sessionState.value = TogetherSessionState.Error("Failed to connect: ${e.message}")
+                    sessionState.value = TogetherSessionState.Error(context.getString(R.string.together_error_failed_connect, e.message ?: ""))
                 }
             }
         }
@@ -756,7 +758,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
             delay(10_000L)
             if (sessionState.value is TogetherSessionState.Joining) {
                 joinJob.cancel()
-                sessionState.value = TogetherSessionState.Error("Connection timed out. Please check the host's IP and port.")
+                sessionState.value = TogetherSessionState.Error(context.getString(R.string.together_error_timeout))
             }
         }
     }
@@ -1000,7 +1002,7 @@ private fun FloatingReactionItem(
     }
 
     // In Compose coordinates, negative Y moves UPWARDS.
-    // Start above the navigation bar/overlay controls (-120dp) and float up to -550dp.
+    // Start above navigation/controls (-120dp) and float up to -550dp.
     val startY = -120f
     val endY = -550f
     val currentY = startY + (animProgress.value * (endY - startY))
@@ -1090,7 +1092,7 @@ private fun EmojiReactionsBar(
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text(
-                text = "Reactions",
+                text = stringResource(R.string.together_reactions),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)
@@ -1534,7 +1536,7 @@ private fun RequestedTracksCard(
                         )
                     }
                     Text(
-                        text = "Requests (${requestedQueue.size})",
+                        text = stringResource(R.string.together_requests_count, requestedQueue.size),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -1551,7 +1553,7 @@ private fun RequestedTracksCard(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(Modifier.width(4.dp))
-                    Text("Request Track", style = MaterialTheme.typography.labelMedium)
+                    Text(stringResource(R.string.together_request_track), style = MaterialTheme.typography.labelMedium)
                 }
             }
 
@@ -1564,7 +1566,7 @@ private fun RequestedTracksCard(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "No requests yet. Tap Request Track to queue songs!",
+                        text = stringResource(R.string.together_no_requests_placeholder),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
@@ -1607,7 +1609,7 @@ private fun RequestedTracksCard(
                                         overflow = TextOverflow.Ellipsis
                                     )
                                     Text(
-                                        text = "${item.track.artists.joinToString(", ")} • By ${item.requesterName}",
+                                        text = "${item.track.artists.joinToString(", ")} • ${stringResource(R.string.by_text)} ${item.requesterName}",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         maxLines = 1,
@@ -1633,7 +1635,7 @@ private fun RequestedTracksCard(
                                 ) {
                                     Icon(
                                         painter = painterResource(if (hasUpvoted) R.drawable.favorite else R.drawable.favorite_border),
-                                        contentDescription = "Upvote",
+                                        contentDescription = stringResource(R.string.together_upvote),
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Spacer(Modifier.width(4.dp))
@@ -1652,7 +1654,7 @@ private fun RequestedTracksCard(
                                     ) {
                                         Icon(
                                             painter = painterResource(R.drawable.play),
-                                            contentDescription = "Play",
+                                            contentDescription = stringResource(R.string.play),
                                             tint = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(18.dp)
                                         )
@@ -1663,7 +1665,7 @@ private fun RequestedTracksCard(
                                     ) {
                                         Icon(
                                             painter = painterResource(R.drawable.close),
-                                            contentDescription = "Remove",
+                                            contentDescription = stringResource(R.string.together_remove),
                                             tint = MaterialTheme.colorScheme.error,
                                             modifier = Modifier.size(18.dp)
                                         )
@@ -1676,7 +1678,7 @@ private fun RequestedTracksCard(
                                     ) {
                                         Icon(
                                             painter = painterResource(R.drawable.close),
-                                            contentDescription = "Remove",
+                                            contentDescription = stringResource(R.string.together_remove),
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.size(18.dp)
                                         )
@@ -1746,12 +1748,12 @@ private fun SearchAndRequestTrackDialog(
                     }
                     Column {
                         Text(
-                            text = "Request a Track",
+                            text = stringResource(R.string.together_request_track_title),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Search YouTube Music to queue a song",
+                            text = stringResource(R.string.together_search_ytm_desc),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1766,7 +1768,7 @@ private fun SearchAndRequestTrackDialog(
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.close),
-                        contentDescription = "Close",
+                        contentDescription = stringResource(R.string.close),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -1836,7 +1838,7 @@ private fun SearchAndRequestTrackDialog(
                         decorationBox = { innerTextField ->
                             if (query.isEmpty()) {
                                 Text(
-                                    "Search track or artist name...",
+                                    stringResource(R.string.together_search_placeholder),
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                                 )
@@ -1848,7 +1850,7 @@ private fun SearchAndRequestTrackDialog(
                     if (query.isNotEmpty()) {
                         Icon(
                             painter = painterResource(R.drawable.close),
-                            contentDescription = "Clear",
+                            contentDescription = stringResource(R.string.together_clear),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier
                                 .size(18.dp)
@@ -1884,7 +1886,7 @@ private fun SearchAndRequestTrackDialog(
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                         )
                         Text(
-                            text = if (query.isBlank()) "Type above to search songs" else "No songs found for \"$query\"",
+                            text = if (query.isBlank()) stringResource(R.string.together_search_empty_prompt) else stringResource(R.string.together_no_songs_found, query),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1975,7 +1977,7 @@ private fun SearchAndRequestTrackDialog(
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Spacer(Modifier.width(4.dp))
-                                    Text("Request", style = MaterialTheme.typography.labelMedium)
+                                    Text(stringResource(R.string.together_request_button), style = MaterialTheme.typography.labelMedium)
                                 }
                             }
                         }
