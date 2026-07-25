@@ -1,15 +1,8 @@
 package com.cgens67.avidtune.ui.component
 
-import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -34,26 +27,22 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton as MaterialIconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -75,15 +64,11 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.cgens67.avidtune.LocalDatabase
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.db.entities.PlaylistEntity
-import com.cgens67.avidtune.db.entities.Song
 import com.cgens67.avidtune.models.toMediaMetadata
-import com.cgens67.avidtune.ui.menu.OnlinePlaylistAdder
 import com.cgens67.avidtune.utils.ExternalPlaylistParser
-import com.cgens67.avidtune.utils.ExternalSource
 import com.cgens67.avidtune.utils.ParsedExternalPlaylist
 import com.cgens67.innertube.YouTube
 import com.cgens67.innertube.models.SongItem
@@ -174,7 +159,6 @@ fun ExternalLinkImporterDialog(
                     database.query {
                         insert(playlistEntity)
                     }
-                    val created = database.playlist(playlistEntity.id)
                     database.addSongToPlaylist(
                         playlist = PlaylistEntity(id = playlistEntity.id, name = parsed.title).let { p ->
                             com.cgens67.avidtune.db.entities.Playlist(p, matchedSongIds.size, emptyList())
@@ -187,7 +171,7 @@ fun ExternalLinkImporterDialog(
             isAddingToPlaylist = false
             Toast.makeText(
                 context,
-                context.getString(R.string.imported_tracks_count, matchedSongIds.size, total),
+                "Imported ${matchedSongIds.size} / $total tracks to playlist",
                 Toast.LENGTH_SHORT
             ).show()
             sheetState.hide()
@@ -237,19 +221,19 @@ fun ExternalLinkImporterDialog(
                     }
                     Column {
                         Text(
-                            text = stringResource(R.string.import_external_playlist),
+                            text = "Import External Playlist",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = stringResource(R.string.import_external_playlist_subtitle),
+                            text = "Spotify • Apple Music • YouTube",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
 
-                IconButton(
+                MaterialIconButton(
                     onClick = {
                         coroutineScope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() }
                     }
@@ -299,7 +283,7 @@ fun ExternalLinkImporterDialog(
                         decorationBox = { innerTextField ->
                             if (urlInput.isEmpty()) {
                                 Text(
-                                    text = stringResource(R.string.paste_spotify_apple_link),
+                                    text = "Paste Spotify, Apple Music, or YouTube link...",
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                                 )
@@ -330,7 +314,7 @@ fun ExternalLinkImporterDialog(
                                     urlInput = clipText
                                     parseLink(clipText)
                                 } else {
-                                    Toast.makeText(context, R.string.clipboard_empty, Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Clipboard is empty", Toast.LENGTH_SHORT).show()
                                 }
                             },
                             shape = RoundedCornerShape(12.dp),
@@ -364,7 +348,7 @@ fun ExternalLinkImporterDialog(
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.parse_link), fontWeight = FontWeight.Bold)
+                    Text("Parse Link", fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -388,7 +372,7 @@ fun ExternalLinkImporterDialog(
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                             )
                             Text(
-                                text = stringResource(R.string.import_external_hint),
+                                text = "Paste a link from Spotify, Apple Music, or YouTube Music above to extract and import tracks.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center
@@ -408,7 +392,7 @@ fun ExternalLinkImporterDialog(
                         ) {
                             CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                             Text(
-                                text = stringResource(R.string.fetching_playlist_info),
+                                text = "Fetching tracks from link...",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -438,7 +422,7 @@ fun ExternalLinkImporterDialog(
                                     tint = MaterialTheme.colorScheme.error
                                 )
                                 Text(
-                                    text = stringResource(R.string.error_parsing_link),
+                                    text = "Error Parsing Link",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onErrorContainer
@@ -591,7 +575,7 @@ fun ExternalLinkImporterDialog(
                                     color = MaterialTheme.colorScheme.onPrimary
                                 )
                                 Spacer(Modifier.width(8.dp))
-                                Text(stringResource(R.string.importing), fontWeight = FontWeight.Bold)
+                                Text("Importing...", fontWeight = FontWeight.Bold)
                             } else {
                                 Icon(
                                     painter = painterResource(R.drawable.playlist_add),
@@ -599,7 +583,7 @@ fun ExternalLinkImporterDialog(
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Spacer(Modifier.width(8.dp))
-                                Text(stringResource(R.string.import_to_library), fontWeight = FontWeight.Bold)
+                                Text("Import to Library", fontWeight = FontWeight.Bold)
                             }
                         }
                     }
