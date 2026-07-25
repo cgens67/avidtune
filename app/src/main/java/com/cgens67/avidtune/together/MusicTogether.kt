@@ -1318,7 +1318,7 @@ fun MusicTogetherScreen(
             onDismiss = { showRequestSearchDialog = false },
             onRequestTrack = { track ->
                 playerConnection?.service?.togetherManager?.requestTrack(track)
-                Toast.makeText(context, "Track requested!", Toast.LENGTHSHORT).show()
+                Toast.makeText(context, "Track requested!", Toast.LENGTH_SHORT).show()
                 showRequestSearchDialog = false
             }
         )
