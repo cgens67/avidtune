@@ -1470,8 +1470,6 @@ fun MusicTogetherScreen(
     }
 }
 
-// --- REDESIGNED TRACK REQUEST DIALOG & UI ---
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SearchAndRequestTrackDialog(
@@ -1483,203 +1481,257 @@ private fun SearchAndRequestTrackDialog(
     var isSearching by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    Dialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        sheetState = sheetState,
+        dragHandle = { BottomSheetDefaults.DragHandle() },
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
     ) {
-        Surface(
+        Column(
             modifier = Modifier
-                .fillMaxWidth(0.92f)
-                .fillMaxHeight(0.85f),
-            shape = RoundedCornerShape(28.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            tonalElevation = 6.dp
+                .fillMaxWidth()
+                .fillMaxHeight(0.85f)
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 20.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(20.dp)
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Dialog Header
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.primaryContainer),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.playlist_add),
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                        Column {
-                            Text(
-                                text = "Request a Track",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "Search YouTube Music to queue a song",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-
-                    AtIconButton(onClick = onDismiss, onLongClick = {}) {
                         Icon(
-                            painter = painterResource(R.drawable.close),
-                            contentDescription = "Close",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            painter = painterResource(R.drawable.playlist_add),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = "Request a Track",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Search YouTube Music to queue a song",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
 
-                Spacer(Modifier.height(16.dp))
-
-                // Search Input Field
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                    modifier = Modifier.fillMaxWidth()
+                AtIconButton(
+                    onClick = {
+                        coroutineScope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() }
+                    },
+                    onLongClick = {}
                 ) {
-                    Row(
+                    Icon(
+                        painter = painterResource(R.drawable.close),
+                        contentDescription = "Close",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            // Search Input Field
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.search),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+
+                    BasicTextField(
+                        value = query,
+                        onValueChange = { newQuery ->
+                            query = newQuery
+                            if (newQuery.isNotBlank()) {
+                                isSearching = true
+                                coroutineScope.launch(Dispatchers.IO) {
+                                    delay(300) // Debounce
+                                    YouTube.search(newQuery, YouTube.SearchFilter.FILTER_SONG).onSuccess { res ->
+                                        withContext(Dispatchers.Main) {
+                                            searchResults = res.items.filterIsInstance<SongItem>()
+                                            isSearching = false
+                                        }
+                                    }.onFailure { withContext(Dispatchers.Main) { isSearching = false } }
+                                }
+                            } else {
+                                searchResults = emptyList()
+                                isSearching = false
+                            }
+                        },
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = {
+                            if (query.isNotBlank()) {
+                                isSearching = true
+                                coroutineScope.launch(Dispatchers.IO) {
+                                    YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).onSuccess { res ->
+                                        withContext(Dispatchers.Main) {
+                                            searchResults = res.items.filterIsInstance<SongItem>()
+                                            isSearching = false
+                                        }
+                                    }.onFailure { withContext(Dispatchers.Main) { isSearching = false } }
+                                }
+                            }
+                        }),
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            .weight(1f)
+                            .focusRequester(focusRequester),
+                        decorationBox = { innerTextField ->
+                            if (query.isEmpty()) {
+                                Text(
+                                    "Search track or artist name...",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                )
+                            }
+                            innerTextField()
+                        }
+                    )
+
+                    if (query.isNotEmpty()) {
+                        Icon(
+                            painter = painterResource(R.drawable.close),
+                            contentDescription = "Clear",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .size(18.dp)
+                                .clip(CircleShape)
+                                .clickable { query = ""; searchResults = emptyList() }
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            // Results Container
+            if (isSearching) {
+                Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                }
+            } else if (searchResults.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Icon(
                             painter = painterResource(R.drawable.search),
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(48.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                         )
-
-                        BasicTextField(
-                            value = query,
-                            onValueChange = { newQuery ->
-                                query = newQuery
-                                if (newQuery.isNotBlank()) {
-                                    isSearching = true
-                                    coroutineScope.launch(Dispatchers.IO) {
-                                        delay(300) // Debounce
-                                        YouTube.search(newQuery, YouTube.SearchFilter.FILTER_SONG).onSuccess { res ->
-                                            withContext(Dispatchers.Main) {
-                                                searchResults = res.items.filterIsInstance<SongItem>()
-                                                isSearching = false
-                                            }
-                                        }.onFailure { withContext(Dispatchers.Main) { isSearching = false } }
-                                    }
-                                } else {
-                                    searchResults = emptyList()
-                                    isSearching = false
-                                }
-                            },
-                            singleLine = true,
-                            textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                            keyboardActions = KeyboardActions(onSearch = {
-                                if (query.isNotBlank()) {
-                                    isSearching = true
-                                    coroutineScope.launch(Dispatchers.IO) {
-                                        YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).onSuccess { res ->
-                                            withContext(Dispatchers.Main) {
-                                                searchResults = res.items.filterIsInstance<SongItem>()
-                                                isSearching = false
-                                            }
-                                        }.onFailure { withContext(Dispatchers.Main) { isSearching = false } }
-                                    }
-                                }
-                            }),
-                            modifier = Modifier
-                                .weight(1f)
-                                .focusRequester(focusRequester),
-                            decorationBox = { innerTextField ->
-                                if (query.isEmpty()) {
-                                    Text(
-                                        "Search track or artist name...",
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                    )
-                                }
-                                innerTextField()
-                            }
+                        Text(
+                            text = if (query.isBlank()) "Type above to search songs" else "No songs found for \"$query\"",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-
-                        if (query.isNotEmpty()) {
-                            Icon(
-                                painter = painterResource(R.drawable.close),
-                                contentDescription = "Clear",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier
-                                    .size(18.dp)
-                                    .clip(CircleShape)
-                                    .clickable { query = ""; searchResults = emptyList() }
-                            )
-                        }
                     }
                 }
-
-                Spacer(Modifier.height(16.dp))
-
-                // Results Container
-                if (isSearching) {
-                    Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                    }
-                } else if (searchResults.isEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(searchResults, key = { it.id }) { song ->
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainer,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    val track = TogetherTrack(
+                                        id = song.id,
+                                        title = song.title,
+                                        artists = song.artists.map { it.name },
+                                        durationSec = song.duration ?: -1,
+                                        thumbnailUrl = song.thumbnail
+                                    )
+                                    coroutineScope.launch { sheetState.hide() }.invokeOnCompletion { 
+                                        onRequestTrack(track) 
+                                    }
+                                }
                         ) {
-                            Icon(
-                                painter = painterResource(R.drawable.search),
-                                contentDescription = null,
-                                modifier = Modifier.size(48.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                            )
-                            Text(
-                                text = if (query.isBlank()) "Type above to search songs" else "No songs found for \"$query\"",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(searchResults, key = { it.id }) { song ->
-                            Surface(
-                                shape = RoundedCornerShape(16.dp),
-                                color = MaterialTheme.colorScheme.surfaceContainer,
+                            Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable {
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                AsyncImage(
+                                    model = song.thumbnail,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(52.dp)
+                                        .clip(RoundedCornerShape(12.dp)),
+                                    contentScale = ContentScale.Crop
+                                )
+
+                                Spacer(Modifier.width(12.dp))
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = song.title,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(
+                                        text = song.artists.joinToString(", ") { it.name },
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+
+                                Spacer(Modifier.width(8.dp))
+
+                                Button(
+                                    onClick = {
                                         val track = TogetherTrack(
                                             id = song.id,
                                             title = song.title,
@@ -1687,68 +1739,20 @@ private fun SearchAndRequestTrackDialog(
                                             durationSec = song.duration ?: -1,
                                             thumbnailUrl = song.thumbnail
                                         )
-                                        onRequestTrack(track)
-                                    }
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                                        coroutineScope.launch { sheetState.hide() }.invokeOnCompletion { 
+                                            onRequestTrack(track) 
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(12.dp),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                                 ) {
-                                    AsyncImage(
-                                        model = song.thumbnail,
+                                    Icon(
+                                        painter = painterResource(R.drawable.add),
                                         contentDescription = null,
-                                        modifier = Modifier
-                                            .size(52.dp)
-                                            .clip(RoundedCornerShape(12.dp)),
-                                        contentScale = ContentScale.Crop
+                                        modifier = Modifier.size(16.dp)
                                     )
-
-                                    Spacer(Modifier.width(12.dp))
-
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = song.title,
-                                            style = MaterialTheme.typography.bodyLarge,
-                                            fontWeight = FontWeight.SemiBold,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        Spacer(Modifier.height(2.dp))
-                                        Text(
-                                            text = song.artists.joinToString(", ") { it.name },
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
-
-                                    Spacer(Modifier.width(8.dp))
-
-                                    Button(
-                                        onClick = {
-                                            val track = TogetherTrack(
-                                                id = song.id,
-                                                title = song.title,
-                                                artists = song.artists.map { it.name },
-                                                durationSec = song.duration ?: -1,
-                                                thumbnailUrl = song.thumbnail
-                                            )
-                                            onRequestTrack(track)
-                                        },
-                                        shape = RoundedCornerShape(12.dp),
-                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                                    ) {
-                                        Icon(
-                                            painter = painterResource(R.drawable.add),
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        Spacer(Modifier.width(4.dp))
-                                        Text("Request", style = MaterialTheme.typography.labelMedium)
-                                    }
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Request", style = MaterialTheme.typography.labelMedium)
                                 }
                             }
                         }
@@ -1799,10 +1803,10 @@ private fun TrackRequestsCard(
                 }
 
                 if (allowGuestAdd || isHost) {
-                    FilledTonalButton(onClick = onRequestClick, shape = RoundedCornerShape(14.dp), contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)) {
+                    FilledTonalButton(onClick = onRequestClick, shape = RoundedCornerShape(12.dp), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)) {
                         Icon(painterResource(R.drawable.add), null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Request Track", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.width(4.dp))
+                        Text("Request", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -1814,7 +1818,7 @@ private fun TrackRequestsCard(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = if (allowGuestAdd || isHost) "No pending track requests. Tap 'Request Track' to add one!" else "Track requesting is disabled by the host.",
+                        text = if (allowGuestAdd || isHost) "No pending track requests. Tap 'Request' to add one!" else "Track requesting is disabled by the host.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(16.dp),
@@ -1825,8 +1829,8 @@ private fun TrackRequestsCard(
                 requests.forEach { req ->
                     val hasVoted = req.upvotes.contains(selfParticipantId)
                     Surface(
-                        shape = RoundedCornerShape(18.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
@@ -1836,13 +1840,13 @@ private fun TrackRequestsCard(
                             AsyncImage(
                                 model = req.track.thumbnailUrl,
                                 contentDescription = null,
-                                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)),
+                                modifier = Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)),
                                 contentScale = ContentScale.Crop
                             )
                             Spacer(Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(req.track.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text("${req.track.artists.joinToString(", ")} • requested by ${req.requestedByName}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("${req.track.artists.joinToString(", ")} • by ${req.requestedByName}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
 
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1855,10 +1859,10 @@ private fun TrackRequestsCard(
                                 )
 
                                 if (isHost) {
-                                    Surface(onClick = { onApprove(req.track.id) }, shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(34.dp)) {
+                                    Surface(onClick = { onApprove(req.track.id) }, shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(32.dp)) {
                                         Box(contentAlignment = Alignment.Center) { Icon(painterResource(R.drawable.play), null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer) }
                                     }
-                                    Surface(onClick = { onReject(req.track.id) }, shape = CircleShape, color = MaterialTheme.colorScheme.errorContainer, modifier = Modifier.size(34.dp)) {
+                                    Surface(onClick = { onReject(req.track.id) }, shape = CircleShape, color = MaterialTheme.colorScheme.errorContainer, modifier = Modifier.size(32.dp)) {
                                         Box(contentAlignment = Alignment.Center) { Icon(painterResource(R.drawable.close), null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onErrorContainer) }
                                     }
                                 }
