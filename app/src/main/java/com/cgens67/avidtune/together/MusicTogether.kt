@@ -813,15 +813,15 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
         }
     }
 
-    fun joinTogether(context: Context, inputLink: String, displayName: String, avatar: String? = null) {
+    fun joinTogether(inputLink: String, displayName: String, avatar: String? = null) {
         leaveTogether()
         isHost = false
         val joinJob = scope.launch(Dispatchers.IO) {
             val input = inputLink.trim()
-            val info = TogetherLink.decode(input) ?: resolvePin(context, input)?.joinInfo
+            val info = TogetherLink.decode(input)
             if (info == null) {
                 withContext(Dispatchers.Main) {
-                    sessionState.value = TogetherSessionState.Error("Invalid link or PIN not found on LAN.")
+                    sessionState.value = TogetherSessionState.Error("Invalid link format.")
                 }
                 return@launch
             }
@@ -1307,7 +1307,7 @@ fun MusicTogetherScreen(
                 val trimmed = raw.trim()
                 joinInput = trimmed
                 setLastJoinLink(trimmed)
-                playerConnection?.service?.joinTogether(context, trimmed, displayName, currentAvatar)
+                playerConnection?.service?.joinTogether(trimmed, displayName, currentAvatar)
                 showJoinDialog = false
             }
         )
@@ -1418,7 +1418,7 @@ fun MusicTogetherScreen(
                                 val link = TogetherLink.encode(session.joinInfo)
                                 joinInput = link
                                 setLastJoinLink(link)
-                                playerConnection?.service?.joinTogether(context, link, displayName, currentAvatar)
+                                playerConnection?.service?.joinTogether(link, displayName, currentAvatar)
                             },
                             modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)
                         )
@@ -1431,7 +1431,7 @@ fun MusicTogetherScreen(
                         onAllowAddTracksChange = setAllowAddTracks, onAllowControlPlaybackChange = setAllowControlPlayback,
                         onRequireApprovalChange = setRequireApproval, isStartEnabled = !isCreatingSessionLoading && !isJoining && !isHosting && sessionState !is TogetherSessionState.Joined,
                         isLoading = isCreatingSessionLoading,
-                        onStartSession = { playerConnection?.service?.startTogetherHost(context = context, port = port, displayName = displayName, settings = TogetherRoomSettings(allowGuestsToAddTracks = allowAddTracks, allowGuestsToControlPlayback = allowControlPlayback, requireHostApprovalToJoin = requireApproval), avatar = currentAvatar) },
+                        onStartSession = { playerConnection?.service?.startTogetherHost(port = port, displayName = displayName, settings = TogetherRoomSettings(allowGuestsToAddTracks = allowAddTracks, allowGuestsToControlPlayback = allowControlPlayback, requireHostApprovalToJoin = requireApproval), avatar = currentAvatar) },
                         modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)
                     )
                 }
@@ -1447,10 +1447,10 @@ fun MusicTogetherScreen(
                                 joinInput = text
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 setLastJoinLink(text)
-                                playerConnection?.service?.joinTogether(context, text, displayName, currentAvatar)
+                                playerConnection?.service?.joinTogether(text, displayName, currentAvatar)
                             }
                         },
-                        onJoin = { val trimmed = joinInput.trim(); setLastJoinLink(trimmed); playerConnection?.service?.joinTogether(context, trimmed, displayName, currentAvatar) },
+                        onJoin = { val trimmed = joinInput.trim(); setLastJoinLink(trimmed); playerConnection?.service?.joinTogether(trimmed, displayName, currentAvatar) },
                         modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp)
                     )
                 }
@@ -1467,6 +1467,115 @@ fun MusicTogetherScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
             )
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CustomJoinDialog(initialValue: String, onDismiss: () -> Unit, onJoin: (String) -> Unit) {
+    var isPinMode by remember { mutableStateOf(initialValue.length <= 6 && initialValue.all { it.isDigit() }) }
+    var pinInput by remember { mutableStateOf(if (isPinMode) initialValue else "") }
+    var linkInput by remember { mutableStateOf(if (!isPinMode) initialValue else "") }
+
+    val focusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(28.dp),
+        containerColor = MaterialTheme.colorScheme.surface,
+        title = {
+            Text(
+                text = stringResource(if (isPinMode) R.string.together_join_via_pin else R.string.together_join_via_link),
+                style = MaterialTheme.typography.titleLarge
+            )
+        },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                TabRow(
+                    selectedTabIndex = if (isPinMode) 0 else 1,
+                    containerColor = Color.Transparent,
+                    divider = { },
+                    indicator = { },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                ) {
+                    val pinBg = if (isPinMode) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+                    val linkBg = if (!isPinMode) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+
+                    Tab(
+                        selected = isPinMode,
+                        onClick = { isPinMode = true },
+                        modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(pinBg),
+                        text = { Text(stringResource(R.string.together_pin), color = if (isPinMode) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant) }
+                    )
+                    Tab(
+                        selected = !isPinMode,
+                        onClick = { isPinMode = false },
+                        modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(linkBg),
+                        text = { Text(stringResource(R.string.together_link), color = if (!isPinMode) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant) }
+                    )
+                }
+
+                if (isPinMode) {
+                    BasicTextField(
+                        value = pinInput,
+                        onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) pinInput = it },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { if (pinInput.length == 6) onJoin(pinInput) }),
+                        modifier = Modifier.focusRequester(focusRequester).fillMaxWidth(),
+                        decorationBox = {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), modifier = Modifier.fillMaxWidth()) {
+                                repeat(6) { index ->
+                                    val char = pinInput.getOrNull(index)?.toString() ?: ""
+                                    val isFocused = pinInput.length == index || (pinInput.length == 6 && index == 5)
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .aspectRatio(0.8f)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                                            .border(width = 2.dp, color = if (isFocused) MaterialTheme.colorScheme.primary else Color.Transparent, shape = RoundedCornerShape(8.dp)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(text = char, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
+                                    }
+                                }
+                            }
+                        }
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = linkInput,
+                        onValueChange = { linkInput = it },
+                        placeholder = { Text(stringResource(R.string.together_paste_link_placeholder)) },
+                        modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
+                        singleLine = false,
+                        minLines = 3,
+                        maxLines = 4,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { if (linkInput.isNotBlank()) onJoin(linkInput) }),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onJoin(if (isPinMode) pinInput else linkInput) },
+                enabled = if (isPinMode) pinInput.length == 6 else linkInput.isNotBlank()
+            ) { Text(stringResource(R.string.join)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) } }
+    )
+
+    LaunchedEffect(isPinMode) {
+        delay(100)
+        focusRequester.requestFocus()
+        keyboardController?.show()
     }
 }
 
