@@ -1,9 +1,7 @@
 package com.cgens67.avidtune.together
 
 import android.annotation.SuppressLint
-import android.content.Context
 import android.content.Intent
-import android.net.wifi.WifiManager
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -56,8 +54,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.zIndex
 import androidx.datastore.preferences.core.*
 import androidx.media3.common.MediaItem
@@ -75,7 +71,6 @@ import com.cgens67.avidtune.ui.component.AvatarPreferenceManager
 import com.cgens67.avidtune.ui.component.AvatarSelection
 import com.cgens67.avidtune.ui.component.AvatarUtils
 import com.cgens67.avidtune.ui.component.IconButton as AtIconButton
-import com.cgens67.avidtune.ui.component.SwitchPreference
 import com.cgens67.avidtune.ui.utils.backToMain
 import com.cgens67.avidtune.utils.rememberPreference
 import com.cgens67.innertube.YouTube
@@ -103,12 +98,13 @@ import kotlinx.serialization.json.Json
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
-import java.net.NetworkInterface
 import java.net.SocketTimeoutException
 import java.net.URI
 import java.net.URLDecoder
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.PI
+import kotlin.math.sin
 import kotlin.random.Random
 
 // --- PREFERENCES ---
@@ -120,35 +116,30 @@ val TogetherLastJoinLinkKey = stringPreferencesKey("TogetherLastJoinLink")
 val TogetherRequireHostApprovalToJoinKey = booleanPreferencesKey("TogetherRequireHostApprovalToJoin")
 val TogetherWelcomeShownKey = booleanPreferencesKey("TogetherWelcomeShown")
 
+// EMOJIS FOR IN-SESSION FLOATING REACTIONS
+val TOGETHER_EMOJIS = listOf("😭", "🥀", "💅", "💩", "🙂‍↔️", "🙏")
+
 // --- MODELS & MESSAGES ---
 @Serializable data class TogetherTrack(val id: String, val title: String, val artists: List<String> = emptyList(), val durationSec: Int = -1, val thumbnailUrl: String? = null)
 @Serializable data class TogetherParticipant(val id: String, val name: String, val isHost: Boolean = false, val isPending: Boolean = false, val isConnected: Boolean = true, val avatar: String? = null)
 @Serializable data class TogetherRoomSettings(val allowGuestsToAddTracks: Boolean = true, val allowGuestsToControlPlayback: Boolean = false, val requireHostApprovalToJoin: Boolean = false)
 
 @Serializable
-data class TogetherTrackRequest(
+data class TogetherRequestedTrack(
     val track: TogetherTrack,
-    val requestedById: String,
-    val requestedByName: String,
+    val requesterId: String,
+    val requesterName: String,
     val upvotes: List<String> = emptyList()
 )
 
 @Serializable
-data class TogetherReaction(
-    val id: String = UUID.randomUUID().toString(),
-    val senderName: String,
-    val emoji: String,
-    val avatar: String? = null,
-    val timestamp: Long = System.currentTimeMillis()
-)
-
-@Serializable data class TogetherRoomState(
+data class TogetherRoomState(
     val sessionId: String,
     val hostId: String,
     val participants: List<TogetherParticipant> = emptyList(),
     val settings: TogetherRoomSettings = TogetherRoomSettings(),
     val queue: List<TogetherTrack> = emptyList(),
-    val requests: List<TogetherTrackRequest> = emptyList(),
+    val requestedQueue: List<TogetherRequestedTrack> = emptyList(),
     val queueHash: String = "",
     val currentIndex: Int = 0,
     val isPlaying: Boolean = false,
@@ -160,6 +151,13 @@ data class TogetherReaction(
 
 @Serializable data class DiscoveredSession(val pin: String, val hostName: String, val joinInfo: TogetherJoinInfo)
 
+data class FloatingReaction(
+    val id: String = UUID.randomUUID().toString(),
+    val emoji: String,
+    val senderName: String,
+    val randomXFactor: Float = Random.nextFloat()
+)
+
 @Serializable sealed class TogetherRole { @Serializable data object Host : TogetherRole(); @Serializable data object Guest : TogetherRole() }
 sealed class TogetherSessionState {
     data object Idle : TogetherSessionState()
@@ -169,7 +167,7 @@ sealed class TogetherSessionState {
     data class Error(val message: String, val recoverable: Boolean = true) : TogetherSessionState()
 }
 
-const val TogetherProtocolVersion: Int = 2
+const val TogetherProtocolVersion: Int = 1
 @Serializable sealed interface TogetherMessage
 @Serializable @SerialName("client_hello") data class ClientHello(val protocolVersion: Int, val sessionId: String, val sessionKey: String, val clientId: String, val displayName: String, val avatar: String? = null) : TogetherMessage
 @Serializable @SerialName("server_welcome") data class ServerWelcome(val protocolVersion: Int, val sessionId: String, val participantId: String, val role: ServerRole, val isPending: Boolean, val settings: TogetherRoomSettings) : TogetherMessage
@@ -178,10 +176,10 @@ const val TogetherProtocolVersion: Int = 2
 @Serializable @SerialName("update_playback") data class UpdatePlayback(val positionMs: Long, val isPlaying: Boolean) : TogetherMessage
 @Serializable @SerialName("update_track") data class UpdateTrack(val track: TogetherTrack) : TogetherMessage
 @Serializable @SerialName("host_command") data class HostCommand(val command: String, val args: String = "") : TogetherMessage
-@Serializable @SerialName("send_reaction") data class SendReactionMsg(val reaction: TogetherReaction) : TogetherMessage
-@Serializable @SerialName("request_track") data class RequestTrackMsg(val track: TogetherTrack, val requestedById: String, val requestedByName: String) : TogetherMessage
-@Serializable @SerialName("vote_request") data class VoteRequestMsg(val trackId: String, val participantId: String, val isUpvote: Boolean = true) : TogetherMessage
-@Serializable @SerialName("manage_request") data class ManageRequestMsg(val trackId: String, val action: String) : TogetherMessage // "APPROVE", "REJECT"
+@Serializable @SerialName("send_reaction") data class SendReaction(val emoji: String, val senderName: String, val id: String = UUID.randomUUID().toString()) : TogetherMessage
+@Serializable @SerialName("request_track") data class RequestTrack(val track: TogetherTrack, val requesterId: String, val requesterName: String) : TogetherMessage
+@Serializable @SerialName("upvote_track") data class UpvoteTrack(val trackId: String, val voterId: String) : TogetherMessage
+@Serializable @SerialName("remove_request") data class RemoveRequestTrack(val trackId: String) : TogetherMessage
 
 @Serializable enum class ServerRole { HOST, GUEST }
 
@@ -191,41 +189,16 @@ object TogetherJson { val json = Json { ignoreUnknownKeys = true; explicitNulls 
     fun toWebSocketUrl() = "ws://$host:$port/together"
     fun toDeepLink() = "AvidTune://together?host=$host&port=$port&sid=$sessionId&key=$sessionKey"
 }
-
 object TogetherLink {
     fun encode(info: TogetherJoinInfo) = info.toDeepLink()
     fun decode(raw: String): TogetherJoinInfo? {
         val trimmed = raw.trim().replace("\\s+".toRegex(), "")
-        if (trimmed.isEmpty()) return null
-
         runCatching { URI(trimmed) }.getOrNull()?.let { uri ->
             if (uri.scheme?.lowercase() == "avidtune" && uri.authority?.lowercase() == "together") {
-                val params = uri.rawQuery?.split("&")?.associate {
-                    val p = it.split("=")
-                    if (p.size >= 2) p[0] to URLDecoder.decode(p[1], "UTF-8") else p[0] to ""
-                } ?: emptyMap()
-                val host = params["host"]
-                val port = params["port"]?.toIntOrNull()
-                val sid = params["sid"]
-                val key = params["key"]
-                if (!host.isNullOrBlank() && port != null && !sid.isNullOrBlank() && !key.isNullOrBlank()) {
-                    return TogetherJoinInfo(host, port, sid, key)
-                }
+                val params = uri.rawQuery?.split("&")?.associate { val p = it.split("="); p[0] to URLDecoder.decode(p[1], "UTF-8") } ?: emptyMap()
+                return TogetherJoinInfo(params["host"] ?: return null, params["port"]?.toIntOrNull() ?: return null, params["sid"] ?: return null, params["key"] ?: return null)
             }
         }
-
-        // Direct IP:Port fallback parsing (e.g. "192.168.1.5:42117")
-        if (trimmed.contains(":") && !trimmed.contains("//")) {
-            val parts = trimmed.split(":")
-            if (parts.size == 2) {
-                val host = parts[0]
-                val port = parts[1].toIntOrNull()
-                if (!host.isNullOrBlank() && port != null) {
-                    return TogetherJoinInfo(host, port, "manual_session", "manual_key")
-                }
-            }
-        }
-
         val p = trimmed.split("|")
         if (p.size == 4) return TogetherJoinInfo(p[0], p[1].toIntOrNull() ?: return null, p[2], p[3])
         return null
@@ -235,25 +208,27 @@ object TogetherLink {
 // --- MANAGER ---
 class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
     val sessionState = MutableStateFlow<TogetherSessionState>(TogetherSessionState.Idle)
-    val reactionsFlow = MutableSharedFlow<TogetherReaction>(extraBufferCapacity = 64)
+    val reactionsFlow = MutableSharedFlow<FloatingReaction>(extraBufferCapacity = 64)
 
     private var serverEngine: EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>? = null
     private var clientSession: DefaultClientWebSocketSession? = null
     private val httpClient = HttpClient(ClientCIO) {
-        install(WebSockets) { pingIntervalMillis = 20_000L }
+        install(WebSockets) {
+            pingIntervalMillis = 20_000L
+        }
     }
     private var roomSettings = TogetherRoomSettings()
 
     private val hostConnections = ConcurrentHashMap<String, io.ktor.websocket.DefaultWebSocketSession>()
     private val hostParticipants = ConcurrentHashMap<String, TogetherParticipant>()
-    private val hostRequests = ConcurrentHashMap<String, TogetherTrackRequest>()
+    private val hostRequestedQueue = ConcurrentHashMap<String, TogetherRequestedTrack>()
+
     private var isHost = false
     private var broadcastJob: Job? = null
 
     // UDP Discovery features
     private var discoverySocket: DatagramSocket? = null
     private var discoveryJob: Job? = null
-    private var multicastLock: WifiManager.MulticastLock? = null
     private var currentPin: String = ""
     private var currentHostName: String = ""
     private var currentJoinInfo: TogetherJoinInfo? = null
@@ -294,61 +269,33 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
         player.addListener(playerListener)
     }
 
-    private fun acquireMulticastLock(context: Context) {
-        try {
-            if (multicastLock == null) {
-                val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
-                multicastLock = wifiManager?.createMulticastLock("TogetherMulticastLock")?.apply {
-                    setReferenceCounted(true)
-                }
-            }
-            multicastLock?.acquire()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
-    private fun releaseMulticastLock() {
-        try {
-            if (multicastLock?.isHeld == true) {
-                multicastLock?.release()
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
     private fun getBroadcastAddresses(): List<InetAddress> {
-        val addresses = mutableSetOf<InetAddress>()
+        val addresses = mutableListOf<InetAddress>()
         try {
             addresses.add(InetAddress.getByName("255.255.255.255"))
-            val interfaces = NetworkInterface.getNetworkInterfaces()?.toList().orEmpty()
-            for (iface in interfaces) {
-                if (!iface.isUp || iface.isLoopback) continue
-                for (addr in iface.interfaceAddresses) {
-                    addr.broadcast?.let { addresses.add(it) }
+            val interfaces = java.net.NetworkInterface.getNetworkInterfaces()
+            while (interfaces.hasMoreElements()) {
+                val networkInterface = interfaces.nextElement()
+                if (networkInterface.isLoopback || !networkInterface.isUp) continue
+                for (address in networkInterface.interfaceAddresses) {
+                    address.broadcast?.let { addresses.add(it) }
                 }
             }
         } catch (e: Exception) { e.printStackTrace() }
-        return addresses.toList()
+        return addresses
     }
 
-    private fun startUdpDiscoveryServer(context: Context) {
+    private fun startUdpDiscoveryServer() {
         discoveryJob?.cancel()
         discoverySocket?.close()
-        acquireMulticastLock(context)
-
         discoveryJob = scope.launch(Dispatchers.IO) {
             try {
-                discoverySocket = DatagramSocket(42118).apply {
-                    reuseAddress = true
-                    broadcast = true
-                }
+                discoverySocket = DatagramSocket(42118).apply { broadcast = true }
                 val buffer = ByteArray(1024)
                 while (isActive) {
                     val packet = DatagramPacket(buffer, buffer.size)
                     discoverySocket?.receive(packet)
-                    val msg = String(packet.data, 0, packet.length, Charsets.UTF_8).trim()
+                    val msg = String(packet.data, 0, packet.length, Charsets.UTF_8)
                     if (msg == "AVIDTUNE_DISCOVER_ALL" || msg == "AVIDTUNE_DISCOVER_PIN:$currentPin") {
                         val info = currentJoinInfo ?: continue
                         val replyInfo = DiscoveredSession(currentPin, currentHostName, info)
@@ -358,72 +305,51 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                         discoverySocket?.send(replyPacket)
                     }
                 }
-            } catch (e: Exception) { /* Ignore socket closed */ }
+            } catch (e: Exception) {
+                // Ignore socket closed exceptions
+            }
         }
     }
 
-    suspend fun discoverSessions(context: Context): List<DiscoveredSession> = withContext(Dispatchers.IO) {
+    suspend fun discoverSessions(): List<DiscoveredSession> = withContext(Dispatchers.IO) {
         val results = mutableListOf<DiscoveredSession>()
-        acquireMulticastLock(context)
         var socket: DatagramSocket? = null
         try {
             socket = DatagramSocket().apply {
-                reuseAddress = true
                 broadcast = true
                 soTimeout = 2000
             }
             val msg = "AVIDTUNE_DISCOVER_ALL".toByteArray(Charsets.UTF_8)
-
-            // Broadcast to all broadcast targets
             for (address in getBroadcastAddresses()) {
                 try { socket.send(DatagramPacket(msg, msg.size, address, 42118)) } catch(e: Exception){}
             }
-
-            // Subnet direct unicast sweep to handle routers with broadcast isolation
-            getIpAddress()?.let { localIp ->
-                if (localIp.contains(".")) {
-                    val prefix = localIp.substringBeforeLast(".")
-                    coroutineScope {
-                        (1..254).map { i ->
-                            async {
-                                try {
-                                    val target = InetAddress.getByName("$prefix.$i")
-                                    socket.send(DatagramPacket(msg, msg.size, target, 42118))
-                                } catch (e: Exception) {}
-                            }
-                        }
-                    }
-                }
-            }
-
             val buffer = ByteArray(2048)
             val end = System.currentTimeMillis() + 2000
             while (System.currentTimeMillis() < end) {
                 try {
                     val packet = DatagramPacket(buffer, buffer.size)
                     socket.receive(packet)
-                    val replyStr = String(packet.data, 0, packet.length, Charsets.UTF_8).trim()
+                    val replyStr = String(packet.data, 0, packet.length, Charsets.UTF_8)
                     val session = TogetherJson.json.decodeFromString(DiscoveredSession.serializer(), replyStr)
                     if (results.none { it.pin == session.pin }) {
                         results.add(session)
                     }
-                } catch (e: SocketTimeoutException) { break } catch (e: Exception) {}
+                } catch (e: SocketTimeoutException) {
+                    break
+                } catch (e: Exception) {}
             }
         } catch (e: Exception) {
         } finally {
             socket?.close()
-            releaseMulticastLock()
         }
         results
     }
 
-    suspend fun resolvePin(context: Context, pin: String): DiscoveredSession? = withContext(Dispatchers.IO) {
+    suspend fun resolvePin(pin: String): DiscoveredSession? = withContext(Dispatchers.IO) {
         var result: DiscoveredSession? = null
-        acquireMulticastLock(context)
         var socket: DatagramSocket? = null
         try {
             socket = DatagramSocket().apply {
-                reuseAddress = true
                 broadcast = true
                 soTimeout = 2000
             }
@@ -431,34 +357,15 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
             for (address in getBroadcastAddresses()) {
                 try { socket.send(DatagramPacket(msg, msg.size, address, 42118)) } catch(e: Exception){}
             }
-
-            // Subnet direct unicast sweep
-            getIpAddress()?.let { localIp ->
-                if (localIp.contains(".")) {
-                    val prefix = localIp.substringBeforeLast(".")
-                    coroutineScope {
-                        (1..254).map { i ->
-                            async {
-                                try {
-                                    val target = InetAddress.getByName("$prefix.$i")
-                                    socket.send(DatagramPacket(msg, msg.size, target, 42118))
-                                } catch (e: Exception) {}
-                            }
-                        }
-                    }
-                }
-            }
-
             val buffer = ByteArray(2048)
             try {
                 val packet = DatagramPacket(buffer, buffer.size)
                 socket.receive(packet)
-                val replyStr = String(packet.data, 0, packet.length, Charsets.UTF_8).trim()
+                val replyStr = String(packet.data, 0, packet.length, Charsets.UTF_8)
                 result = TogetherJson.json.decodeFromString(DiscoveredSession.serializer(), replyStr)
             } catch (e: Exception) {}
         } finally {
             socket?.close()
-            releaseMulticastLock()
         }
         result
     }
@@ -471,7 +378,10 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
 
             val msg = TogetherJson.json.encodeToString(
                 TogetherMessage.serializer(),
-                UpdatePlayback(positionMs = player.currentPosition, isPlaying = player.isPlaying)
+                UpdatePlayback(
+                    positionMs = player.currentPosition,
+                    isPlaying = player.isPlaying
+                )
             )
             withContext(Dispatchers.IO) {
                 try { clientSession?.send(msg) } catch(e: Exception) {}
@@ -486,147 +396,43 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
             if (!currentState.roomState.settings.allowGuestsToAddTracks) return@launch
 
             val customMeta = mediaItem.localConfiguration?.tag as? com.cgens67.avidtune.models.MediaMetadata
-            val track = TogetherTrack(
-                id = mediaItem.mediaId,
-                title = customMeta?.title ?: mediaItem.mediaMetadata.title?.toString() ?: "",
-                artists = customMeta?.artists?.map { it.name } ?: listOf(mediaItem.mediaMetadata.artist?.toString() ?: ""),
-                durationSec = customMeta?.duration ?: -1,
-                thumbnailUrl = customMeta?.thumbnailUrl ?: mediaItem.mediaMetadata.artworkUri?.toString()
-            )
+            val trackId = mediaItem.mediaId
+            val trackTitle = customMeta?.title ?: mediaItem.mediaMetadata.title?.toString() ?: ""
+            val trackArtists = customMeta?.artists?.map { it.name } ?: listOf(mediaItem.mediaMetadata.artist?.toString() ?: "")
+            val trackArt = customMeta?.thumbnailUrl ?: mediaItem.mediaMetadata.artworkUri?.toString()
+            val durationSec = customMeta?.duration ?: -1
 
-            val msg = TogetherJson.json.encodeToString(TogetherMessage.serializer(), UpdateTrack(track))
+            val track = TogetherTrack(trackId, trackTitle, trackArtists, durationSec, trackArt)
+
+            val msg = TogetherJson.json.encodeToString(
+                TogetherMessage.serializer(),
+                UpdateTrack(track)
+            )
             withContext(Dispatchers.IO) {
                 try { clientSession?.send(msg) } catch(e: Exception) {}
             }
         }
     }
 
-    fun sendReaction(emoji: String) {
-        val currentState = sessionState.value
-        val name = when (currentState) {
-            is TogetherSessionState.Hosting -> currentHostName
-            is TogetherSessionState.Joined -> currentState.roomState.participants.find { it.id == currentState.selfParticipantId }?.name ?: "Guest"
-            else -> "Guest"
-        }
-        val reaction = TogetherReaction(senderName = name, emoji = emoji)
-        reactionsFlow.tryEmit(reaction)
-
-        val msgStr = TogetherJson.json.encodeToString(TogetherMessage.serializer(), SendReactionMsg(reaction))
-        scope.launch(Dispatchers.IO) {
-            if (isHost) {
-                hostConnections.values.forEach { session ->
-                    try { session.send(msgStr) } catch (e: Exception) {}
-                }
-            } else {
-                try { clientSession?.send(msgStr) } catch (e: Exception) {}
-            }
-        }
-    }
-
-    fun requestTrack(track: TogetherTrack) {
-        val currentState = sessionState.value
-        val selfId = when (currentState) {
-            is TogetherSessionState.Hosting -> hostParticipants.values.firstOrNull { it.isHost }?.id ?: "host"
-            is TogetherSessionState.Joined -> currentState.selfParticipantId
-            else -> return
-        }
-        val selfName = when (currentState) {
-            is TogetherSessionState.Hosting -> currentHostName
-            is TogetherSessionState.Joined -> currentState.roomState.participants.find { it.id == selfId }?.name ?: "Guest"
-            else -> "Guest"
-        }
-
-        if (isHost) {
-            hostRequests[track.id] = TogetherTrackRequest(track, selfId, selfName, listOf(selfId))
-            broadcastRoomState()
-        } else {
-            val msgStr = TogetherJson.json.encodeToString(TogetherMessage.serializer(), RequestTrackMsg(track, selfId, selfName))
-            scope.launch(Dispatchers.IO) {
-                try { clientSession?.send(msgStr) } catch (e: Exception) {}
-            }
-        }
-    }
-
-    fun voteTrackRequest(trackId: String) {
-        val currentState = sessionState.value
-        val selfId = when (currentState) {
-            is TogetherSessionState.Hosting -> hostParticipants.values.firstOrNull { it.isHost }?.id ?: "host"
-            is TogetherSessionState.Joined -> currentState.selfParticipantId
-            else -> return
-        }
-
-        if (isHost) {
-            val req = hostRequests[trackId] ?: return
-            val upvotes = req.upvotes.toMutableList()
-            if (upvotes.contains(selfId)) upvotes.remove(selfId) else upvotes.add(selfId)
-            hostRequests[trackId] = req.copy(upvotes = upvotes)
-            broadcastRoomState()
-        } else {
-            val msgStr = TogetherJson.json.encodeToString(TogetherMessage.serializer(), VoteRequestMsg(trackId, selfId))
-            scope.launch(Dispatchers.IO) {
-                try { clientSession?.send(msgStr) } catch (e: Exception) {}
-            }
-        }
-    }
-
-    fun approveTrackRequest(trackId: String) {
-        if (!isHost) return
-        val req = hostRequests.remove(trackId) ?: return
-        scope.launch(Dispatchers.Main) {
-            playTrackInPlayer(req.track)
-            broadcastRoomState()
-        }
-    }
-
-    fun rejectTrackRequest(trackId: String) {
-        if (!isHost) return
-        hostRequests.remove(trackId)
-        broadcastRoomState()
-    }
-
-    private fun playTrackInPlayer(track: TogetherTrack) {
-        isSyncing = true
-        val customMetadata = com.cgens67.avidtune.models.MediaMetadata(
-            id = track.id,
-            title = track.title,
-            artists = track.artists.map { com.cgens67.avidtune.models.MediaMetadata.Artist(id = null, name = it) },
-            duration = track.durationSec,
-            thumbnailUrl = track.thumbnailUrl,
-            album = null,
-            explicit = false,
-            liked = false
-        )
-        val mediaItem = MediaItem.Builder()
-            .setMediaId(track.id)
-            .setUri(track.id)
-            .setCustomCacheKey(track.id)
-            .setTag(customMetadata)
-            .setMediaMetadata(
-                androidx.media3.common.MediaMetadata.Builder()
-                    .setTitle(track.title)
-                    .setArtist(track.artists.joinToString(", "))
-                    .setArtworkUri(track.thumbnailUrl?.let { android.net.Uri.parse(it) })
-                    .setMediaType(androidx.media3.common.MediaMetadata.MEDIA_TYPE_MUSIC)
-                    .build()
-            )
-            .build()
-        player.setMediaItem(mediaItem)
-        player.prepare()
-        player.play()
-        isSyncing = false
-    }
-
     private fun getCurrentRoomState(sId: String): TogetherRoomState {
         val currentItem = player.currentMediaItem
         val customMeta = currentItem?.localConfiguration?.tag as? com.cgens67.avidtune.models.MediaMetadata
 
+        val trackId = currentItem?.mediaId ?: ""
+        val trackTitle = customMeta?.title ?: currentItem?.mediaMetadata?.title?.toString() ?: ""
+        val trackArtists = customMeta?.artists?.map { it.name } ?: listOf(currentItem?.mediaMetadata?.artist?.toString() ?: "")
+        val trackArt = customMeta?.thumbnailUrl ?: currentItem?.mediaMetadata?.artworkUri?.toString()
+        val durationSec = customMeta?.duration ?: -1
+
         val currentTrack = TogetherTrack(
-            id = currentItem?.mediaId ?: "",
-            title = customMeta?.title ?: currentItem?.mediaMetadata?.title?.toString() ?: "",
-            artists = customMeta?.artists?.map { it.name } ?: listOf(currentItem?.mediaMetadata?.artist?.toString() ?: ""),
-            durationSec = customMeta?.duration ?: -1,
-            thumbnailUrl = customMeta?.thumbnailUrl ?: currentItem?.mediaMetadata?.artworkUri?.toString()
+            id = trackId,
+            title = trackTitle,
+            artists = trackArtists,
+            durationSec = durationSec,
+            thumbnailUrl = trackArt
         )
+
+        val reqList = hostRequestedQueue.values.sortedByDescending { it.upvotes.size }.toList()
 
         return TogetherRoomState(
             sessionId = sId,
@@ -634,7 +440,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
             participants = hostParticipants.values.toList(),
             settings = roomSettings,
             queue = listOf(currentTrack),
-            requests = hostRequests.values.sortedByDescending { it.upvotes.size },
+            requestedQueue = reqList,
             queueHash = "",
             currentIndex = 0,
             isPlaying = player.isPlaying,
@@ -656,10 +462,16 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                     val msg = TogetherJson.json.encodeToString(TogetherMessage.serializer(), RoomStateMessage(roomState))
                     withContext(Dispatchers.IO) {
                         hostConnections.values.forEach { session ->
-                            try { session.send(msg) } catch (e: Exception) {}
+                            try {
+                                session.send(msg)
+                            } catch (e: Exception) {
+                                // ignore
+                            }
                         }
                     }
-                } catch (e: Exception) { e.printStackTrace() }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
         }
     }
@@ -676,7 +488,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
         }
     }
 
-    fun startTogetherHost(context: Context, port: Int, displayName: String, settings: TogetherRoomSettings, avatar: String? = null) {
+    fun startTogetherHost(port: Int, displayName: String, settings: TogetherRoomSettings, avatar: String? = null) {
         leaveTogether()
         isHost = true
         scope.launch(Dispatchers.IO) {
@@ -692,10 +504,16 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
 
                 hostParticipants.clear()
                 hostConnections.clear()
-                hostRequests.clear()
+                hostRequestedQueue.clear()
 
                 val myHostId = UUID.randomUUID().toString()
-                hostParticipants[myHostId] = TogetherParticipant(id = myHostId, name = displayName, isHost = true, isConnected = true, avatar = avatar)
+                hostParticipants[myHostId] = TogetherParticipant(
+                    id = myHostId,
+                    name = displayName,
+                    isHost = true,
+                    isConnected = true,
+                    avatar = avatar
+                )
 
                 val engine = embeddedServer(CIO, port = port, host = "0.0.0.0") {
                     install(io.ktor.server.websocket.WebSockets) {
@@ -711,43 +529,36 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                                 for (frame in incoming) {
                                     if (frame !is Frame.Text) continue
                                     val txt = frame.readText()
-                                    val msg = try { TogetherJson.json.decodeFromString<TogetherMessage>(txt) } catch (e: Exception) { null }
+                                    val msg = try {
+                                        TogetherJson.json.decodeFromString<TogetherMessage>(txt)
+                                    } catch (e: Exception) { null }
 
                                     when (msg) {
                                         is ClientHello -> {
                                             val isPending = roomSettings.requireHostApprovalToJoin
                                             pId = UUID.randomUUID().toString()
-                                            hostParticipants[pId] = TogetherParticipant(id = pId, name = msg.displayName, isHost = false, isConnected = true, isPending = isPending, avatar = msg.avatar)
+                                            hostParticipants[pId] = TogetherParticipant(
+                                                id = pId,
+                                                name = msg.displayName,
+                                                isHost = false,
+                                                isConnected = true,
+                                                isPending = isPending,
+                                                avatar = msg.avatar
+                                            )
                                             hostConnections[pId] = this@webSocket
 
                                             send(TogetherJson.json.encodeToString(
                                                 TogetherMessage.serializer(),
-                                                ServerWelcome(protocolVersion = TogetherProtocolVersion, sessionId = sId, participantId = pId, role = ServerRole.GUEST, isPending = isPending, settings = roomSettings)
+                                                ServerWelcome(
+                                                    protocolVersion = TogetherProtocolVersion,
+                                                    sessionId = sId,
+                                                    participantId = pId,
+                                                    role = ServerRole.GUEST,
+                                                    isPending = isPending,
+                                                    settings = roomSettings
+                                                )
                                             ))
                                             broadcastRoomState()
-                                        }
-                                        is SendReactionMsg -> {
-                                            reactionsFlow.tryEmit(msg.reaction)
-                                            hostConnections.values.forEach { session ->
-                                                if (session != this@webSocket) {
-                                                    try { session.send(txt) } catch (e: Exception) {}
-                                                }
-                                            }
-                                        }
-                                        is RequestTrackMsg -> {
-                                            if (roomSettings.allowGuestsToAddTracks) {
-                                                hostRequests[msg.track.id] = TogetherTrackRequest(msg.track, msg.requestedById, msg.requestedByName, listOf(msg.requestedById))
-                                                broadcastRoomState()
-                                            }
-                                        }
-                                        is VoteRequestMsg -> {
-                                            val req = hostRequests[msg.trackId]
-                                            if (req != null) {
-                                                val upvotes = req.upvotes.toMutableList()
-                                                if (upvotes.contains(msg.participantId)) upvotes.remove(msg.participantId) else upvotes.add(msg.participantId)
-                                                hostRequests[msg.trackId] = req.copy(upvotes = upvotes)
-                                                broadcastRoomState()
-                                            }
                                         }
                                         is UpdatePlayback -> {
                                             if (roomSettings.allowGuestsToControlPlayback) {
@@ -772,11 +583,51 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                                                 val p = hostParticipants[pId]
                                                 if (p != null && !p.isPending) {
                                                     withContext(Dispatchers.Main) {
-                                                        playTrackInPlayer(msg.track)
+                                                        isSyncing = true
+                                                        playTrackInternal(msg.track)
+                                                        isSyncing = false
                                                     }
                                                     broadcastRoomState()
                                                 }
                                             }
+                                        }
+                                        is SendReaction -> {
+                                            reactionsFlow.tryEmit(FloatingReaction(id = msg.id, emoji = msg.emoji, senderName = msg.senderName))
+                                            val resendMsg = TogetherJson.json.encodeToString(TogetherMessage.serializer(), msg)
+                                            hostConnections.values.forEach { session ->
+                                                try { session.send(resendMsg) } catch (e: Exception) {}
+                                            }
+                                        }
+                                        is RequestTrack -> {
+                                            if (roomSettings.allowGuestsToAddTracks) {
+                                                val existing = hostRequestedQueue[msg.track.id]
+                                                if (existing == null) {
+                                                    hostRequestedQueue[msg.track.id] = TogetherRequestedTrack(
+                                                        track = msg.track,
+                                                        requesterId = msg.requesterId,
+                                                        requesterName = msg.requesterName,
+                                                        upvotes = listOf(msg.requesterId)
+                                                    )
+                                                    broadcastRoomState()
+                                                }
+                                            }
+                                        }
+                                        is UpvoteTrack -> {
+                                            val existing = hostRequestedQueue[msg.trackId]
+                                            if (existing != null) {
+                                                val upvotes = existing.upvotes.toMutableList()
+                                                if (upvotes.contains(msg.voterId)) {
+                                                    upvotes.remove(msg.voterId)
+                                                } else {
+                                                    upvotes.add(msg.voterId)
+                                                }
+                                                hostRequestedQueue[msg.trackId] = existing.copy(upvotes = upvotes)
+                                                broadcastRoomState()
+                                            }
+                                        }
+                                        is RemoveRequestTrack -> {
+                                            hostRequestedQueue.remove(msg.trackId)
+                                            broadcastRoomState()
                                         }
                                         else -> {}
                                     }
@@ -797,7 +648,7 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                 serverEngine = engine
 
                 val link = TogetherLink.encode(currentJoinInfo!!)
-                startUdpDiscoveryServer(context)
+                startUdpDiscoveryServer()
 
                 withContext(Dispatchers.Main) {
                     val rs = getCurrentRoomState(sId)
@@ -813,12 +664,12 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
         }
     }
 
-    fun joinTogether(context: Context, inputLink: String, displayName: String, avatar: String? = null) {
+    fun joinTogether(inputLink: String, displayName: String, avatar: String? = null) {
         leaveTogether()
         isHost = false
         val joinJob = scope.launch(Dispatchers.IO) {
             val input = inputLink.trim()
-            val info = TogetherLink.decode(input) ?: resolvePin(context, input)?.joinInfo
+            val info = TogetherLink.decode(input) ?: resolvePin(input)?.joinInfo
             if (info == null) {
                 withContext(Dispatchers.Main) {
                     sessionState.value = TogetherSessionState.Error("Invalid link or PIN not found on LAN.")
@@ -845,9 +696,6 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                                     is ServerWelcome -> {
                                         selfPId = msg.participantId
                                     }
-                                    is SendReactionMsg -> {
-                                        reactionsFlow.tryEmit(msg.reaction)
-                                    }
                                     is RoomStateMessage -> {
                                         val rs = msg.state
                                         withContext(Dispatchers.Main) {
@@ -857,6 +705,9 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                                                 syncPlayerToState(rs)
                                             }
                                         }
+                                    }
+                                    is SendReaction -> {
+                                        reactionsFlow.tryEmit(FloatingReaction(id = msg.id, emoji = msg.emoji, senderName = msg.senderName))
                                     }
                                     is HostCommand -> {
                                         if (msg.command == "KICK") {
@@ -876,10 +727,15 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                                     }
                                     else -> {}
                                 }
-                            } catch (e: Exception) { e.printStackTrace() }
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
                         }
-                    } catch (e: Exception) { e.printStackTrace() }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
 
+                    // Loop ended, connection closed by host/server
                     withContext(Dispatchers.Main) {
                         val curr = sessionState.value
                         if (curr is TogetherSessionState.Joined || curr is TogetherSessionState.Joining) {
@@ -895,11 +751,12 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
             }
         }
 
+        // Connection watchdog
         scope.launch {
             delay(10_000L)
             if (sessionState.value is TogetherSessionState.Joining) {
                 joinJob.cancel()
-                sessionState.value = TogetherSessionState.Error("Connection timed out. Please check host network.")
+                sessionState.value = TogetherSessionState.Error("Connection timed out. Please check the host's IP and port.")
             }
         }
     }
@@ -909,7 +766,9 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
 
         val myTrackId = player.currentMediaItem?.mediaId
         if (myTrackId != currentTrack.id && currentTrack.id.isNotEmpty()) {
-            playTrackInPlayer(currentTrack)
+            isSyncing = true
+            playTrackInternal(currentTrack)
+            isSyncing = false
         }
 
         if (state.isPlaying && !player.isPlaying) {
@@ -935,11 +794,129 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
         }
     }
 
+    private fun playTrackInternal(track: TogetherTrack) {
+        val customMetadata = com.cgens67.avidtune.models.MediaMetadata(
+            id = track.id,
+            title = track.title,
+            artists = track.artists.map { com.cgens67.avidtune.models.MediaMetadata.Artist(id = null, name = it) },
+            duration = track.durationSec,
+            thumbnailUrl = track.thumbnailUrl,
+            album = null,
+            explicit = false,
+            liked = false
+        )
+
+        val mediaItem = MediaItem.Builder()
+            .setMediaId(track.id)
+            .setUri(track.id)
+            .setCustomCacheKey(track.id)
+            .setTag(customMetadata)
+            .setMediaMetadata(
+                androidx.media3.common.MediaMetadata.Builder()
+                    .setTitle(track.title)
+                    .setArtist(track.artists.joinToString(", "))
+                    .setArtworkUri(track.thumbnailUrl?.let { android.net.Uri.parse(it) })
+                    .setMediaType(androidx.media3.common.MediaMetadata.MEDIA_TYPE_MUSIC)
+                    .build()
+            )
+            .build()
+        player.setMediaItem(mediaItem)
+        player.prepare()
+        player.play()
+    }
+
+    fun sendReaction(emoji: String, senderName: String) {
+        val msg = SendReaction(emoji = emoji, senderName = senderName)
+        reactionsFlow.tryEmit(FloatingReaction(id = msg.id, emoji = emoji, senderName = senderName))
+        scope.launch(Dispatchers.IO) {
+            val jsonStr = TogetherJson.json.encodeToString(TogetherMessage.serializer(), msg)
+            if (isHost) {
+                hostConnections.values.forEach { session ->
+                    try { session.send(jsonStr) } catch(e: Exception){}
+                }
+            } else {
+                try { clientSession?.send(jsonStr) } catch(e: Exception){}
+            }
+        }
+    }
+
+    fun requestTrack(track: TogetherTrack, requesterId: String, requesterName: String) {
+        val msg = RequestTrack(track, requesterId, requesterName)
+        if (isHost) {
+            val existing = hostRequestedQueue[track.id]
+            if (existing == null) {
+                hostRequestedQueue[track.id] = TogetherRequestedTrack(
+                    track = track,
+                    requesterId = requesterId,
+                    requesterName = requesterName,
+                    upvotes = listOf(requesterId)
+                )
+                broadcastRoomState()
+            }
+        } else {
+            scope.launch(Dispatchers.IO) {
+                try {
+                    val jsonStr = TogetherJson.json.encodeToString(TogetherMessage.serializer(), msg)
+                    clientSession?.send(jsonStr)
+                } catch(e: Exception){}
+            }
+        }
+    }
+
+    fun upvoteTrack(trackId: String, voterId: String) {
+        if (isHost) {
+            val existing = hostRequestedQueue[trackId]
+            if (existing != null) {
+                val currentUpvotes = existing.upvotes.toMutableList()
+                if (currentUpvotes.contains(voterId)) {
+                    currentUpvotes.remove(voterId)
+                } else {
+                    currentUpvotes.add(voterId)
+                }
+                hostRequestedQueue[trackId] = existing.copy(upvotes = currentUpvotes)
+                broadcastRoomState()
+            }
+        } else {
+            scope.launch(Dispatchers.IO) {
+                try {
+                    val msg = UpvoteTrack(trackId, voterId)
+                    val jsonStr = TogetherJson.json.encodeToString(TogetherMessage.serializer(), msg)
+                    clientSession?.send(jsonStr)
+                } catch(e: Exception){}
+            }
+        }
+    }
+
+    fun playRequestedTrack(trackId: String) {
+        if (!isHost) return
+        val reqTrack = hostRequestedQueue.remove(trackId) ?: return
+        scope.launch(Dispatchers.Main) {
+            isSyncing = true
+            playTrackInternal(reqTrack.track)
+            isSyncing = false
+            broadcastRoomState()
+        }
+    }
+
+    fun removeRequestedTrack(trackId: String) {
+        if (isHost) {
+            hostRequestedQueue.remove(trackId)
+            broadcastRoomState()
+        } else {
+            scope.launch(Dispatchers.IO) {
+                try {
+                    val msg = RemoveRequestTrack(trackId)
+                    val jsonStr = TogetherJson.json.encodeToString(TogetherMessage.serializer(), msg)
+                    clientSession?.send(jsonStr)
+                } catch(e: Exception){}
+            }
+        }
+    }
+
     fun leaveTogether() {
         broadcastJob?.cancel()
         discoveryJob?.cancel()
         discoverySocket?.close()
-        releaseMulticastLock()
         val engineToStop = serverEngine
         serverEngine = null
         val sessionToClose = clientSession
@@ -948,8 +925,16 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
         sessionState.value = TogetherSessionState.Idle
 
         scope.launch(Dispatchers.IO) {
-            try { engineToStop?.stop(100, 500) } catch (e: Exception) {}
-            try { sessionToClose?.close() } catch (e: Exception) {}
+            try {
+                engineToStop?.stop(100, 500)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            try {
+                sessionToClose?.close()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
@@ -993,135 +978,142 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
         }
     }
 
-    private fun getIpAddress(): String? {
-        val interfaces = NetworkInterface.getNetworkInterfaces()?.toList().orEmpty()
-        
-        // Priority 1: Active Wi-Fi / Ethernet site-local IPv4
-        val preferredIp = interfaces.filter { iface ->
-            iface.isUp && !iface.isLoopback && (
-                iface.name.contains("wlan", ignoreCase = true) ||
-                iface.name.contains("eth", ignoreCase = true) ||
-                iface.name.contains("en", ignoreCase = true)
-            )
-        }.flatMap { it.inetAddresses.toList() }
-            .firstOrNull { it is java.net.Inet4Address && !it.isLoopbackAddress && it.isSiteLocalAddress }?.hostAddress
+    private fun getIpAddress(): String? = java.net.NetworkInterface.getNetworkInterfaces().toList()
+        .flatMap { it.inetAddresses.toList() }
+        .firstOrNull { !it.isLoopbackAddress && it is java.net.Inet4Address }?.hostAddress
+}
 
-        if (preferredIp != null) return preferredIp
+// --- FLOATING REACTIONS OVERLAY ---
 
-        // Priority 2: Any IPv4 non-cellular/non-VPN interface
-        return interfaces.filter { iface ->
-            iface.isUp && !iface.isLoopback && 
-            !iface.name.contains("rmnet", ignoreCase = true) && 
-            !iface.name.contains("tun", ignoreCase = true)
-        }.flatMap { it.inetAddresses.toList() }
-            .firstOrNull { it is java.net.Inet4Address && !it.isLoopbackAddress }?.hostAddress
+@Composable
+private fun FloatingReactionItem(
+    reaction: FloatingReaction,
+    onAnimationEnd: () -> Unit
+) {
+    val animProgress = remember { Animatable(0f) }
+    LaunchedEffect(reaction.id) {
+        animProgress.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(durationMillis = 2800, easing = FastOutSlowInEasing)
+        )
+        onAnimationEnd()
+    }
+
+    val yOffset = (1f - animProgress.value) * 350.dp.value - 50.dp.value
+    val alpha = when {
+        animProgress.value < 0.2f -> animProgress.value / 0.2f
+        animProgress.value > 0.7f -> (1f - animProgress.value) / 0.3f
+        else -> 1f
+    }
+    val xOffset = sin(animProgress.value * 3 * PI).toFloat() * 30.dp.value + (reaction.randomXFactor * 120 - 60)
+
+    Box(
+        modifier = Modifier
+            .offset(x = xOffset.dp, y = yOffset.dp)
+            .graphicsLayer {
+                this.alpha = alpha.coerceIn(0f, 1f)
+                scaleX = 0.8f + (animProgress.value * 0.4f)
+                scaleY = 0.8f + (animProgress.value * 0.4f)
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(text = reaction.emoji, fontSize = 36.sp)
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.85f),
+                shadowElevation = 2.dp
+            ) {
+                Text(
+                    text = reaction.senderName,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    fontSize = 10.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FloatingReactionsOverlay(
+    togetherManager: TogetherManager?,
+    modifier: Modifier = Modifier
+) {
+    if (togetherManager == null) return
+    val activeReactions = remember { mutableStateListOf<FloatingReaction>() }
+
+    LaunchedEffect(togetherManager) {
+        togetherManager.reactionsFlow.collect { reaction ->
+            if (activeReactions.size > 20) activeReactions.removeAt(0)
+            activeReactions.add(reaction)
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize(),
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        activeReactions.forEach { reaction ->
+            key(reaction.id) {
+                FloatingReactionItem(
+                    reaction = reaction,
+                    onAnimationEnd = { activeReactions.remove(reaction) }
+                )
+            }
+        }
     }
 }
 
 // --- UI COMPONENTS ---
 
 @Composable
-private fun FloatingReactionsOverlay(reactionsFlow: Flow<TogetherReaction>) {
-    val activeReactions = remember { mutableStateListOf<TogetherReaction>() }
-
-    LaunchedEffect(reactionsFlow) {
-        reactionsFlow.collect { reaction ->
-            activeReactions.add(reaction)
-        }
-    }
-
-    Box(modifier = Modifier.fillMaxSize().zIndex(99f), contentAlignment = Alignment.BottomEnd) {
-        activeReactions.forEach { reaction ->
-            key(reaction.id) {
-                AnimatedReactionParticle(
-                    reaction = reaction,
-                    onFinished = { activeReactions.remove(reaction) }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun AnimatedReactionParticle(reaction: TogetherReaction, onFinished: () -> Unit) {
-    val randomXOffset = remember { Random.nextInt(-120, 120).dp }
-    val animOffsetY = remember { Animatable(0f) }
-    val animAlpha = remember { Animatable(1f) }
-
-    LaunchedEffect(Unit) {
-        coroutineScope {
-            launch {
-                animOffsetY.animateTo(
-                    targetValue = -350f,
-                    animationSpec = tween(durationMillis = 2200, easing = LinearEasing)
-                )
-            }
-            launch {
-                delay(1200)
-                animAlpha.animateTo(
-                    targetValue = 0f,
-                    animationSpec = tween(durationMillis = 1000)
-                )
-            }
-        }
-        onFinished()
-    }
-
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .padding(bottom = 90.dp, end = 24.dp)
-            .offset(x = randomXOffset)
-            .graphicsLayer {
-                translationY = animOffsetY.value
-                alpha = animAlpha.value
-            }
+private fun EmojiReactionsBar(
+    onSendReaction: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Surface(
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.primaryContainer,
-            shadowElevation = 6.dp
-        ) {
+        Column(modifier = Modifier.padding(12.dp)) {
             Text(
-                text = reaction.emoji,
-                fontSize = 28.sp,
-                modifier = Modifier.padding(8.dp)
+                text = "Reactions",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)
             )
-        }
-        Text(
-            text = reaction.senderName,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = FontWeight.Bold
-        )
-    }
-}
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TOGETHER_EMOJIS.forEach { emoji ->
+                    val interactionSource = remember { MutableInteractionSource() }
+                    val isPressed by interactionSource.collectIsPressedAsState()
+                    val scale by animateFloatAsState(
+                        targetValue = if (isPressed) 0.8f else 1f,
+                        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                        label = "emoji_scale"
+                    )
 
-@Composable
-private fun ReactionsButtonBar(onSendReaction: (String) -> Unit) {
-    val emojis = listOf("❤️", "🔥", "🎵", "🎉", "👏", "😮", "💯")
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 6.dp)
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            emojis.forEach { emoji ->
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                        .clickable { onSendReaction(emoji) },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = emoji, fontSize = 22.sp)
+                    Surface(
+                        onClick = { onSendReaction(emoji) },
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        interactionSource = interactionSource,
+                        modifier = Modifier
+                            .size(44.dp)
+                            .scale(scale)
+                    ) {
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                            Text(text = emoji, fontSize = 22.sp)
+                        }
+                    }
                 }
             }
         }
@@ -1147,22 +1139,45 @@ private fun ParticipantAvatar(
             contentScale = ContentScale.Crop,
             success = { SubcomposeAsyncImageContent() },
             error = {
-                Box(modifier = Modifier.fillMaxSize().background(color), contentAlignment = Alignment.Center) {
-                    Text(text = participant.name.take(1).uppercase(), style = textStyle, color = textColor)
+                Box(
+                    modifier = Modifier.fillMaxSize().background(color),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = participant.name.take(1).uppercase(),
+                        style = textStyle,
+                        color = textColor
+                    )
                 }
             },
             loading = {
-                Box(modifier = Modifier.fillMaxSize().background(color), contentAlignment = Alignment.Center) {
-                    Text(text = participant.name.take(1).uppercase(), style = textStyle, color = textColor)
+                Box(
+                    modifier = Modifier.fillMaxSize().background(color),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = participant.name.take(1).uppercase(),
+                        style = textStyle,
+                        color = textColor
+                    )
                 }
             }
         )
     } else {
-        Box(modifier = modifier.clip(CircleShape).background(color), contentAlignment = Alignment.Center) {
-            Text(text = participant.name.take(1).uppercase(), style = textStyle, color = textColor)
+        Box(
+            modifier = modifier.clip(CircleShape).background(color),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = participant.name.take(1).uppercase(),
+                style = textStyle,
+                color = textColor
+            )
         }
     }
 }
+
+// --- MAIN UI SCREEN ---
 
 @SuppressLint("LocalContextGetResourceValueCall")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1179,23 +1194,25 @@ fun MusicTogetherScreen(
     val haptic = LocalHapticFeedback.current
     val coroutineScope = rememberCoroutineScope()
 
-    val transitionState = remember {
-        MutableTransitionState(false).apply {
-            targetState = true
-        }
+    var isVisible by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        isVisible = true
     }
 
     val handleBack: () -> Unit = {
-        if (transitionState.targetState) {
-            transitionState.targetState = false
+        if (isVisible) {
+            isVisible = false
             coroutineScope.launch {
-                delay(300)
+                delay(350)
                 onBack()
             }
         }
     }
 
-    BackHandler(enabled = transitionState.targetState) { handleBack() }
+    BackHandler(enabled = isVisible) {
+        handleBack()
+    }
 
     val (welcomeShown, setWelcomeShown) = rememberPreference(TogetherWelcomeShownKey, false)
     var welcomeDismissedThisSession by rememberSaveable { mutableStateOf(false) }
@@ -1229,8 +1246,6 @@ fun MusicTogetherScreen(
     val sessionStateFlow = remember(playerConnection) { playerConnection?.service?.togetherSessionState ?: MutableStateFlow(TogetherSessionState.Idle) }
     val sessionState by sessionStateFlow.collectAsState()
 
-    val reactionsFlow = remember(playerConnection) { playerConnection?.service?.togetherManager?.reactionsFlow ?: MutableSharedFlow() }
-
     val isHosting = sessionState is TogetherSessionState.Hosting
     val isJoining = sessionState is TogetherSessionState.Joining
     val isIdle = sessionState is TogetherSessionState.Idle || sessionState is TogetherSessionState.Error
@@ -1241,7 +1256,6 @@ fun MusicTogetherScreen(
     }
     val isCreatingSessionLoading = (sessionState as? TogetherSessionState.Hosting)?.roomState == null && isHosting
     val isJoinedAsGuest = (sessionState as? TogetherSessionState.Joined)?.role is TogetherRole.Guest
-    val selfParticipantId = (sessionState as? TogetherSessionState.Joined)?.selfParticipantId ?: ""
     val isWaitingApproval = run {
         val joined = sessionState as? TogetherSessionState.Joined ?: return@run false
         joined.role is TogetherRole.Guest && joined.roomState.participants.firstOrNull { it.id == joined.selfParticipantId }?.isPending == true
@@ -1249,15 +1263,29 @@ fun MusicTogetherScreen(
     val isJoinedAsAcceptedGuest = isJoinedAsGuest && !isWaitingApproval
     val disableJoinUi = isHostRole || isCreatingSessionLoading || isJoinedAsGuest
 
+    val selfParticipantId = remember(sessionState) {
+        when (val s = sessionState) {
+            is TogetherSessionState.Hosting -> s.roomState?.hostId ?: "host"
+            is TogetherSessionState.Joined -> s.selfParticipantId
+            else -> "user"
+        }
+    }
+
+    val requestedQueue = remember(sessionState) {
+        when (val s = sessionState) {
+            is TogetherSessionState.Hosting -> s.roomState?.requestedQueue.orEmpty()
+            is TogetherSessionState.Joined -> s.roomState.requestedQueue
+            else -> emptyList()
+        }
+    }
+
     var showNameDialog by rememberSaveable { mutableStateOf(false) }
     var showPortDialog by rememberSaveable { mutableStateOf(false) }
     var showJoinDialog by rememberSaveable { mutableStateOf(false) }
-    var showRequestSearchDialog by rememberSaveable { mutableStateOf(false) }
+    var showRequestTrackDialog by rememberSaveable { mutableStateOf(false) }
 
     val hostingLan = sessionState as? TogetherSessionState.Hosting
-    val joinedRoomState = (sessionState as? TogetherSessionState.Joined)?.roomState ?: hostingLan?.roomState
     val lanParticipants = hostingLan?.roomState?.participants.orEmpty()
-
     var confirmKickParticipantId by rememberSaveable { mutableStateOf<String?>(null) }
     var confirmBanParticipantId  by rememberSaveable { mutableStateOf<String?>(null) }
     val confirmKickName = lanParticipants.firstOrNull { it.id == confirmKickParticipantId }?.name
@@ -1268,7 +1296,7 @@ fun MusicTogetherScreen(
     LaunchedEffect(isIdle) {
         if (isIdle) {
             while(isActive) {
-                val sessions = playerConnection?.service?.togetherManager?.discoverSessions(context) ?: emptyList()
+                val sessions = playerConnection?.service?.togetherManager?.discoverSessions() ?: emptyList()
                 discoveredSessions = sessions
                 delay(5000)
             }
@@ -1316,13 +1344,12 @@ fun MusicTogetherScreen(
         )
     }
 
-    if (showRequestSearchDialog) {
+    if (showRequestTrackDialog) {
         SearchAndRequestTrackDialog(
-            onDismiss = { showRequestSearchDialog = false },
+            onDismiss = { showRequestTrackDialog = false },
             onRequestTrack = { track ->
-                playerConnection?.service?.togetherManager?.requestTrack(track)
-                Toast.makeText(context, "Track requested!", Toast.LENGTH_SHORT).show()
-                showRequestSearchDialog = false
+                showRequestTrackDialog = false
+                playerConnection?.service?.togetherManager?.requestTrack(track, selfParticipantId, displayName)
             }
         )
     }
@@ -1352,20 +1379,26 @@ fun MusicTogetherScreen(
     }
 
     AnimatedVisibility(
-        visibleState = transitionState,
+        visible = isVisible,
         enter = slideInHorizontally(
             initialOffsetX = { it },
-            animationSpec = tween(300, easing = FastOutSlowInEasing)
+            animationSpec = tween(350, easing = FastOutSlowInEasing)
         ) + fadeIn(animationSpec = tween(300, easing = LinearEasing)),
         exit = slideOutHorizontally(
             targetOffsetX = { it },
-            animationSpec = tween(300, easing = FastOutSlowInEasing)
-        ) + fadeOut(animationSpec = tween(300, easing = LinearEasing)),
+            animationSpec = tween(350, easing = FastOutSlowInEasing)
+        ) + fadeOut(animationSpec = tween(200, easing = LinearEasing)),
         modifier = Modifier.fillMaxSize().zIndex(100f)
     ) {
-        Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
-            // Floating reactions overlay particle renderer
-            FloatingReactionsOverlay(reactionsFlow = reactionsFlow)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.surface)
+        ) {
+            FloatingReactionsOverlay(
+                togetherManager = playerConnection?.service?.togetherManager,
+                modifier = Modifier.fillMaxSize().zIndex(150f)
+            )
 
             Column(
                 Modifier
@@ -1374,39 +1407,37 @@ fun MusicTogetherScreen(
             ) {
                 Spacer(Modifier.windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Top)))
 
-                StatusCard(
-                    state = sessionState,
-                    onCopyLink = { link -> clipboard.setText(AnnotatedString(link)); haptic.performHapticFeedback(HapticFeedbackType.LongPress); Toast.makeText(context, R.string.copied, Toast.LENGTH_SHORT).show() },
-                    onShareLink = { link -> context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, link) }, null)) },
-                    onLeave = { playerConnection?.service?.leaveTogether() },
-                    onSendReaction = { emoji -> playerConnection?.service?.togetherManager?.sendReaction(emoji) },
-                    modifier = Modifier.padding(horizontal = 16.dp).padding(top = 4.dp, bottom = 12.dp)
-                )
+                StatusCard(state = sessionState, onCopyLink = { link -> clipboard.setText(AnnotatedString(link)); haptic.performHapticFeedback(HapticFeedbackType.LongPress); Toast.makeText(context, R.string.copied, Toast.LENGTH_SHORT).show() }, onShareLink = { link -> context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, link) }, null)) }, onLeave = { playerConnection?.service?.leaveTogether() }, modifier = Modifier.padding(horizontal = 16.dp).padding(top = 4.dp, bottom = 12.dp))
 
-                // Track Requests & Democratic Queue Upvoting Card
-                if (joinedRoomState != null && (!isWaitingApproval || isHostRole)) {
-                    TrackRequestsCard(
-                        requests = joinedRoomState.requests,
-                        isHost = isHostRole,
+                // In-Session Emoji Reactions Bar & Requested Tracks
+                if (isHosting || isJoinedAsAcceptedGuest) {
+                    EmojiReactionsBar(
+                        onSendReaction = { emoji ->
+                            playerConnection?.service?.togetherManager?.sendReaction(emoji, displayName)
+                        },
+                        modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)
+                    )
+
+                    RequestedTracksCard(
+                        requestedQueue = requestedQueue,
                         selfParticipantId = selfParticipantId,
-                        allowGuestAdd = joinedRoomState.settings.allowGuestsToAddTracks,
-                        onRequestClick = { showRequestSearchDialog = true },
-                        onVote = { trackId -> playerConnection?.service?.togetherManager?.voteTrackRequest(trackId) },
-                        onApprove = { trackId -> playerConnection?.service?.togetherManager?.approveTrackRequest(trackId) },
-                        onReject = { trackId -> playerConnection?.service?.togetherManager?.rejectTrackRequest(trackId) },
+                        isHost = isHostRole,
+                        onRequestTrackClick = { showRequestTrackDialog = true },
+                        onUpvoteTrack = { trackId ->
+                            playerConnection?.service?.togetherManager?.upvoteTrack(trackId, selfParticipantId)
+                        },
+                        onPlayTrack = { trackId ->
+                            playerConnection?.service?.togetherManager?.playRequestedTrack(trackId)
+                        },
+                        onRemoveTrack = { trackId ->
+                            playerConnection?.service?.togetherManager?.removeRequestedTrack(trackId)
+                        },
                         modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)
                     )
                 }
 
                 if (hostingLan?.roomState != null && isHostRole) {
-                    OnlineParticipantsCard(
-                        participants = hostingLan.roomState.participants,
-                        hostApprovalEnabled = hostingLan.settings.requireHostApprovalToJoin,
-                        onApprove = { pid, approved -> playerConnection?.service?.approveTogetherParticipant(pid, approved) },
-                        onKick = { confirmKickParticipantId = it },
-                        onBan  = { confirmBanParticipantId  = it },
-                        modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)
-                    )
+                    OnlineParticipantsCard(participants = hostingLan.roomState.participants, hostApprovalEnabled = hostingLan.settings.requireHostApprovalToJoin, onApprove = { pid, approved -> playerConnection?.service?.approveTogetherParticipant(pid, approved) }, onKick = { confirmKickParticipantId = it }, onBan  = { confirmBanParticipantId  = it }, modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp))
                 }
 
                 if (!isJoinedAsGuest && !isHostRole) {
@@ -1427,35 +1458,11 @@ fun MusicTogetherScreen(
                         )
                     }
 
-                    HostSectionCard(
-                        displayName = displayName, port = port, allowAddTracks = allowAddTracks,
-                        allowControlPlayback = allowControlPlayback, requireApproval = requireApproval,
-                        onShowNameDialog = { showNameDialog = true }, onShowPortDialog = { showPortDialog = true },
-                        onAllowAddTracksChange = setAllowAddTracks, onAllowControlPlaybackChange = setAllowControlPlayback,
-                        onRequireApprovalChange = setRequireApproval, isStartEnabled = !isCreatingSessionLoading && !isJoining && !isHosting && sessionState !is TogetherSessionState.Joined,
-                        isLoading = isCreatingSessionLoading,
-                        onStartSession = { playerConnection?.service?.startTogetherHost(port = port, displayName = displayName, settings = TogetherRoomSettings(allowGuestsToAddTracks = allowAddTracks, allowGuestsToControlPlayback = allowControlPlayback, requireHostApprovalToJoin = requireApproval), avatar = currentAvatar) },
-                        modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)
-                    )
+                    HostSectionCard(displayName = displayName, port = port, allowAddTracks = allowAddTracks, allowControlPlayback = allowControlPlayback, requireApproval = requireApproval, onShowNameDialog = { showNameDialog = true }, onShowPortDialog = { showPortDialog = true }, onAllowAddTracksChange = setAllowAddTracks, onAllowControlPlaybackChange = setAllowControlPlayback, onRequireApprovalChange = setRequireApproval, isStartEnabled = !isCreatingSessionLoading && !isJoining && !isHosting && sessionState !is TogetherSessionState.Joined, isLoading = isCreatingSessionLoading, onStartSession = { playerConnection?.service?.startTogetherHost(port = port, displayName = displayName, settings = TogetherRoomSettings(allowGuestsToAddTracks = allowAddTracks, allowGuestsToControlPlayback = allowControlPlayback, requireHostApprovalToJoin = requireApproval), avatar = currentAvatar) }, modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp))
                 }
 
                 if (!isHostRole) {
-                    JoinSectionCard(
-                        joinInput = joinInput, onJoinInputChange = { joinInput = it }, canJoin = canJoin,
-                        disableJoinUi = disableJoinUi, isJoined = isJoinedAsAcceptedGuest, isWaitingApproval = isWaitingApproval,
-                        isJoining = isJoining, onShowJoinDialog = { showJoinDialog = true },
-                        onPasteFromClipboard = {
-                            val text = clipboard.getText()?.text?.trim() ?: ""
-                            if (text.isNotBlank()) {
-                                joinInput = text
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                setLastJoinLink(text)
-                                playerConnection?.service?.joinTogether(text, displayName, currentAvatar)
-                            }
-                        },
-                        onJoin = { val trimmed = joinInput.trim(); setLastJoinLink(trimmed); playerConnection?.service?.joinTogether(trimmed, displayName, currentAvatar) },
-                        modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp)
-                    )
+                    JoinSectionCard(joinInput = joinInput, onJoinInputChange = { joinInput = it }, canJoin = canJoin, disableJoinUi = disableJoinUi, isJoined = isJoinedAsAcceptedGuest, isWaitingApproval = isWaitingApproval, isJoining = isJoining, onShowJoinDialog = { showJoinDialog = true }, onPasteFromClipboard = { val text = clipboard.getText()?.text?.trim() ?: ""; if (text.isNotBlank()) { joinInput = text; haptic.performHapticFeedback(HapticFeedbackType.LongPress); setLastJoinLink(text); playerConnection?.service?.joinTogether(text, displayName, currentAvatar) } }, onJoin = { val trimmed = joinInput.trim(); setLastJoinLink(trimmed); playerConnection?.service?.joinTogether(trimmed, displayName, currentAvatar) }, modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp))
                 }
             }
 
@@ -1467,120 +1474,216 @@ fun MusicTogetherScreen(
                     }
                 },
                 scrollBehavior = scrollBehavior,
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+                )
             )
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+// --- REQUESTED TRACKS CARD ---
+
 @Composable
-fun CustomJoinDialog(initialValue: String, onDismiss: () -> Unit, onJoin: (String) -> Unit) {
-    var isPinMode by remember { mutableStateOf(initialValue.length <= 6 && initialValue.all { it.isDigit() }) }
-    var pinInput by remember { mutableStateOf(if (isPinMode) initialValue else "") }
-    var linkInput by remember { mutableStateOf(if (!isPinMode) initialValue else "") }
-
-    val focusRequester = remember { FocusRequester() }
-    val keyboardController = LocalSoftwareKeyboardController.current
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
+private fun RequestedTracksCard(
+    requestedQueue: List<TogetherRequestedTrack>,
+    selfParticipantId: String,
+    isHost: Boolean,
+    onRequestTrackClick: () -> Unit,
+    onUpvoteTrack: (String) -> Unit,
+    onPlayTrack: (String) -> Unit,
+    onRemoveTrack: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth().animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)),
         shape = RoundedCornerShape(28.dp),
-        containerColor = MaterialTheme.colorScheme.surface,
-        title = {
-            Text(
-                text = stringResource(if (isPinMode) R.string.together_join_via_pin else R.string.together_join_via_link),
-                style = MaterialTheme.typography.titleLarge
-            )
-        },
-        text = {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                TabRow(
-                    selectedTabIndex = if (isPinMode) 0 else 1,
-                    containerColor = Color.Transparent,
-                    divider = { },
-                    indicator = { },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    val pinBg = if (isPinMode) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-                    val linkBg = if (!isPinMode) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-
-                    Tab(
-                        selected = isPinMode,
-                        onClick = { isPinMode = true },
-                        modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(pinBg),
-                        text = { Text(stringResource(R.string.together_pin), color = if (isPinMode) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant) }
-                    )
-                    Tab(
-                        selected = !isPinMode,
-                        onClick = { isPinMode = false },
-                        modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(linkBg),
-                        text = { Text(stringResource(R.string.together_link), color = if (!isPinMode) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant) }
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.playlist_add),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Text(
+                        text = "Requests (${requestedQueue.size})",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
                     )
                 }
 
-                if (isPinMode) {
-                    BasicTextField(
-                        value = pinInput,
-                        onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) pinInput = it },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = { if (pinInput.length == 6) onJoin(pinInput) }),
-                        modifier = Modifier.focusRequester(focusRequester).fillMaxWidth(),
-                        decorationBox = {
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), modifier = Modifier.fillMaxWidth()) {
-                                repeat(6) { index ->
-                                    val char = pinInput.getOrNull(index)?.toString() ?: ""
-                                    val isFocused = pinInput.length == index || (pinInput.length == 6 && index == 5)
-                                    Box(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .aspectRatio(0.8f)
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                                            .border(width = 2.dp, color = if (isFocused) MaterialTheme.colorScheme.primary else Color.Transparent, shape = RoundedCornerShape(8.dp)),
-                                        contentAlignment = Alignment.Center
+                Button(
+                    onClick = onRequestTrackClick,
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.add),
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text("Request Track", style = MaterialTheme.typography.labelMedium)
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            if (requestedQueue.isEmpty()) {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "No requests yet. Tap Request Track to queue songs!",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    requestedQueue.forEach { item ->
+                        val hasUpvoted = item.upvotes.contains(selfParticipantId)
+
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainer,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                AsyncImage(
+                                    model = item.track.thumbnailUrl,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .clip(RoundedCornerShape(10.dp)),
+                                    contentScale = ContentScale.Crop
+                                )
+
+                                Spacer(Modifier.width(10.dp))
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = item.track.title,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = "${item.track.artists.joinToString(", ")} • By ${item.requesterName}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+
+                                Spacer(Modifier.width(8.dp))
+
+                                // Upvote Button
+                                FilledTonalButton(
+                                    onClick = { onUpvoteTrack(item.track.id) },
+                                    shape = RoundedCornerShape(12.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                    colors = if (hasUpvoted) {
+                                        ButtonDefaults.filledTonalButtonColors(
+                                            containerColor = MaterialTheme.colorScheme.primary,
+                                            contentColor = MaterialTheme.colorScheme.onPrimary
+                                        )
+                                    } else {
+                                        ButtonDefaults.filledTonalButtonColors()
+                                    }
+                                ) {
+                                    Icon(
+                                        painter = painterResource(if (hasUpvoted) R.drawable.favorite else R.drawable.favorite_border),
+                                        contentDescription = "Upvote",
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(
+                                        text = "${item.upvotes.size}",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+
+                                if (isHost) {
+                                    Spacer(Modifier.width(4.dp))
+                                    IconButton(
+                                        onClick = { onPlayTrack(item.track.id) },
+                                        modifier = Modifier.size(36.dp)
                                     ) {
-                                        Text(text = char, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
+                                        Icon(
+                                            painter = painterResource(R.drawable.play),
+                                            contentDescription = "Play",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = { onRemoveTrack(item.track.id) },
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(R.drawable.close),
+                                            contentDescription = "Remove",
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                } else if (item.requesterId == selfParticipantId) {
+                                    Spacer(Modifier.width(4.dp))
+                                    IconButton(
+                                        onClick = { onRemoveTrack(item.track.id) },
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(R.drawable.close),
+                                            contentDescription = "Remove",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(18.dp)
+                                        )
                                     }
                                 }
                             }
                         }
-                    )
-                } else {
-                    OutlinedTextField(
-                        value = linkInput,
-                        onValueChange = { linkInput = it },
-                        placeholder = { Text(stringResource(R.string.together_paste_link_placeholder)) },
-                        modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
-                        singleLine = false,
-                        minLines = 3,
-                        maxLines = 4,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = { if (linkInput.isNotBlank()) onJoin(linkInput) }),
-                        shape = RoundedCornerShape(12.dp)
-                    )
+                    }
                 }
             }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onJoin(if (isPinMode) pinInput else linkInput) },
-                enabled = if (isPinMode) pinInput.length == 6 else linkInput.isNotBlank()
-            ) { Text(stringResource(R.string.join)) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) } }
-    )
-
-    LaunchedEffect(isPinMode) {
-        delay(100)
-        focusRequester.requestFocus()
-        keyboardController?.show()
+        }
     }
 }
+
+// --- SEARCH & REQUEST TRACK DIALOG ---
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1881,114 +1984,137 @@ private fun SearchAndRequestTrackDialog(
 }
 
 @Composable
-private fun TrackRequestsCard(
-    requests: List<TogetherTrackRequest>,
-    isHost: Boolean,
-    selfParticipantId: String,
-    allowGuestAdd: Boolean,
-    onRequestClick: () -> Unit,
-    onVote: (String) -> Unit,
-    onApprove: (String) -> Unit,
-    onReject: (String) -> Unit,
-    modifier: Modifier = Modifier
+private fun CustomJoinDialog(
+    initialValue: String,
+    onDismiss: () -> Unit,
+    onJoin: (String) -> Unit
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth().animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)),
+    var isPinMode by remember { mutableStateOf(initialValue.length <= 6 && initialValue.all { it.isDigit() }) }
+    var pinInput by remember { mutableStateOf(if (isPinMode) initialValue else "") }
+    var linkInput by remember { mutableStateOf(if (!isPinMode) initialValue else "") }
+
+    val focusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
         shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Box(
-                        modifier = Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(painterResource(R.drawable.playlist_add), null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                    }
-                    Text("Song Requests (${requests.size})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                }
-
-                if (allowGuestAdd || isHost) {
-                    FilledTonalButton(onClick = onRequestClick, shape = RoundedCornerShape(12.dp), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)) {
-                        Icon(painterResource(R.drawable.add), null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Request", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-                    }
-                }
-            }
-
-            if (requests.isEmpty()) {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                    modifier = Modifier.fillMaxWidth()
+        containerColor = MaterialTheme.colorScheme.surface,
+        title = {
+            Text(
+                text = stringResource(if (isPinMode) R.string.together_join_via_pin else R.string.together_join_via_link),
+                style = MaterialTheme.typography.titleLarge
+            )
+        },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                TabRow(
+                    selectedTabIndex = if (isPinMode) 0 else 1,
+                    containerColor = Color.Transparent,
+                    divider = { },
+                    indicator = { },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                 ) {
-                    Text(
-                        text = if (allowGuestAdd || isHost) "No pending track requests. Tap 'Request' to add one!" else "Track requesting is disabled by the host.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(16.dp),
-                        textAlign = TextAlign.Center
+                    val pinBg = if (isPinMode) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+                    val linkBg = if (!isPinMode) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+
+                    Tab(
+                        selected = isPinMode,
+                        onClick = { isPinMode = true },
+                        modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(pinBg),
+                        text = { Text(stringResource(R.string.together_pin), color = if (isPinMode) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant) }
+                    )
+                    Tab(
+                        selected = !isPinMode,
+                        onClick = { isPinMode = false },
+                        modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(linkBg),
+                        text = { Text(stringResource(R.string.together_link), color = if (!isPinMode) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant) }
                     )
                 }
-            } else {
-                requests.forEach { req ->
-                    val hasVoted = req.upvotes.contains(selfParticipantId)
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            AsyncImage(
-                                model = req.track.thumbnailUrl,
-                                contentDescription = null,
-                                modifier = Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)),
-                                contentScale = ContentScale.Crop
-                            )
-                            Spacer(Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(req.track.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text("${req.track.artists.joinToString(", ")} • by ${req.requestedByName}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
 
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                FilterChip(
-                                    selected = hasVoted,
-                                    onClick = { onVote(req.track.id) },
-                                    label = { Text("${req.upvotes.size}", fontWeight = FontWeight.Bold) },
-                                    leadingIcon = { Icon(painterResource(R.drawable.arrow_upward), null, modifier = Modifier.size(14.dp)) },
-                                    shape = CircleShape
-                                )
-
-                                if (isHost) {
-                                    Surface(onClick = { onApprove(req.track.id) }, shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(32.dp)) {
-                                        Box(contentAlignment = Alignment.Center) { Icon(painterResource(R.drawable.play), null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer) }
-                                    }
-                                    Surface(onClick = { onReject(req.track.id) }, shape = CircleShape, color = MaterialTheme.colorScheme.errorContainer, modifier = Modifier.size(32.dp)) {
-                                        Box(contentAlignment = Alignment.Center) { Icon(painterResource(R.drawable.close), null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onErrorContainer) }
+                if (isPinMode) {
+                    BasicTextField(
+                        value = pinInput,
+                        onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) pinInput = it },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { if (pinInput.length == 6) onJoin(pinInput) }),
+                        modifier = Modifier.focusRequester(focusRequester).fillMaxWidth(),
+                        decorationBox = {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), modifier = Modifier.fillMaxWidth()) {
+                                repeat(6) { index ->
+                                    val char = pinInput.getOrNull(index)?.toString() ?: ""
+                                    val isFocused = pinInput.length == index || (pinInput.length == 6 && index == 5)
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .aspectRatio(0.8f)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                                            .border(
+                                                width = 2.dp,
+                                                color = if (isFocused) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                                shape = RoundedCornerShape(8.dp)
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = char,
+                                            style = MaterialTheme.typography.titleLarge,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
                                     }
                                 }
                             }
                         }
-                    }
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = linkInput,
+                        onValueChange = { linkInput = it },
+                        placeholder = { Text(stringResource(R.string.together_paste_link_placeholder)) },
+                        modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
+                        singleLine = false,
+                        minLines = 3,
+                        maxLines = 4,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { if (linkInput.isNotBlank()) onJoin(linkInput) }),
+                        shape = RoundedCornerShape(12.dp)
+                    )
                 }
             }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onJoin(if (isPinMode) pinInput else linkInput) },
+                enabled = if (isPinMode) pinInput.length == 6 else linkInput.isNotBlank()
+            ) {
+                Text(stringResource(R.string.join))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(android.R.string.cancel))
+            }
         }
+    )
+
+    LaunchedEffect(isPinMode) {
+        delay(100)
+        focusRequester.requestFocus()
+        keyboardController?.show()
     }
 }
 
 @Composable
-private fun OngoingSessionsCard(sessions: List<DiscoveredSession>, onJoin: (DiscoveredSession) -> Unit, modifier: Modifier = Modifier) {
+private fun OngoingSessionsCard(
+    sessions: List<DiscoveredSession>,
+    onJoin: (DiscoveredSession) -> Unit,
+    modifier: Modifier = Modifier
+) {
     Card(
         modifier = modifier.fillMaxWidth().animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)),
         shape = RoundedCornerShape(28.dp),
@@ -2019,7 +2145,10 @@ private fun OngoingSessionsCard(sessions: List<DiscoveredSession>, onJoin: (Disc
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).clickable { onJoin(session) }
                 ) {
-                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
                             Text(session.hostName.take(1).uppercase(), color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold)
                         }
@@ -2040,12 +2169,7 @@ private fun OngoingSessionsCard(sessions: List<DiscoveredSession>, onJoin: (Disc
 }
 
 @Composable
-private fun HostSectionCard(
-    displayName: String, port: Int, allowAddTracks: Boolean, allowControlPlayback: Boolean, requireApproval: Boolean,
-    onShowNameDialog: () -> Unit, onShowPortDialog: () -> Unit, onAllowAddTracksChange: (Boolean) -> Unit,
-    onAllowControlPlaybackChange: (Boolean) -> Unit, onRequireApprovalChange: (Boolean) -> Unit,
-    isStartEnabled: Boolean, isLoading: Boolean, onStartSession: () -> Unit, modifier: Modifier = Modifier
-) {
+private fun HostSectionCard(displayName: String, port: Int, allowAddTracks: Boolean, allowControlPlayback: Boolean, requireApproval: Boolean, onShowNameDialog: () -> Unit, onShowPortDialog: () -> Unit, onAllowAddTracksChange: (Boolean) -> Unit, onAllowControlPlaybackChange: (Boolean) -> Unit, onRequireApprovalChange: (Boolean) -> Unit, isStartEnabled: Boolean, isLoading: Boolean, onStartSession: () -> Unit, modifier: Modifier = Modifier) {
     Card(modifier = modifier.fillMaxWidth().animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)), shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
         Column(modifier = Modifier.padding(vertical = 8.dp)) {
             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -2074,11 +2198,7 @@ private fun HostSectionCard(
 }
 
 @Composable
-private fun JoinSectionCard(
-    joinInput: String, onJoinInputChange: (String) -> Unit, canJoin: Boolean, disableJoinUi: Boolean,
-    isJoined: Boolean, isWaitingApproval: Boolean, isJoining: Boolean, onShowJoinDialog: () -> Unit,
-    onPasteFromClipboard: () -> Unit, onJoin: () -> Unit, modifier: Modifier = Modifier
-) {
+private fun JoinSectionCard(joinInput: String, onJoinInputChange: (String) -> Unit, canJoin: Boolean, disableJoinUi: Boolean, isJoined: Boolean, isWaitingApproval: Boolean, isJoining: Boolean, onShowJoinDialog: () -> Unit, onPasteFromClipboard: () -> Unit, onJoin: () -> Unit, modifier: Modifier = Modifier) {
     val parsedLink = remember(joinInput) { TogetherLink.decode(joinInput.trim()) }
     Card(modifier = modifier.fillMaxWidth().animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)), shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
         Column(modifier = Modifier.padding(vertical = 8.dp)) {
@@ -2118,19 +2238,11 @@ private fun JoinSectionCard(
 }
 
 @Composable
-private fun StatusCard(
-    state: TogetherSessionState,
-    onCopyLink: (String) -> Unit,
-    onShareLink: (String) -> Unit,
-    onLeave: () -> Unit,
-    onSendReaction: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
+private fun StatusCard(state: TogetherSessionState, onCopyLink: (String) -> Unit, onShareLink: (String) -> Unit, onLeave: () -> Unit, modifier: Modifier = Modifier) {
     val isActive = state !is TogetherSessionState.Idle
     val isError  = state is TogetherSessionState.Error
     val isWaitingApproval = run { val joined = state as? TogetherSessionState.Joined ?: return@run false; joined.role is TogetherRole.Guest && joined.roomState.participants.firstOrNull { it.id == joined.selfParticipantId }?.isPending == true }
-    val statusColor = when { isError -> MaterialTheme.colorScheme.error; isActive -> MaterialTheme.colorScheme.primary; else -> MaterialTheme.colorScheme.onSurfaceVariant }
-
+    val statusColor = when { isError  -> MaterialTheme.colorScheme.error; isActive -> MaterialTheme.colorScheme.primary; else -> MaterialTheme.colorScheme.onSurfaceVariant }
     Card(modifier = modifier.fillMaxWidth().animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)), shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
         Box(modifier = Modifier.fillMaxWidth().background(Brush.horizontalGradient(if (isActive && !isError) listOf(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f), MaterialTheme.colorScheme.surfaceContainerLow) else if (isError) listOf(MaterialTheme.colorScheme.error.copy(alpha = 0.14f), MaterialTheme.colorScheme.surfaceContainerLow) else listOf(MaterialTheme.colorScheme.surfaceContainerLow, MaterialTheme.colorScheme.surfaceContainerLow))).padding(18.dp)) {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -2158,13 +2270,8 @@ private fun StatusCard(
                     }
                     if (isActive) { FilledTonalButton(onClick = onLeave, shape = RoundedCornerShape(14.dp)) { Icon(painterResource(R.drawable.arrow_back), null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.leave), fontWeight = FontWeight.SemiBold) } }
                 }
-
-                if (isActive && !isError && !isWaitingApproval) {
-                    ReactionsButtonBar(onSendReaction = onSendReaction)
-                }
-
                 when (state) {
-                    is TogetherSessionState.Hosting -> { LanSessionLinkCard(link = state.joinLink, pin = state.pin, localAddressHint = state.localAddressHint, port = state.port, onCopy = { onCopyLink(state.joinLink) }, onShare = { onShareLink(state.joinLink) }) }
+                    is TogetherSessionState.Hosting -> { LanSessionLinkCard(link = state.joinLink, pin = state.pin, localAddressHint = state.localAddressHint, port = state.port, onCopy  = { onCopyLink(state.joinLink) }, onShare = { onShareLink(state.joinLink) }) }
                     is TogetherSessionState.Joined -> { if (!isWaitingApproval) { ParticipantsCard(participants = state.roomState.participants) } }
                     is TogetherSessionState.Error -> { Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) { Text(text = state.message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.padding(14.dp)) } }
                     else -> Unit
@@ -2200,43 +2307,74 @@ private fun OnlineParticipantsCard(
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier.fillMaxWidth().animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)),
+        modifier = modifier
+            .fillMaxWidth()
+            .animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)),
         shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(vertical = 12.dp)) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Box(
-                    modifier = Modifier.size(48.dp).clip(CircleShape).background(
-                        Brush.linearGradient(listOf(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f), MaterialTheme.colorScheme.tertiary.copy(alpha = 0.05f)))
-                    ),
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.linearGradient(
+                                listOf(
+                                    MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f),
+                                    MaterialTheme.colorScheme.tertiary.copy(alpha = 0.05f)
+                                )
+                            )
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(painterResource(R.drawable.person), contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(24.dp))
+                    Icon(
+                        painterResource(R.drawable.person),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.together_participants), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text(stringResource(R.string.together_connected_count, participants.size), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        stringResource(R.string.together_participants),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        stringResource(R.string.together_connected_count, participants.size),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            participants.forEachIndexed { _, participant ->
+            participants.forEachIndexed { index, participant ->
                 key(participant.id) {
                     val accent = if (participant.isHost) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
 
-                    Surface(color = Color.Transparent, modifier = Modifier.fillMaxWidth()) {
+                    Surface(
+                        color = Color.Transparent,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
+                            // Avatar
                             ParticipantAvatar(
                                 participant = participant,
                                 modifier = Modifier.size(48.dp),
@@ -2245,33 +2383,78 @@ private fun OnlineParticipantsCard(
                                 textStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                             )
 
-                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                Text(participant.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            // Name & Role
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Text(
+                                    participant.name,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
                                 Text(
                                     text = when {
                                         participant.isHost -> stringResource(R.string.together_role_host)
                                         participant.isPending && hostApprovalEnabled -> stringResource(R.string.together_pending_approval)
                                         else -> stringResource(R.string.together_role_guest)
                                     },
-                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
 
+                            // Actions
                             if (!participant.isHost) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
                                     if (participant.isPending && hostApprovalEnabled) {
-                                        Surface(onClick = { onApprove(participant.id, true) }, shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(36.dp)) {
-                                            Box(contentAlignment = Alignment.Center) { Icon(painterResource(R.drawable.check), null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer) }
+                                        Surface(
+                                            onClick = { onApprove(participant.id, true) },
+                                            shape = CircleShape,
+                                            color = MaterialTheme.colorScheme.primaryContainer,
+                                            modifier = Modifier.size(36.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(painterResource(R.drawable.check), null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                                            }
                                         }
-                                        Surface(onClick = { onApprove(participant.id, false) }, shape = CircleShape, color = MaterialTheme.colorScheme.errorContainer, modifier = Modifier.size(36.dp)) {
-                                            Box(contentAlignment = Alignment.Center) { Icon(painterResource(R.drawable.close), null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onErrorContainer) }
+                                        Surface(
+                                            onClick = { onApprove(participant.id, false) },
+                                            shape = CircleShape,
+                                            color = MaterialTheme.colorScheme.errorContainer,
+                                            modifier = Modifier.size(36.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(painterResource(R.drawable.close), null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onErrorContainer)
+                                            }
                                         }
                                     } else {
-                                        Surface(onClick = { onKick(participant.id) }, shape = CircleShape, color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.size(36.dp)) {
-                                            Box(contentAlignment = Alignment.Center) { Icon(painterResource(R.drawable.remove), null, modifier = Modifier.size(18.dp)) }
+                                        Surface(
+                                            onClick = { onKick(participant.id) },
+                                            shape = CircleShape,
+                                            color = MaterialTheme.colorScheme.surfaceVariant,
+                                            modifier = Modifier.size(36.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(painterResource(R.drawable.remove), null, modifier = Modifier.size(18.dp))
+                                            }
                                         }
-                                        Surface(onClick = { onBan(participant.id) }, shape = CircleShape, color = MaterialTheme.colorScheme.errorContainer, modifier = Modifier.size(36.dp)) {
-                                            Box(contentAlignment = Alignment.Center) { Icon(painterResource(R.drawable.close), null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onErrorContainer) }
+                                        Surface(
+                                            onClick = { onBan(participant.id) },
+                                            shape = CircleShape,
+                                            color = MaterialTheme.colorScheme.errorContainer,
+                                            modifier = Modifier.size(36.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(painterResource(R.drawable.close), null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onErrorContainer)
+                                            }
                                         }
                                     }
                                 }
@@ -2293,28 +2476,76 @@ private fun ParticipantsCard(participants: List<TogetherParticipant>) {
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 Box(
-                    modifier = Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(painterResource(R.drawable.person), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    Icon(
+                        painterResource(R.drawable.person),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
-                Text(stringResource(R.string.together_participants), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                Text(
+                    stringResource(R.string.together_participants),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
             }
 
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 participants.forEach { participant ->
                     val isHost = participant.isHost
                     val bgColor = if (isHost) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer
                     val contentColor = if (isHost) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
 
-                    Surface(shape = RoundedCornerShape(12.dp), color = bgColor, contentColor = contentColor) {
-                        Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            ParticipantAvatar(participant = participant, modifier = Modifier.size(24.dp), color = contentColor.copy(alpha = 0.2f), textColor = contentColor, textStyle = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
-                            Text(text = participant.name, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-                            if (isHost) { Icon(painterResource(R.drawable.auto_awesome), contentDescription = null, modifier = Modifier.size(16.dp), tint = contentColor) }
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = bgColor,
+                        contentColor = contentColor
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            ParticipantAvatar(
+                                participant = participant,
+                                modifier = Modifier.size(24.dp),
+                                color = contentColor.copy(alpha = 0.2f),
+                                textColor = contentColor,
+                                textStyle = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Text(
+                                text = participant.name,
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            if (isHost) {
+                                Icon(
+                                    painterResource(R.drawable.auto_awesome),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = contentColor
+                                )
+                            }
                         }
                     }
                 }
@@ -2362,59 +2593,145 @@ private fun WelcomeDialog(onGotIt: (Boolean) -> Unit, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun SettingsItemRow(icon: Int, title: String, subtitle: String, onClick: () -> Unit) {
+private fun SettingsItemRow(
+    icon: Int,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
     Row(
-        modifier = Modifier.fillMaxWidth().clickable { onClick() }.padding(horizontal = 18.dp, vertical = 12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(horizontal = 18.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Icon(painter = painterResource(id = icon), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
+        Icon(
+            painter = painterResource(id = icon),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(24.dp)
+        )
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
-            Text(text = subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
 
 @Composable
 private fun SettingsDivider() {
-    HorizontalDivider(modifier = Modifier.padding(horizontal = 18.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+    HorizontalDivider(
+        modifier = Modifier.padding(horizontal = 18.dp),
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+    )
 }
 
 @Composable
-private fun ToggleRow(icon: Int, title: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+private fun ToggleRow(
+    icon: Int,
+    title: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
     Row(
-        modifier = Modifier.fillMaxWidth().clickable { onCheckedChange(!checked) }.padding(horizontal = 18.dp, vertical = 12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) }
+            .padding(horizontal = 18.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Icon(painter = painterResource(id = icon), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
-        Text(text = title, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Icon(
+            painter = painterResource(id = icon),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(24.dp)
+        )
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f)
+        )
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange
+        )
     }
 }
 
 @Composable
-private fun InstructionRow(icon: Int, tint: Color, title: String, body: String) {
-    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Box(modifier = Modifier.size(32.dp).clip(CircleShape).background(tint.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
-            Icon(painter = painterResource(id = icon), contentDescription = null, tint = tint, modifier = Modifier.size(16.dp))
+private fun InstructionRow(
+    icon: Int,
+    tint: Color,
+    title: String,
+    body: String
+) {
+    Row(
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(CircleShape)
+                .background(tint.copy(alpha = 0.15f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(id = icon),
+                contentDescription = null,
+                tint = tint,
+                modifier = Modifier.size(16.dp)
+            )
         }
         Column {
-            Text(text = title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            Text(text = body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = body,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
 
 @Composable
-private fun CheckboxRow(checked: Boolean, onCheckedChange: (Boolean) -> Unit, label: String) {
+private fun CheckboxRow(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    label: String
+) {
     Row(
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onCheckedChange(!checked) }.padding(8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onCheckedChange(!checked) }
+            .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Checkbox(checked = checked, onCheckedChange = null)
-        Text(text = label, style = MaterialTheme.typography.bodyMedium)
+        Checkbox(
+            checked = checked,
+            onCheckedChange = null
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium
+        )
     }
 }
