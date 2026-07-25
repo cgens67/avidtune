@@ -65,9 +65,11 @@ fun CreatePlaylistDialog(
             onDismiss = onDismiss,
             onDone = { playlistName ->
                 coroutineScope.launch(Dispatchers.IO) {
-                    val browseId = if (syncedPlaylist)
+                    val browseId = if (syncedPlaylist) {
                         YouTube.createPlaylist(playlistName).getOrNull()
-                    else null
+                    } else {
+                        null
+                    }
                     database.query {
                         insert(
                             PlaylistEntity(
@@ -112,7 +114,6 @@ fun CreatePlaylistDialog(
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     )
 
-                    // Card option to launch the External Web Link Importer directly from the Create Playlist popup
                     Surface(
                         onClick = { showExternalImporter = true },
                         shape = RoundedCornerShape(16.dp),
