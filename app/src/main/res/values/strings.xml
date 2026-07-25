@@ -1207,4 +1207,27 @@
     <string name="eq_preset_dirac_game">Dirac Game</string>
     <string name="eq_reset">Reset</string>
     
+    <!-- Music Together Extensions -->
+    <string name="together_reactions">Reactions</string>
+    <string name="together_requests_count">Requests (%1$d)</string>
+    <string name="together_request_track">Request Track</string>
+    <string name="together_no_requests_placeholder">No requests yet. Tap Request Track to queue songs!</string>
+    <string name="together_upvote">Upvote</string>
+    <string name="together_remove">Remove</string>
+    <string name="together_request_track_title">Request a Track</string>
+    <string name="together_search_ytm_desc">Search YouTube Music to queue a song</string>
+    <string name="together_search_placeholder">Search track or artist name…</string>
+    <string name="together_search_empty_prompt">Type above to search songs</string>
+    <string name="together_no_songs_found">No songs found for \x22%1$s\x22</string>
+    <string name="together_request_button">Request</string>
+    <string name="together_clear">Clear</string>
+    <string name="together_selected">Selected</string>
+    <string name="together_disconnected_msg">You have been disconnected from the session.</string>
+    <string name="together_error_invalid_link_pin">Invalid link or PIN not found on LAN.</string>
+    <string name="together_error_timeout">Connection timed out. Please check the host\'s IP and port.</string>
+    <string name="together_error_connection_closed">Connection closed by host</string>
+    <string name="together_error_request_denied">Your request to join was denied.</string>
+    <string name="together_error_failed_start_server">Failed to start server</string>
+    <string name="together_error_failed_connect">Failed to connect: %1$s</string>
+    
 </resources>
