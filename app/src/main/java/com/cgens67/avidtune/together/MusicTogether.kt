@@ -470,7 +470,8 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
                         }
                     }
                 } catch (e: Exception) {
-                    e.printStackTrace}
+                    e.printStackTrace()
+                }
             }
         }
     }
