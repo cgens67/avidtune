@@ -1182,5 +1182,28 @@
     <string name="eq_preset_dirac_movie">Dirac 电影</string>
     <string name="eq_preset_dirac_game">Dirac 游戏</string>
     <string name="eq_reset">重置</string>
+    
+    <!-- Music Together Extensions -->
+    <string name="together_reactions">表情反应</string>
+    <string name="together_requests_count">点歌队列 (%1$d)</string>
+    <string name="together_request_track">申请点歌</string>
+    <string name="together_no_requests_placeholder">暂无点歌，点击申请点歌按钮添加歌曲！</string>
+    <string name="together_upvote">赞</string>
+    <string name="together_remove">移除</string>
+    <string name="together_request_track_title">申请点歌</string>
+    <string name="together_search_ytm_desc">搜索 YouTube Music 将歌曲加入队列</string>
+    <string name="together_search_placeholder">搜索歌曲或歌手名称…</string>
+    <string name="together_search_empty_prompt">在上方输入以搜索歌曲</string>
+    <string name="together_no_songs_found">未找到关于“%1$s”的歌曲</string>
+    <string name="together_request_button">点歌</string>
+    <string name="together_clear">清除</string>
+    <string name="together_selected">已选择</string>
+    <string name="together_disconnected_msg">您已断开与会话的连接。</string>
+    <string name="together_error_invalid_link_pin">链接无效或局域网内未找到 PIN。</string>
+    <string name="together_error_timeout">连接超时，请检查主机的 IP 和端口。</string>
+    <string name="together_error_connection_closed">主机关闭了连接</string>
+    <string name="together_error_request_denied">您的加入请求已被拒绝。</string>
+    <string name="together_error_failed_start_server">启动服务器失败</string>
+    <string name="together_error_failed_connect">连接失败：%1$s</string>    
 
 </resources>
