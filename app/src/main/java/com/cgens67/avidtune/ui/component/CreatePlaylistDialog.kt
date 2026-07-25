@@ -65,8 +65,9 @@ fun CreatePlaylistDialog(
             onDismiss = onDismiss,
             onDone = { playlistName ->
                 coroutineScope.launch(Dispatchers.IO) {
-                    val browseId = if (syncedPlaylist) {
-                        YouTube.createPlaylist(playlistName).getOrNull()
+                    val browseId: String? = if (syncedPlaylist) {
+                        val result = YouTube.createPlaylist(playlistName)
+                        result.getOrNull()
                     } else {
                         null
                     }
