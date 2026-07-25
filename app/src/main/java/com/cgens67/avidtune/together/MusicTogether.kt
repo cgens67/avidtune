@@ -1179,20 +1179,23 @@ fun MusicTogetherScreen(
     val haptic = LocalHapticFeedback.current
     val coroutineScope = rememberCoroutineScope()
 
-    var isVisible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { isVisible = true }
+    val transitionState = remember {
+        MutableTransitionState(false).apply {
+            targetState = true
+        }
+    }
 
     val handleBack: () -> Unit = {
-        if (isVisible) {
-            isVisible = false
+        if (transitionState.targetState) {
+            transitionState.targetState = false
             coroutineScope.launch {
-                delay(350)
+                delay(300)
                 onBack()
             }
         }
     }
 
-    BackHandler(enabled = isVisible) { handleBack() }
+    BackHandler(enabled = transitionState.targetState) { handleBack() }
 
     val (welcomeShown, setWelcomeShown) = rememberPreference(TogetherWelcomeShownKey, false)
     var welcomeDismissedThisSession by rememberSaveable { mutableStateOf(false) }
@@ -1349,15 +1352,15 @@ fun MusicTogetherScreen(
     }
 
     AnimatedVisibility(
-        visible = isVisible,
+        visibleState = transitionState,
         enter = slideInHorizontally(
             initialOffsetX = { it },
-            animationSpec = tween(350, easing = FastOutSlowInEasing)
+            animationSpec = tween(300, easing = FastOutSlowInEasing)
         ) + fadeIn(animationSpec = tween(300, easing = LinearEasing)),
         exit = slideOutHorizontally(
             targetOffsetX = { it },
-            animationSpec = tween(350, easing = FastOutSlowInEasing)
-        ) + fadeOut(animationSpec = tween(200, easing = LinearEasing)),
+            animationSpec = tween(300, easing = FastOutSlowInEasing)
+        ) + fadeOut(animationSpec = tween(300, easing = LinearEasing)),
         modifier = Modifier.fillMaxSize().zIndex(100f)
     ) {
         Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
