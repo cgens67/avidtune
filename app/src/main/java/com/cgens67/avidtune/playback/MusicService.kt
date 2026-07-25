@@ -189,8 +189,8 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     fun kickTogetherParticipant(pid: String) = togetherManager.kickParticipant(pid)
     fun banTogetherParticipant(pid: String) = togetherManager.banParticipant(pid)
     fun approveTogetherParticipant(pid: String, approved: Boolean) = togetherManager.approveParticipant(pid, approved)
-    fun startTogetherHost(port: Int, displayName: String, settings: TogetherRoomSettings, avatar: String? = null) = togetherManager.startTogetherHost(this, port, displayName, settings, avatar)
-    fun joinTogether(joinLink: String, displayName: String, avatar: String? = null) = togetherManager.joinTogether(this, joinLink, displayName, avatar)
+    fun startTogetherHost(port: Int, displayName: String, settings: TogetherRoomSettings, avatar: String? = null) = togetherManager.startTogetherHost(port, displayName, settings, avatar)
+    fun joinTogether(joinLink: String, displayName: String, avatar: String? = null) = togetherManager.joinTogether(joinLink, displayName, avatar)
     fun leaveTogether() = togetherManager.leaveTogether()
 
     private lateinit var connectivityManager: ConnectivityManager
