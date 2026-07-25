@@ -208,8 +208,11 @@ object TogetherLink {
 }
 
 // --- MANAGER ---
-class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
-    private val context: Context get() = App.instance
+class TogetherManager(
+    val scope: CoroutineScope, 
+    val player: ExoPlayer,
+    private val context: Context = App.instance
+) {
     val sessionState = MutableStateFlow<TogetherSessionState>(TogetherSessionState.Idle)
     val reactionsFlow = MutableSharedFlow<FloatingReaction>(extraBufferCapacity = 64)
 
@@ -1610,7 +1613,7 @@ private fun RequestedTracksCard(
                                         overflow = TextOverflow.Ellipsis
                                     )
                                     Text(
-                                        text = "${item.track.artists.joinToString(", ")} • ${stringResource(R.string.together_requested_by, item.requesterName)}",
+                                        text = "${item.track.artists.joinToString(", ")} • ${stringResource(R.string.by_text)} ${item.requesterName}",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         maxLines = 1,
