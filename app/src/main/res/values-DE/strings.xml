@@ -1198,5 +1198,28 @@
     <string name="eq_preset_dirac_movie">Dirac Film</string>
     <string name="eq_preset_dirac_game">Dirac Spiel</string>
     <string name="eq_reset">Zurücksetzen</string>
+    
+    <!-- Music Together Extensions -->
+    <string name="together_reactions">Reaktionen</string>
+    <string name="together_requests_count">Anfragen (%1$d)</string>
+    <string name="together_request_track">Titel anfragen</string>
+    <string name="together_no_requests_placeholder">Noch keine Anfragen. Tippe auf Titel anfragen, um Songs hinzuzufügen!</string>
+    <string name="together_upvote">Upvote</string>
+    <string name="together_remove">Entfernen</string>
+    <string name="together_request_track_title">Einen Song anfragen</string>
+    <string name="together_search_ytm_desc">Durchsuche YouTube Music, um einen Song einzureihen</string>
+    <string name="together_search_placeholder">Titel oder Künstler suchen…</string>
+    <string name="together_search_empty_prompt">Oben eingeben, um nach Songs zu suchen</string>
+    <string name="together_no_songs_found">Keine Songs für „%1$s“ gefunden</string>
+    <string name="together_request_button">Anfragen</string>
+    <string name="together_clear">Löschen</string>
+    <string name="together_selected">Ausgewählt</string>
+    <string name="together_disconnected_msg">Du wurdest von der Sitzung getrennt.</string>
+    <string name="together_error_invalid_link_pin">Ungültiger Link oder PIN im LAN nicht gefunden.</string>
+    <string name="together_error_timeout">Zeitüberschreitung der Verbindung. Bitte überprüfe IP und Port des Hosts.</string>
+    <string name="together_error_connection_closed">Verbindung vom Host geschlossen</string>
+    <string name="together_error_request_denied">Deine Beitrittsanfrage wurde abgelehnt.</string>
+    <string name="together_error_failed_start_server">Server konnte nicht gestartet werden</string>
+    <string name="together_error_failed_connect">Verbindung fehlgeschlagen: %1$s</string>    
 
 </resources>
