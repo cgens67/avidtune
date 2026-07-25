@@ -100,13 +100,13 @@ fun ImportPlaylistDialog(
                         Spacer(Modifier.width(12.dp))
                         Column {
                             Text(
-                                text = stringResource(R.string.import_from_link),
+                                text = "Import from Web Link",
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                             Text(
-                                text = stringResource(R.string.import_spotify_apple_hint),
+                                text = "Spotify, Apple Music, YouTube Music",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                             )
