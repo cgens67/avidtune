@@ -1181,5 +1181,28 @@
     <string name="eq_preset_dirac_movie">Dirac Film</string>
     <string name="eq_preset_dirac_game">Dirac Jeu</string>
     <string name="eq_reset">Réinitialiser</string>
+    
+    <!-- Music Together Extensions -->
+    <string name="together_reactions">Réactions</string>
+    <string name="together_requests_count">Demandes (%1$d)</string>
+    <string name="together_request_track">Demander un titre</string>
+    <string name="together_no_requests_placeholder">Aucune demande pour le moment. Appuyez sur Demander un titre pour ajouter des chansons !</string>
+    <string name="together_upvote">Voter pour</string>
+    <string name="together_remove">Supprimer</string>
+    <string name="together_request_track_title">Demander une chanson</string>
+    <string name="together_search_ytm_desc">Rechercher sur YouTube Music pour ajouter une chanson</string>
+    <string name="together_search_placeholder">Rechercher un titre ou un artiste…</string>
+    <string name="together_search_empty_prompt">Saisissez ci-dessus pour rechercher des chansons</string>
+    <string name="together_no_songs_found">Aucune chanson trouvée pour « %1$s »</string>
+    <string name="together_request_button">Demander</string>
+    <string name="together_clear">Effacer</string>
+    <string name="together_selected">Sélectionné</string>
+    <string name="together_disconnected_msg">Vous avez été déconnecté de la session.</string>
+    <string name="together_error_invalid_link_pin">Lien invalide ou code PIN introuvable sur le réseau local.</string>
+    <string name="together_error_timeout">Délai de connexion dépassé. Veuillez vérifier l\'adresse IP et le port de l\'hôte.</string>
+    <string name="together_error_connection_closed">Connexion fermée par l\'hôte</string>
+    <string name="together_error_request_denied">Votre demande de rejoindre a été refusée.</string>
+    <string name="together_error_failed_start_server">Échec du démarrage du serveur</string>
+    <string name="together_error_failed_connect">Échec de la connexion : %1$s</string>    
 
 </resources>
