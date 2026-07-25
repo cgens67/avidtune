@@ -65,6 +65,7 @@ import coil.compose.AsyncImage
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
 import coil.request.ImageRequest
+import com.cgens67.avidtune.App
 import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
 import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
@@ -208,7 +209,7 @@ object TogetherLink {
 
 // --- MANAGER ---
 class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
-    private val context: Context = player.context
+    private val context: Context get() = App.instance
     val sessionState = MutableStateFlow<TogetherSessionState>(TogetherSessionState.Idle)
     val reactionsFlow = MutableSharedFlow<FloatingReaction>(extraBufferCapacity = 64)
 
@@ -1609,7 +1610,7 @@ private fun RequestedTracksCard(
                                         overflow = TextOverflow.Ellipsis
                                     )
                                     Text(
-                                        text = "${item.track.artists.joinToString(", ")} • ${stringResource(R.string.by_text)} ${item.requesterName}",
+                                        text = "${item.track.artists.joinToString(", ")} • ${stringResource(R.string.together_requested_by, item.requesterName)}",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         maxLines = 1,
