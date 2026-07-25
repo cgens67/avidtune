@@ -813,15 +813,15 @@ class TogetherManager(val scope: CoroutineScope, val player: ExoPlayer) {
         }
     }
 
-    fun joinTogether(inputLink: String, displayName: String, avatar: String? = null) {
+    fun joinTogether(context: Context, inputLink: String, displayName: String, avatar: String? = null) {
         leaveTogether()
         isHost = false
         val joinJob = scope.launch(Dispatchers.IO) {
             val input = inputLink.trim()
-            val info = TogetherLink.decode(input)
+            val info = TogetherLink.decode(input) ?: resolvePin(context, input)?.joinInfo
             if (info == null) {
                 withContext(Dispatchers.Main) {
-                    sessionState.value = TogetherSessionState.Error("Invalid link format.")
+                    sessionState.value = TogetherSessionState.Error("Invalid link or PIN not found on LAN.")
                 }
                 return@launch
             }
@@ -1307,7 +1307,7 @@ fun MusicTogetherScreen(
                 val trimmed = raw.trim()
                 joinInput = trimmed
                 setLastJoinLink(trimmed)
-                playerConnection?.service?.joinTogether(trimmed, displayName, currentAvatar)
+                playerConnection?.service?.joinTogether(context, trimmed, displayName, currentAvatar)
                 showJoinDialog = false
             }
         )
@@ -1418,7 +1418,7 @@ fun MusicTogetherScreen(
                                 val link = TogetherLink.encode(session.joinInfo)
                                 joinInput = link
                                 setLastJoinLink(link)
-                                playerConnection?.service?.joinTogether(link, displayName, currentAvatar)
+                                playerConnection?.service?.joinTogether(context, link, displayName, currentAvatar)
                             },
                             modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)
                         )
@@ -1431,7 +1431,7 @@ fun MusicTogetherScreen(
                         onAllowAddTracksChange = setAllowAddTracks, onAllowControlPlaybackChange = setAllowControlPlayback,
                         onRequireApprovalChange = setRequireApproval, isStartEnabled = !isCreatingSessionLoading && !isJoining && !isHosting && sessionState !is TogetherSessionState.Joined,
                         isLoading = isCreatingSessionLoading,
-                        onStartSession = { playerConnection?.service?.startTogetherHost(port = port, displayName = displayName, settings = TogetherRoomSettings(allowGuestsToAddTracks = allowAddTracks, allowGuestsToControlPlayback = allowControlPlayback, requireHostApprovalToJoin = requireApproval), avatar = currentAvatar) },
+                        onStartSession = { playerConnection?.service?.startTogetherHost(context = context, port = port, displayName = displayName, settings = TogetherRoomSettings(allowGuestsToAddTracks = allowAddTracks, allowGuestsToControlPlayback = allowControlPlayback, requireHostApprovalToJoin = requireApproval), avatar = currentAvatar) },
                         modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)
                     )
                 }
@@ -1447,10 +1447,10 @@ fun MusicTogetherScreen(
                                 joinInput = text
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 setLastJoinLink(text)
-                                playerConnection?.service?.joinTogether(text, displayName, currentAvatar)
+                                playerConnection?.service?.joinTogether(context, text, displayName, currentAvatar)
                             }
                         },
-                        onJoin = { val trimmed = joinInput.trim(); setLastJoinLink(trimmed); playerConnection?.service?.joinTogether(trimmed, displayName, currentAvatar) },
+                        onJoin = { val trimmed = joinInput.trim(); setLastJoinLink(trimmed); playerConnection?.service?.joinTogether(context, trimmed, displayName, currentAvatar) },
                         modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp)
                     )
                 }
