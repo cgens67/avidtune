@@ -151,7 +151,7 @@ object GeniusLyricsProvider : LyricsProvider {
                 doc.select(".lyrics").text().trim()
             }
 
-            // Remove residual header junk if present
+            // Remove residual header junk if present (using inline (?is) flag to ignore case and allow dot matches all)
             extractedText
                 .replace(Regex("(?is)^\\d*\\s*Contributors?.*?(Lyrics|Letras|Paroles)\\n*"), "")
                 .replace(Regex("(?i)^.*?Lyrics\\b\\n*"), "")
