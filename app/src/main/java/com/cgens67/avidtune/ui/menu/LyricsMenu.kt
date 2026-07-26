@@ -50,6 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -87,7 +88,6 @@ fun LyricsMenu(
 
     val rawLyrics = lyricsEntity?.lyrics.orEmpty()
     
-    // Detect if lyrics are already synced (sentence-by-sentence or word-by-word)
     val isSynced = remember(rawLyrics) {
         rawLyrics.contains(Regex("\\[\\d\\d:\\d\\d\\.\\d{2,3}\\]")) ||
         rawLyrics.contains(Regex("\\[\\d\\d:\\d\\d\\]")) ||
@@ -539,7 +539,7 @@ fun LyricsMenu(
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 },
-                                text = "Sync Lyrics",
+                                text = stringResource(R.string.sync_lyrics),
                                 onClick = { showSyncDialog = true }
                             )
                         )
