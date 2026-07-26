@@ -27,6 +27,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -124,7 +125,6 @@ fun SyncLyricsScreen(
 
     val listState = rememberLazyListState()
 
-    // Smoothly auto-scroll to keep the current item in view (slightly above center)
     LaunchedEffect(currentIndex) {
         if (currentIndex in plainLines.indices) {
             coroutineScope.launch {
@@ -141,7 +141,6 @@ fun SyncLyricsScreen(
         )
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Background Layer: Static, only recomposes when album thumbnail changes
             SyncedBackground(thumbnailUrl = mediaMetadata?.thumbnailUrl)
 
             Column(
@@ -153,7 +152,7 @@ fun SyncLyricsScreen(
                 CenterAlignedTopAppBar(
                     title = {
                         Text(
-                            "Sync Lyrics",
+                            stringResource(R.string.sync_lyrics),
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
                             fontSize = 20.sp
@@ -173,7 +172,7 @@ fun SyncLyricsScreen(
                             ) {
                                 Icon(
                                     painterResource(R.drawable.close),
-                                    contentDescription = "Close",
+                                    contentDescription = stringResource(R.string.close),
                                     tint = Color.White
                                 )
                             }
@@ -202,7 +201,12 @@ fun SyncLyricsScreen(
                             },
                             modifier = Modifier.padding(end = 8.dp)
                         ) {
-                            Text("Save", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Text(
+                                stringResource(R.string.save),
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
                         }
                     },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -210,7 +214,7 @@ fun SyncLyricsScreen(
                     )
                 )
 
-                // Lyrics List with smooth top and bottom fading edge
+                // Lyrics List with edge fading
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
@@ -278,7 +282,7 @@ fun SyncLyricsScreen(
                                     softWrap = false,
                                     modifier = Modifier
                                         .padding(end = 12.dp)
-                                        .width(96.dp) // Fixed width with single-line constraint to prevent line wrapping
+                                        .width(96.dp)
                                 )
                             }
                             
@@ -301,7 +305,6 @@ fun SyncLyricsScreen(
                         .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
                         .padding(horizontal = 24.dp, vertical = 24.dp)
                 ) {
-                    // Live position timer isolated in its own composable
                     Box(modifier = Modifier.align(Alignment.CenterHorizontally)) {
                         LivePositionText(playerConnection = playerConnection)
                     }
@@ -332,7 +335,12 @@ fun SyncLyricsScreen(
                                 },
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("-2s", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Text(
+                                text = stringResource(R.string.seek_back_2s),
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
                         }
 
                         // Play/Pause
@@ -355,7 +363,7 @@ fun SyncLyricsScreen(
                         ) {
                             Icon(
                                 painter = painterResource(if (isPlaying) R.drawable.pause else R.drawable.play),
-                                contentDescription = "Play/Pause",
+                                contentDescription = if (isPlaying) stringResource(R.string.media3_controls_pause_description) else stringResource(R.string.play),
                                 modifier = Modifier.size(36.dp),
                                 tint = MaterialTheme.colorScheme.onPrimary
                             )
@@ -386,7 +394,7 @@ fun SyncLyricsScreen(
                         ) {
                             Icon(
                                 painter = painterResource(R.drawable.skip_previous),
-                                contentDescription = "Undo",
+                                contentDescription = stringResource(R.string.undo),
                                 tint = if (currentIndex > 0) Color.White else Color.White.copy(alpha = 0.3f),
                                 modifier = Modifier.size(24.dp)
                             )
@@ -422,7 +430,7 @@ fun SyncLyricsScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "SYNC NEXT LINE",
+                            text = stringResource(R.string.sync_next_line),
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Black,
                             letterSpacing = 2.sp,
