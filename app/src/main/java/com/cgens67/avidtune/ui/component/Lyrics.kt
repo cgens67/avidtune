@@ -123,6 +123,7 @@ import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -325,10 +326,14 @@ fun Lyrics(
         }
     }
 
+    val isSynced = remember(originalLyrics) {
+        !originalLyrics.isNullOrEmpty() && "\\[\\d\\d:\\d\\d\\.\\d{2,3}\\]".toRegex().containsMatchIn(originalLyrics)
+    }
+
     val lines = remember(originalLyrics, scope) {
         if (originalLyrics == null || originalLyrics == LYRICS_NOT_FOUND) {
             emptyList()
-        } else if (originalLyrics.startsWith("[")) {
+        } else if (isSynced) {
             val parsedLines = parseLyrics(originalLyrics)
             listOf(LyricsEntry.HEAD_LYRICS_ENTRY) + parsedLines
         } else {
@@ -661,10 +666,6 @@ fun Lyrics(
         }
     }
 
-    val isSynced = remember(originalLyrics) {
-        !originalLyrics.isNullOrEmpty() && originalLyrics.startsWith("[")
-    }
-
     BackHandler(enabled = isSelectionModeActive || isFullscreen) {
         when {
             isSelectionModeActive -> {
@@ -752,7 +753,7 @@ fun Lyrics(
     }
 
     LaunchedEffect(originalLyrics, lyricsOffsetMs, currentSkipSegments, sponsorBlockEnabled) {
-        if (originalLyrics.isNullOrEmpty() || !originalLyrics.startsWith("[")) {
+        if (originalLyrics.isNullOrEmpty() || !isSynced) {
             currentLineIndex = -1
             currentMainLineIndex = -1
             return@LaunchedEffect
