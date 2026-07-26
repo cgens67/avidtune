@@ -1230,4 +1230,8 @@
     <string name="together_error_failed_start_server">Failed to start server</string>
     <string name="together_error_failed_connect">Failed to connect: %1$s</string>
     
+    <string name="enable_netease">Enable NetEase Cloud Music</string>
+    <string name="enable_genius">Enable Genius</string>
+    <string name="lyrics_not_available_desc">Lyrics are not available for this song.</string>
+    
 </resources>
