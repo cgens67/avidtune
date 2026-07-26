@@ -1209,5 +1209,12 @@
     <string name="enable_netease">启用网易云音乐</string>
     <string name="enable_genius">启用 Genius</string>
     <string name="lyrics_not_available_desc">此歌曲的歌词不可用。</string>
+    
+    <string name="theme_creator">主题创建器</string>
+    <string name="theme_saved">主题已保存！</string>
+    <string name="theme_creator_description">AvidTune 使用 Material You. 只需选择一个种子颜色，引擎将自动计算完美匹配的次要颜色、第三颜色和中性颜色。</string>
+    <string name="theme_name">主题名称</string>
+    <string name="hex_color">十六进制颜色</string>
+    <string name="randomize">随机生成</string>
 
 </resources>
