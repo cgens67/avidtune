@@ -24,6 +24,9 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FastForward
+import androidx.compose.material.icons.filled.FastRewind
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -187,7 +190,7 @@ fun SyncLyricsScreen(navController: NavController) {
                             onClick = { playerConnection.player.seekTo(max(0, currentPosition - 5000)) },
                             modifier = Modifier.size(48.dp)
                         ) {
-                            Icon(painterResource(R.drawable.replay_5), contentDescription = "-5s", tint = MaterialTheme.colorScheme.onSurface)
+                            Icon(Icons.Default.FastRewind, contentDescription = "-5s", tint = MaterialTheme.colorScheme.onSurface)
                         }
 
                         Box(
@@ -210,7 +213,7 @@ fun SyncLyricsScreen(navController: NavController) {
                             onClick = { playerConnection.player.seekTo(currentPosition + 5000) },
                             modifier = Modifier.size(48.dp)
                         ) {
-                            Icon(painterResource(R.drawable.forward_5), contentDescription = "+5s", tint = MaterialTheme.colorScheme.onSurface)
+                            Icon(Icons.Default.FastForward, contentDescription = "+5s", tint = MaterialTheme.colorScheme.onSurface)
                         }
                         
                         Spacer(Modifier.width(48.dp)) // Visual balance
@@ -223,6 +226,8 @@ fun SyncLyricsScreen(navController: NavController) {
                             if (currentIndex < plainLines.size) {
                                 timestamps[currentIndex] = currentPosition
                                 currentIndex++
+                            } else {
+                                // Already finished
                             }
                         },
                         modifier = Modifier
@@ -303,7 +308,7 @@ fun SyncLyricsScreen(navController: NavController) {
                             color = textColor,
                             style = MaterialTheme.typography.bodyMedium,
                             fontFamily = FontFamily.Monospace,
-                            modifier = Modifier.width(90.dp)
+                            modifier = Modifier.width(90.dp) // Fixed width prevents wrapping
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
