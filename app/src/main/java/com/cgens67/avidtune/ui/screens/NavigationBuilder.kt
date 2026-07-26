@@ -46,6 +46,7 @@ import com.cgens67.avidtune.ui.screens.settings.PlayerSettings
 import com.cgens67.avidtune.ui.screens.settings.PrivacySettings
 import com.cgens67.avidtune.ui.screens.settings.SettingsScreen
 import com.cgens67.avidtune.ui.screens.settings.StorageSettings
+import com.cgens67.avidtune.ui.screens.settings.ThemeCreatorScreen
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @SuppressLint("UnrememberedMutableState")
@@ -274,10 +275,7 @@ fun NavGraphBuilder.navigationBuilder(
         PalettePickerScreen(navController)
     }
     composable("settings/appearance/theme_creator") {
-        // Placeholder for theme creator, simply bounce back safely
-        LaunchedEffect(Unit) {
-            navController.popBackStack()
-        }
+        ThemeCreatorScreen(navController, scrollBehavior)
     }
     composable("settings/account") {
         AccountSettings(navController, scrollBehavior)
