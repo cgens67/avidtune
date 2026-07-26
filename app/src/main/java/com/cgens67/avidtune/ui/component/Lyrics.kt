@@ -1355,7 +1355,7 @@ fun Lyrics(
                                 )
 
                                 Text(
-                                    text = "Las letras no están disponibles para esta canción",
+                                    text = stringResource(R.string.lyrics_not_available_desc),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     textAlign = TextAlign.Center
