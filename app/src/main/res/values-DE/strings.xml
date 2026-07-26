@@ -1220,6 +1220,10 @@
     <string name="together_error_connection_closed">Verbindung vom Host geschlossen</string>
     <string name="together_error_request_denied">Deine Beitrittsanfrage wurde abgelehnt.</string>
     <string name="together_error_failed_start_server">Server konnte nicht gestartet werden</string>
-    <string name="together_error_failed_connect">Verbindung fehlgeschlagen: %1$s</string>    
+    <string name="together_error_failed_connect">Verbindung fehlgeschlagen: %1$s</string>
+    
+    <string name="enable_netease">NetEase Cloud Music aktivieren</string>
+    <string name="enable_genius">Genius aktivieren</string>
+    <string name="lyrics_not_available_desc">Für dieses Lied sind keine Songtexte verfügbar.</string>    
 
 </resources>
