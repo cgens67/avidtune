@@ -101,8 +101,7 @@ fun SyncLyricsScreen(
     lyricsText: String,
     playerConnection: PlayerConnection,
     onDismiss: () -> Unit,
-    onSave: (String) -> Unit,
-    modifier: Modifier = Modifier
+    onSave: (String) -> Unit
 ) {
     BackHandler(onBack = onDismiss)
 
@@ -135,11 +134,7 @@ fun SyncLyricsScreen(
         }
     }
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-    ) {
+    Box(modifier = Modifier.fillMaxSize()) {
         SyncedBackground(thumbnailUrl = mediaMetadata?.thumbnailUrl)
 
         Column(
