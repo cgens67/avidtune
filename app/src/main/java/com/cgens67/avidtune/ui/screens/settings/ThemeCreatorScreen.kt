@@ -39,11 +39,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -52,7 +50,6 @@ import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -67,6 +64,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -94,12 +92,14 @@ fun ThemeCreatorScreen(
         defaultValue = ThemePalettes.Default.id
     )
 
+    val customThemeDefaultName = stringResource(R.string.custom_theme)
+
     val initialPalette = remember {
         ThemeSeedPaletteCodec.decodeFromPreference(customThemeColor)
             ?: ThemeSeedPalette(DefaultThemeColor, DefaultThemeColor, DefaultThemeColor, DefaultThemeColor)
     }
     val initialName = remember {
-        ThemeSeedPaletteCodec.extractNameFromJsonOrNull(customThemeColor) ?: "Custom Theme"
+        ThemeSeedPaletteCodec.extractNameFromJsonOrNull(customThemeColor) ?: customThemeDefaultName
     }
 
     var themeName by remember { mutableStateOf(initialName) }
@@ -120,26 +120,26 @@ fun ThemeCreatorScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Theme Creator", fontWeight = FontWeight.Bold) },
+                title = { Text(stringResource(R.string.theme_creator), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(painterResource(R.drawable.arrow_back), contentDescription = "Back")
+                        Icon(painterResource(R.drawable.arrow_back), contentDescription = stringResource(R.string.back))
                     }
                 },
                 actions = {
                     Button(
                         onClick = {
-                            val finalName = themeName.ifBlank { "Custom Theme" }
+                            val finalName = themeName.ifBlank { customThemeDefaultName }
                             val palette = ThemeSeedPalette(seedColor, secondary, tertiary, neutral)
                             val json = ThemeSeedPaletteCodec.encodeForPreference(palette, finalName)
                             onCustomThemeColorChange(json)
-                            Toast.makeText(context, "Theme Saved!", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.theme_saved), Toast.LENGTH_SHORT).show()
                             navController.navigateUp()
                         },
                         modifier = Modifier.padding(end = 8.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
-                        Text("Save", fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.save), fontWeight = FontWeight.Bold)
                     }
                 },
                 scrollBehavior = scrollBehavior,
@@ -160,7 +160,7 @@ fun ThemeCreatorScreen(
 
             // Explanation Text
             Text(
-                text = "AvidTune uses Material You. Pick a single Seed Color, and the engine will automatically calculate the perfect matching Secondary, Tertiary, and Neutral colors.",
+                text = stringResource(R.string.theme_creator_description),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 24.dp)
@@ -183,7 +183,7 @@ fun ThemeCreatorScreen(
             OutlinedTextField(
                 value = themeName,
                 onValueChange = { themeName = it },
-                label = { Text("Theme Name") },
+                label = { Text(stringResource(R.string.theme_name)) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp),
@@ -229,6 +229,8 @@ private fun ThemeCreatorPreview(
     val bgColor = if (isDark) Color(0xFF1C1C1E) else animatedTertiary.copy(alpha = 0.3f)
     val surfaceColor = if (isDark) animatedPrimary.copy(alpha = 0.15f) else Color.White
     val onSurfaceColor = if (isDark) Color.White else Color.Black
+    
+    val previewText = stringResource(R.string.preview)
 
     Card(
         modifier = Modifier
@@ -360,7 +362,7 @@ private fun ThemeCreatorPreview(
                 shadowElevation = 4.dp
             ) {
                 Text(
-                    text = themeName.ifBlank { "Preview" },
+                    text = themeName.ifBlank { previewText },
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
                     color = onPrimary,
@@ -411,8 +413,8 @@ private fun ColorEditor(
                             .border(2.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
                     )
                     Column {
-                        Text("Seed Color", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(hexString, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                        Text(stringResource(R.string.hex_color), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(hexString, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                     }
                 }
                 
@@ -422,7 +424,7 @@ private fun ColorEditor(
                         .size(48.dp)
                         .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape)
                 ) {
-                    Icon(painterResource(R.drawable.shuffle), contentDescription = "Randomize", tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                    Icon(painterResource(R.drawable.shuffle), contentDescription = stringResource(R.string.randomize), tint = MaterialTheme.colorScheme.onSecondaryContainer)
                 }
             }
 
