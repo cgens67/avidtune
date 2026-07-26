@@ -1216,5 +1216,9 @@
     <string name="theme_name">主题名称</string>
     <string name="hex_color">十六进制颜色</string>
     <string name="randomize">随机生成</string>
+    
+    <string name="sync_lyrics">同步歌词</string>
+    <string name="sync_next_line">同步下一行</string>
+    <string name="seek_back_2s">-2秒</string>
 
 </resources>
