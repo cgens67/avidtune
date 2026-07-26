@@ -153,7 +153,7 @@ object GeniusLyricsProvider : LyricsProvider {
 
             // Remove residual header junk if present
             extractedText
-                .replace(Regex("(?i)^\\d*\\s*Contributors?.*?(Lyrics|Letras|Paroles)\\n*", RegexOption.DOTMATCHESALL), "")
+                .replace(Regex("(?is)^\\d*\\s*Contributors?.*?(Lyrics|Letras|Paroles)\\n*"), "")
                 .replace(Regex("(?i)^.*?Lyrics\\b\\n*"), "")
                 .trim()
         }
