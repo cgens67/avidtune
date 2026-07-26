@@ -18,17 +18,17 @@ constructor(
     @ApplicationContext private val context: Context,
 ) {
     private val allProviders = listOf(
-        AvidLyricsProvider, // Prioritized first
-        LyricsPlusProvider,
-        PaxsenixLyricsProvider,
-        BetterLyricsProvider,
-        SimpMusicLyricsProvider,
-        LrcLibLyricsProvider,
-        KuGouLyricsProvider,
-        NetEaseLyricsProvider,
-        GeniusLyricsProvider,
-        YouTubeSubtitleLyricsProvider,
-        YouTubeLyricsProvider
+        AvidLyricsProvider, // 1
+        LyricsPlusProvider, // 2
+        PaxsenixLyricsProvider, // 3
+        BetterLyricsProvider, // 4
+        SimpMusicLyricsProvider, // 5
+        LrcLibLyricsProvider, // 6
+        KuGouLyricsProvider, // 7
+        NetEaseLyricsProvider, // 8
+        GeniusLyricsProvider, // 9
+        YouTubeSubtitleLyricsProvider, // 10
+        YouTubeLyricsProvider // 11
     )
 
     private suspend fun getOrderedProviders(): List<LyricsProvider> {
