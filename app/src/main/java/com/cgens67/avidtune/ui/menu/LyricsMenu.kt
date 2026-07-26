@@ -86,7 +86,11 @@ fun LyricsMenu(
     val playerConnection = com.cgens67.avidtune.LocalPlayerConnection.current ?: return
 
     val rawLyrics = lyricsEntity?.lyrics.orEmpty()
-    val isWordSynced = remember(rawLyrics) {
+    
+    // Detect if lyrics are already synced (sentence-by-sentence or word-by-word)
+    val isSynced = remember(rawLyrics) {
+        rawLyrics.contains(Regex("\\[\\d\\d:\\d\\d\\.\\d{2,3}\\]")) ||
+        rawLyrics.contains(Regex("\\[\\d\\d:\\d\\d\\]")) ||
         rawLyrics.contains(Regex("<\\d\\d:\\d\\d\\.\\d{2,3}>")) ||
         rawLyrics.contains(Regex("<\\d+\\.\\d+:\\d+\\.\\d+")) ||
         rawLyrics.contains(Regex("<[^>]+:[0-9.]+:[0-9.]+[^>]*>")) ||
@@ -524,7 +528,7 @@ fun LyricsMenu(
                             onClick = { showEditDialog = true }
                         )
                     )
-                    if (!isWordSynced) {
+                    if (!isSynced) {
                         add(
                             NewAction(
                                 icon = {
