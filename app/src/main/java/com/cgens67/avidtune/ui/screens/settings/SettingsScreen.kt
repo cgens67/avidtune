@@ -1188,7 +1188,7 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
         ),
         SettingsItem(
             icon = painterResource(R.drawable.lyrics),
-            title = "Enable SimpMusic",
+            title = stringResource(R.string.enable_simpmusic),
             keywords = listOf("simpmusic", "lyrics", "provider"),
             onClick = { resetSearch(); navController.navigate("settings/content") }
         ),
