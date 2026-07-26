@@ -1203,6 +1203,10 @@
     <string name="together_error_connection_closed">Connexion fermée par l\'hôte</string>
     <string name="together_error_request_denied">Votre demande de rejoindre a été refusée.</string>
     <string name="together_error_failed_start_server">Échec du démarrage du serveur</string>
-    <string name="together_error_failed_connect">Échec de la connexion : %1$s</string>    
+    <string name="together_error_failed_connect">Échec de la connexion : %1$s</string>
+    
+    <string name="enable_netease">Activer NetEase Cloud Music</string>
+    <string name="enable_genius">Activer Genius</string>
+    <string name="lyrics_not_available_desc">Les paroles ne sont pas disponibles pour cette chanson.</string>
 
 </resources>
