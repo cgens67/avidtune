@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -77,7 +78,7 @@ fun ThemeCreatorScreen(
             val scheme = SchemeTonalSpot(Hct.fromInt(primary.toArgb()), isDark, 0.0)
             secondary = Color(scheme.secondary)
             tertiary = Color(scheme.tertiary)
-            neutral = Color(scheme.neutralVariant)
+            neutral = Color(scheme.surfaceVariant)
         }
     }
 
@@ -252,154 +253,97 @@ private fun ThemeCreatorPreview(
     neutral: Color
 ) {
     val isDark = isSystemInDarkTheme()
-    val bgColor = if (isDark) Color(0xFF1C1C1E) else tertiary.copy(alpha = 0.3f)
-    val onPrimaryColor = if (primary.luminance() > 0.5f) Color.Black else Color.White
+    val bgColor = if (isDark) Color(0xFF121212) else Color(0xFFF0F0F0)
+    val surfaceColor = if (isDark) Color(0xFF1E1E1E) else Color.White
+    val onSurfaceColor = if (isDark) Color.White else Color.Black
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 24.dp)
-            .height(280.dp)
-            .shadow(16.dp, RoundedCornerShape(24.dp)),
+            .height(240.dp)
+            .shadow(8.dp, RoundedCornerShape(24.dp)),
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = bgColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        colors = CardDefaults.cardColors(containerColor = bgColor)
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val gradientBrush = Brush.radialGradient(
-                    colors = listOf(
-                        primary.copy(alpha = 0.3f),
-                        Color.Transparent
-                    ),
-                    center = Offset(size.width * 0.7f, size.height * 0.3f),
-                    radius = size.width * 0.8f
-                )
-                drawRect(brush = gradientBrush)
-            }
-
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Card(
-                        modifier = Modifier
-                            .width(140.dp)
-                            .height(100.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = primary.copy(alpha = 0.15f))
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(12.dp),
-                            verticalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(Brush.linearGradient(listOf(primary, secondary)))
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(4.dp)
-                                    .clip(RoundedCornerShape(2.dp))
-                                    .background(neutral.copy(alpha = 0.3f))
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth(0.6f)
-                                        .height(4.dp)
-                                        .clip(RoundedCornerShape(2.dp))
-                                        .background(primary)
-                                )
-                            }
-                        }
-                    }
-                    Box(
-                        modifier = Modifier
-                            .size(56.dp)
-                            .shadow(8.dp, CircleShape)
-                            .clip(CircleShape)
-                            .background(primary),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.play),
-                            contentDescription = null,
-                            tint = onPrimaryColor,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    listOf(
-                        primary to 48.dp,
-                        secondary to 36.dp,
-                        tertiary to 28.dp
-                    ).forEachIndexed { index, (color, size) ->
-                        Box(
-                            modifier = Modifier
-                                .offset(x = (-12 * index).dp)
-                                .size(size)
-                                .shadow(4.dp, CircleShape)
-                                .clip(CircleShape)
-                                .background(color)
-                                .border(2.dp, Color.White.copy(alpha = 0.3f), CircleShape)
-                        )
-                    }
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    listOf(primary, secondary, neutral).forEach { color ->
-                        Box(
-                            modifier = Modifier
-                                .height(32.dp)
-                                .width(72.dp)
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(color.copy(alpha = 0.2f))
-                                .border(1.dp, color.copy(alpha = 0.5f), RoundedCornerShape(16.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .clip(CircleShape)
-                                    .background(color)
-                            )
-                        }
-                    }
-                }
-            }
-            Surface(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(16.dp),
-                shape = RoundedCornerShape(12.dp),
-                color = primary,
-                shadowElevation = 4.dp
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Mock App Bar
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = themeName.ifBlank { "Preview" },
-                    style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
-                    color = onPrimaryColor,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    fontSize = 18.sp,
+                    color = onSurfaceColor
                 )
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(primary)
+                )
+            }
+
+            // Mock Content Card
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(vertical = 12.dp),
+                colors = CardDefaults.cardColors(containerColor = surfaceColor),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)).background(secondary))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Box(modifier = Modifier.width(100.dp).height(12.dp).clip(CircleShape).background(neutral))
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Box(modifier = Modifier.width(60.dp).height(8.dp).clip(CircleShape).background(neutral.copy(alpha = 0.5f)))
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    // Mock Buttons
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(36.dp)
+                                .clip(RoundedCornerShape(18.dp))
+                                .background(tertiary),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("Tertiary", color = if (tertiary.luminance() > 0.5f) Color.Black else Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(36.dp)
+                                .clip(RoundedCornerShape(18.dp))
+                                .background(primary),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("Primary", color = if (primary.luminance() > 0.5f) Color.Black else Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
             }
         }
     }
