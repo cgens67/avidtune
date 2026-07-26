@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.app.SearchManager
 import android.content.Intent
 import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,7 +14,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
@@ -52,7 +50,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -64,8 +61,6 @@ import com.cgens67.avidtune.db.entities.LyricsEntity
 import com.cgens67.avidtune.models.MediaMetadata
 import com.cgens67.avidtune.ui.component.DefaultDialog
 import com.cgens67.avidtune.ui.component.ListDialog
-import com.cgens67.avidtune.ui.component.MenuItemData
-import com.cgens67.avidtune.ui.component.MenuGroup
 import com.cgens67.avidtune.ui.component.NewAction
 import com.cgens67.avidtune.ui.component.NewActionGrid
 import com.cgens67.avidtune.ui.component.TextFieldDialog
@@ -89,6 +84,14 @@ fun LyricsMenu(
     val context = LocalContext.current
     val database = LocalDatabase.current
     val playerConnection = com.cgens67.avidtune.LocalPlayerConnection.current ?: return
+
+    val rawLyrics = lyricsEntity?.lyrics.orEmpty()
+    val isWordSynced = remember(rawLyrics) {
+        rawLyrics.contains(Regex("<\\d\\d:\\d\\d\\.\\d{2,3}>")) ||
+        rawLyrics.contains(Regex("<\\d+\\.\\d+:\\d+\\.\\d+")) ||
+        rawLyrics.contains(Regex("<[^>]+:[0-9.]+:[0-9.]+[^>]*>")) ||
+        rawLyrics.lines().any { line -> line.trim().startsWith("<") && line.trim().endsWith(">") }
+    }
 
     var showEditDialog by rememberSaveable {
         mutableStateOf(false)
@@ -492,102 +495,118 @@ fun LyricsMenu(
         // Grid de acciones principales
         item {
             NewActionGrid(
-                actions = listOf(
-                    NewAction(
-                        icon = {
-                            Icon(
-                                painter = painterResource(R.drawable.tune),
-                                contentDescription = null,
-                                modifier = Modifier.size(28.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        },
-                        text = stringResource(R.string.sync_offset),
-                        onClick = { showOffsetDialog = true }
-                    ),
-                    NewAction(
-                        icon = {
-                            Icon(
-                                painter = painterResource(R.drawable.edit),
-                                contentDescription = null,
-                                modifier = Modifier.size(28.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        },
-                        text = stringResource(R.string.edit),
-                        onClick = { showEditDialog = true }
-                    ),
-                    NewAction(
-                        icon = {
-                            Icon(
-                                painter = painterResource(R.drawable.history),
-                                contentDescription = null,
-                                modifier = Modifier.size(28.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        },
-                        text = "Sync Lyrics",
-                        onClick = { showSyncDialog = true }
-                    ),
-                    NewAction(
-                        icon = {
-                            Icon(
-                                painter = painterResource(R.drawable.cached),
-                                contentDescription = null,
-                                modifier = Modifier.size(28.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        },
-                        text = stringResource(R.string.refetch),
-                        onClick = {
-                            viewModel.refetchLyrics(mediaMetadata, lyricsEntity)
-                            onLyricsUpdated()
-                            onDismiss()
-                        }
-                    ),
-                    NewAction(
-                        icon = {
-                            Icon(
-                                painter = painterResource(R.drawable.search),
-                                contentDescription = null,
-                                modifier = Modifier.size(28.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        },
-                        text = stringResource(R.string.search),
-                        onClick = { showSearchDialog = true }
-                    ),
-                    NewAction(
-                        icon = {
-                            Icon(
-                                painter = painterResource(R.drawable.translate),
-                                contentDescription = null,
-                                modifier = Modifier.size(28.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        },
-                        text = stringResource(if (isTranslated) R.string.show_original else R.string.Translate),
-                        onClick = { 
-                            onTranslateClick()
-                            onDismiss()
-                        }
-                    ),
-                    NewAction(
-                        icon = {
-                            Icon(
-                                painter = painterResource(R.drawable.translate), // Text format icon
-                                contentDescription = null,
-                                modifier = Modifier.size(28.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        },
-                        text = stringResource(if (isRomanized) R.string.hide_romanized else R.string.romanize),
-                        onClick = { 
-                            onRomanizeClick()
-                            onDismiss()
-                        }
+                actions = buildList {
+                    add(
+                        NewAction(
+                            icon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.tune),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(28.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            text = stringResource(R.string.sync_offset),
+                            onClick = { showOffsetDialog = true }
+                        )
                     )
-                ),
+                    add(
+                        NewAction(
+                            icon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.edit),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(28.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            text = stringResource(R.string.edit),
+                            onClick = { showEditDialog = true }
+                        )
+                    )
+                    if (!isWordSynced) {
+                        add(
+                            NewAction(
+                                icon = {
+                                    Icon(
+                                        painter = painterResource(R.drawable.history),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(28.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                },
+                                text = "Sync Lyrics",
+                                onClick = { showSyncDialog = true }
+                            )
+                        )
+                    }
+                    add(
+                        NewAction(
+                            icon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.cached),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(28.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            text = stringResource(R.string.refetch),
+                            onClick = {
+                                viewModel.refetchLyrics(mediaMetadata, lyricsEntity)
+                                onLyricsUpdated()
+                                onDismiss()
+                            }
+                        )
+                    )
+                    add(
+                        NewAction(
+                            icon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.search),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(28.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            text = stringResource(R.string.search),
+                            onClick = { showSearchDialog = true }
+                        )
+                    )
+                    add(
+                        NewAction(
+                            icon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.translate),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(28.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            text = stringResource(if (isTranslated) R.string.show_original else R.string.Translate),
+                            onClick = { 
+                                onTranslateClick()
+                                onDismiss()
+                            }
+                        )
+                    )
+                    add(
+                        NewAction(
+                            icon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.translate),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(28.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            text = stringResource(if (isRomanized) R.string.hide_romanized else R.string.romanize),
+                            onClick = { 
+                                onRomanizeClick()
+                                onDismiss()
+                            }
+                        )
+                    )
+                },
                 modifier = Modifier.padding(horizontal = 4.dp, vertical = 16.dp)
             )
         }
