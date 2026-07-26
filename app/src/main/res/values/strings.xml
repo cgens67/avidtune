@@ -1241,4 +1241,8 @@
     <string name="hex_color">Hex Color</string>
     <string name="randomize">Randomize</string>
     
+    <string name="sync_lyrics">Sync Lyrics</string>
+    <string name="sync_next_line">SYNC NEXT LINE</string>
+    <string name="seek_back_2s">-2s</string>
+    
 </resources>
