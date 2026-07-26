@@ -1032,6 +1032,18 @@ fun PalettePickerScreen(
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                 )
                 ExtendedFloatingActionButton(
+                    text = { Text("Theme Creator") },
+                    icon = {
+                        Icon(
+                            painter = painterResource(R.drawable.edit),
+                            contentDescription = null
+                        )
+                    },
+                    onClick = { navController.navigate("settings/appearance/theme_creator") },
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+                ExtendedFloatingActionButton(
                     text = { Text(stringResource(R.string.import_theme)) },
                     icon = {
                         Icon(
