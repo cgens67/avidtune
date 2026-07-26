@@ -25,13 +25,9 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
@@ -39,48 +35,33 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.cgens67.avidtune.LocalDatabase
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.db.entities.LyricsEntity
 import com.cgens67.avidtune.models.MediaMetadata
-import com.cgens67.avidtune.playback.PlayerConnection
 import com.cgens67.avidtune.ui.component.DefaultDialog
 import com.cgens67.avidtune.ui.component.ListDialog
 import com.cgens67.avidtune.ui.component.MenuItemData
@@ -88,13 +69,8 @@ import com.cgens67.avidtune.ui.component.MenuGroup
 import com.cgens67.avidtune.ui.component.NewAction
 import com.cgens67.avidtune.ui.component.NewActionGrid
 import com.cgens67.avidtune.ui.component.TextFieldDialog
+import com.cgens67.avidtune.ui.screens.SyncLyricsScreen
 import com.cgens67.avidtune.viewmodels.LyricsMenuViewModel
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 
 @SuppressLint("LocalContextGetResourceValueCall")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -249,7 +225,7 @@ fun LyricsMenu(
     }
 
     if (showSyncDialog) {
-        SyncLyricsDialog(
+        SyncLyricsScreen(
             lyricsText = lyricsEntity?.lyrics.orEmpty(),
             playerConnection = playerConnection,
             onDismiss = { showSyncDialog = false },
@@ -614,223 +590,6 @@ fun LyricsMenu(
                 ),
                 modifier = Modifier.padding(horizontal = 4.dp, vertical = 16.dp)
             )
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun SyncLyricsDialog(
-    lyricsText: String,
-    playerConnection: PlayerConnection,
-    onDismiss: () -> Unit,
-    onSave: (String) -> Unit
-) {
-    val plainLines = remember(lyricsText) {
-        val clean = if (lyricsText.startsWith("[provider:")) {
-            lyricsText.substringAfter('\n')
-        } else {
-            lyricsText
-        }
-        clean.lines().map { it.replace(Regex("\\[\\d\\d:\\d\\d\\.\\d{2,3}\\]"), "").trim() }.filter { it.isNotEmpty() }
-    }
-
-    val timestamps = remember { mutableStateMapOf<Int, Long>() }
-    var currentIndex by remember { mutableIntStateOf(0) }
-
-    var currentPosition by remember { mutableLongStateOf(playerConnection.player.currentPosition) }
-    LaunchedEffect(playerConnection.playbackState.collectAsState().value, playerConnection.isPlaying.collectAsState().value) {
-        while (isActive) {
-            currentPosition = playerConnection.player.currentPosition
-            delay(50)
-        }
-    }
-
-    val listState = rememberLazyListState()
-
-    LaunchedEffect(currentIndex) {
-        if (currentIndex in plainLines.indices) {
-            listState.animateScrollToItem(maxOf(0, currentIndex - 2))
-        }
-    }
-
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
-    ) {
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = { Text("Sync Lyrics") },
-                    navigationIcon = {
-                        IconButton(onClick = onDismiss) {
-                            Icon(painterResource(R.drawable.close), contentDescription = "Close")
-                        }
-                    },
-                    actions = {
-                        TextButton(onClick = {
-                            val providerLine = if (lyricsText.startsWith("[provider:")) {
-                                lyricsText.substringBefore('\n') + "\n"
-                            } else ""
-
-                            val syncedText = plainLines.mapIndexed { index, line ->
-                                val time = timestamps[index]
-                                if (time != null) {
-                                    val min = time / 60000
-                                    val sec = (time % 60000) / 1000
-                                    val ms = (time % 1000) / 10
-                                    String.format(java.util.Locale.US, "[%02d:%02d.%02d]%s", min, sec, ms, line)
-                                } else {
-                                    line
-                                }
-                            }.joinToString("\n")
-
-                            onSave(providerLine + syncedText.trimStart('\n'))
-                        }) {
-                            Text("Save", fontWeight = FontWeight.Bold)
-                        }
-                    }
-                )
-            }
-        ) { padding ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-            ) {
-                // Lines list
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                    contentPadding = PaddingValues(vertical = 16.dp, horizontal = 16.dp)
-                ) {
-                    itemsIndexed(plainLines) { index, line ->
-                        val isCurrent = index == currentIndex
-                        val isSynced = timestamps.containsKey(index)
-                        val time = timestamps[index]
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    if (isSynced) {
-                                        playerConnection.player.seekTo(time!!)
-                                    } else {
-                                        currentIndex = index
-                                    }
-                                }
-                                .background(
-                                    if (isCurrent) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                                    else Color.Transparent,
-                                    RoundedCornerShape(8.dp)
-                                )
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = if (isSynced) {
-                                    val min = time!! / 60000
-                                    val sec = (time % 60000) / 1000
-                                    val ms = (time % 1000) / 10
-                                    String.format(java.util.Locale.US, "[%02d:%02d.%02d]", min, sec, ms)
-                                } else "[--:--.--]",
-                                color = if (isSynced) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontFamily = FontFamily.Monospace,
-                                modifier = Modifier.width(80.dp)
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                text = line.ifBlank { "..." },
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = if (isCurrent) MaterialTheme.colorScheme.onPrimaryContainer
-                                        else if (isSynced) MaterialTheme.colorScheme.onSurface
-                                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
-                }
-
-                // Controls
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    tonalElevation = 4.dp
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(WindowInsets.systemBars.only(WindowInsetsSides.Bottom).asPaddingValues())
-                            .padding(16.dp)
-                    ) {
-                        // Current time
-                        Text(
-                            text = com.cgens67.avidtune.utils.makeTimeString(currentPosition),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontFamily = FontFamily.Monospace,
-                            modifier = Modifier.align(Alignment.CenterHorizontally)
-                        )
-
-                        Spacer(Modifier.height(16.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Undo
-                            IconButton(
-                                onClick = {
-                                    if (currentIndex > 0) {
-                                        currentIndex--
-                                        timestamps.remove(currentIndex)
-                                    }
-                                }
-                            ) {
-                                Icon(painterResource(R.drawable.skip_previous), contentDescription = "Undo")
-                            }
-
-                            // Play/Pause
-                            val isPlaying by playerConnection.isPlaying.collectAsState()
-                            IconButton(
-                                onClick = { playerConnection.togglePlayPause() },
-                                modifier = Modifier
-                                    .size(64.dp)
-                                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
-                            ) {
-                                Icon(
-                                    painter = painterResource(if (isPlaying) R.drawable.pause else R.drawable.play),
-                                    contentDescription = "Play/Pause",
-                                    modifier = Modifier.size(32.dp),
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            }
-
-                            // Spacer to balance the layout
-                            Spacer(modifier = Modifier.size(48.dp))
-                        }
-
-                        Spacer(Modifier.height(16.dp))
-
-                        // Huge Sync Button
-                        Button(
-                            onClick = {
-                                if (currentIndex < plainLines.size) {
-                                    timestamps[currentIndex] = currentPosition
-                                    currentIndex++
-                                }
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(64.dp),
-                            enabled = currentIndex < plainLines.size
-                        ) {
-                            Text("Sync Next Line", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            }
         }
     }
 }
