@@ -102,6 +102,12 @@ fun NavGraphBuilder.navigationBuilder(
     composable("settings/equalizer") {
         AvidTuneEqScreen(bck = { navController.popBackStack() })
     }
+    composable(
+        route = "sync_lyrics/{songId}",
+        arguments = listOf(navArgument("songId") { type = NavType.StringType })
+    ) {
+        SyncLyricsScreen(navController)
+    }
 
     composable(
         route = "search/{query}",
