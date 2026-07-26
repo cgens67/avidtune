@@ -1231,6 +1231,10 @@
     <string name="theme_creator_description">AvidTune verwendet Material You. Wählen Sie eine Startfarbe und die Engine berechnet automatisch die perfekt passenden Sekundär-, Tertiär- und Neutralfarben.</string>
     <string name="theme_name">Theme-Name</string>
     <string name="hex_color">Hex-Farbe</string>
-    <string name="randomize">Zufällig</string>        
+    <string name="randomize">Zufällig</string>
+    
+    <string name="sync_lyrics">Songtext synchronisieren</string>
+    <string name="sync_next_line">NÄCHSTE ZEILE SYNCHRONISIEREN</string>
+    <string name="seek_back_2s">-2s</string>
 
 </resources>
