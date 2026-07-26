@@ -9,9 +9,9 @@ import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Typography
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.Saver
@@ -43,13 +43,26 @@ fun AvidTuneTheme(
     pureBlack: Boolean = false,
     expressive: Boolean = true,
     themeColor: Color = DefaultThemeColor,
+    customSeedPalette: ThemeSeedPalette? = null,
     useSystemFont: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
 
-    val colorScheme = remember(darkTheme, pureBlack, themeColor) {
-        if (themeColor == DefaultThemeColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    val colorScheme = remember(darkTheme, pureBlack, themeColor, customSeedPalette) {
+        if (customSeedPalette != null) {
+            val primaryScheme = SchemeTonalSpot(Hct.fromInt(customSeedPalette.primary.toArgb()), darkTheme, 0.0)
+            val secondaryScheme = SchemeTonalSpot(Hct.fromInt(customSeedPalette.secondary.toArgb()), darkTheme, 0.0)
+            val tertiaryScheme = SchemeTonalSpot(Hct.fromInt(customSeedPalette.tertiary.toArgb()), darkTheme, 0.0)
+            val neutralScheme = SchemeTonalSpot(Hct.fromInt(customSeedPalette.neutral.toArgb()), darkTheme, 0.0)
+
+            createMultiSeedColorScheme(
+                primaryScheme = primaryScheme,
+                secondaryScheme = secondaryScheme,
+                tertiaryScheme = tertiaryScheme,
+                neutralScheme = neutralScheme
+            ).pureBlack(pureBlack, darkTheme)
+        } else if (themeColor == DefaultThemeColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (darkTheme) {
                 dynamicDarkColorScheme(context).pureBlack(pureBlack, darkTheme)
             } else {
@@ -99,6 +112,58 @@ fun AvidTuneTheme(
         shapes = MaterialTheme.shapes,
         motionScheme = motionScheme,
         content = content
+    )
+}
+
+fun createMultiSeedColorScheme(
+    primaryScheme: DynamicScheme,
+    secondaryScheme: DynamicScheme,
+    tertiaryScheme: DynamicScheme,
+    neutralScheme: DynamicScheme,
+): ColorScheme {
+    return ColorScheme(
+        primary = Color(primaryScheme.primary),
+        onPrimary = Color(primaryScheme.onPrimary),
+        primaryContainer = Color(primaryScheme.primaryContainer),
+        onPrimaryContainer = Color(primaryScheme.onPrimaryContainer),
+        inversePrimary = Color(primaryScheme.inversePrimary),
+
+        secondary = Color(secondaryScheme.primary),
+        onSecondary = Color(secondaryScheme.onPrimary),
+        secondaryContainer = Color(secondaryScheme.primaryContainer),
+        onSecondaryContainer = Color(secondaryScheme.onPrimaryContainer),
+
+        tertiary = Color(tertiaryScheme.primary),
+        onTertiary = Color(tertiaryScheme.onPrimary),
+        tertiaryContainer = Color(tertiaryScheme.primaryContainer),
+        onTertiaryContainer = Color(tertiaryScheme.onPrimaryContainer),
+
+        background = Color(neutralScheme.background),
+        onBackground = Color(neutralScheme.onBackground),
+        surface = Color(neutralScheme.surface),
+        onSurface = Color(neutralScheme.onSurface),
+        surfaceVariant = Color(neutralScheme.surfaceVariant),
+        onSurfaceVariant = Color(neutralScheme.onSurfaceVariant),
+        surfaceTint = Color(primaryScheme.primary),
+        inverseSurface = Color(neutralScheme.inverseSurface),
+        inverseOnSurface = Color(neutralScheme.inverseOnSurface),
+
+        error = Color(primaryScheme.error),
+        onError = Color(primaryScheme.onError),
+        errorContainer = Color(primaryScheme.errorContainer),
+        onErrorContainer = Color(primaryScheme.onErrorContainer),
+
+        outline = Color(neutralScheme.outline),
+        outlineVariant = Color(neutralScheme.outlineVariant),
+        scrim = Color(neutralScheme.scrim),
+
+        surfaceBright = Color(neutralScheme.surfaceBright),
+        surfaceDim = Color(neutralScheme.surfaceDim),
+        surfaceContainer = Color(neutralScheme.surfaceContainer),
+        surfaceContainerHigh = Color(neutralScheme.surfaceContainerHigh),
+        surfaceContainerHighest = Color(neutralScheme.surfaceContainerHighest),
+        surfaceContainerLow = Color(neutralScheme.surfaceContainerLow),
+        surfaceContainerLowest = Color(neutralScheme.surfaceContainerLowest),
     )
 }
 
