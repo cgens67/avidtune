@@ -39,6 +39,7 @@ import coil.compose.AsyncImage
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.extensions.togglePlayPause
 import com.cgens67.avidtune.playback.PlayerConnection
+import com.cgens67.avidtune.ui.utils.fadingEdge
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -190,12 +191,13 @@ fun SyncLyricsScreen(
                     )
                 )
 
-                // Lyrics List
+                // Lyrics List with smooth top/bottom edge fade
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
                         .weight(1f)
-                        .fillMaxWidth(),
+                        .fillMaxWidth()
+                        .fadingEdge(vertical = 48.dp),
                     contentPadding = PaddingValues(horizontal = 24.dp, vertical = 32.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
