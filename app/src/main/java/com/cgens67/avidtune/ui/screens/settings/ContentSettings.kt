@@ -323,13 +323,13 @@ fun ContentSettings(
                     onCheckedChange = onEnableKugouChange,
                 )},
                 {SwitchPreference(
-                    title = { Text("Enable NetEase Cloud Music") },
+                    title = { Text(stringResource(R.string.enable_netease)) },
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = enableNetEase,
                     onCheckedChange = onEnableNetEaseChange,
                 )},
                 {SwitchPreference(
-                    title = { Text("Enable Genius") },
+                    title = { Text(stringResource(R.string.enable_genius)) },
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = enableGenius,
                     onCheckedChange = onEnableGeniusChange,
