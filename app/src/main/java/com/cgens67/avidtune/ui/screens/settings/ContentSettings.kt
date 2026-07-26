@@ -64,6 +64,8 @@ import com.cgens67.avidtune.constants.EnableBetterLyricsKey
 import com.cgens67.avidtune.constants.EnableSimpMusicKey
 import com.cgens67.avidtune.constants.EnableLyricsPlusKey
 import com.cgens67.avidtune.constants.EnablePaxsenixKey
+import com.cgens67.avidtune.constants.EnableNetEaseKey
+import com.cgens67.avidtune.constants.EnableGeniusKey
 import com.cgens67.avidtune.constants.HideExplicitKey
 import com.cgens67.avidtune.constants.HideMusicVideosKey
 import com.cgens67.avidtune.constants.HistoryDuration
@@ -165,8 +167,16 @@ fun ContentSettings(
         key = EnableLyricsPlusKey,
         defaultValue = true
     )
+    val (enableNetEase, onEnableNetEaseChange) = rememberPreference(
+        key = EnableNetEaseKey,
+        defaultValue = true
+    )
+    val (enableGenius, onEnableGeniusChange) = rememberPreference(
+        key = EnableGeniusKey,
+        defaultValue = true
+    )
 
-    val defaultOrder = listOf("AvidLyrics", "LyricsPlus", "Paxsenix", "BetterLyrics", "SimpMusic", "LrcLib", "Kugou", "YouTube Subtitle", "YouTube Music")
+    val defaultOrder = listOf("AvidLyrics", "LyricsPlus", "Paxsenix", "BetterLyrics", "SimpMusic", "LrcLib", "Kugou", "NetEase", "Genius", "YouTube Subtitle", "YouTube Music")
     val (providerOrderStr, onProviderOrderChange) = rememberPreference(LyricsProviderOrderKey, defaultOrder.joinToString(","))
     val currentOrder = remember(providerOrderStr) {
         providerOrderStr.split(",").filter { it.isNotBlank() }.let { saved ->
@@ -311,6 +321,18 @@ fun ContentSettings(
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = enableKugou,
                     onCheckedChange = onEnableKugouChange,
+                )},
+                {SwitchPreference(
+                    title = { Text("Enable NetEase Cloud Music") },
+                    icon = { Icon(painterResource(R.drawable.lyrics), null) },
+                    checked = enableNetEase,
+                    onCheckedChange = onEnableNetEaseChange,
+                )},
+                {SwitchPreference(
+                    title = { Text("Enable Genius") },
+                    icon = { Icon(painterResource(R.drawable.lyrics), null) },
+                    checked = enableGenius,
+                    onCheckedChange = onEnableGeniusChange,
                 )},
                 {PreferenceEntry(
                     title = { Text(stringResource(R.string.lyrics_provider_priority)) },
