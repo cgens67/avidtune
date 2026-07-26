@@ -1208,5 +1208,12 @@
     <string name="enable_netease">Activer NetEase Cloud Music</string>
     <string name="enable_genius">Activer Genius</string>
     <string name="lyrics_not_available_desc">Les paroles ne sont pas disponibles pour cette chanson.</string>
+    
+    <string name="theme_creator">Créateur de thème</string>
+    <string name="theme_saved">Thème enregistré !</string>
+    <string name="theme_creator_description">AvidTune utilise Material You. Choisissez une couleur de base et le moteur calculera automatiquement les couleurs secondaires, tertiaires et neutres parfaites.</string>
+    <string name="theme_name">Nom du thème</string>
+    <string name="hex_color">Couleur Hex</string>
+    <string name="randomize">Aléatoire</string>
 
 </resources>
