@@ -25,12 +25,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -45,6 +43,57 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.Locale
 import kotlin.math.max
+
+@Composable
+private fun SyncedBackground(thumbnailUrl: String?) {
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        if (!thumbnailUrl.isNullOrEmpty()) {
+            AsyncImage(
+                model = thumbnailUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .blur(100.dp)
+                    .background(Color.Black.copy(alpha = 0.5f))
+            )
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Black.copy(alpha = 0.3f),
+                            Color.Black.copy(alpha = 0.7f),
+                            Color.Black.copy(alpha = 0.95f)
+                        )
+                    )
+                )
+        )
+    }
+}
+
+@Composable
+private fun LivePositionText(playerConnection: PlayerConnection) {
+    var position by remember { mutableLongStateOf(playerConnection.player.currentPosition) }
+    val isPlaying by playerConnection.isPlaying.collectAsState()
+
+    LaunchedEffect(isPlaying) {
+        while (isActive) {
+            position = playerConnection.player.currentPosition
+            delay(100)
+        }
+    }
+
+    Text(
+        text = com.cgens67.avidtune.utils.makeTimeString(position),
+        style = MaterialTheme.typography.displayMedium,
+        fontWeight = FontWeight.Bold,
+        color = Color.White,
+        fontFamily = FontFamily.Monospace
+    )
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,21 +113,14 @@ fun SyncLyricsScreen(
         } else {
             lyricsText
         }
-        clean.lines().map { it.replace(Regex("\\[\\d\\d:\\d\\d\\.\\d{2,3}\\]"), "").trim() }.filter { it.isNotEmpty() }
+        clean.lines()
+            .map { it.replace(Regex("\\[\\d\\d:\\d\\d\\.\\d{2,3}\\]"), "").trim() }
+            .filter { it.isNotEmpty() }
     }
 
     val timestamps = remember { mutableStateMapOf<Int, Long>() }
     var currentIndex by remember { mutableIntStateOf(0) }
-
-    var currentPosition by remember { mutableLongStateOf(playerConnection.player.currentPosition) }
     val isPlaying by playerConnection.isPlaying.collectAsState()
-
-    LaunchedEffect(playerConnection.playbackState.collectAsState().value, isPlaying) {
-        while (isActive) {
-            currentPosition = playerConnection.player.currentPosition
-            delay(50)
-        }
-    }
 
     val listState = rememberLazyListState()
 
@@ -98,32 +140,9 @@ fun SyncLyricsScreen(
             decorFitsSystemWindows = false
         )
     ) {
-        Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-            // Background Layer: Heavily blurred album art
-            AsyncImage(
-                model = mediaMetadata?.thumbnailUrl,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .blur(100.dp)
-                    .background(Color.Black.copy(alpha = 0.5f))
-            )
-
-            // Gradient Overlay for text readability
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Black.copy(alpha = 0.3f),
-                                Color.Black.copy(alpha = 0.7f),
-                                Color.Black.copy(alpha = 0.95f)
-                            )
-                        )
-                    )
-            )
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Background Layer: Static, only recomposes when album thumbnail changes
+            SyncedBackground(thumbnailUrl = mediaMetadata?.thumbnailUrl)
 
             Column(
                 modifier = Modifier
@@ -191,7 +210,7 @@ fun SyncLyricsScreen(
                     )
                 )
 
-                // Lyrics List with smooth top/bottom edge fade
+                // Lyrics List with smooth top and bottom fading edge
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
@@ -201,7 +220,10 @@ fun SyncLyricsScreen(
                     contentPadding = PaddingValues(horizontal = 24.dp, vertical = 32.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    itemsIndexed(plainLines) { index, line ->
+                    itemsIndexed(
+                        items = plainLines,
+                        key = { index, _ -> index }
+                    ) { index, line ->
                         val isCurrent = index == currentIndex
                         val isSynced = timestamps.containsKey(index)
                         val time = timestamps[index]
@@ -252,9 +274,11 @@ fun SyncLyricsScreen(
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    softWrap = false,
                                     modifier = Modifier
                                         .padding(end = 12.dp)
-                                        .width(85.dp) // Fixed width to prevent wrapping issues
+                                        .width(96.dp) // Fixed width with single-line constraint to prevent line wrapping
                                 )
                             }
                             
@@ -277,15 +301,10 @@ fun SyncLyricsScreen(
                         .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
                         .padding(horizontal = 24.dp, vertical = 24.dp)
                 ) {
-                    // Current time
-                    Text(
-                        text = com.cgens67.avidtune.utils.makeTimeString(currentPosition),
-                        style = MaterialTheme.typography.displayMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        fontFamily = FontFamily.Monospace,
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
-                    )
+                    // Live position timer isolated in its own composable
+                    Box(modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                        LivePositionText(playerConnection = playerConnection)
+                    }
 
                     Spacer(Modifier.height(24.dp))
 
@@ -298,7 +317,7 @@ fun SyncLyricsScreen(
                         // -2s Seek Back
                         val seekBackInteractionSource = remember { MutableInteractionSource() }
                         val seekBackIsPressed by seekBackInteractionSource.collectIsPressedAsState()
-                        val seekBackScale by animateFloatAsState(if (seekBackIsPressed) 0.9f else 1f, spring(stiffness = Spring.StiffnessMedium))
+                        val seekBackScale by animateFloatAsState(if (seekBackIsPressed) 0.9f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "seekBackScale")
                         
                         Box(
                             modifier = Modifier
@@ -309,7 +328,7 @@ fun SyncLyricsScreen(
                                     interactionSource = seekBackInteractionSource,
                                     indication = androidx.compose.material3.ripple(bounded = false)
                                 ) {
-                                    playerConnection.player.seekTo(maxOf(0L, currentPosition - 2000L))
+                                    playerConnection.player.seekTo(maxOf(0L, playerConnection.player.currentPosition - 2000L))
                                 },
                             contentAlignment = Alignment.Center
                         ) {
@@ -319,7 +338,7 @@ fun SyncLyricsScreen(
                         // Play/Pause
                         val playPauseInteractionSource = remember { MutableInteractionSource() }
                         val playPauseIsPressed by playPauseInteractionSource.collectIsPressedAsState()
-                        val playPauseScale by animateFloatAsState(if (playPauseIsPressed) 0.9f else 1f, spring(stiffness = Spring.StiffnessMedium))
+                        val playPauseScale by animateFloatAsState(if (playPauseIsPressed) 0.9f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "playPauseScale")
 
                         Box(
                             modifier = Modifier
@@ -345,7 +364,7 @@ fun SyncLyricsScreen(
                         // Undo
                         val undoInteractionSource = remember { MutableInteractionSource() }
                         val undoIsPressed by undoInteractionSource.collectIsPressedAsState()
-                        val undoScale by animateFloatAsState(if (undoIsPressed) 0.9f else 1f, spring(stiffness = Spring.StiffnessMedium))
+                        val undoScale by animateFloatAsState(if (undoIsPressed) 0.9f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "undoScale")
 
                         Box(
                             modifier = Modifier
@@ -379,7 +398,7 @@ fun SyncLyricsScreen(
                     // Big Sync Button
                     val syncInteractionSource = remember { MutableInteractionSource() }
                     val syncIsPressed by syncInteractionSource.collectIsPressedAsState()
-                    val syncScale by animateFloatAsState(if (syncIsPressed) 0.95f else 1f, spring(stiffness = Spring.StiffnessMedium))
+                    val syncScale by animateFloatAsState(if (syncIsPressed) 0.95f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "syncScale")
                     val isSyncEnabled = currentIndex < plainLines.size
 
                     Box(
@@ -396,7 +415,7 @@ fun SyncLyricsScreen(
                             ) {
                                 if (isSyncEnabled) {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    timestamps[currentIndex] = currentPosition
+                                    timestamps[currentIndex] = playerConnection.player.currentPosition
                                     currentIndex++
                                 }
                             },
