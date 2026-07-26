@@ -1204,6 +1204,10 @@
     <string name="together_error_connection_closed">主机关闭了连接</string>
     <string name="together_error_request_denied">您的加入请求已被拒绝。</string>
     <string name="together_error_failed_start_server">启动服务器失败</string>
-    <string name="together_error_failed_connect">连接失败：%1$s</string>    
+    <string name="together_error_failed_connect">连接失败：%1$s</string>
+    
+    <string name="enable_netease">启用网易云音乐</string>
+    <string name="enable_genius">启用 Genius</string>
+    <string name="lyrics_not_available_desc">此歌曲的歌词不可用。</string>
 
 </resources>
