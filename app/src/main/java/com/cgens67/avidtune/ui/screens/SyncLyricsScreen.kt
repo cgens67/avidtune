@@ -1,6 +1,7 @@
 package com.cgens67.avidtune.ui.screens
 
 import android.annotation.SuppressLint
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -32,8 +33,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.extensions.togglePlayPause
@@ -102,8 +101,11 @@ fun SyncLyricsScreen(
     lyricsText: String,
     playerConnection: PlayerConnection,
     onDismiss: () -> Unit,
-    onSave: (String) -> Unit
+    onSave: (String) -> Unit,
+    modifier: Modifier = Modifier
 ) {
+    BackHandler(onBack = onDismiss)
+
     val haptic = LocalHapticFeedback.current
     val coroutineScope = rememberCoroutineScope()
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
@@ -133,310 +135,306 @@ fun SyncLyricsScreen(
         }
     }
 
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            usePlatformDefaultWidth = false,
-            decorFitsSystemWindows = false
-        )
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            SyncedBackground(thumbnailUrl = mediaMetadata?.thumbnailUrl)
+        SyncedBackground(thumbnailUrl = mediaMetadata?.thumbnailUrl)
 
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .systemBarsPadding()
-            ) {
-                // Top Bar
-                CenterAlignedTopAppBar(
-                    title = {
-                        Text(
-                            stringResource(R.string.sync_lyrics),
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp
-                        )
-                    },
-                    navigationIcon = {
-                        IconButton(
-                            onClick = onDismiss,
-                            modifier = Modifier.padding(start = 8.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.White.copy(alpha = 0.15f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    painterResource(R.drawable.close),
-                                    contentDescription = stringResource(R.string.close),
-                                    tint = Color.White
-                                )
-                            }
-                        }
-                    },
-                    actions = {
-                        TextButton(
-                            onClick = {
-                                val providerLine = if (lyricsText.startsWith("[provider:")) {
-                                    lyricsText.substringBefore('\n') + "\n"
-                                } else ""
-
-                                val syncedText = plainLines.mapIndexed { index, line ->
-                                    val time = timestamps[index]
-                                    if (time != null) {
-                                        val min = time / 60000
-                                        val sec = (time % 60000) / 1000
-                                        val ms = (time % 1000) / 10
-                                        String.format(Locale.US, "[%02d:%02d.%02d]%s", min, sec, ms, line)
-                                    } else {
-                                        line
-                                    }
-                                }.joinToString("\n")
-
-                                onSave(providerLine + syncedText.trimStart('\n'))
-                            },
-                            modifier = Modifier.padding(end = 8.dp)
-                        ) {
-                            Text(
-                                stringResource(R.string.save),
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp
-                            )
-                        }
-                    },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                        containerColor = Color.Transparent
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .systemBarsPadding()
+        ) {
+            // Top Bar
+            CenterAlignedTopAppBar(
+                title = {
+                    Text(
+                        stringResource(R.string.sync_lyrics),
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
                     )
-                )
-
-                // Lyrics List with edge fading
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .fadingEdge(vertical = 48.dp),
-                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 32.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    itemsIndexed(
-                        items = plainLines,
-                        key = { index, _ -> index }
-                    ) { index, line ->
-                        val isCurrent = index == currentIndex
-                        val isSynced = timestamps.containsKey(index)
-                        val time = timestamps[index]
-
-                        val scale by animateFloatAsState(
-                            targetValue = if (isCurrent) 1.05f else 1f,
-                            animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-                            label = "scale"
-                        )
-                        val alpha by animateFloatAsState(
-                            targetValue = if (isCurrent) 1f else if (isSynced) 0.5f else 0.3f,
-                            animationSpec = tween(300),
-                            label = "alpha"
-                        )
-
-                        Row(
+                },
+                navigationIcon = {
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.padding(start = 8.dp)
+                    ) {
+                        Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .scale(scale)
-                                .alpha(alpha)
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(
-                                    if (isCurrent) Color.White.copy(alpha = 0.15f) else Color.Transparent
-                                )
-                                .clickable {
-                                    if (isSynced) {
-                                        playerConnection.player.seekTo(time!!)
-                                    } else {
-                                        currentIndex = index
-                                    }
-                                }
-                                .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
                         ) {
-                            AnimatedVisibility(
-                                visible = isSynced,
-                                enter = fadeIn(tween(300)) + expandHorizontally(spring(stiffness = Spring.StiffnessMedium)),
-                                exit = fadeOut(tween(300)) + shrinkHorizontally(spring(stiffness = Spring.StiffnessMedium))
-                            ) {
-                                Text(
-                                    text = if (isSynced) {
-                                        val min = time!! / 60000
-                                        val sec = (time % 60000) / 1000
-                                        val ms = (time % 1000) / 10
-                                        String.format(Locale.US, "[%02d:%02d.%02d]", min, sec, ms)
-                                    } else "",
-                                    color = MaterialTheme.colorScheme.primary,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                    softWrap = false,
-                                    modifier = Modifier
-                                        .padding(end = 12.dp)
-                                        .width(96.dp)
-                                )
-                            }
-                            
-                            Text(
-                                text = line.ifBlank { "..." },
-                                style = MaterialTheme.typography.titleLarge,
-                                color = Color.White,
-                                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
-                                modifier = Modifier.weight(1f)
+                            Icon(
+                                painterResource(R.drawable.close),
+                                contentDescription = stringResource(R.string.close),
+                                tint = Color.White
                             )
                         }
                     }
-                }
+                },
+                actions = {
+                    TextButton(
+                        onClick = {
+                            val providerLine = if (lyricsText.startsWith("[provider:")) {
+                                lyricsText.substringBefore('\n') + "\n"
+                            } else ""
 
-                // Bottom Panel Controls
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
-                        .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
-                        .padding(horizontal = 24.dp, vertical = 24.dp)
-                ) {
-                    Box(modifier = Modifier.align(Alignment.CenterHorizontally)) {
-                        LivePositionText(playerConnection = playerConnection)
+                            val syncedText = plainLines.mapIndexed { index, line ->
+                                val time = timestamps[index]
+                                if (time != null) {
+                                    val min = time / 60000
+                                    val sec = (time % 60000) / 1000
+                                    val ms = (time % 1000) / 10
+                                    String.format(Locale.US, "[%02d:%02d.%02d]%s", min, sec, ms, line)
+                                } else {
+                                    line
+                                }
+                            }.joinToString("\n")
+
+                            onSave(providerLine + syncedText.trimStart('\n'))
+                        },
+                        modifier = Modifier.padding(end = 8.dp)
+                    ) {
+                        Text(
+                            stringResource(R.string.save),
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
                     }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = Color.Transparent
+                )
+            )
 
-                    Spacer(Modifier.height(24.dp))
+            // Lyrics List with edge fading
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .fadingEdge(vertical = 48.dp),
+                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                itemsIndexed(
+                    items = plainLines,
+                    key = { index, _ -> index }
+                ) { index, line ->
+                    val isCurrent = index == currentIndex
+                    val isSynced = timestamps.containsKey(index)
+                    val time = timestamps[index]
 
-                    // Playback Controls
+                    val scale by animateFloatAsState(
+                        targetValue = if (isCurrent) 1.05f else 1f,
+                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                        label = "scale"
+                    )
+                    val alpha by animateFloatAsState(
+                        targetValue = if (isCurrent) 1f else if (isSynced) 0.5f else 0.3f,
+                        animationSpec = tween(300),
+                        label = "alpha"
+                    )
+
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .scale(scale)
+                            .alpha(alpha)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(
+                                if (isCurrent) Color.White.copy(alpha = 0.15f) else Color.Transparent
+                            )
+                            .clickable {
+                                if (isSynced) {
+                                    playerConnection.player.seekTo(time!!)
+                                } else {
+                                    currentIndex = index
+                                }
+                            }
+                            .padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // -2s Seek Back
-                        val seekBackInteractionSource = remember { MutableInteractionSource() }
-                        val seekBackIsPressed by seekBackInteractionSource.collectIsPressedAsState()
-                        val seekBackScale by animateFloatAsState(if (seekBackIsPressed) 0.9f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "seekBackScale")
-                        
-                        Box(
-                            modifier = Modifier
-                                .size(56.dp)
-                                .scale(seekBackScale)
-                                .background(Color.White.copy(alpha = 0.15f), CircleShape)
-                                .clickable(
-                                    interactionSource = seekBackInteractionSource,
-                                    indication = androidx.compose.material3.ripple(bounded = false)
-                                ) {
-                                    playerConnection.player.seekTo(maxOf(0L, playerConnection.player.currentPosition - 2000L))
-                                },
-                            contentAlignment = Alignment.Center
+                        AnimatedVisibility(
+                            visible = isSynced,
+                            enter = fadeIn(tween(300)) + expandHorizontally(spring(stiffness = Spring.StiffnessMedium)),
+                            exit = fadeOut(tween(300)) + shrinkHorizontally(spring(stiffness = Spring.StiffnessMedium))
                         ) {
                             Text(
-                                text = stringResource(R.string.seek_back_2s),
-                                color = Color.White,
+                                text = if (isSynced) {
+                                    val min = time!! / 60000
+                                    val sec = (time % 60000) / 1000
+                                    val ms = (time % 1000) / 10
+                                    String.format(Locale.US, "[%02d:%02d.%02d]", min, sec, ms)
+                                } else "",
+                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontFamily = FontFamily.Monospace,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp
+                                maxLines = 1,
+                                softWrap = false,
+                                modifier = Modifier
+                                    .padding(end = 12.dp)
+                                    .width(96.dp)
                             )
                         }
 
-                        // Play/Pause
-                        val playPauseInteractionSource = remember { MutableInteractionSource() }
-                        val playPauseIsPressed by playPauseInteractionSource.collectIsPressedAsState()
-                        val playPauseScale by animateFloatAsState(if (playPauseIsPressed) 0.9f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "playPauseScale")
-
-                        Box(
-                            modifier = Modifier
-                                .size(72.dp)
-                                .scale(playPauseScale)
-                                .background(MaterialTheme.colorScheme.primary, CircleShape)
-                                .clickable(
-                                    interactionSource = playPauseInteractionSource,
-                                    indication = androidx.compose.material3.ripple(bounded = false)
-                                ) {
-                                    playerConnection.togglePlayPause()
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                painter = painterResource(if (isPlaying) R.drawable.pause else R.drawable.play),
-                                contentDescription = if (isPlaying) stringResource(R.string.media3_controls_pause_description) else stringResource(R.string.play),
-                                modifier = Modifier.size(36.dp),
-                                tint = MaterialTheme.colorScheme.onPrimary
-                            )
-                        }
-
-                        // Undo
-                        val undoInteractionSource = remember { MutableInteractionSource() }
-                        val undoIsPressed by undoInteractionSource.collectIsPressedAsState()
-                        val undoScale by animateFloatAsState(if (undoIsPressed) 0.9f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "undoScale")
-
-                        Box(
-                            modifier = Modifier
-                                .size(56.dp)
-                                .scale(undoScale)
-                                .background(Color.White.copy(alpha = 0.15f), CircleShape)
-                                .clickable(
-                                    interactionSource = undoInteractionSource,
-                                    indication = androidx.compose.material3.ripple(bounded = false),
-                                    enabled = currentIndex > 0
-                                ) {
-                                    if (currentIndex > 0) {
-                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                        currentIndex--
-                                        timestamps.remove(currentIndex)
-                                    }
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.skip_previous),
-                                contentDescription = stringResource(R.string.undo),
-                                tint = if (currentIndex > 0) Color.White else Color.White.copy(alpha = 0.3f),
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
+                        Text(
+                            text = line.ifBlank { "..." },
+                            style = MaterialTheme.typography.titleLarge,
+                            color = Color.White,
+                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
+                }
+            }
 
-                    Spacer(Modifier.height(32.dp))
+            // Bottom Panel Controls
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
+                    .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
+                    .padding(horizontal = 24.dp, vertical = 24.dp)
+            ) {
+                Box(modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                    LivePositionText(playerConnection = playerConnection)
+                }
 
-                    // Big Sync Button
-                    val syncInteractionSource = remember { MutableInteractionSource() }
-                    val syncIsPressed by syncInteractionSource.collectIsPressedAsState()
-                    val syncScale by animateFloatAsState(if (syncIsPressed) 0.95f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "syncScale")
-                    val isSyncEnabled = currentIndex < plainLines.size
+                Spacer(Modifier.height(24.dp))
+
+                // Playback Controls
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // -2s Seek Back
+                    val seekBackInteractionSource = remember { MutableInteractionSource() }
+                    val seekBackIsPressed by seekBackInteractionSource.collectIsPressedAsState()
+                    val seekBackScale by animateFloatAsState(if (seekBackIsPressed) 0.9f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "seekBackScale")
 
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(72.dp)
-                            .scale(syncScale)
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(if (isSyncEnabled) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.2f))
+                            .size(56.dp)
+                            .scale(seekBackScale)
+                            .background(Color.White.copy(alpha = 0.15f), CircleShape)
                             .clickable(
-                                interactionSource = syncInteractionSource,
-                                indication = androidx.compose.material3.ripple(),
-                                enabled = isSyncEnabled
+                                interactionSource = seekBackInteractionSource,
+                                indication = androidx.compose.material3.ripple(bounded = false)
                             ) {
-                                if (isSyncEnabled) {
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    timestamps[currentIndex] = playerConnection.player.currentPosition
-                                    currentIndex++
-                                }
+                                playerConnection.player.seekTo(maxOf(0L, playerConnection.player.currentPosition - 2000L))
                             },
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = stringResource(R.string.sync_next_line),
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 2.sp,
-                            color = if (isSyncEnabled) MaterialTheme.colorScheme.onPrimary else Color.White.copy(alpha = 0.5f)
+                            text = stringResource(R.string.seek_back_2s),
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
                         )
                     }
+
+                    // Play/Pause
+                    val playPauseInteractionSource = remember { MutableInteractionSource() }
+                    val playPauseIsPressed by playPauseInteractionSource.collectIsPressedAsState()
+                    val playPauseScale by animateFloatAsState(if (playPauseIsPressed) 0.9f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "playPauseScale")
+
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .scale(playPauseScale)
+                            .background(MaterialTheme.colorScheme.primary, CircleShape)
+                            .clickable(
+                                interactionSource = playPauseInteractionSource,
+                                indication = androidx.compose.material3.ripple(bounded = false)
+                            ) {
+                                playerConnection.togglePlayPause()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(if (isPlaying) R.drawable.pause else R.drawable.play),
+                            contentDescription = if (isPlaying) stringResource(R.string.media3_controls_pause_description) else stringResource(R.string.play),
+                            modifier = Modifier.size(36.dp),
+                            tint = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
+
+                    // Undo
+                    val undoInteractionSource = remember { MutableInteractionSource() }
+                    val undoIsPressed by undoInteractionSource.collectIsPressedAsState()
+                    val undoScale by animateFloatAsState(if (undoIsPressed) 0.9f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "undoScale")
+
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .scale(undoScale)
+                            .background(Color.White.copy(alpha = 0.15f), CircleShape)
+                            .clickable(
+                                interactionSource = undoInteractionSource,
+                                indication = androidx.compose.material3.ripple(bounded = false),
+                                enabled = currentIndex > 0
+                            ) {
+                                if (currentIndex > 0) {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    currentIndex--
+                                    timestamps.remove(currentIndex)
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.skip_previous),
+                            contentDescription = stringResource(R.string.undo),
+                            tint = if (currentIndex > 0) Color.White else Color.White.copy(alpha = 0.3f),
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(32.dp))
+
+                // Big Sync Button
+                val syncInteractionSource = remember { MutableInteractionSource() }
+                val syncIsPressed by syncInteractionSource.collectIsPressedAsState()
+                val syncScale by animateFloatAsState(if (syncIsPressed) 0.95f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "syncScale")
+                val isSyncEnabled = currentIndex < plainLines.size
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(72.dp)
+                        .scale(syncScale)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(if (isSyncEnabled) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.2f))
+                        .clickable(
+                            interactionSource = syncInteractionSource,
+                            indication = androidx.compose.material3.ripple(),
+                            enabled = isSyncEnabled
+                        ) {
+                            if (isSyncEnabled) {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                timestamps[currentIndex] = playerConnection.player.currentPosition
+                                currentIndex++
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = stringResource(R.string.sync_next_line),
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 2.sp,
+                        color = if (isSyncEnabled) MaterialTheme.colorScheme.onPrimary else Color.White.copy(alpha = 0.5f)
+                    )
                 }
             }
         }
