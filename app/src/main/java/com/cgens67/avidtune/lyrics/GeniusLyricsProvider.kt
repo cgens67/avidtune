@@ -34,6 +34,8 @@ private data class GeniusResult(
 
 @Serializable
 private data class GeniusHit(
+    val type: String? = null,
+    val index: String? = null,
     val result: GeniusResult? = null
 )
 
@@ -98,29 +100,62 @@ object GeniusLyricsProvider : LyricsProvider {
         val searchData = searchResponse.body<GeniusSearchRoot>()
         val sections = searchData.response?.sections.orEmpty()
 
-        val songHit = sections.flatMap { it.hits }
-            .firstOrNull { it.result?.url != null }
-            ?: throw IllegalStateException("No results found on Genius for $query")
+        // Filter specifically for song hits
+        val songHits = sections.flatMap { it.hits }
+            .filter { hit ->
+                val isSong = hit.type == "song" || hit.index == "song" || hit.result?.url?.contains("-lyrics") == true
+                isSong && !hit.result?.url.isNullOrBlank()
+            }
 
-        val songUrl = songHit.result?.url
+        if (songHits.isEmpty()) {
+            throw IllegalStateException("No song results found on Genius for $query")
+        }
+
+        // Find best matching hit based on title and artist
+        val cleanTitle = title.lowercase().trim()
+        val cleanArtist = artist.lowercase().trim()
+
+        val bestHit = songHits.firstOrNull { hit ->
+            val resultTitle = hit.result?.title?.lowercase().orEmpty()
+            val resultArtist = hit.result?.primary_artist?.name?.lowercase().orEmpty()
+
+            (resultTitle.contains(cleanTitle) || cleanTitle.contains(resultTitle)) &&
+                    (cleanArtist.isBlank() || resultArtist.contains(cleanArtist) || cleanArtist.contains(resultArtist))
+        } ?: songHits.first()
+
+        val songUrl = bestHit.result?.url
             ?: throw IllegalStateException("No URL found for Genius song")
 
         val lyricsText = withContext(Dispatchers.IO) {
             val doc = Jsoup.connect(songUrl)
-                .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
                 .timeout(10000)
                 .get()
 
-            doc.select("br").forEach { it.replaceWith(org.jsoup.nodes.TextNode("\n")) }
-            val containers = doc.select("div[data-lyrics-container=true]")
+            // Remove non-lyric metadata, headers, scripts, annotations, and contributor bars
+            doc.select("[data-exclude-from-selection=true]").remove()
+            doc.select("header").remove()
+            doc.select("script").remove()
+            doc.select("style").remove()
 
-            val text = if (containers.isNotEmpty()) {
-                containers.joinToString("\n\n") { it.text() }
+            // Convert <br> tags into newlines
+            doc.select("br").forEach { it.replaceWith(org.jsoup.nodes.TextNode("\n")) }
+
+            // Extract lyric containers
+            val containers = doc.select("div[data-lyrics-container=true]")
+            val extractedText = if (containers.isNotEmpty()) {
+                containers.joinToString("\n\n") { container ->
+                    container.wholeText().trim()
+                }
             } else {
-                doc.select(".lyrics").text()
+                doc.select(".lyrics").text().trim()
             }
 
-            text.trim()
+            // Remove residual header junk if present
+            extractedText
+                .replace(Regex("(?i)^\\d*\\s*Contributors?.*?(Lyrics|Letras|Paroles)\\n*", RegexOption.DOTMATCHESALL), "")
+                .replace(Regex("(?i)^.*?Lyrics\\b\\n*"), "")
+                .trim()
         }
 
         if (lyricsText.isBlank()) {
