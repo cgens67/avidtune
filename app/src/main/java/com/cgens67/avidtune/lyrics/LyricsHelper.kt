@@ -25,6 +25,8 @@ constructor(
         SimpMusicLyricsProvider,
         LrcLibLyricsProvider,
         KuGouLyricsProvider,
+        NetEaseLyricsProvider,
+        GeniusLyricsProvider,
         YouTubeSubtitleLyricsProvider,
         YouTubeLyricsProvider
     )
