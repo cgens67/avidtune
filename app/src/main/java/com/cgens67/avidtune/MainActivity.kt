@@ -70,6 +70,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -213,7 +214,6 @@ import com.cgens67.avidtune.ui.screens.settings.ThemePalettes
 import com.cgens67.avidtune.ui.theme.ColorSaver
 import com.cgens67.avidtune.ui.theme.DefaultThemeColor
 import com.cgens67.avidtune.ui.theme.AvidTuneTheme
-import com.cgens67.avidtune.ui.theme.ThemeSeedPalette
 import com.cgens67.avidtune.ui.theme.ThemeSeedPaletteCodec
 import com.cgens67.avidtune.ui.theme.extractThemeColor
 import com.cgens67.avidtune.ui.utils.appBarScrollBehavior
@@ -243,6 +243,8 @@ import java.net.URL
 import java.net.URLDecoder
 import java.net.URLEncoder
 import javax.inject.Inject
+
+// El codigo original de la aplicacion pertenece a : Arturo Cervantes Galindo (cgens67) Cualquier parecido es copia y pega de mi codigo original
 
 @Suppress("DEPRECATION", "ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
 @AndroidEntryPoint
@@ -366,13 +368,10 @@ class MainActivity : ComponentActivity() {
             var themeColor by rememberSaveable(stateSaver = ColorSaver) {
                 mutableStateOf(DefaultThemeColor)
             }
-            var customSeedPalette by remember {
-                mutableStateOf<ThemeSeedPalette?>(null)
-            }
-
+            
             val useSystemFont by rememberPreference(UseSystemFontKey, defaultValue = false)
             val appTextSize by rememberEnumPreference(AppTextSizeKey, defaultValue = AppTextSize.SYSTEM)
-
+            
             val density = LocalDensity.current
             val customDensity = remember(density, appTextSize) {
                 val fontScale = when (appTextSize) {
@@ -390,10 +389,8 @@ class MainActivity : ComponentActivity() {
                 if (!enableDynamicTheme) {
                     val seedPalette = ThemeSeedPaletteCodec.decodeFromPreference(customThemeColor)
                     if (seedPalette != null) {
-                        customSeedPalette = seedPalette
                         themeColor = seedPalette.primary
                     } else {
-                        customSeedPalette = null
                         val palette = ThemePalettes.findById(customThemeColor)
                             ?: ThemePalettes.findByPrimaryColor(customThemeColor)
                             ?: ThemePalettes.Default
@@ -401,13 +398,12 @@ class MainActivity : ComponentActivity() {
                     }
                     return@LaunchedEffect
                 }
-
-                customSeedPalette = null
+                
                 if (playerConnection == null) {
                     themeColor = DefaultThemeColor
                     return@LaunchedEffect
                 }
-
+                
                 playerConnection.service.currentMediaMetadata.collectLatest { song ->
                     themeColor =
                         if (song != null) {
@@ -436,7 +432,6 @@ class MainActivity : ComponentActivity() {
                     darkTheme = useDarkTheme,
                     pureBlack = pureBlack,
                     themeColor = themeColor,
-                    customSeedPalette = customSeedPalette,
                     useSystemFont = useSystemFont,
                 ) {
                     var showUpdateChangelog by rememberSaveable { mutableStateOf(false) }
@@ -509,6 +504,7 @@ class MainActivity : ComponentActivity() {
                         val windowsInsets = WindowInsets.systemBars
                         val bottomInset = with(currentDensity) { windowsInsets.getBottom(currentDensity).toDp() }
                         val bottomInsetDp = WindowInsets.systemBars.asPaddingValues().calculateBottomPadding()
+
 
                         val navController = rememberNavController()
                         val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -831,24 +827,28 @@ class MainActivity : ComponentActivity() {
                                         exit = fadeOut(animationSpec = tween(300)) + slideOutVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { -it }
                                     ) {
                                         Box(modifier = Modifier.fillMaxWidth()) {
+                                            // Capa base con color de fondo siempre visible
                                             Box(
                                                 modifier = Modifier
                                                     .matchParentSize()
                                                     .background(MaterialTheme.colorScheme.surface)
                                             )
 
+                                            // Validación más segura para el background
                                             val safeSelectedValue = when {
                                                 playerBackground == PlayerBackgroundStyle.BLUR &&
                                                         Build.VERSION.SDK_INT < Build.VERSION_CODES.S -> {
-                                                    PlayerBackgroundStyle.DEFAULT
+                                                    PlayerBackgroundStyle.DEFAULT // Sin blur en versiones < Android 12 (S)
                                                 }
 
                                                 else -> playerBackground
                                             }
 
+                                            // Solo mostrar blur si safeSelectedValue es BLUR
                                             if (safeSelectedValue == PlayerBackgroundStyle.BLUR) {
                                                 val playerConnection = LocalPlayerConnection.current
 
+                                                // Verificación más segura del playerConnection
                                                 playerConnection?.let { connection ->
                                                     val mediaMetadata by connection.mediaMetadata.collectAsState()
 
@@ -879,6 +879,7 @@ class MainActivity : ComponentActivity() {
                                                                     )
                                                                 },
                                                             onError = { error ->
+                                                                // Log del error sin crashear la app
                                                                 Log.w(
                                                                     "PlayerBackground",
                                                                     "Error loading background image: ${error.result.throwable.message}"
@@ -889,6 +890,7 @@ class MainActivity : ComponentActivity() {
                                                 }
                                             }
 
+                                            // Animaciones de Titulo
                                             val infiniteTransition = rememberInfiniteTransition(label = "header_transition")
                                             
                                             val gradientOffset by infiniteTransition.animateFloat(
@@ -945,6 +947,7 @@ class MainActivity : ComponentActivity() {
                                                         val viewModel: NewReleaseViewModel = hiltViewModel()
                                                         val hasNewReleases by viewModel.hasNewReleases.collectAsState()
 
+                                                        // Notif Anim
                                                         val notifInteractionSource = remember { MutableInteractionSource() }
                                                         val isNotifPressed by notifInteractionSource.collectIsPressedAsState()
                                                         val notifScale by animateFloatAsState(
@@ -953,6 +956,7 @@ class MainActivity : ComponentActivity() {
                                                             label = "notif_scale"
                                                         )
 
+                                                        // Ícono de notificación para nuevos lanzamientos
                                                         Box(
                                                             modifier = Modifier
                                                                 .size(48.dp)
@@ -961,6 +965,7 @@ class MainActivity : ComponentActivity() {
                                                             IconButton(
                                                                 onClick = {
                                                                     try {
+                                                                        // Marcar como vistos al navegar
                                                                         viewModel.markNewReleasesAsSeen()
                                                                         navController.navigate("new_release")
                                                                     } catch (e: Exception) {
@@ -982,6 +987,7 @@ class MainActivity : ComponentActivity() {
                                                                 )
                                                             }
 
+                                                            // Badge para nuevos lanzamientos
                                                             if (hasNewReleases) {
                                                                 val badgeScale by infiniteTransition.animateFloat(
                                                                     initialValue = 0.8f,
@@ -1089,6 +1095,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                     }
 
+                                    // Verificación más segura para la ruta
                                     val isSearchRoute =
                                         navBackStackEntry?.destination?.route?.startsWith("search/") == true
 
@@ -1232,6 +1239,7 @@ class MainActivity : ComponentActivity() {
                                                                 )
                                                                 navController.navigate("search/$encodedQuery")
 
+                                                                // Verificar preferencias antes de guardar historial
                                                                 if (dataStore[PauseSearchHistoryKey] != true) {
                                                                     database.query {
                                                                         insert(SearchHistory(query = searchQuery))
@@ -1274,6 +1282,7 @@ class MainActivity : ComponentActivity() {
                                                 animationSpec = tween(300)
                                             ) + fadeOut(animationSpec = tween(300))
                                         ) {
+                                            // Usar directamente LyricsScreen que ya es una pantalla completa
                                             val playerConnection = LocalPlayerConnection.current
                                             val mediaMetadata by playerConnection?.mediaMetadata?.collectAsState()
                                                 ?: return@AnimatedVisibility
@@ -1287,6 +1296,7 @@ class MainActivity : ComponentActivity() {
                                                     modifier = Modifier.fillMaxSize()
                                                 )
                                             } else {
+                                                // Mostrar placeholder o cerrar
                                                 Box(
                                                     modifier = Modifier
                                                         .fillMaxSize()
@@ -1298,10 +1308,12 @@ class MainActivity : ComponentActivity() {
                                             }
                                         }
 
+                                        // Detectar automáticamente si es tablet y landscape
                                         val configuration = LocalConfiguration.current
                                         val isTabletLandscape = configuration.screenWidthDp >= 600 &&
                                                 configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
+                                        // Mostrar NavigationBar solo en phones o tablets en portrait
                                         val shouldShowBottomNav = true
 
                                         if (shouldShowBottomNav) {
@@ -1356,6 +1368,7 @@ class MainActivity : ComponentActivity() {
                                                         }
                                                     } else {
                                                         if (isSelected) {
+                                                            // Scroll to top en la pantalla actual
                                                             navController.currentBackStackEntry?.savedStateHandle?.set(
                                                                 "scrollToTop",
                                                                 true
@@ -1422,6 +1435,7 @@ class MainActivity : ComponentActivity() {
                                                     .height(bottomInsetDp)
                                             )
                                         } else {
+                                            // En tablets en landscape, solo mostrar el BottomSheetPlayer y el Box del inset
                                             Box(
                                                 modifier = Modifier
                                                     .background(insetBg)
@@ -1508,7 +1522,7 @@ class MainActivity : ComponentActivity() {
                                             slideOutHorizontally(
                                                 targetOffsetX = { it },
                                                 animationSpec = tween(350, easing = FastOutSlowInEasing)
-                                            ) + fadeOut(animationSpec = tween(200, easing = LinearEasing))
+                                            ) + fadeOut(animationSpec = tween(200, easing = LinearEasing)) // Rapid fade to drop it from hit testing
                                         }
                                     },
 
@@ -1660,14 +1674,16 @@ fun NotificationPermissionPreference() {
     val context = LocalContext.current
     var permissionGranted by remember { mutableStateOf(false) }
 
+    // Función para verificar permisos extraída para mejor legibilidad
     val checkNotificationPermission = remember {
         {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 ContextCompat.checkSelfPermission(
                     context,
                     Manifest.permission.POST_NOTIFICATIONS
-                ) == PackageManager.PERMISSION_GRANTED
+                ) == PackageManager.PERMISSION_GRANTED // Usar PackageManager en lugar de PermissionChecker
             } else {
+                // Para versiones anteriores, verificar si las notificaciones están habilitadas
                 NotificationManagerCompat.from(context).areNotificationsEnabled()
             }
         }
@@ -1677,15 +1693,19 @@ fun NotificationPermissionPreference() {
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         permissionGranted = isGranted
+        // Opcional: agregar callback para manejar el resultado
         if (!isGranted) {
+            // Manejar caso cuando el usuario rechaza el permiso
             Log.d("NotificationPermission", "Permiso de notificaciones denegado")
         }
     }
 
+    // Verificar permisos al inicializar y cuando la app vuelve al foreground
     LaunchedEffect(Unit) {
         permissionGranted = checkNotificationPermission()
     }
 
+    // Escuchar cambios cuando la app vuelve del background
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -1720,11 +1740,13 @@ fun NotificationPermissionPreference() {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                     } else {
+                        // Para versiones anteriores, dirigir a configuración
                         openNotificationSettings(context)
                     }
                 }
 
                 !checked && permissionGranted -> {
+                    // Si el usuario intenta desactivar, dirigir a configuración del sistema
                     openNotificationSettings(context)
                 }
             }
@@ -1732,6 +1754,8 @@ fun NotificationPermissionPreference() {
     )
 }
 
+
+// Función auxiliar para abrir configuración de notificaciones
 private fun openNotificationSettings(context: Context) {
     val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
@@ -1747,6 +1771,7 @@ private fun openNotificationSettings(context: Context) {
         context.startActivity(intent)
     } catch (e: ActivityNotFoundException) {
         Log.e("NotificationSettings", "No se pudo abrir configuración de notificaciones", e)
+        // Fallback: abrir configuración general
         context.startActivity(Intent(Settings.ACTION_SETTINGS))
     }
 }
@@ -1790,6 +1815,7 @@ fun ProfileIconWithUpdateBadge(
     var showUpdateBadge by remember { mutableStateOf(false) }
     val updatedOnClick = rememberUpdatedState(onProfileClick)
 
+    // Animación del badge
     val infiniteTransition = rememberInfiniteTransition(label = "badge_animation")
     val scale by infiniteTransition.animateFloat(
         initialValue = 1f,
@@ -1819,6 +1845,7 @@ fun ProfileIconWithUpdateBadge(
         label = "press_scale"
     )
 
+    // Control seguro de updates
     LaunchedEffect(currentVersion) {
         try {
             val latestVersion = withContext(Dispatchers.IO) { checkForUpdates() }
@@ -1841,9 +1868,11 @@ fun ProfileIconWithUpdateBadge(
                 try {
                     updatedOnClick.value()
                 } catch (e: Exception) {
-                    e.printStackTrace}
+                    e.printStackTrace()
+                }
             }
     ) {
+        // Avatar usando el nuevo sistema
         Box(contentAlignment = Alignment.Center) {
             when (currentSelection) {
                 is AvatarSelection.Custom -> {
@@ -1888,12 +1917,14 @@ fun ProfileIconWithUpdateBadge(
             }
         }
 
+        // Badge de actualización mejorado - dentro del avatar
         if (showUpdateBadge) {
             Box(
                 modifier = Modifier
                     .align(Alignment.Center)
                     .size(28.dp)
             ) {
+                // Anillo de pulso exterior
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -1909,6 +1940,7 @@ fun ProfileIconWithUpdateBadge(
                         )
                 )
 
+                // Overlay semi-transparente
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -1918,6 +1950,7 @@ fun ProfileIconWithUpdateBadge(
                         )
                 )
 
+                // Ícono de actualización con animación
                 Icon(
                     painter = painterResource(R.drawable.update),
                     contentDescription = "Actualización disponible",
