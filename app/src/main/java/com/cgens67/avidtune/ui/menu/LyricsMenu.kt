@@ -56,6 +56,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
 import com.cgens67.avidtune.LocalDatabase
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.db.entities.LyricsEntity
@@ -81,6 +82,7 @@ fun LyricsMenu(
     onTranslateClick: () -> Unit = {},
     isRomanized: Boolean = false,
     onRomanizeClick: () -> Unit = {},
+    navController: NavController? = null,
 ) {
     val context = LocalContext.current
     val database = LocalDatabase.current
@@ -540,7 +542,14 @@ fun LyricsMenu(
                                     )
                                 },
                                 text = stringResource(R.string.sync_lyrics),
-                                onClick = { showSyncDialog = true }
+                                onClick = {
+                                    onDismiss()
+                                    if (navController != null) {
+                                        navController.navigate("sync_lyrics")
+                                    } else {
+                                        showSyncDialog = true
+                                    }
+                                }
                             )
                         )
                     }
