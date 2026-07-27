@@ -1293,6 +1293,7 @@ class MainActivity : ComponentActivity() {
                                                     onNavigateBack = {
                                                         showFullscreenLyrics = false
                                                     },
+                                                    navController = navController,
                                                     modifier = Modifier.fillMaxSize()
                                                 )
                                             } else {
