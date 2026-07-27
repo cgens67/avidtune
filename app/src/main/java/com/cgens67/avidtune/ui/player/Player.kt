@@ -833,6 +833,7 @@ fun PlayerBackground(
     backgroundAlpha: Float,
     disableBlur: Boolean
 ) {
+    val context = LocalContext.current
     Box(modifier = Modifier.fillMaxSize()) {
         when (playerBackground) {
             PlayerBackgroundStyle.BLUR -> {
@@ -847,12 +848,17 @@ fun PlayerBackground(
                         val useDarkTheme = isSystemInDarkTheme()
                         Box(modifier = Modifier.alpha(backgroundAlpha)) {
                             AsyncImage(
-                                model = thumbnailUrl,
+                                model = ImageRequest.Builder(context)
+                                    .data(thumbnailUrl)
+                                    .size(32, 32)
+                                    .allowHardware(false)
+                                    .build(),
                                 contentDescription = "Blurred background",
                                 contentScale = ContentScale.Crop,
+                                filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .let { if (!disableBlur) it.blur(if (useDarkTheme) 150.dp else 100.dp) else it }
+                                    .let { if (!disableBlur) it.blur(if (useDarkTheme) 48.dp else 40.dp) else it }
                             )
                             Box(
                                 modifier = Modifier
@@ -906,18 +912,28 @@ fun PlayerBackground(
                 ) { thumbnailUrl ->
                     Box(modifier = Modifier.fillMaxSize()) {
                         AsyncImage(
-                            model = thumbnailUrl,
+                            model = ImageRequest.Builder(context)
+                                .data(thumbnailUrl)
+                                .size(32, 32)
+                                .allowHardware(false)
+                                .build(),
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
+                            filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
                             modifier = Modifier.fillMaxSize()
                         )
                         AsyncImage(
-                            model = thumbnailUrl,
+                            model = ImageRequest.Builder(context)
+                                .data(thumbnailUrl)
+                                .size(32, 32)
+                                .allowHardware(false)
+                                .build(),
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
+                            filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
                             modifier = Modifier
                                 .fillMaxSize()
-                                .let { if (!disableBlur) it.blur(80.dp) else it }
+                                .let { if (!disableBlur) it.blur(48.dp) else it }
                                 .graphicsLayer(
                                     alpha = 1f, 
                                     clip = true,
@@ -987,11 +1003,10 @@ fun PlayerBackground(
                                 .alpha(backgroundAlpha)
                                 .graphicsLayer { scaleX = 1.7f; scaleY = 1.7f }
                         ) {
-                            val context = LocalContext.current
                             val imageRequest = remember(thumbnailUrl) {
                                 ImageRequest.Builder(context)
                                     .data(thumbnailUrl)
-                                    .size(128, 128)
+                                    .size(32, 32)
                                     .allowHardware(false)
                                     .build()
                             }
@@ -1003,9 +1018,10 @@ fun PlayerBackground(
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
                                 colorFilter = ColorFilter.colorMatrix(saturationMatrix),
+                                filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .blur(100.dp)
+                                    .blur(if (!disableBlur) 48.dp else 0.dp)
                                     .graphicsLayer { rotationZ = anchorRotation }
                             )
 
@@ -1016,9 +1032,10 @@ fun PlayerBackground(
                                 contentScale = ContentScale.Crop,
                                 alignment = Alignment.TopStart,
                                 colorFilter = ColorFilter.colorMatrix(saturationMatrix),
+                                filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .blur(120.dp)
+                                    .blur(if (!disableBlur) 48.dp else 0.dp)
                                     .graphicsLayer { 
                                         rotationZ = fastRotation
                                         alpha = 0.6f
@@ -1032,9 +1049,10 @@ fun PlayerBackground(
                                 contentScale = ContentScale.Crop,
                                 alignment = Alignment.BottomEnd,
                                 colorFilter = ColorFilter.colorMatrix(saturationMatrix),
+                                filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .blur(120.dp)
+                                    .blur(if (!disableBlur) 48.dp else 0.dp)
                                     .graphicsLayer { 
                                         rotationZ = slowRotation
                                         alpha = 0.5f
