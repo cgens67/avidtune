@@ -1006,8 +1006,8 @@ fun PlayerBackground(
                             val imageRequest = remember(thumbnailUrl) {
                                 ImageRequest.Builder(context)
                                     .data(thumbnailUrl)
-                                    .size(32, 32)
-                                    .allowHardware(false)
+                                    .size(16, 16)
+                                    .allowHardware(true)
                                     .build()
                             }
                             val saturationMatrix = remember { ColorMatrix().apply { setToSaturation(1.8f) } }
@@ -1021,7 +1021,6 @@ fun PlayerBackground(
                                 filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .blur(if (!disableBlur) 48.dp else 0.dp)
                                     .graphicsLayer { rotationZ = anchorRotation }
                             )
 
@@ -1035,7 +1034,6 @@ fun PlayerBackground(
                                 filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .blur(if (!disableBlur) 48.dp else 0.dp)
                                     .graphicsLayer { 
                                         rotationZ = fastRotation
                                         alpha = 0.6f
@@ -1052,7 +1050,6 @@ fun PlayerBackground(
                                 filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .blur(if (!disableBlur) 48.dp else 0.dp)
                                     .graphicsLayer { 
                                         rotationZ = slowRotation
                                         alpha = 0.5f
