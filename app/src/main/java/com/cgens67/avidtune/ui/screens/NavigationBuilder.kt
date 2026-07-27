@@ -82,6 +82,9 @@ fun NavGraphBuilder.navigationBuilder(
     composable("insight") {
         InsightScreen(navController)
     }
+    composable("sync_lyrics") {
+        SyncLyricsScreen(navController = navController)
+    }
     composable("news") {
         NewsScreen(navController)
     }
