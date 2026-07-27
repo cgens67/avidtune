@@ -674,7 +674,15 @@ class MainActivity : ComponentActivity() {
                             }
                             searchBarScrollBehavior.state.resetHeightOffset()
                             topAppBarScrollBehavior.state.resetHeightOffset()
+
+                            if (navBackStackEntry?.destination?.route == "sync_lyrics") {
+                                showFullscreenLyrics = false
+                                if (playerBottomSheetState.isExpanded) {
+                                    playerBottomSheetState.collapseSoft()
+                                }
+                            }
                         }
+
                         LaunchedEffect(active) {
                             if (active) {
                                 searchBarScrollBehavior.state.resetHeightOffset()
