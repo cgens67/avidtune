@@ -33,8 +33,14 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import com.cgens67.avidtune.LocalDatabase
+import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
+import com.cgens67.avidtune.db.entities.LyricsEntity
 import com.cgens67.avidtune.extensions.togglePlayPause
 import com.cgens67.avidtune.playback.PlayerConnection
 import com.cgens67.avidtune.ui.utils.fadingEdge
@@ -98,13 +104,68 @@ private fun LivePositionText(playerConnection: PlayerConnection) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SyncLyricsScreen(
+    navController: NavController
+) {
+    val playerConnection = LocalPlayerConnection.current ?: return
+    val database = LocalDatabase.current
+    val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
+    val rawLyricsEntity by playerConnection.currentLyrics.collectAsState(initial = null)
+
+    val lyricsText = remember(rawLyricsEntity) {
+        rawLyricsEntity?.lyrics.orEmpty()
+    }
+
+    SyncLyricsContent(
+        lyricsText = lyricsText,
+        playerConnection = playerConnection,
+        onDismiss = { navController.navigateUp() },
+        onSave = { syncedLyrics ->
+            if (mediaMetadata != null) {
+                database.query {
+                    upsert(
+                        LyricsEntity(
+                            id = mediaMetadata!!.id,
+                            lyrics = syncedLyrics,
+                        )
+                    )
+                }
+            }
+            navController.navigateUp()
+        }
+    )
+}
+
+@Composable
+fun SyncLyricsScreen(
     lyricsText: String,
     playerConnection: PlayerConnection,
     onDismiss: () -> Unit,
     onSave: (String) -> Unit
 ) {
-    BackHandler(onBack = onDismiss)
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
+    ) {
+        SyncLyricsContent(
+            lyricsText = lyricsText,
+            playerConnection = playerConnection,
+            onDismiss = onDismiss,
+            onSave = onSave
+        )
+    }
+}
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SyncLyricsContent(
+    lyricsText: String,
+    playerConnection: PlayerConnection,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit
+) {
     val haptic = LocalHapticFeedback.current
     val coroutineScope = rememberCoroutineScope()
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
@@ -134,7 +195,9 @@ fun SyncLyricsScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    BackHandler(onBack = onDismiss)
+
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         SyncedBackground(thumbnailUrl = mediaMetadata?.thumbnailUrl)
 
         Column(
@@ -165,8 +228,8 @@ fun SyncLyricsScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                painterResource(R.drawable.close),
-                                contentDescription = stringResource(R.string.close),
+                                painterResource(R.drawable.arrow_back),
+                                contentDescription = stringResource(R.string.back),
                                 tint = Color.White
                             )
                         }
