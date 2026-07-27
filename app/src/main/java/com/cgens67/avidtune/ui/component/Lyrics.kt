@@ -223,6 +223,7 @@ import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.runtime.derivedStateOf
+import androidx.navigation.NavController
 
 @RequiresApi(Build.VERSION_CODES.M)
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class,
@@ -238,7 +239,8 @@ fun Lyrics(
     mediaMetadata: com.cgens67.avidtune.models.MediaMetadata? = null,
     onBackClick: () -> Unit = {},
     @SuppressLint("ModifierParameter") modifier: Modifier = Modifier,
-    backgroundAlpha: () -> Float = { 1f }
+    backgroundAlpha: () -> Float = { 1f },
+    navController: NavController? = null,
 ) {
     val playerConnection = LocalPlayerConnection.current ?: return
     val menuState = com.cgens67.avidtune.ui.component.LocalMenuState.current
@@ -1629,7 +1631,8 @@ fun Lyrics(
                                                 isTranslated = showTranslated,
                                                 onTranslateClick = { toggleTranslation() },
                                                 isRomanized = showRomanized,
-                                                onRomanizeClick = { toggleRomanization() }
+                                                onRomanizeClick = { toggleRomanization() },
+                                                navController = navController
                                             )
                                         }
                                     }
