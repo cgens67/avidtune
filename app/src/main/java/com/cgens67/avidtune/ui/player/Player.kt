@@ -846,19 +846,29 @@ fun PlayerBackground(
                 ) { thumbnailUrl ->
                     if (thumbnailUrl != null) {
                         val useDarkTheme = isSystemInDarkTheme()
-                        Box(modifier = Modifier.alpha(backgroundAlpha)) {
-                            AsyncImage(
-                                model = ImageRequest.Builder(context)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .alpha(backgroundAlpha),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            val imageRequest = remember(thumbnailUrl) {
+                                ImageRequest.Builder(context)
                                     .data(thumbnailUrl)
-                                    .size(32, 32)
-                                    .allowHardware(false)
-                                    .build(),
+                                    .size(128, 128)
+                                    .build()
+                            }
+                            AsyncImage(
+                                model = imageRequest,
                                 contentDescription = "Blurred background",
                                 contentScale = ContentScale.Crop,
-                                filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
                                 modifier = Modifier
-                                    .fillMaxSize()
-                                    .let { if (!disableBlur) it.blur(if (useDarkTheme) 48.dp else 40.dp) else it }
+                                    .graphicsLayer {
+                                        scaleX = 8f
+                                        scaleY = 8f
+                                    }
+                                    .blur(if (!disableBlur) if (useDarkTheme) 20.dp else 12.dp else 0.dp)
+                                    .size(200.dp)
                             )
                             Box(
                                 modifier = Modifier
@@ -910,35 +920,35 @@ fun PlayerBackground(
                     label = "appleMusicBackground",
                     modifier = Modifier.graphicsLayer(alpha = backgroundAlpha)
                 ) { thumbnailUrl ->
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        val imageRequest = remember(thumbnailUrl) {
+                            ImageRequest.Builder(context)
                                 .data(thumbnailUrl)
-                                .size(32, 32)
-                                .allowHardware(false)
-                                .build(),
+                                .size(128, 128)
+                                .build()
+                        }
+                        
+                        // Base background
+                        AsyncImage(
+                            model = imageRequest,
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
-                            filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data(thumbnailUrl)
-                                .size(32, 32)
-                                .allowHardware(false)
-                                .build(),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
                             modifier = Modifier
-                                .fillMaxSize()
-                                .let { if (!disableBlur) it.blur(48.dp) else it }
-                                .graphicsLayer(
-                                    alpha = 1f, 
-                                    clip = true,
+                                .graphicsLayer { scaleX = 8f; scaleY = 8f }
+                                .blur(if (!disableBlur) 12.dp else 0.dp)
+                                .size(200.dp)
+                        )
+                        
+                        // Gradient masked blurred layer
+                        AsyncImage(
+                            model = imageRequest,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .graphicsLayer { 
+                                    scaleX = 8f; scaleY = 8f
                                     compositingStrategy = CompositingStrategy.Offscreen
-                                )
+                                }
                                 .drawWithContent {
                                     drawContent()
                                     drawRect(
@@ -949,7 +959,11 @@ fun PlayerBackground(
                                         blendMode = BlendMode.DstIn
                                     )
                                 }
+                                .blur(if (!disableBlur) 20.dp else 0.dp)
+                                .size(200.dp)
                         )
+                        
+                        // Overlay gradient
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -1000,17 +1014,17 @@ fun PlayerBackground(
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .alpha(backgroundAlpha)
-                                .graphicsLayer { scaleX = 1.7f; scaleY = 1.7f }
+                                .alpha(backgroundAlpha),
+                            contentAlignment = Alignment.Center
                         ) {
                             val imageRequest = remember(thumbnailUrl) {
                                 ImageRequest.Builder(context)
                                     .data(thumbnailUrl)
-                                    .size(16, 16)
-                                    .allowHardware(true)
+                                    .size(32, 32)
                                     .build()
                             }
                             val saturationMatrix = remember { ColorMatrix().apply { setToSaturation(1.8f) } }
+                            val baseBlur = if (!disableBlur) 24.dp else 0.dp
 
                             // Layer 1 (Anchor)
                             AsyncImage(
@@ -1020,8 +1034,13 @@ fun PlayerBackground(
                                 colorFilter = ColorFilter.colorMatrix(saturationMatrix),
                                 filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
                                 modifier = Modifier
-                                    .fillMaxSize()
-                                    .graphicsLayer { rotationZ = anchorRotation }
+                                    .graphicsLayer { 
+                                        scaleX = 10f
+                                        scaleY = 10f
+                                        rotationZ = anchorRotation
+                                    }
+                                    .blur(baseBlur)
+                                    .size(200.dp)
                             )
 
                             // Layer 2 (Fast)
@@ -1033,11 +1052,14 @@ fun PlayerBackground(
                                 colorFilter = ColorFilter.colorMatrix(saturationMatrix),
                                 filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
                                 modifier = Modifier
-                                    .fillMaxSize()
                                     .graphicsLayer { 
+                                        scaleX = 10f
+                                        scaleY = 10f
                                         rotationZ = fastRotation
                                         alpha = 0.6f
                                     }
+                                    .blur(baseBlur)
+                                    .size(200.dp)
                             )
 
                             // Layer 3 (Slow)
@@ -1049,11 +1071,14 @@ fun PlayerBackground(
                                 colorFilter = ColorFilter.colorMatrix(saturationMatrix),
                                 filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
                                 modifier = Modifier
-                                    .fillMaxSize()
                                     .graphicsLayer { 
+                                        scaleX = 10f
+                                        scaleY = 10f
                                         rotationZ = slowRotation
                                         alpha = 0.5f
                                     }
+                                    .blur(baseBlur)
+                                    .size(200.dp)
                             )
                             
                             // Depth & Contrast Overlays
