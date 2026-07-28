@@ -99,10 +99,14 @@ fun LyricsLine(
     val (disableBlur) = rememberPreference(DisableBlurKey, false)
     val playerConnection = LocalPlayerConnection.current ?: return
 
-    val blurRadius = if (disableBlur || !appleMusicLyricsBlur || !isAutoScrollActive || isActive || !isSynced || isSelectionModeActive)
+    val blurRadius by animateFloatAsState(
+        targetValue = if (disableBlur || !appleMusicLyricsBlur || !isAutoScrollActive || isActive || !isSynced || isSelectionModeActive)
             0f
         else
-            6f
+            6f,
+        animationSpec = if (animateLyrics) tween(durationMillis = 600) else snap(),
+        label = "blur"
+    )
 
     val animatedScale by animateFloatAsState(
         targetValue = when {
@@ -145,7 +149,7 @@ fun LyricsLine(
             this.scaleX = animatedScale
             this.scaleY = animatedScale
         }
-        .then(if (blurRadius > 0f) Modifier.blur(blurRadius.dp) else Modifier)
+        .then(if (blurRadius > 0.01f) Modifier.blur(blurRadius.dp) else Modifier)
 
     val agentAlignment = when {
         entry.agent == "v1" -> Alignment.Start
