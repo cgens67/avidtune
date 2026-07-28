@@ -1,5 +1,6 @@
 package com.cgens67.avidtune.ui.component
 
+import android.os.Build
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -29,12 +30,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.scale
@@ -98,6 +98,7 @@ fun LyricsLine(
     val (appleMusicLyricsBlur) = rememberPreference(AppleMusicLyricsBlurKey, true)
     val (disableBlur) = rememberPreference(DisableBlurKey, false)
     val playerConnection = LocalPlayerConnection.current ?: return
+    val density = LocalDensity.current
 
     val blurRadius by animateFloatAsState(
         targetValue = if (disableBlur || !appleMusicLyricsBlur || !isAutoScrollActive || isActive || !isSynced || isSelectionModeActive)
@@ -148,8 +149,18 @@ fun LyricsLine(
             this.alpha = animatedAlpha
             this.scaleX = animatedScale
             this.scaleY = animatedScale
+            
+            val blurPx = blurRadius * density.density
+            if (blurPx > 0.01f && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                this.renderEffect = android.graphics.RenderEffect.createBlurEffect(
+                    blurPx,
+                    blurPx,
+                    android.graphics.Shader.TileMode.CLAMP
+                ).asComposeRenderEffect()
+            } else {
+                this.renderEffect = null
+            }
         }
-        .then(if (blurRadius > 0.01f) Modifier.blur(blurRadius.dp) else Modifier)
 
     val agentAlignment = when {
         entry.agent == "v1" -> Alignment.Start
@@ -587,10 +598,7 @@ private fun WordLevelLyrics(
         Canvas(modifier = Modifier
             .fillMaxWidth()
             .height((layoutResult.size.height / density.density).dp)
-            .graphicsLayer(
-                clip = false,
-                compositingStrategy = CompositingStrategy.Offscreen,
-            )
+            .graphicsLayer(clip = false)
         ) {
             if (mainText.isEmpty()) return@Canvas
             val currentSmoothPos = smoothPosition
