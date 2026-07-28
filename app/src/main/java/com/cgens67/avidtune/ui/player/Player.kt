@@ -214,8 +214,8 @@ fun BottomSheetPlayer(
         }
         
     val bottomSheetBackgroundColor = when (playerBackground) {
-        PlayerBackgroundStyle.LIVE_MESH, PlayerBackgroundStyle.BLUR, PlayerBackgroundStyle.GRADIENT ->
-            MaterialTheme.colorScheme.surfaceContainer
+        PlayerBackgroundStyle.LIVE_MESH, PlayerBackgroundStyle.BLUR, PlayerBackgroundStyle.GRADIENT, PlayerBackgroundStyle.APPLE_MUSIC ->
+            if (useDarkTheme) MaterialTheme.colorScheme.surfaceContainer else Color(0xFF424242)
         else ->
             if (useBlackBackground) Color.Black
             else MaterialTheme.colorScheme.surfaceContainer
@@ -318,7 +318,7 @@ fun BottomSheetPlayer(
         val window = (context as? Activity)?.window
         if (window != null) {
             val insetsController = WindowCompat.getInsetsController(window, view)
-            if (state.progress > 0.5f && playerBackground == PlayerBackgroundStyle.LIVE_MESH) {
+            if (state.progress > 0.5f && playerBackground != PlayerBackgroundStyle.DEFAULT) {
                 insetsController.isAppearanceLightStatusBars = false
             } else {
                 insetsController.isAppearanceLightStatusBars = !useDarkTheme
@@ -848,12 +848,17 @@ fun PlayerBackground(
                         val useDarkTheme = isSystemInDarkTheme()
                         Box(modifier = Modifier.alpha(backgroundAlpha)) {
                             AsyncImage(
-                                model = thumbnailUrl,
+                                model = ImageRequest.Builder(context)
+                                    .data(thumbnailUrl)
+                                    .size(32, 32)
+                                    .allowHardware(false)
+                                    .build(),
                                 contentDescription = "Blurred background",
                                 contentScale = ContentScale.Crop,
+                                filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .let { if (!disableBlur) it.blur(if (useDarkTheme) 150.dp else 100.dp) else it }
+                                    .let { if (!disableBlur) it.blur(if (useDarkTheme) 48.dp else 40.dp) else it }
                             )
                             Box(
                                 modifier = Modifier
@@ -907,18 +912,28 @@ fun PlayerBackground(
                 ) { thumbnailUrl ->
                     Box(modifier = Modifier.fillMaxSize()) {
                         AsyncImage(
-                            model = thumbnailUrl,
+                            model = ImageRequest.Builder(context)
+                                .data(thumbnailUrl)
+                                .size(32, 32)
+                                .allowHardware(false)
+                                .build(),
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
+                            filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
                             modifier = Modifier.fillMaxSize()
                         )
                         AsyncImage(
-                            model = thumbnailUrl,
+                            model = ImageRequest.Builder(context)
+                                .data(thumbnailUrl)
+                                .size(32, 32)
+                                .allowHardware(false)
+                                .build(),
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
+                            filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
                             modifier = Modifier
                                 .fillMaxSize()
-                                .let { if (!disableBlur) it.blur(80.dp) else it }
+                                .let { if (!disableBlur) it.blur(48.dp) else it }
                                 .graphicsLayer(
                                     alpha = 1f, 
                                     clip = true,
@@ -992,6 +1007,7 @@ fun PlayerBackground(
                                 ImageRequest.Builder(context)
                                     .data(thumbnailUrl)
                                     .size(32, 32)
+                                    .allowHardware(true)
                                     .build()
                             }
                             val saturationMatrix = remember { ColorMatrix().apply { setToSaturation(1.8f) } }
