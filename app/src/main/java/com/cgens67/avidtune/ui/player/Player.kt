@@ -846,29 +846,14 @@ fun PlayerBackground(
                 ) { thumbnailUrl ->
                     if (thumbnailUrl != null) {
                         val useDarkTheme = isSystemInDarkTheme()
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .alpha(backgroundAlpha),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            val imageRequest = remember(thumbnailUrl) {
-                                ImageRequest.Builder(context)
-                                    .data(thumbnailUrl)
-                                    .size(128, 128)
-                                    .build()
-                            }
+                        Box(modifier = Modifier.alpha(backgroundAlpha)) {
                             AsyncImage(
-                                model = imageRequest,
+                                model = thumbnailUrl,
                                 contentDescription = "Blurred background",
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier
-                                    .graphicsLayer {
-                                        scaleX = 8f
-                                        scaleY = 8f
-                                    }
-                                    .blur(if (!disableBlur) if (useDarkTheme) 20.dp else 12.dp else 0.dp)
-                                    .size(200.dp)
+                                    .fillMaxSize()
+                                    .let { if (!disableBlur) it.blur(if (useDarkTheme) 150.dp else 100.dp) else it }
                             )
                             Box(
                                 modifier = Modifier
@@ -920,35 +905,25 @@ fun PlayerBackground(
                     label = "appleMusicBackground",
                     modifier = Modifier.graphicsLayer(alpha = backgroundAlpha)
                 ) { thumbnailUrl ->
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        val imageRequest = remember(thumbnailUrl) {
-                            ImageRequest.Builder(context)
-                                .data(thumbnailUrl)
-                                .size(128, 128)
-                                .build()
-                        }
-                        
-                        // Base background
+                    Box(modifier = Modifier.fillMaxSize()) {
                         AsyncImage(
-                            model = imageRequest,
+                            model = thumbnailUrl,
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .graphicsLayer { scaleX = 8f; scaleY = 8f }
-                                .blur(if (!disableBlur) 12.dp else 0.dp)
-                                .size(200.dp)
+                            modifier = Modifier.fillMaxSize()
                         )
-                        
-                        // Gradient masked blurred layer
                         AsyncImage(
-                            model = imageRequest,
+                            model = thumbnailUrl,
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
-                                .graphicsLayer { 
-                                    scaleX = 8f; scaleY = 8f
+                                .fillMaxSize()
+                                .let { if (!disableBlur) it.blur(80.dp) else it }
+                                .graphicsLayer(
+                                    alpha = 1f, 
+                                    clip = true,
                                     compositingStrategy = CompositingStrategy.Offscreen
-                                }
+                                )
                                 .drawWithContent {
                                     drawContent()
                                     drawRect(
@@ -959,11 +934,7 @@ fun PlayerBackground(
                                         blendMode = BlendMode.DstIn
                                     )
                                 }
-                                .blur(if (!disableBlur) 20.dp else 0.dp)
-                                .size(200.dp)
                         )
-                        
-                        // Overlay gradient
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
