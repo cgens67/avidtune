@@ -875,26 +875,18 @@ fun Lyrics(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(if (playerBackground != PlayerBackgroundStyle.DEFAULT && !useDarkTheme) Color(0xFF424242) else Color.Transparent)
                     .graphicsLayer { alpha = backgroundAlpha() }
             ) {
                 when (playerBackground) {
                     PlayerBackgroundStyle.BLUR -> {
                         currentMetadata?.let { metadata ->
-                            val imageRequest = remember(metadata.thumbnailUrl) {
-                                ImageRequest.Builder(context)
-                                    .data(metadata.thumbnailUrl)
-                                    .size(32, 32)
-                                    .build()
-                            }
                             AsyncImage(
-                                model = imageRequest,
+                                model = metadata.thumbnailUrl,
                                 contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
+                                contentScale = ContentScale.FillBounds,
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .let { if (!disableBlur) it.blur(if (useDarkTheme) 48.dp else 40.dp) else it }
+                                    .let { if (!disableBlur) it.blur(if (useDarkTheme) 150.dp else 100.dp) else it }
                             )
                         }
                     }
@@ -921,46 +913,52 @@ fun Lyrics(
                         }
                     }
                     PlayerBackgroundStyle.APPLE_MUSIC -> {
-                        currentMetadata?.let { metadata ->
-                            val imageRequest = remember(metadata.thumbnailUrl) {
-                                ImageRequest.Builder(context)
-                                    .data(metadata.thumbnailUrl)
-                                    .size(32, 32)
-                                    .build()
-                            }
-                            Box(modifier = Modifier.fillMaxSize()) {
-                                AsyncImage(
-                                    model = imageRequest,
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
-                                    modifier = Modifier.fillMaxSize()
-                                        .let { if (!disableBlur) it.blur(48.dp) else it }
-                                )
-                                AsyncImage(
-                                    model = imageRequest,
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .let { if (!disableBlur) it.blur(48.dp) else it }
-                                        .graphicsLayer(
-                                            alpha = 1f, 
-                                            clip = true,
-                                            compositingStrategy = CompositingStrategy.Offscreen
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            if (gradientColors.isNotEmpty()) {
+                                val color1 = gradientColors[0]
+                                val color2 = gradientColors.getOrElse(1) { gradientColors[0].copy(alpha = 0.8f) }
+                                val color3 = gradientColors.getOrElse(2) { gradientColors[0].copy(alpha = 0.6f) }
+
+                                Canvas(modifier = Modifier
+                                    .fillMaxSize()
+                                    .let { if (!disableBlur) it.blur(100.dp) else it }
+                                ) {
+                                    drawRect(
+                                        brush = Brush.verticalGradient(
+                                            listOf(color1, color2, color3)
                                         )
-                                        .drawWithContent {
-                                            drawContent()
-                                            drawRect(
-                                                brush = Brush.verticalGradient(
-                                                    0.4f to Color.Transparent,
-                                                    0.6f to Color.Black
-                                                ),
-                                                blendMode = BlendMode.DstIn
-                                            )
-                                        }
-                                )
+                                    )
+
+                                    drawCircle(
+                                        brush = Brush.radialGradient(
+                                            colors = listOf(color1, Color.Transparent),
+                                            center = Offset(size.width * 0.2f, size.height * 0.2f),
+                                            radius = size.width * 0.8f
+                                        ),
+                                        center = Offset(size.width * 0.2f, size.height * 0.2f),
+                                        radius = size.width * 0.8f
+                                    )
+
+                                    drawCircle(
+                                        brush = Brush.radialGradient(
+                                            colors = listOf(color2, Color.Transparent),
+                                            center = Offset(size.width * 0.8f, size.height * 0.5f),
+                                            radius = size.width * 0.7f
+                                        ),
+                                        center = Offset(size.width * 0.8f, size.height * 0.5f),
+                                        radius = size.width * 0.7f
+                                    )
+
+                                    drawCircle(
+                                        brush = Brush.radialGradient(
+                                            colors = listOf(color3, Color.Transparent),
+                                            center = Offset(size.width * 0.3f, size.height * 0.8f),
+                                            radius = size.width * 0.9f
+                                        ),
+                                        center = Offset(size.width * 0.3f, size.height * 0.8f),
+                                        radius = size.width * 0.9f
+                                    )
+                                }
                             }
                         }
                     }
@@ -985,13 +983,13 @@ fun Lyrics(
                             )
 
                             val saturationMatrix = remember { ColorMatrix().apply { setToSaturation(1.8f) } }
-                            val baseBlur = if (!disableBlur) 48.dp else 0.dp
                             
-                            Box(modifier = Modifier.fillMaxSize()) {
+                            Box(modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = 3f; scaleY = 3f }) {
                                 val imageRequest = remember(metadata.thumbnailUrl) {
                                     ImageRequest.Builder(context)
                                         .data(metadata.thumbnailUrl)
-                                        .size(32, 32)
+                                        .size(128, 128)
+                                        .allowHardware(false)
                                         .build()
                                 }
 
@@ -1001,15 +999,10 @@ fun Lyrics(
                                     contentDescription = null,
                                     contentScale = ContentScale.Crop,
                                     colorFilter = ColorFilter.colorMatrix(saturationMatrix),
-                                    filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .graphicsLayer { 
-                                            scaleX = 8f
-                                            scaleY = 8f
-                                            rotationZ = anchorRotation 
-                                        }
-                                        .let { if (!disableBlur) it.blur(baseBlur) else it }
+                                        .blur(if (!disableBlur) 100.dp else 0.dp)
+                                        .graphicsLayer { rotationZ = anchorRotation }
                                 )
 
                                 // Layer 2 (Fast)
@@ -1019,16 +1012,13 @@ fun Lyrics(
                                     contentScale = ContentScale.Crop,
                                     alignment = Alignment.TopStart,
                                     colorFilter = ColorFilter.colorMatrix(saturationMatrix),
-                                    filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
                                     modifier = Modifier
                                         .fillMaxSize()
+                                        .blur(if (!disableBlur) 120.dp else 0.dp)
                                         .graphicsLayer { 
-                                            scaleX = 8f
-                                            scaleY = 8f
                                             rotationZ = fastRotation
                                             alpha = 0.6f
                                         }
-                                        .let { if (!disableBlur) it.blur(baseBlur) else it }
                                 )
 
                                 // Layer 3 (Slow)
@@ -1038,16 +1028,13 @@ fun Lyrics(
                                     contentScale = ContentScale.Crop,
                                     alignment = Alignment.BottomEnd,
                                     colorFilter = ColorFilter.colorMatrix(saturationMatrix),
-                                    filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
                                     modifier = Modifier
                                         .fillMaxSize()
+                                        .blur(if (!disableBlur) 120.dp else 0.dp)
                                         .graphicsLayer { 
-                                            scaleX = 8f
-                                            scaleY = 8f
                                             rotationZ = slowRotation
                                             alpha = 0.5f
                                         }
-                                        .let { if (!disableBlur) it.blur(baseBlur) else it }
                                 )
                                 
                                 // Depth & Contrast Overlays
