@@ -118,6 +118,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
@@ -886,7 +887,7 @@ fun Lyrics(
                                 contentScale = ContentScale.FillBounds,
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .let { if (!disableBlur) it.blur(48.dp) else it }
+                                    .let { if (!disableBlur) it.blur(if (useDarkTheme) 150.dp else 100.dp) else it }
                             )
                         }
                     }
@@ -921,7 +922,7 @@ fun Lyrics(
 
                                 Canvas(modifier = Modifier
                                     .fillMaxSize()
-                                    .let { if (!disableBlur) it.blur(48.dp) else it }
+                                    .let { if (!disableBlur) it.blur(100.dp) else it }
                                 ) {
                                     drawRect(
                                         brush = Brush.verticalGradient(
@@ -1001,7 +1002,7 @@ fun Lyrics(
                                     colorFilter = ColorFilter.colorMatrix(saturationMatrix),
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .blur(if (!disableBlur) 48.dp else 0.dp)
+                                        .blur(if (!disableBlur) 100.dp else 0.dp)
                                         .graphicsLayer { rotationZ = anchorRotation }
                                 )
 
@@ -1014,7 +1015,7 @@ fun Lyrics(
                                     colorFilter = ColorFilter.colorMatrix(saturationMatrix),
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .blur(if (!disableBlur) 48.dp else 0.dp)
+                                        .blur(if (!disableBlur) 120.dp else 0.dp)
                                         .graphicsLayer { 
                                             rotationZ = fastRotation
                                             alpha = 0.6f
@@ -1030,7 +1031,7 @@ fun Lyrics(
                                     colorFilter = ColorFilter.colorMatrix(saturationMatrix),
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .blur(if (!disableBlur) 48.dp else 0.dp)
+                                        .blur(if (!disableBlur) 120.dp else 0.dp)
                                         .graphicsLayer { 
                                             rotationZ = slowRotation
                                             alpha = 0.5f
