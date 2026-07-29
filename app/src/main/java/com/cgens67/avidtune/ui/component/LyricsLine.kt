@@ -1,6 +1,5 @@
 package com.cgens67.avidtune.ui.component
 
-import android.os.Build
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -30,11 +29,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.scale
@@ -98,7 +97,6 @@ fun LyricsLine(
     val (appleMusicLyricsBlur) = rememberPreference(AppleMusicLyricsBlurKey, true)
     val (disableBlur) = rememberPreference(DisableBlurKey, false)
     val playerConnection = LocalPlayerConnection.current ?: return
-    val density = LocalDensity.current
 
     val blurRadius by animateFloatAsState(
         targetValue = if (disableBlur || !appleMusicLyricsBlur || !isAutoScrollActive || isActive || !isSynced || isSelectionModeActive)
@@ -149,18 +147,8 @@ fun LyricsLine(
             this.alpha = animatedAlpha
             this.scaleX = animatedScale
             this.scaleY = animatedScale
-            
-            val blurPx = blurRadius * density.density
-            if (blurPx > 0.01f && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                this.renderEffect = android.graphics.RenderEffect.createBlurEffect(
-                    blurPx,
-                    blurPx,
-                    android.graphics.Shader.TileMode.CLAMP
-                ).asComposeRenderEffect()
-            } else {
-                this.renderEffect = null
-            }
         }
+        .then(if (blurRadius > 0.01f) Modifier.blur(blurRadius.dp) else Modifier)
 
     val agentAlignment = when {
         entry.agent == "v1" -> Alignment.Start
@@ -578,9 +566,9 @@ private fun WordLevelLyrics(
                 isAntiAlias = true
                 typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
                 textSize = fontSizePx
+                maskFilter = android.graphics.BlurMaskFilter(16f, android.graphics.BlurMaskFilter.Blur.NORMAL)
             }
         }
-        val cachedGlowFilters = remember { mutableMapOf<Int, android.graphics.BlurMaskFilter>() }
         
         val isRtlText = remember(mainText) { mainText.containsRtl() }
         
@@ -807,17 +795,9 @@ private fun WordLevelLyrics(
                             val impactFactor = (((impactRatio - 100f) / 250f).coerceIn(0f, 1f) * 0.6f + ((dur.toFloat() - 300f) / 1500f).coerceIn(0f, 1f) * 0.4f).coerceIn(0f, 1f) * fadeFactor
                             if (impactFactor > 0.01f) {
                                 val glowAlpha = (0.35f * impactFactor).coerceIn(0f, 0.4f)
-                                val baseGlowRadius = density.run { 12.dp.toPx() } * impactFactor                                                                                    
-                                
-                                val intRadius = baseGlowRadius.toInt()
-                                if (intRadius > 0) {
-                                    drawIntoCanvas { canvas ->
-                                        glowPaint.maskFilter = cachedGlowFilters.getOrPut(intRadius) {
-                                            android.graphics.BlurMaskFilter(intRadius.toFloat(), android.graphics.BlurMaskFilter.Blur.NORMAL)
-                                        }
-                                        glowPaint.color = expressiveAccent.copy(alpha = glowAlpha).toArgb()
-                                        canvas.nativeCanvas.drawText(graphemeClusters[i], 0f, clusterBaselines[i], glowPaint)
-                                    }
+                                drawIntoCanvas { canvas ->
+                                    glowPaint.color = expressiveAccent.copy(alpha = glowAlpha).toArgb()
+                                    canvas.nativeCanvas.drawText(graphemeClusters[i], 0f, clusterBaselines[i], glowPaint)
                                 }
                             }
                         }
