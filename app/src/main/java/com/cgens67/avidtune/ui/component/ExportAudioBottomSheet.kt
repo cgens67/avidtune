@@ -70,7 +70,6 @@ private fun ExportDropdown(
             value = transform(selected), onValueChange = {}, readOnly = true, label = { Text(label) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
             modifier = Modifier.menuAnchor().fillMaxWidth(),
-            // Changed shape from CircleShape to RoundedCornerShape(16.dp)
             shape = RoundedCornerShape(16.dp),
             colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
         )
@@ -117,6 +116,7 @@ fun ExportAudioBottomSheet(song: Song, onDismiss: () -> Unit) {
     var selectedFormat by remember { mutableStateOf("mp3") }
     var selectedQuality by remember { mutableStateOf("Default") }
     var selectedSource by remember { mutableStateOf("Auto") }
+    var turnstileToken by remember { mutableStateOf("") }
     
     var availableStreams by remember { mutableStateOf<List<StreamInfo>>(emptyList()) }
     var currentSource by remember { mutableStateOf("") }
@@ -242,6 +242,21 @@ fun ExportAudioBottomSheet(song: Song, onDismiss: () -> Unit) {
                             }
                             Spacer(Modifier.height(16.dp))
                             ExportDropdown(label = stringResource(R.string.api_source), selected = selectedSource, options = listOf("Auto", "Cobalt API", "Google InnerTube", "Piped API"), onSelect = { selectedSource = it }, modifier = Modifier.fillMaxWidth())
+                            
+                            if (selectedSource == "Auto" || selectedSource == "Cobalt API") {
+                                Spacer(Modifier.height(16.dp))
+                                OutlinedTextField(
+                                    value = turnstileToken,
+                                    onValueChange = { turnstileToken = it },
+                                    label = { Text("Turnstile Token / API Key (Optional)") },
+                                    placeholder = { Text("Paste Turnstile token or Bearer/Api-Key") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = OutlinedTextFieldDefaults.colors()
+                                )
+                            }
+
                             Spacer(Modifier.height(16.dp))
                             Text(stringResource(R.string.export_note_mp3), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(Modifier.height(32.dp))
@@ -250,7 +265,7 @@ fun ExportAudioBottomSheet(song: Song, onDismiss: () -> Unit) {
                                     state = ExportState.FETCHING
                                     coroutineScope.launch(Dispatchers.IO) {
                                         val fetchedStreams = mutableListOf<StreamInfo>()
-                                        val fetchClient = OkHttpClient.Builder().connectTimeout(5, TimeUnit.SECONDS).readTimeout(5, TimeUnit.SECONDS).build()
+                                        val fetchClient = OkHttpClient.Builder().connectTimeout(8, TimeUnit.SECONDS).readTimeout(8, TimeUnit.SECONDS).build()
                                         
                                         val tryCobalt = selectedSource == "Auto" || selectedSource == "Cobalt API" || selectedFormat == "mp3"
                                         val tryInnerTube = (selectedSource == "Auto" || selectedSource == "Google InnerTube") && selectedFormat != "mp3"
@@ -259,15 +274,49 @@ fun ExportAudioBottomSheet(song: Song, onDismiss: () -> Unit) {
                                         try {
                                             if (tryCobalt) {
                                                 val bitrateStr = when (selectedQuality) { "Highest", "320 kbps" -> "320"; "256 kbps" -> "256"; "128 kbps", "Default" -> "128"; "Lowest", "64 kbps", "48 kbps" -> "64"; else -> "128" }
-                                                val payload = JSONObject().apply {
-                                                    put("url", "https://www.youtube.com/watch?v=${song.song.id}"); put("downloadMode", "audio")
+                                                val payloadObj = JSONObject().apply {
+                                                    put("url", "https://www.youtube.com/watch?v=${song.song.id}")
+                                                    put("downloadMode", "audio")
                                                     put("audioFormat", if (selectedFormat == "opus" || selectedFormat == "mp3") selectedFormat else "best")
-                                                    put("audioBitrate", bitrateStr); put("filenameStyle", "basic")
-                                                }.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
+                                                    put("audioBitrate", bitrateStr)
+                                                    put("filenameStyle", "basic")
+                                                    if (turnstileToken.isNotBlank()) {
+                                                        put("turnstileToken", turnstileToken.trim())
+                                                    }
+                                                }
+                                                val payload = payloadObj.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
                                                 
-                                                val cobaltV11Instances = listOf("https://rue-cobalt.xenon.zone/" to "https://cobalt.xenon.zone", "https://cobaltapi.kittycat.boo/" to "https://cobalt.kittycat.boo", "https://dog.kittycat.boo/" to "https://cobalt.kittycat.boo", "https://api.cobalt.liubquanti.click/" to "https://cobalt.liubquanti.click", "https://cobaltapi.cjs.nz/" to "https://cobalt.cjs.nz").shuffled()
+                                                val cobaltV11Instances = listOf(
+                                                    "https://rue-cobalt.xenon.zone/" to "https://cobalt.xenon.zone",
+                                                    "https://cobaltapi.cjs.nz/" to "https://cobalt.cjs.nz",
+                                                    "https://cobaltapi.kittycat.boo/" to "https://cobalt.kittycat.boo",
+                                                    "https://dog.kittycat.boo/" to "https://cobalt.kittycat.boo",
+                                                    "https://api.cobalt.liubquanti.click/" to "https://cobalt.liubquanti.click",
+                                                    "https://api.cobalt.tools/" to "https://cobalt.tools",
+                                                    "https://co.wuk.sh/" to "https://cobalt.tools",
+                                                    "https://cobalt-api.kwiatek.xyz/" to "https://cobalt.kwiatek.xyz",
+                                                    "https://cobalt-api.loly.yachts/" to "https://cobalt.loly.yachts",
+                                                    "https://cobalt.qtf.ai/" to "https://cobalt.qtf.ai"
+                                                ).shuffled()
+
                                                 for ((apiUrl, frontend) in cobaltV11Instances) {
-                                                    val url = fetchClient.fetchJsonObj(apiUrl) { post(payload).header("Accept", "application/json").header("Content-Type", "application/json").header("Origin", frontend).header("Referer", "$frontend/") }?.optString("url")
+                                                    val jsonRes = fetchClient.fetchJsonObj(apiUrl) {
+                                                        post(payload)
+                                                        header("Accept", "application/json")
+                                                        header("Content-Type", "application/json")
+                                                        header("Origin", frontend)
+                                                        header("Referer", "$frontend/")
+                                                        if (turnstileToken.isNotBlank()) {
+                                                            val token = turnstileToken.trim()
+                                                            if (token.startsWith("Api-Key ", ignoreCase = true) || token.startsWith("Bearer ", ignoreCase = true)) {
+                                                                header("Authorization", token)
+                                                            } else {
+                                                                header("Authorization", "Bearer $token")
+                                                                header("cf-turnstile-response", token)
+                                                            }
+                                                        }
+                                                    }
+                                                    val url = jsonRes?.optString("url")
                                                     if (!url.isNullOrEmpty()) {
                                                         fetchedStreams.add(StreamInfo(url, selectedFormat, bitrateStr.toInt(), 0, "Cobalt API (${frontend.removePrefix("https://")})", frontendUrl = frontend))
                                                         break
