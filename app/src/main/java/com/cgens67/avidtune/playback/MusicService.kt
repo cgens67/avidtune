@@ -10,6 +10,7 @@ import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.audiofx.AudioEffect
 import android.media.audiofx.LoudnessEnhancer
+import android.media.audiofx.HapticGenerator
 import android.net.ConnectivityManager
 import android.os.Binder
 import android.os.Build
@@ -66,6 +67,7 @@ import com.cgens67.avidtune.constants.DisableLoadMoreWhenRepeatAllKey
 import com.cgens67.avidtune.constants.DiscordTokenKey
 import com.cgens67.avidtune.constants.DiscordUseDetailsKey
 import com.cgens67.avidtune.constants.EnableDiscordRPCKey
+import com.cgens67.avidtune.constants.EnableMusicHapticsKey
 import com.cgens67.avidtune.constants.HideExplicitKey
 import com.cgens67.avidtune.constants.HistoryDuration
 import com.cgens67.avidtune.constants.MediaSessionConstants.CommandToggleLike
@@ -234,6 +236,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     private lateinit var mediaSession: MediaLibrarySession
     private var isAudioEffectSessionOpened = false
     private var loudnessEnhancer: LoudnessEnhancer? = null
+    private var hapticGenerator: HapticGenerator? = null
     private var discordRpc: DiscordRPC? = null
     private var lastPlaybackSpeed = 1.0f
     private var discordUpdateJob: Job? = null
@@ -377,6 +380,13 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             .distinctUntilChanged()
             .collectLatest(scope) {
                 sponsorBlockEnabled.value = it
+            }
+            
+        dataStore.data
+            .map { it[EnableMusicHapticsKey] ?: false }
+            .distinctUntilChanged()
+            .collectLatest(scope) {
+                setupHapticGenerator()
             }
 
         currentMediaMetadata.distinctUntilChangedBy { it?.id }.collectLatest(scope) { metadata ->
@@ -969,10 +979,56 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         }
     }
 
+    private fun setupHapticGenerator() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || !HapticGenerator.isAvailable()) {
+            return
+        }
+        val audioSessionId = player.audioSessionId
+        if (audioSessionId == C.AUDIO_SESSION_ID_UNSET || audioSessionId <= 0) {
+            return
+        }
+        if (hapticGenerator == null) {
+            try {
+                hapticGenerator = HapticGenerator.create(audioSessionId)
+            } catch (e: Exception) {
+                reportException(e)
+                hapticGenerator = null
+                return
+            }
+        }
+        scope.launch {
+            try {
+                val enableHaptics = withContext(Dispatchers.IO) {
+                    dataStore.data.map { it[com.cgens67.avidtune.constants.EnableMusicHapticsKey] ?: false }.first()
+                }
+                withContext(Dispatchers.Main) {
+                    hapticGenerator?.enabled = enableHaptics
+                    if (enableHaptics) {
+                        Log.d(TAG, "HapticGenerator enabled for sessionId=$audioSessionId")
+                    }
+                }
+            } catch (e: Exception) {
+                reportException(e)
+                releaseHapticGenerator()
+            }
+        }
+    }
+
+    private fun releaseHapticGenerator() {
+        try {
+            hapticGenerator?.release()
+        } catch (e: Exception) {
+            reportException(e)
+        } finally {
+            hapticGenerator = null
+        }
+    }
+
     private fun openAudioEffectSession() {
         if (isAudioEffectSessionOpened) return
         isAudioEffectSessionOpened = true
         setupLoudnessEnhancer()
+        setupHapticGenerator()
         sendBroadcast(
             Intent(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION).apply {
                 putExtra(AudioEffect.EXTRA_AUDIO_SESSION, player.audioSessionId)
@@ -986,6 +1042,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         if (!isAudioEffectSessionOpened) return
         isAudioEffectSessionOpened = false
         releaseLoudnessEnhancer()
+        releaseHapticGenerator()
         sendBroadcast(
             Intent(AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION).apply {
                 putExtra(AudioEffect.EXTRA_AUDIO_SESSION, player.audioSessionId)
@@ -1486,6 +1543,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         discordRpc = null
         abandonAudioFocus()
         releaseLoudnessEnhancer()
+        releaseHapticGenerator()
         mediaSession.release()
         player.removeListener(this)
         player.removeListener(sleepTimer)
