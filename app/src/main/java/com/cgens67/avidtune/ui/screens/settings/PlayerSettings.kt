@@ -2,6 +2,7 @@
 
 package com.cgens67.avidtune.ui.screens.settings
 
+import android.os.Build
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -71,6 +72,7 @@ import com.cgens67.avidtune.constants.AudioFadingKey
 import com.cgens67.avidtune.constants.AudioQuality
 import com.cgens67.avidtune.constants.AudioQualityKey
 import com.cgens67.avidtune.constants.AutoSkipNextOnErrorKey
+import com.cgens67.avidtune.constants.EnableMusicHapticsKey
 import com.cgens67.avidtune.constants.PersistentQueueKey
 import com.cgens67.avidtune.constants.SkipSilenceKey
 import com.cgens67.avidtune.constants.SponsorBlockEnabledKey
@@ -124,6 +126,13 @@ fun PlayerSettings(
         AudioNormalizationKey,
         defaultValue = true
     )
+    val isHapticsSupported = remember {
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && android.media.audiofx.HapticGenerator.isAvailable()
+    }
+    val (musicHaptics, onMusicHapticsChange) = rememberPreference(
+        EnableMusicHapticsKey,
+        defaultValue = false
+    )
     val (autoSkipNextOnError, onAutoSkipNextOnErrorChange) = rememberPreference(
         AutoSkipNextOnErrorKey,
         defaultValue = false
@@ -145,62 +154,76 @@ fun PlayerSettings(
         navController = navController,
         scrollBehavior = scrollBehavior
     ) {
+        val playerSettingsItems = mutableListOf<@Composable () -> Unit>(
+            {EnumListPreference(
+                title = { Text(stringResource(R.string.audio_quality)) },
+                icon = { Icon(painterResource(R.drawable.graphic_eq), null) },
+                selectedValue = audioQuality,
+                onValueSelected = onAudioQualityChange,
+                valueText = {
+                    when (it) {
+                        AudioQuality.AUTO -> stringResource(R.string.audio_quality_auto)
+                        AudioQuality.HIGH -> stringResource(R.string.audio_quality_high)
+                        AudioQuality.LOW -> stringResource(R.string.audio_quality_low)
+                    }
+                }
+            )},
+            
+            {ListPreference(
+                title = { Text(stringResource(R.string.double_tap_to_seek)) },
+                icon = { Icon(painterResource(R.drawable.fast_forward), null) },
+                selectedValue = seekIncrement,
+                values = listOf(5, 10, 15, 30),
+                valueText = { pluralStringResource(R.plurals.seconds, it, it) },
+                onValueSelected = onSeekIncrementChange
+            )},
+
+            {SwitchPreference(
+                title = { Text(stringResource(R.string.skip_silence)) },
+                icon = { Icon(painterResource(R.drawable.fast_forward), null) },
+                checked = skipSilence,
+                onCheckedChange = onSkipSilenceChange
+            )},
+
+            {SwitchPreference(
+                title = { Text(stringResource(R.string.enable_sponsorblock)) },
+                description = stringResource(R.string.enable_sponsorblock_desc),
+                icon = { Icon(painterResource(R.drawable.skip_next), null) },
+                checked = sponsorBlockEnabled,
+                onCheckedChange = onSponsorBlockEnabledChange
+            )},
+
+            {SwitchPreference(
+                title = { Text(stringResource(R.string.premium_audio_fading)) },
+                description = stringResource(R.string.premium_audio_fading_desc),
+                icon = { Icon(painterResource(R.drawable.graphic_eq), null) },
+                checked = audioFading,
+                onCheckedChange = onAudioFadingChange
+            )},
+
+            {SwitchPreference(
+                title = { Text(stringResource(R.string.audio_normalization)) },
+                icon = { Icon(painterResource(R.drawable.volume_up), null) },
+                checked = audioNormalization,
+                onCheckedChange = onAudioNormalizationChange
+            )}
+        )
+
+        if (isHapticsSupported) {
+            playerSettingsItems.add {
+                SwitchPreference(
+                    title = { Text("Music Haptics") },
+                    description = "Vibrate the phone to the beat of the song",
+                    icon = { Icon(painterResource(R.drawable.graphic_eq), null) },
+                    checked = musicHaptics,
+                    onCheckedChange = onMusicHapticsChange
+                )
+            }
+        }
+
         SettingsGeneralCategory(
             title = stringResource(R.string.player),
-            items = listOf(
-                {EnumListPreference(
-                    title = { Text(stringResource(R.string.audio_quality)) },
-                    icon = { Icon(painterResource(R.drawable.graphic_eq), null) },
-                    selectedValue = audioQuality,
-                    onValueSelected = onAudioQualityChange,
-                    valueText = {
-                        when (it) {
-                            AudioQuality.AUTO -> stringResource(R.string.audio_quality_auto)
-                            AudioQuality.HIGH -> stringResource(R.string.audio_quality_high)
-                            AudioQuality.LOW -> stringResource(R.string.audio_quality_low)
-                        }
-                    }
-                )},
-                
-                {ListPreference(
-                    title = { Text(stringResource(R.string.double_tap_to_seek)) },
-                    icon = { Icon(painterResource(R.drawable.fast_forward), null) },
-                    selectedValue = seekIncrement,
-                    values = listOf(5, 10, 15, 30),
-                    valueText = { pluralStringResource(R.plurals.seconds, it, it) },
-                    onValueSelected = onSeekIncrementChange
-                )},
-
-                {SwitchPreference(
-                    title = { Text(stringResource(R.string.skip_silence)) },
-                    icon = { Icon(painterResource(R.drawable.fast_forward), null) },
-                    checked = skipSilence,
-                    onCheckedChange = onSkipSilenceChange
-                )},
-
-                {SwitchPreference(
-                    title = { Text(stringResource(R.string.enable_sponsorblock)) },
-                    description = stringResource(R.string.enable_sponsorblock_desc),
-                    icon = { Icon(painterResource(R.drawable.skip_next), null) },
-                    checked = sponsorBlockEnabled,
-                    onCheckedChange = onSponsorBlockEnabledChange
-                )},
-
-                {SwitchPreference(
-                    title = { Text(stringResource(R.string.premium_audio_fading)) },
-                    description = stringResource(R.string.premium_audio_fading_desc),
-                    icon = { Icon(painterResource(R.drawable.graphic_eq), null) },
-                    checked = audioFading,
-                    onCheckedChange = onAudioFadingChange
-                )},
-
-                {SwitchPreference(
-                    title = { Text(stringResource(R.string.audio_normalization)) },
-                    icon = { Icon(painterResource(R.drawable.volume_up), null) },
-                    checked = audioNormalization,
-                    onCheckedChange = onAudioNormalizationChange
-                )},
-            )
+            items = playerSettingsItems
         )
 
         SettingsGeneralCategory(
