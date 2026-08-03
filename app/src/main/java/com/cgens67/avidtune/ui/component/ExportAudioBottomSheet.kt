@@ -70,6 +70,7 @@ private fun ExportDropdown(
             value = transform(selected), onValueChange = {}, readOnly = true, label = { Text(label) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
             modifier = Modifier.menuAnchor().fillMaxWidth(),
+            // Changed shape from CircleShape to RoundedCornerShape(16.dp)
             shape = RoundedCornerShape(16.dp),
             colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
         )
@@ -264,25 +265,9 @@ fun ExportAudioBottomSheet(song: Song, onDismiss: () -> Unit) {
                                                     put("audioBitrate", bitrateStr); put("filenameStyle", "basic")
                                                 }.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
                                                 
-                                                val cobaltV11Instances = listOf(
-                                                    "https://rue-cobalt.xenon.zone/" to "https://cobalt.xenon.zone",
-                                                    "https://cobaltapi.kittycat.boo/" to "https://cobalt.kittycat.boo",
-                                                    "https://dog.kittycat.boo/" to "https://cobalt.kittycat.boo",
-                                                    "https://api.cobalt.liubquanti.click/" to "https://cobalt.liubquanti.click",
-                                                    "https://cobaltapi.cjs.nz/" to "https://cobalt.cjs.nz",
-                                                    "https://cobalt.alpha.wolfy.love/" to "https://cobalt.canine.tools",
-                                                    "https://subito-c.meowing.de/" to "https://cobalt.meowing.de"
-                                                ).shuffled()
-
+                                                val cobaltV11Instances = listOf("https://rue-cobalt.xenon.zone/" to "https://cobalt.xenon.zone", "https://cobaltapi.kittycat.boo/" to "https://cobalt.kittycat.boo", "https://dog.kittycat.boo/" to "https://cobalt.kittycat.boo", "https://api.cobalt.liubquanti.click/" to "https://cobalt.liubquanti.click", "https://cobaltapi.cjs.nz/" to "https://cobalt.cjs.nz").shuffled()
                                                 for ((apiUrl, frontend) in cobaltV11Instances) {
-                                                    val url = fetchClient.fetchJsonObj(apiUrl) { 
-                                                        post(payload)
-                                                            .header("Accept", "application/json")
-                                                            .header("Content-Type", "application/json")
-                                                            .header("Origin", frontend)
-                                                            .header("Referer", "$frontend/") 
-                                                    }?.optString("url")
-                                                    
+                                                    val url = fetchClient.fetchJsonObj(apiUrl) { post(payload).header("Accept", "application/json").header("Content-Type", "application/json").header("Origin", frontend).header("Referer", "$frontend/") }?.optString("url")
                                                     if (!url.isNullOrEmpty()) {
                                                         fetchedStreams.add(StreamInfo(url, selectedFormat, bitrateStr.toInt(), 0, "Cobalt API (${frontend.removePrefix("https://")})", frontendUrl = frontend))
                                                         break
