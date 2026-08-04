@@ -2,7 +2,6 @@
 
 package com.cgens67.avidtune.ui.screens.settings
 
-import android.os.Build
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -90,6 +89,7 @@ import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import android.os.Build
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -126,10 +126,7 @@ fun PlayerSettings(
         AudioNormalizationKey,
         defaultValue = true
     )
-    val isHapticsSupported = remember {
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && android.media.audiofx.HapticGenerator.isAvailable()
-    }
-    val (musicHaptics, onMusicHapticsChange) = rememberPreference(
+    val (enableMusicHaptics, onEnableMusicHapticsChange) = rememberPreference(
         EnableMusicHapticsKey,
         defaultValue = false
     )
@@ -149,81 +146,105 @@ fun PlayerSettings(
 
     val playerConnection = LocalPlayerConnection.current
 
+    val showHaptics = remember {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                android.media.audiofx.HapticGenerator.isAvailable()
+            } catch (e: Exception) {
+                false
+            }
+        } else {
+            false
+        }
+    }
+
     SettingsPage(
         title = stringResource(R.string.player_and_audio),
         navController = navController,
         scrollBehavior = scrollBehavior
     ) {
-        val playerSettingsItems = mutableListOf<@Composable () -> Unit>(
-            {EnumListPreference(
-                title = { Text(stringResource(R.string.audio_quality)) },
-                icon = { Icon(painterResource(R.drawable.graphic_eq), null) },
-                selectedValue = audioQuality,
-                onValueSelected = onAudioQualityChange,
-                valueText = {
-                    when (it) {
-                        AudioQuality.AUTO -> stringResource(R.string.audio_quality_auto)
-                        AudioQuality.HIGH -> stringResource(R.string.audio_quality_high)
-                        AudioQuality.LOW -> stringResource(R.string.audio_quality_low)
-                    }
-                }
-            )},
-            
-            {ListPreference(
-                title = { Text(stringResource(R.string.double_tap_to_seek)) },
-                icon = { Icon(painterResource(R.drawable.fast_forward), null) },
-                selectedValue = seekIncrement,
-                values = listOf(5, 10, 15, 30),
-                valueText = { pluralStringResource(R.plurals.seconds, it, it) },
-                onValueSelected = onSeekIncrementChange
-            )},
-
-            {SwitchPreference(
-                title = { Text(stringResource(R.string.skip_silence)) },
-                icon = { Icon(painterResource(R.drawable.fast_forward), null) },
-                checked = skipSilence,
-                onCheckedChange = onSkipSilenceChange
-            )},
-
-            {SwitchPreference(
-                title = { Text(stringResource(R.string.enable_sponsorblock)) },
-                description = stringResource(R.string.enable_sponsorblock_desc),
-                icon = { Icon(painterResource(R.drawable.skip_next), null) },
-                checked = sponsorBlockEnabled,
-                onCheckedChange = onSponsorBlockEnabledChange
-            )},
-
-            {SwitchPreference(
-                title = { Text(stringResource(R.string.premium_audio_fading)) },
-                description = stringResource(R.string.premium_audio_fading_desc),
-                icon = { Icon(painterResource(R.drawable.graphic_eq), null) },
-                checked = audioFading,
-                onCheckedChange = onAudioFadingChange
-            )},
-
-            {SwitchPreference(
-                title = { Text(stringResource(R.string.audio_normalization)) },
-                icon = { Icon(painterResource(R.drawable.volume_up), null) },
-                checked = audioNormalization,
-                onCheckedChange = onAudioNormalizationChange
-            )}
-        )
-
-        if (isHapticsSupported) {
-            playerSettingsItems.add {
-                SwitchPreference(
-                    title = { Text("Music Haptics") },
-                    description = "Vibrate the phone to the beat of the song",
+        val playerCategoryItems = buildList<@Composable () -> Unit> {
+            add {
+                EnumListPreference(
+                    title = { Text(stringResource(R.string.audio_quality)) },
                     icon = { Icon(painterResource(R.drawable.graphic_eq), null) },
-                    checked = musicHaptics,
-                    onCheckedChange = onMusicHapticsChange
+                    selectedValue = audioQuality,
+                    onValueSelected = onAudioQualityChange,
+                    valueText = {
+                        when (it) {
+                            AudioQuality.AUTO -> stringResource(R.string.audio_quality_auto)
+                            AudioQuality.HIGH -> stringResource(R.string.audio_quality_high)
+                            AudioQuality.LOW -> stringResource(R.string.audio_quality_low)
+                        }
+                    }
                 )
+            }
+            
+            add {
+                ListPreference(
+                    title = { Text(stringResource(R.string.double_tap_to_seek)) },
+                    icon = { Icon(painterResource(R.drawable.fast_forward), null) },
+                    selectedValue = seekIncrement,
+                    values = listOf(5, 10, 15, 30),
+                    valueText = { pluralStringResource(R.plurals.seconds, it, it) },
+                    onValueSelected = onSeekIncrementChange
+                )
+            }
+
+            add {
+                SwitchPreference(
+                    title = { Text(stringResource(R.string.skip_silence)) },
+                    icon = { Icon(painterResource(R.drawable.fast_forward), null) },
+                    checked = skipSilence,
+                    onCheckedChange = onSkipSilenceChange
+                )
+            }
+
+            add {
+                SwitchPreference(
+                    title = { Text(stringResource(R.string.enable_sponsorblock)) },
+                    description = stringResource(R.string.enable_sponsorblock_desc),
+                    icon = { Icon(painterResource(R.drawable.skip_next), null) },
+                    checked = sponsorBlockEnabled,
+                    onCheckedChange = onSponsorBlockEnabledChange
+                )
+            }
+
+            add {
+                SwitchPreference(
+                    title = { Text(stringResource(R.string.premium_audio_fading)) },
+                    description = stringResource(R.string.premium_audio_fading_desc),
+                    icon = { Icon(painterResource(R.drawable.graphic_eq), null) },
+                    checked = audioFading,
+                    onCheckedChange = onAudioFadingChange
+                )
+            }
+
+            add {
+                SwitchPreference(
+                    title = { Text(stringResource(R.string.audio_normalization)) },
+                    icon = { Icon(painterResource(R.drawable.volume_up), null) },
+                    checked = audioNormalization,
+                    onCheckedChange = onAudioNormalizationChange
+                )
+            }
+
+            if (showHaptics) {
+                add {
+                    SwitchPreference(
+                        title = { Text("Music Haptics") },
+                        description = "Vibrate the phone to the beat of the music",
+                        icon = { Icon(painterResource(R.drawable.graphic_eq), null) },
+                        checked = enableMusicHaptics,
+                        onCheckedChange = onEnableMusicHapticsChange
+                    )
+                }
             }
         }
 
         SettingsGeneralCategory(
             title = stringResource(R.string.player),
-            items = playerSettingsItems
+            items = playerCategoryItems
         )
 
         SettingsGeneralCategory(
