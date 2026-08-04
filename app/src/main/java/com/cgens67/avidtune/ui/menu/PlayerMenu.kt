@@ -41,8 +41,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -59,11 +57,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TimeInput
-import androidx.compose.material3.TimePicker
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -204,92 +198,6 @@ fun ColumnScope.PlayerMenu(
 
     var showExportSheet by rememberSaveable {
         mutableStateOf(false)
-    }
-
-    var showAlarmDialog by rememberSaveable { mutableStateOf(false) }
-
-    if (showAlarmDialog) {
-        var step by remember { mutableIntStateOf(0) }
-        val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = System.currentTimeMillis()
-        )
-        val timePickerState = rememberTimePickerState()
-
-        if (step == 0) {
-            DatePickerDialog(
-                onDismissRequest = { showAlarmDialog = false },
-                confirmButton = {
-                    TextButton(onClick = { step = 1 }) { Text("Next") }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showAlarmDialog = false }) { Text(stringResource(android.R.string.cancel)) }
-                }
-            ) {
-                DatePicker(state = datePickerState)
-            }
-        } else {
-            var showDial by remember { mutableStateOf(true) }
-            AlertDialog(
-                onDismissRequest = { showAlarmDialog = false },
-                title = { Text("Select Time") },
-                text = {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        if (showDial) {
-                            TimePicker(state = timePickerState)
-                        } else {
-                            TimeInput(state = timePickerState)
-                        }
-                        IconButton(onClick = { showDial = !showDial }) {
-                            Icon(
-                                painter = painterResource(if (showDial) R.drawable.edit else R.drawable.schedule), 
-                                contentDescription = "Toggle Time Input Mode"
-                            )
-                        }
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = {
-                        val calendar = java.util.Calendar.getInstance()
-                        datePickerState.selectedDateMillis?.let { calendar.timeInMillis = it }
-                        calendar.set(java.util.Calendar.HOUR_OF_DAY, timePickerState.hour)
-                        calendar.set(java.util.Calendar.MINUTE, timePickerState.minute)
-                        calendar.set(java.util.Calendar.SECOND, 0)
-                        
-                        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
-                        val intent = Intent(context, Class.forName("com.cgens67.avidtune.MusicWidget")).apply {
-                            action = "com.cgens67.avidtune.ACTION_ALARM_RING"
-                            putExtra("mediaId", mediaMetadata.id)
-                            putExtra("title", mediaMetadata.title)
-                        }
-                        val pendingIntent = android.app.PendingIntent.getBroadcast(
-                            context,
-                            mediaMetadata.id.hashCode(),
-                            intent,
-                            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
-                        )
-
-                        try {
-                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-                                if (alarmManager.canScheduleExactAlarms()) {
-                                     alarmManager.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent)
-                                } else {
-                                     alarmManager.setAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent)
-                                }
-                            } else {
-                                alarmManager.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent)
-                            }
-                            android.widget.Toast.makeText(context, "Alarm set for ${java.text.DateFormat.getDateTimeInstance().format(calendar.time)}", android.widget.Toast.LENGTH_SHORT).show()
-                        } catch (e: SecurityException) {
-                            android.widget.Toast.makeText(context, "Permission to set exact alarms is required", android.widget.Toast.LENGTH_SHORT).show()
-                        }
-                        showAlarmDialog = false
-                    }) { Text("Set Alarm") }
-                },
-                dismissButton = {
-                    TextButton(onClick = { step = 0 }) { Text("Back") }
-                }
-            )
-        }
     }
 
     if (showExportSheet) {
@@ -860,6 +768,58 @@ fun ColumnScope.PlayerMenu(
 
         item { Spacer(modifier = Modifier.height(12.dp)) }
 
+        // Grupo: Reproducción (Added "Set as Alarm")
+        item {
+            MenuGroup(
+                items = listOf(
+                    MenuItemData(
+                        title = { Text(text = stringResource(R.string.play_next)) },
+                        icon = {
+                            Icon(
+                                painter = painterResource(R.drawable.playlist_play),
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        },
+                        onClick = {
+                            playerConnection.playNext(mediaMetadata.toMediaItem())
+                            onDismiss()
+                        }
+                    ),
+                    MenuItemData(
+                        title = { Text(text = stringResource(R.string.add_to_queue)) },
+                        icon = {
+                            Icon(
+                                painter = painterResource(R.drawable.queue_music),
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        },
+                        onClick = {
+                            playerConnection.addToQueue(mediaMetadata.toMediaItem())
+                            onDismiss()
+                        }
+                    ),
+                    MenuItemData(
+                        title = { Text(text = "Set as Alarm") },
+                        icon = {
+                            Icon(
+                                painter = painterResource(R.drawable.schedule),
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        },
+                        onClick = {
+                            onDismiss()
+                            navController.navigate("alarm_settings?songId=${mediaMetadata.id}")
+                        }
+                    )
+                )
+            )
+        }
+
+        item { Spacer(modifier = Modifier.height(12.dp)) }
+
         item {
             MenuGroup(
                 items = buildList {
@@ -920,22 +880,6 @@ fun ColumnScope.PlayerMenu(
                     )
 
                     if (isQueueTrigger != true) {
-                        add(
-                            MenuItemData(
-                                title = { Text(text = "Set Alarm") },
-                                description = { Text(text = "Play this song at a specific time") },
-                                icon = {
-                                    Icon(
-                                        painter = painterResource(R.drawable.schedule),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                },
-                                onClick = {
-                                    showAlarmDialog = true
-                                }
-                            )
-                        )
                         add(
                             MenuItemData(
                                 title = { Text(text = stringResource(R.string.sleep_timer)) },
