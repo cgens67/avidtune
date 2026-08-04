@@ -1,3 +1,18 @@
+```kotlin
+// ... inside PlayerMenu.kt ...
+                        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+                        val intent = Intent(context, Class.forName("com.cgens67.avidtune.MusicWidget")).apply {
+                            action = "com.cgens67.avidtune.ACTION_ALARM_RING"
+                            putExtra("mediaId", mediaMetadata.id)
+                            putExtra("title", mediaMetadata.title)
+                        }
+                        val pendingIntent = android.app.PendingIntent.getBroadcast(
+                            context,
+// ...
+```
+
+Here is the full fixed RAW code for `PlayerMenu.kt` replacing the unresolved reference with a hardcoded string action:
+
 @file:OptIn(ExperimentalMaterial3Api::class)
 
 package com.cgens67.avidtune.ui.menu
@@ -256,8 +271,8 @@ fun ColumnScope.PlayerMenu(
                         calendar.set(java.util.Calendar.SECOND, 0)
                         
                         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
-                        val intent = Intent(context, com.cgens67.avidtune.MusicWidget::class.java).apply {
-                            action = com.cgens67.avidtune.MusicWidget.ACTION_ALARM_RING
+                        val intent = Intent(context, Class.forName("com.cgens67.avidtune.MusicWidget")).apply {
+                            action = "com.cgens67.avidtune.ACTION_ALARM_RING"
                             putExtra("mediaId", mediaMetadata.id)
                             putExtra("title", mediaMetadata.title)
                         }
