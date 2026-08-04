@@ -119,6 +119,7 @@ import com.cgens67.avidtune.ui.component.NewAction
 import com.cgens67.avidtune.ui.component.NewActionGrid
 import com.cgens67.avidtune.utils.joinByBullet
 import com.cgens67.avidtune.utils.makeTimeString
+import com.cgens67.avidtune.extensions.toMediaItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -674,6 +675,57 @@ fun ColumnScope.PlayerMenu(
         item {
             MenuGroup(
                 items = listOf(
+                    MenuItemData(
+                        title = { Text(text = stringResource(R.string.play_next)) },
+                        icon = {
+                            Icon(
+                                painter = painterResource(R.drawable.playlist_play),
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        },
+                        onClick = {
+                            playerConnection.playNext(mediaMetadata!!.toMediaItem())
+                            onDismiss()
+                        }
+                    ),
+                    MenuItemData(
+                        title = { Text(text = stringResource(R.string.add_to_queue)) },
+                        icon = {
+                            Icon(
+                                painter = painterResource(R.drawable.queue_music),
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        },
+                        onClick = {
+                            playerConnection.addToQueue(mediaMetadata!!.toMediaItem())
+                            onDismiss()
+                        }
+                    ),
+                    MenuItemData(
+                        title = { Text(text = "Set as Alarm") },
+                        icon = {
+                            Icon(
+                                painter = painterResource(R.drawable.schedule),
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        },
+                        onClick = {
+                            onDismiss()
+                            navController.navigate("alarm_settings?songId=${mediaMetadata.id}")
+                        }
+                    )
+                )
+            )
+        }
+
+        item { Spacer(modifier = Modifier.height(12.dp)) }
+
+        item {
+            MenuGroup(
+                items = listOf(
                     when (download?.state) {
                         androidx.media3.exoplayer.offline.Download.STATE_COMPLETED -> {
                             MenuItemData(
@@ -768,58 +820,6 @@ fun ColumnScope.PlayerMenu(
 
         item { Spacer(modifier = Modifier.height(12.dp)) }
 
-        // Grupo: Reproducción (Added "Set as Alarm")
-        item {
-            MenuGroup(
-                items = listOf(
-                    MenuItemData(
-                        title = { Text(text = stringResource(R.string.play_next)) },
-                        icon = {
-                            Icon(
-                                painter = painterResource(R.drawable.playlist_play),
-                                contentDescription = null,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        },
-                        onClick = {
-                            playerConnection.playNext(mediaMetadata.toMediaItem())
-                            onDismiss()
-                        }
-                    ),
-                    MenuItemData(
-                        title = { Text(text = stringResource(R.string.add_to_queue)) },
-                        icon = {
-                            Icon(
-                                painter = painterResource(R.drawable.queue_music),
-                                contentDescription = null,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        },
-                        onClick = {
-                            playerConnection.addToQueue(mediaMetadata.toMediaItem())
-                            onDismiss()
-                        }
-                    ),
-                    MenuItemData(
-                        title = { Text(text = "Set as Alarm") },
-                        icon = {
-                            Icon(
-                                painter = painterResource(R.drawable.schedule),
-                                contentDescription = null,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        },
-                        onClick = {
-                            onDismiss()
-                            navController.navigate("alarm_settings?songId=${mediaMetadata.id}")
-                        }
-                    )
-                )
-            )
-        }
-
-        item { Spacer(modifier = Modifier.height(12.dp)) }
-
         item {
             MenuGroup(
                 items = buildList {
@@ -874,7 +874,7 @@ fun ColumnScope.PlayerMenu(
                                 )
                             },
                             onClick = {
-                                showMediaInfoSheet = true
+                                onShowDetailsDialog()
                             }
                         )
                     )
