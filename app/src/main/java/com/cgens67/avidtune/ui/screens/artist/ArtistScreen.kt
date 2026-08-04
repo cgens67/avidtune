@@ -134,7 +134,7 @@ import coil.imageLoader
 import coil.request.ImageRequest
 import com.cgens67.avidtune.constants.EnableArtistCanvasKey
 import com.cgens67.avidtune.playback.queues.ListQueue
-import com.cgens67.avidtune.ui.component.ArtistCanvasProvider
+import com.cgens67.avidtune.ui.component.ArtistCanvasHelper
 import com.cgens67.avidtune.ui.component.ArtistVideo
 import com.cgens67.avidtune.ui.theme.PlayerColorExtractor
 import com.cgens67.innertube.YouTube
@@ -186,7 +186,7 @@ fun ArtistScreen(
     var artistVideoUrl by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(artistName, enableArtistCanvas) {
         if (enableArtistCanvas && artistName.isNotBlank() && artistName != context.getString(R.string.unknown)) {
-            artistVideoUrl = ArtistCanvasProvider.getArtistCanvas(artistName)
+            artistVideoUrl = ArtistCanvasHelper.getArtistCanvas(context, artistName)
         } else {
             artistVideoUrl = null
         }
