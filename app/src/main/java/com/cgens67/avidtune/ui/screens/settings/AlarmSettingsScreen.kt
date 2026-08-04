@@ -191,7 +191,23 @@ fun AlarmSettingsScreen(
                 songArtist = alarmSongArtist,
                 thumbnailUrl = alarmSongThumbnail,
                 hasSong = alarmSongId.isNotBlank(),
-                onClick = { navController.navigate("library") }
+                onClick = {
+                    if (alarmSongId.isNotBlank()) {
+                        alarmSongId = ""
+                        alarmSongTitle = "Default sound"
+                        alarmSongArtist = null
+                        alarmSongThumbnail = null
+                        prefs.edit()
+                            .putString("alarm_song_id", "")
+                            .putString("alarm_song_title", "")
+                            .apply()
+                        if (alarmEnabled) {
+                            AlarmManagerHelper.setAlarm(context, alarmTime, "")
+                        }
+                    } else {
+                        navController.navigate("library")
+                    }
+                }
             )
             
             Spacer(modifier = Modifier.height(24.dp))
@@ -462,9 +478,10 @@ private fun SongSelectionCard(
                 }
             }
 
+            // Always use a visual affordance, but change the icon
             Icon(
-                painter = painterResource(R.drawable.arrow_forward),
-                contentDescription = "Select Song",
+                painter = painterResource(if (hasSong) R.drawable.close else R.drawable.arrow_forward),
+                contentDescription = if (hasSong) "Remove Song" else "Select Song",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 8.dp)
             )
