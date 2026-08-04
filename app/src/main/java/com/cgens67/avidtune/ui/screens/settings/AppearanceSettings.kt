@@ -216,7 +216,7 @@ fun AppearanceSettings(
     val isSystemInDarkTheme = isSystemInDarkTheme()
     val useDarkTheme =
         remember(darkMode, isSystemInDarkTheme) {
-            if (darkMode == DarkMode.AUTO) isSystemInDarkTheme else darkMode == DarkMode.ON
+            if (darkMode == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON
         }
 
     // Automatically disable pureBlack when switching to light mode
@@ -602,12 +602,14 @@ fun AppearanceSettings(
                     Column {
                         SwitchPreference(
                             title = { Text("Enable AvidCanvas") },
+                            description = "Use AvidTune's custom canvas repository",
                             icon = { Icon(painterResource(R.drawable.artist), null) },
                             checked = enableAvidCanvas,
                             onCheckedChange = onEnableAvidCanvasChange
                         )
                         SwitchPreference(
                             title = { Text("Enable Apple Music Canvas") },
+                            description = "Fetch animated canvas from Apple Music",
                             icon = { Icon(painterResource(R.drawable.artist), null) },
                             checked = enableAppleMusicCanvas,
                             onCheckedChange = onEnableAppleMusicCanvasChange
