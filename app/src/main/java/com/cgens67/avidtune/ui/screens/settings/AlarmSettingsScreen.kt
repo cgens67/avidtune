@@ -2,16 +2,14 @@ package com.cgens67.avidtune.ui.screens.settings
 
 import android.content.Context
 import android.widget.Toast
-import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -22,6 +20,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -32,7 +34,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.cgens67.avidtune.LocalDatabase
@@ -59,7 +60,7 @@ fun AlarmSettingsScreen(
     var alarmEnabled by remember { mutableStateOf(prefs.getBoolean("alarm_enabled", false)) }
     var alarmTime by remember { mutableStateOf(prefs.getLong("alarm_time", System.currentTimeMillis())) }
     var alarmSongId by remember { mutableStateOf(prefs.getString("alarm_song_id", null) ?: "") }
-    var alarmSongTitle by remember { mutableStateOf(prefs.getString("alarm_song_title", "Default Alarm") ?: "Default Alarm") }
+    var alarmSongTitle by remember { mutableStateOf(prefs.getString("alarm_song_title", "No Alarm Sound") ?: "No Alarm Sound") }
     var alarmSongArtist by remember { mutableStateOf<String?>(null) }
     var alarmSongThumbnail by remember { mutableStateOf<String?>(null) }
 
@@ -77,17 +78,31 @@ fun AlarmSettingsScreen(
 
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = alarmTime)
 
-    // Handle song argument from navigation
-    LaunchedEffect(songIdArg, alarmSongId) {
-        val targetId = if (!songIdArg.isNullOrBlank() && songIdArg != "{songId}") songIdArg else alarmSongId
-        if (targetId.isNotBlank()) {
-            val song = database.song(targetId).firstOrNull()
+    // Handle song argument from navigation ONLY on first launch
+    LaunchedEffect(songIdArg) {
+        if (!songIdArg.isNullOrBlank() && songIdArg != "{songId}") {
+            alarmSongId = songIdArg
+            val song = database.song(songIdArg).firstOrNull()
             if (song != null) {
-                alarmSongId = targetId
                 alarmSongTitle = song.song.title
                 alarmSongArtist = song.artists.joinToString { it.name }
                 alarmSongThumbnail = song.song.thumbnailUrl
-                prefs.edit().putString("alarm_song_id", alarmSongId).putString("alarm_song_title", alarmSongTitle).apply()
+                prefs.edit()
+                    .putString("alarm_song_id", alarmSongId)
+                    .putString("alarm_song_title", alarmSongTitle)
+                    .apply()
+            }
+        }
+    }
+
+    // Update details when alarmSongId changes
+    LaunchedEffect(alarmSongId) {
+        if (alarmSongId.isNotBlank()) {
+            val song = database.song(alarmSongId).firstOrNull()
+            if (song != null) {
+                alarmSongTitle = song.song.title
+                alarmSongArtist = song.artists.joinToString { it.name }
+                alarmSongThumbnail = song.song.thumbnailUrl
             }
         }
     }
@@ -258,6 +273,10 @@ fun AlarmSettingsScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
+                                if (!alarmEnabled && alarmSongId.isBlank()) {
+                                    Toast.makeText(context, "Please select an alarm sound first.", Toast.LENGTH_SHORT).show()
+                                    return@clickable
+                                }
                                 val newState = !alarmEnabled
                                 alarmEnabled = newState
                                 prefs.edit().putBoolean("alarm_enabled", newState).apply()
@@ -279,15 +298,25 @@ fun AlarmSettingsScreen(
                         )
                         Switch(
                             checked = alarmEnabled,
-                            onCheckedChange = {
-                                alarmEnabled = it
-                                prefs.edit().putBoolean("alarm_enabled", it).apply()
-                                if (it) {
+                            onCheckedChange = { isChecked ->
+                                if (isChecked && alarmSongId.isBlank()) {
+                                    Toast.makeText(context, "Please select an alarm sound first.", Toast.LENGTH_SHORT).show()
+                                    return@Switch
+                                }
+                                alarmEnabled = isChecked
+                                prefs.edit().putBoolean("alarm_enabled", isChecked).apply()
+                                if (isChecked) {
                                     AlarmManagerHelper.setAlarm(context, alarmTime, alarmSongId)
                                 } else {
                                     AlarmManagerHelper.cancelAlarm(context)
                                 }
-                            }
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                checkedTrackColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
                         )
                     }
 
@@ -331,20 +360,25 @@ fun AlarmSettingsScreen(
                             .fillMaxWidth()
                             .clickable {
                                 if (alarmSongId.isNotBlank()) {
-                                    // Reset the song to default
+                                    // RESET the song
                                     alarmSongId = ""
-                                    alarmSongTitle = "Default Alarm"
+                                    alarmSongTitle = "No Alarm Sound"
                                     alarmSongArtist = null
                                     alarmSongThumbnail = null
+                                    
+                                    // Automatically turn off the alarm
+                                    alarmEnabled = false
+
                                     prefs.edit()
                                         .putString("alarm_song_id", "")
-                                        .putString("alarm_song_title", "Default Alarm")
+                                        .putString("alarm_song_title", "No Alarm Sound")
+                                        .putBoolean("alarm_enabled", false)
                                         .apply()
-                                    if (alarmEnabled) {
-                                        AlarmManagerHelper.setAlarm(context, alarmTime, "")
-                                    }
+                                        
+                                    AlarmManagerHelper.cancelAlarm(context)
                                 } else {
-                                    Toast.makeText(context, "Select 'Set as Alarm' from a song's menu to use it as alarm.", Toast.LENGTH_LONG).show()
+                                    // Navigate to library so they can choose
+                                    navController.navigate("library")
                                 }
                             }
                             .padding(horizontal = 20.dp, vertical = 20.dp)
@@ -358,86 +392,78 @@ fun AlarmSettingsScreen(
                         
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        AnimatedContent(
-                            targetState = alarmSongId.isNotBlank(),
-                            transitionSpec = {
-                                fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
-                            },
-                            label = "AlarmSoundTransition"
-                        ) { hasSong ->
-                            if (hasSong) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    AsyncImage(
-                                        model = alarmSongThumbnail,
-                                        contentDescription = null,
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier
-                                            .size(48.dp)
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                        if (alarmSongId.isNotBlank()) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                AsyncImage(
+                                    model = alarmSongThumbnail,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                                )
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = alarmSongTitle,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
-                                    Spacer(modifier = Modifier.width(16.dp))
-                                    Column(modifier = Modifier.weight(1f)) {
+                                    alarmSongArtist?.let {
                                         Text(
-                                            text = alarmSongTitle,
-                                            style = MaterialTheme.typography.bodyLarge,
-                                            fontWeight = FontWeight.SemiBold,
+                                            text = it,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            color = MaterialTheme.colorScheme.onSurface
+                                            overflow = TextOverflow.Ellipsis
                                         )
-                                        alarmSongArtist?.let {
-                                            Text(
-                                                text = it,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        }
                                     }
+                                }
+                                Icon(
+                                    painter = painterResource(R.drawable.close),
+                                    contentDescription = "Remove song",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 8.dp)
+                                )
+                            }
+                        } else {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(MaterialTheme.colorScheme.primaryContainer),
+                                    contentAlignment = Alignment.Center
+                                ) {
                                     Icon(
-                                        painter = painterResource(R.drawable.close),
-                                        contentDescription = "Remove song",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(start = 8.dp)
+                                        painter = painterResource(R.drawable.music_note),
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
                                     )
                                 }
-                            } else {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(48.dp)
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(MaterialTheme.colorScheme.primaryContainer),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            painter = painterResource(R.drawable.notifications),
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onPrimaryContainer
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width(16.dp))
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = "Default Alarm",
-                                            style = MaterialTheme.typography.bodyLarge,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                        Text(
-                                            text = "Tap to view instructions",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "No Alarm Sound",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "Tap to choose a track from library",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
                                 }
                             }
                         }
