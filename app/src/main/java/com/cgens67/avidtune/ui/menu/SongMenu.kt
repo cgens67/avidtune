@@ -429,6 +429,21 @@ fun SongMenu(
                             onDismiss()
                             playerConnection.addToQueue(song.toMediaItem())
                         }
+                    ),
+                    // SET AS ALARM
+                    MenuItemData(
+                        title = { Text(text = "Set as Alarm") },
+                        icon = {
+                            Icon(
+                                painter = painterResource(R.drawable.schedule),
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        },
+                        onClick = {
+                            onDismiss()
+                            navController.navigate("alarm_settings?songId=${song.id}")
+                        }
                     )
                 )
             )
@@ -436,7 +451,7 @@ fun SongMenu(
 
         item { Spacer(modifier = Modifier.height(12.dp)) }
 
-        // Grupo: Descargar e Exportar a Dispositivo
+        // Grupo: Descarga e Exportar a Dispositivo
         item {
             MenuGroup(
                 items = listOf(
@@ -493,6 +508,9 @@ fun SongMenu(
                                     )
                                 },
                                 onClick = {
+                                    database.transaction {
+                                        insert(song.toMediaMetadata())
+                                    }
                                     val downloadRequest =
                                         DownloadRequest
                                             .Builder(song.id, song.id.toUri())
