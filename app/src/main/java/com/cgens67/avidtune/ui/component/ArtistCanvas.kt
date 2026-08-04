@@ -36,7 +36,6 @@ import com.cgens67.avidtune.constants.ArtistCanvasProviderOrderKey
 import com.cgens67.avidtune.constants.EnableAppleMusicCanvasKey
 import com.cgens67.avidtune.constants.EnableAvidCanvasKey
 import com.cgens67.avidtune.utils.dataStore
-import com.cgens67.avidtune.utils.get
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
@@ -60,15 +59,15 @@ import java.util.concurrent.ConcurrentHashMap
 
 interface ArtistCanvasProvider {
     val name: String
-    fun isEnabled(context: Context): Boolean
+    suspend fun isEnabled(context: Context): Boolean
     suspend fun getCanvas(artistName: String, storefront: String = "us"): String?
 }
 
 object AvidCanvasProvider : ArtistCanvasProvider {
     override val name = "AvidCanvas"
 
-    override fun isEnabled(context: Context): Boolean =
-        context.dataStore.get(EnableAvidCanvasKey, true)
+    override suspend fun isEnabled(context: Context): Boolean =
+        context.dataStore.data.first()[EnableAvidCanvasKey] ?: true
 
     private val client by lazy {
         HttpClient(OkHttp) {
@@ -105,8 +104,8 @@ object AvidCanvasProvider : ArtistCanvasProvider {
 object AppleMusicCanvasProvider : ArtistCanvasProvider {
     override val name = "Apple Music"
 
-    override fun isEnabled(context: Context): Boolean =
-        context.dataStore.get(EnableAppleMusicCanvasKey, true)
+    override suspend fun isEnabled(context: Context): Boolean =
+        context.dataStore.data.first()[EnableAppleMusicCanvasKey] ?: true
 
     private const val APPLE_MUSIC_TOKEN =
         "eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiIsImtpZCI6IldlYlBsYXlLaWQifQ" +
@@ -291,6 +290,10 @@ object AppleMusicCanvasProvider : ArtistCanvasProvider {
 object ArtistCanvasHelper {
     private val allProviders = listOf(AvidCanvasProvider, AppleMusicCanvasProvider)
     private val cache = ConcurrentHashMap<String, String>()
+
+    fun clearCache() {
+        cache.clear()
+    }
 
     suspend fun getArtistCanvas(context: Context, artistName: String, storefront: String = "us"): String? {
         if (artistName.isBlank()) return null
