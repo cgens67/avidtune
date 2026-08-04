@@ -1220,5 +1220,10 @@
     <string name="sync_lyrics">同步歌词</string>
     <string name="sync_next_line">同步下一行</string>
     <string name="seek_back_2s">-2秒</string>
+    
+    <string name="enable_avidcanvas_artist_canvas">启用 AvidCanvas 歌手背景</string>
+    <string name="enable_apple_music_artist_canvas">启用 Apple Music 歌手背景</string>
+    <string name="artist_canvas_provider_priority">歌手背景来源优先级</string>
+    <string name="artist_canvas_provider_priority_desc">更改歌手背景来源的顺序</string>
 
 </resources>
