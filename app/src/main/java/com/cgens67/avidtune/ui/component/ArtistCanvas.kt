@@ -1,5 +1,6 @@
 package com.cgens67.avidtune.ui.component
 
+import android.content.Context
 import android.util.Base64
 import android.view.TextureView
 import android.view.ViewGroup
@@ -9,6 +10,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -30,16 +32,23 @@ import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import com.cgens67.avidtune.constants.ArtistCanvasProviderOrderKey
+import com.cgens67.avidtune.constants.EnableAppleMusicCanvasKey
+import com.cgens67.avidtune.constants.EnableAvidCanvasKey
+import com.cgens67.avidtune.utils.dataStore
+import com.cgens67.avidtune.utils.get
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.get
+import io.ktor.client.request.head
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -49,8 +58,56 @@ import okhttp3.OkHttpClient
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
-object ArtistCanvasProvider {
-    // Updated fallback token from your friend's code
+interface ArtistCanvasProvider {
+    val name: String
+    fun isEnabled(context: Context): Boolean
+    suspend fun getCanvas(artistName: String, storefront: String = "us"): String?
+}
+
+object AvidCanvasProvider : ArtistCanvasProvider {
+    override val name = "AvidCanvas"
+
+    override fun isEnabled(context: Context): Boolean =
+        context.dataStore.get(EnableAvidCanvasKey, true)
+
+    private val client by lazy {
+        HttpClient(OkHttp) {
+            install(HttpTimeout) {
+                requestTimeoutMillis = 5000
+                connectTimeoutMillis = 5000
+            }
+            expectSuccess = false
+        }
+    }
+
+    override suspend fun getCanvas(artistName: String, storefront: String): String? {
+        return runCatching {
+            val formattedName = artistName.lowercase().replace(Regex("[^a-z0-9]"), "_")
+            if (formattedName.isBlank()) return@runCatching null
+
+            val baseUrl = "https://raw.githubusercontent.com/cgens67/avidtune-canvas/main/canvas/$formattedName"
+
+            // Check mp4 first
+            val mp4Url = "$baseUrl.mp4"
+            var response = client.head(mp4Url)
+            if (response.status == HttpStatusCode.OK) return@runCatching mp4Url
+
+            // Fallback to m3u8
+            val m3u8Url = "$baseUrl.m3u8"
+            response = client.head(m3u8Url)
+            if (response.status == HttpStatusCode.OK) return@runCatching m3u8Url
+
+            null
+        }.getOrNull()
+    }
+}
+
+object AppleMusicCanvasProvider : ArtistCanvasProvider {
+    override val name = "Apple Music"
+
+    override fun isEnabled(context: Context): Boolean =
+        context.dataStore.get(EnableAppleMusicCanvasKey, true)
+
     private const val APPLE_MUSIC_TOKEN =
         "eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiIsImtpZCI6IldlYlBsYXlLaWQifQ" +
         ".eyJpc3MiOiJBTVBXZWJQbGF5IiwiaWF0IjoxNzgxMDMyODU1LCJleHAiOjE3ODQw" +
@@ -79,8 +136,6 @@ object ArtistCanvasProvider {
         }
     }
 
-    private val cache = ConcurrentHashMap<String, String>()
-    
     private var cachedToken: String? = null
     private var tokenExpiryMs: Long = 0L
 
@@ -142,11 +197,8 @@ object ArtistCanvasProvider {
         }
     }
 
-    suspend fun getArtistCanvas(artistName: String, storefront: String = "us"): String? {
+    override suspend fun getCanvas(artistName: String, storefront: String): String? {
         if (artistName.isBlank()) return null
-        val key = "$storefront|$artistName"
-        cache[key]?.let { return it }
-
         return runCatching {
             val searchUrl = "$AMP_BASE_URL/v1/catalog/$storefront/search"
             val response = client.get(searchUrl) {
@@ -170,17 +222,17 @@ object ArtistCanvasProvider {
                 val obj = item as? JsonObject ?: return@mapNotNull null
                 val attributes = obj["attributes"] as? JsonObject ?: return@mapNotNull null
                 val resultName = (attributes["name"] as? JsonPrimitive)?.contentOrNull ?: ""
-                
-                if (!resultName.contains(artistName, ignoreCase = true) && 
+
+                if (!resultName.contains(artistName, ignoreCase = true) &&
                     !artistName.contains(resultName, ignoreCase = true)) return@mapNotNull null
-                
+
                 var score = 0
                 if (resultName.equals(artistName, ignoreCase = true)) score += 10
                 else if (resultName.contains(artistName, ignoreCase = true) || artistName.contains(resultName, ignoreCase = true)) score += 5
-                
+
                 score to obj
             }.sortedByDescending { it.first }
-            
+
             for ((score, obj) in scoredResults) {
                 if (score < 4) continue
                 val artistId = (obj["id"] as? JsonPrimitive)?.contentOrNull ?: continue
@@ -198,12 +250,11 @@ object ArtistCanvasProvider {
                     val dataArray = artistRoot?.get("data") as? JsonArray
                     val firstData = dataArray?.firstOrNull() as? JsonObject
                     val attrs = firstData?.get("attributes") as? JsonObject
-                    
+
                     val ev = attrs?.get("editorialVideo") as? JsonObject
                     if (ev != null) {
                         val videoUrl = extractEditorialVideoUrl(ev)
                         if (!videoUrl.isNullOrBlank()) {
-                            cache[key] = videoUrl
                             return@runCatching videoUrl
                         }
                     }
@@ -212,7 +263,6 @@ object ArtistCanvasProvider {
                     if (ea != null) {
                         val videoUrl = extractEditorialVideoUrl(ea)
                         if (!videoUrl.isNullOrBlank()) {
-                            cache[key] = videoUrl
                             return@runCatching videoUrl
                         }
                     }
@@ -229,12 +279,44 @@ object ArtistCanvasProvider {
             val videoUrl = (element?.get("video") as? JsonPrimitive)?.contentOrNull
             if (!videoUrl.isNullOrBlank()) return videoUrl
         }
-        // Deep Fallback: Loop through all keys if preferred ones don't match
         for ((_, value) in editorialData) {
             val element = value as? JsonObject
             val videoUrl = (element?.get("video") as? JsonPrimitive)?.contentOrNull
             if (!videoUrl.isNullOrBlank()) return videoUrl
         }
+        return null
+    }
+}
+
+object ArtistCanvasHelper {
+    private val allProviders = listOf(AvidCanvasProvider, AppleMusicCanvasProvider)
+    private val cache = ConcurrentHashMap<String, String>()
+
+    suspend fun getArtistCanvas(context: Context, artistName: String, storefront: String = "us"): String? {
+        if (artistName.isBlank()) return null
+        val cacheKey = "$storefront|$artistName"
+        cache[cacheKey]?.let { return it }
+
+        val orderStr = context.dataStore.data.first()[ArtistCanvasProviderOrderKey]
+        val ordered = if (orderStr == null) {
+            allProviders
+        } else {
+            val orderNames = orderStr.split(",")
+            val orderedList = orderNames.mapNotNull { name -> allProviders.find { it.name == name } }
+            val missing = allProviders.filter { it !in orderedList }
+            orderedList + missing
+        }
+
+        for (provider in ordered) {
+            if (provider.isEnabled(context)) {
+                val canvasUrl = provider.getCanvas(artistName, storefront)
+                if (!canvasUrl.isNullOrBlank()) {
+                    cache[cacheKey] = canvasUrl
+                    return canvasUrl
+                }
+            }
+        }
+
         return null
     }
 }
