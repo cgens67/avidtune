@@ -216,7 +216,7 @@ fun AppearanceSettings(
     val isSystemInDarkTheme = isSystemInDarkTheme()
     val useDarkTheme =
         remember(darkMode, isSystemInDarkTheme) {
-            if (darkMode == DarkMode.AUTO) isSystemInDarkTheme else darkMode == DarkMode.ON
+            if (darkMode == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON
         }
 
     // Automatically disable pureBlack when switching to light mode
@@ -377,6 +377,7 @@ fun AppearanceSettings(
             onDismiss = { showCanvasReorderDialog = false },
             onSave = { newOrder ->
                 onCanvasProviderOrderChange(newOrder.joinToString(","))
+                com.cgens67.avidtune.ui.component.ArtistCanvasHelper.clearCache()
                 showCanvasReorderDialog = false
             }
         )
@@ -609,7 +610,10 @@ fun AppearanceSettings(
                             title = { Text(stringResource(R.string.enable_avidcanvas_artist_canvas)) },
                             icon = { Icon(painterResource(R.drawable.artist), null) },
                             checked = enableAvidCanvas,
-                            onCheckedChange = onEnableAvidCanvasChange
+                            onCheckedChange = {
+                                onEnableAvidCanvasChange(it)
+                                com.cgens67.avidtune.ui.component.ArtistCanvasHelper.clearCache()
+                            }
                         )
                         HorizontalDivider(
                             modifier = Modifier.padding(start = 76.dp, end = 20.dp),
@@ -620,7 +624,10 @@ fun AppearanceSettings(
                             title = { Text(stringResource(R.string.enable_apple_music_artist_canvas)) },
                             icon = { Icon(painterResource(R.drawable.artist), null) },
                             checked = enableAppleMusicCanvas,
-                            onCheckedChange = onEnableAppleMusicCanvasChange
+                            onCheckedChange = {
+                                onEnableAppleMusicCanvasChange(it)
+                                com.cgens67.avidtune.ui.component.ArtistCanvasHelper.clearCache()
+                            }
                         )
                         HorizontalDivider(
                             modifier = Modifier.padding(start = 76.dp, end = 20.dp),
