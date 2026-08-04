@@ -23,22 +23,22 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntrinsicSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.cgens67.avidtune.LocalDatabase
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.alarm.AlarmManagerHelper
+import com.cgens67.avidtune.ui.component.SettingsPage
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.firstOrNull
 import java.text.SimpleDateFormat
@@ -186,7 +186,7 @@ fun AlarmSettingsScreen(
             .nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
-                title = { Text("Alarm") },
+                title = { Text("Alarm Settings") },
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
                         Icon(painterResource(R.drawable.arrow_back), contentDescription = "Back")
@@ -331,6 +331,7 @@ fun AlarmSettingsScreen(
                             .fillMaxWidth()
                             .clickable {
                                 if (alarmSongId.isNotBlank()) {
+                                    // RESET the song
                                     alarmSongId = ""
                                     alarmSongTitle = "Default Alarm"
                                     alarmSongArtist = null
@@ -343,6 +344,7 @@ fun AlarmSettingsScreen(
                                         AlarmManagerHelper.setAlarm(context, alarmTime, "")
                                     }
                                 } else {
+                                    // User tries to pick one - direct them
                                     Toast.makeText(context, "Select 'Set as Alarm' from a song's menu to use it as alarm.", Toast.LENGTH_LONG).show()
                                 }
                             }
@@ -411,6 +413,7 @@ fun AlarmSettingsScreen(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
+                                        // Using 'schedule' as a safe, existing icon reference
                                         painter = painterResource(R.drawable.schedule),
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.onPrimaryContainer
