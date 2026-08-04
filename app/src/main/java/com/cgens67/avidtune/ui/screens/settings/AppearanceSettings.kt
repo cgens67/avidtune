@@ -216,7 +216,7 @@ fun AppearanceSettings(
     val isSystemInDarkTheme = isSystemInDarkTheme()
     val useDarkTheme =
         remember(darkMode, isSystemInDarkTheme) {
-            if (darkMode == DarkMode.AUTO) isSystemInDarkTheme else darkMode == DarkMode.ON
+            if (darkMode == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON
         }
 
     // Automatically disable pureBlack when switching to light mode
@@ -606,7 +606,7 @@ fun AppearanceSettings(
                             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                         )
                         SwitchPreference(
-                            title = { Text("Enable AvidCanvas") },
+                            title = { Text(stringResource(R.string.enable_avidcanvas_artist_canvas)) },
                             icon = { Icon(painterResource(R.drawable.artist), null) },
                             checked = enableAvidCanvas,
                             onCheckedChange = onEnableAvidCanvasChange
@@ -617,7 +617,7 @@ fun AppearanceSettings(
                             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                         )
                         SwitchPreference(
-                            title = { Text("Enable Apple Music Canvas") },
+                            title = { Text(stringResource(R.string.enable_apple_music_artist_canvas)) },
                             icon = { Icon(painterResource(R.drawable.artist), null) },
                             checked = enableAppleMusicCanvas,
                             onCheckedChange = onEnableAppleMusicCanvasChange
@@ -628,8 +628,8 @@ fun AppearanceSettings(
                             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                         )
                         PreferenceEntry(
-                            title = { Text("Canvas Provider Priority") },
-                            description = "Change the order of artist canvas providers",
+                            title = { Text(stringResource(R.string.artist_canvas_provider_priority)) },
+                            description = stringResource(R.string.artist_canvas_provider_priority_desc),
                             icon = { Icon(painterResource(R.drawable.list), null) },
                             onClick = { showCanvasReorderDialog = true }
                         )
@@ -745,12 +745,12 @@ fun ReorderCanvasProvidersBottomSheet(
             ) {
                 Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
                     Text(
-                        text = "Canvas Priority",
+                        text = stringResource(R.string.artist_canvas_provider_priority),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Change the order of artist canvas providers",
+                        text = stringResource(R.string.artist_canvas_provider_priority_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -837,7 +837,7 @@ fun ReorderCanvasProvidersBottomSheet(
                                 
                                 Icon(
                                     painter = painterResource(R.drawable.drag_handle),
-                                    contentDescription = "Drag",
+                                    contentDescription = null, // Drag handle, decoration only
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier
                                         .draggableHandle()
