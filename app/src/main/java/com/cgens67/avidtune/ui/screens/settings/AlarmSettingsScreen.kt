@@ -21,8 +21,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.cgens67.avidtune.LocalDatabase
@@ -185,10 +186,10 @@ fun AlarmSettingsScreen(
             .nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.alarm_settings)) },
+                title = { Text("Alarm") },
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(painterResource(R.drawable.arrow_back), contentDescription = stringResource(R.string.back))
+                        Icon(painterResource(R.drawable.arrow_back), contentDescription = "Back")
                     }
                 },
                 scrollBehavior = scrollBehavior,
@@ -342,7 +343,7 @@ fun AlarmSettingsScreen(
                                         AlarmManagerHelper.setAlarm(context, alarmTime, "")
                                     }
                                 } else {
-                                    Toast.makeText(context, "Go to any song and select 'Set as Alarm' to choose a track.", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(context, "Select 'Set as Alarm' from a song's menu to use it as alarm.", Toast.LENGTH_LONG).show()
                                 }
                             }
                             .padding(horizontal = 20.dp, vertical = 20.dp)
@@ -410,7 +411,7 @@ fun AlarmSettingsScreen(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
-                                        painter = painterResource(R.drawable.notifications),
+                                        painter = painterResource(R.drawable.schedule),
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.onPrimaryContainer
                                     )
@@ -424,7 +425,7 @@ fun AlarmSettingsScreen(
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
-                                        text = "Tap to choose a track from library",
+                                        text = "Tap to remove custom alarm track",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.primary
                                     )
