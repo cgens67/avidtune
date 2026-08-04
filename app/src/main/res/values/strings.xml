@@ -1245,4 +1245,9 @@
     <string name="sync_next_line">SYNC NEXT LINE</string>
     <string name="seek_back_2s">-2s</string>
     
+    <string name="enable_avidcanvas_artist_canvas">Enable AvidCanvas artist canvas</string>
+    <string name="enable_apple_music_artist_canvas">Enable Apple Music artist canvas</string>
+    <string name="artist_canvas_provider_priority">Artist canvas provider priority</string>
+    <string name="artist_canvas_provider_priority_desc">Change the order of artist canvas providers</string>
+    
 </resources>
