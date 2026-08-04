@@ -119,7 +119,6 @@ import com.cgens67.avidtune.ui.component.NewAction
 import com.cgens67.avidtune.ui.component.NewActionGrid
 import com.cgens67.avidtune.utils.joinByBullet
 import com.cgens67.avidtune.utils.makeTimeString
-import com.cgens67.avidtune.extensions.toMediaItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -250,23 +249,6 @@ fun ColumnScope.PlayerMenu(
             item {
                 ListItem(
                     title = stringResource(R.string.already_in_playlist),
-                    thumbnailContent = {
-                        Image(
-                            painter = painterResource(R.drawable.close),
-                            contentDescription = null,
-                            colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onBackground),
-                            modifier = Modifier.size(ListThumbnailSize),
-                        )
-                    },
-                    modifier =
-                        Modifier
-                            .clickable { showErrorPlaylistAddDialog = false },
-                )
-            }
-
-            item {
-                ListItem(
-                    title = mediaMetadata.title,
                     thumbnailContent = {
                         Box(
                             contentAlignment = Alignment.Center,
@@ -685,7 +667,13 @@ fun ColumnScope.PlayerMenu(
                             )
                         },
                         onClick = {
-                            playerConnection.playNext(mediaMetadata!!.toMediaItem())
+                            val items = playerConnection.player.currentTimeline.let { timeline ->
+                                if (timeline.isEmpty) emptyList()
+                                else listOf(timeline.getWindow(playerConnection.player.currentMediaItemIndex, Timeline.Window()).mediaItem)
+                            }
+                            if (items.isNotEmpty()) {
+                                playerConnection.playNext(items)
+                            }
                             onDismiss()
                         }
                     ),
@@ -699,12 +687,19 @@ fun ColumnScope.PlayerMenu(
                             )
                         },
                         onClick = {
-                            playerConnection.addToQueue(mediaMetadata!!.toMediaItem())
+                            val items = playerConnection.player.currentTimeline.let { timeline ->
+                                if (timeline.isEmpty) emptyList()
+                                else listOf(timeline.getWindow(playerConnection.player.currentMediaItemIndex, Timeline.Window()).mediaItem)
+                            }
+                            if (items.isNotEmpty()) {
+                                playerConnection.addToQueue(items)
+                            }
                             onDismiss()
                         }
                     ),
+                    // SET AS ALARM
                     MenuItemData(
-                        title = { Text(text = "Set as Alarm") },
+                        title = { Text(text = "Set as alarm") },
                         icon = {
                             Icon(
                                 painter = painterResource(R.drawable.schedule),
@@ -803,8 +798,8 @@ fun ColumnScope.PlayerMenu(
                         }
                     },
                     MenuItemData(
-                        title = { Text(text = "Export to Device") },
-                        description = { Text(text = "Download as MP3 file") },
+                        title = { Text(text = stringResource(R.string.export_to_device)) },
+                        description = { Text(text = stringResource(R.string.download_as_audio_file)) },
                         icon = {
                             Icon(
                                 painter = painterResource(R.drawable.download),
@@ -874,7 +869,7 @@ fun ColumnScope.PlayerMenu(
                                 )
                             },
                             onClick = {
-                                onShowDetailsDialog()
+                                showMediaInfoSheet = true
                             }
                         )
                     )
