@@ -9,7 +9,6 @@ import android.database.SQLException
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.audiofx.AudioEffect
-import android.media.audiofx.HapticGenerator
 import android.media.audiofx.LoudnessEnhancer
 import android.net.ConnectivityManager
 import android.os.Binder
@@ -67,7 +66,6 @@ import com.cgens67.avidtune.constants.DisableLoadMoreWhenRepeatAllKey
 import com.cgens67.avidtune.constants.DiscordTokenKey
 import com.cgens67.avidtune.constants.DiscordUseDetailsKey
 import com.cgens67.avidtune.constants.EnableDiscordRPCKey
-import com.cgens67.avidtune.constants.EnableMusicHapticsKey
 import com.cgens67.avidtune.constants.HideExplicitKey
 import com.cgens67.avidtune.constants.HistoryDuration
 import com.cgens67.avidtune.constants.MediaSessionConstants.CommandToggleLike
@@ -236,7 +234,6 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     private lateinit var mediaSession: MediaLibrarySession
     private var isAudioEffectSessionOpened = false
     private var loudnessEnhancer: LoudnessEnhancer? = null
-    private var hapticGenerator: HapticGenerator? = null
     private var discordRpc: DiscordRPC? = null
     private var lastPlaybackSpeed = 1.0f
     private var discordUpdateJob: Job? = null
@@ -427,21 +424,6 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         }.collectLatest(scope) { (format, normalizeAudio) ->
             setupLoudnessEnhancer()
         }
-
-        dataStore.data
-            .map { it[EnableMusicHapticsKey] ?: false }
-            .distinctUntilChanged()
-            .collectLatest(scope) { enabled ->
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    try {
-                        if (HapticGenerator.isAvailable()) {
-                            hapticGenerator?.enabled = enabled
-                        }
-                    } catch (e: Exception) {
-                        // Ignore
-                    }
-                }
-            }
 
         dataStore.data
             .map { it[DiscordTokenKey] to (it[EnableDiscordRPCKey] ?: true) }
@@ -987,52 +969,10 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.S)
-    private fun setupHapticGenerator() {
-        val audioSessionId = player.audioSessionId
-        if (audioSessionId == C.AUDIO_SESSION_ID_UNSET || audioSessionId <= 0) {
-            return
-        }
-
-        if (HapticGenerator.isAvailable()) {
-            try {
-                if (hapticGenerator == null) {
-                    hapticGenerator = HapticGenerator.create(audioSessionId)
-                }
-                scope.launch {
-                    val isHapticsEnabled = withContext(Dispatchers.IO) {
-                        dataStore.data.map { it[EnableMusicHapticsKey] ?: false }.first()
-                    }
-                    withContext(Dispatchers.Main) {
-                        hapticGenerator?.enabled = isHapticsEnabled
-                    }
-                }
-            } catch (e: Exception) {
-                reportException(e)
-                releaseHapticGenerator()
-            }
-        }
-    }
-
-    private fun releaseHapticGenerator() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            try {
-                hapticGenerator?.release()
-            } catch (e: Exception) {
-                reportException(e)
-            } finally {
-                hapticGenerator = null
-            }
-        }
-    }
-
     private fun openAudioEffectSession() {
         if (isAudioEffectSessionOpened) return
         isAudioEffectSessionOpened = true
         setupLoudnessEnhancer()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            setupHapticGenerator()
-        }
         sendBroadcast(
             Intent(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION).apply {
                 putExtra(AudioEffect.EXTRA_AUDIO_SESSION, player.audioSessionId)
@@ -1046,7 +986,6 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         if (!isAudioEffectSessionOpened) return
         isAudioEffectSessionOpened = false
         releaseLoudnessEnhancer()
-        releaseHapticGenerator()
         sendBroadcast(
             Intent(AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION).apply {
                 putExtra(AudioEffect.EXTRA_AUDIO_SESSION, player.audioSessionId)
@@ -1058,9 +997,6 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         lastPlaybackSpeed = -1.0f
         setupLoudnessEnhancer()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            setupHapticGenerator()
-        }
         discordUpdateJob?.cancel()
         consecutivePlaybackErr = 0
         
@@ -1106,9 +1042,6 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
         if (playWhenReady) {
             setupLoudnessEnhancer()
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                setupHapticGenerator()
-            }
         }
         scope.launch {
             delay(300)
@@ -1553,7 +1486,6 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         discordRpc = null
         abandonAudioFocus()
         releaseLoudnessEnhancer()
-        releaseHapticGenerator()
         mediaSession.release()
         player.removeListener(this)
         player.removeListener(sleepTimer)
