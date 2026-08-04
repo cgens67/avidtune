@@ -47,6 +47,7 @@ import com.cgens67.avidtune.ui.screens.settings.PrivacySettings
 import com.cgens67.avidtune.ui.screens.settings.SettingsScreen
 import com.cgens67.avidtune.ui.screens.settings.StorageSettings
 import com.cgens67.avidtune.ui.screens.settings.ThemeCreatorScreen
+import com.cgens67.avidtune.ui.screens.settings.AlarmSettingsScreen
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @SuppressLint("UnrememberedMutableState")
@@ -315,5 +316,18 @@ fun NavGraphBuilder.navigationBuilder(
     }
     composable("login") {
         LoginScreen(navController)
+    }
+    composable(
+        route = "alarm_settings?songId={songId}",
+        arguments = listOf(
+            navArgument("songId") {
+                type = NavType.StringType
+                nullable = true
+                defaultValue = null
+            }
+        )
+    ) { backStackEntry ->
+        val songId = backStackEntry.arguments?.getString("songId")
+        AlarmSettingsScreen(navController, scrollBehavior, songId)
     }
 }
