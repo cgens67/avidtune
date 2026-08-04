@@ -1219,4 +1219,9 @@
     <string name="sync_lyrics">Synchroniser les paroles</string>
     <string name="sync_next_line">SYNCHRONISER LA LIGNE SUIVANTE</string>
     <string name="seek_back_2s">-2s</string>
+    
+    <string name="enable_avidcanvas_artist_canvas">Activer les animations d\'artiste AvidCanvas</string>
+    <string name="enable_apple_music_artist_canvas">Activer les animations d\'artiste Apple Music</string>
+    <string name="artist_canvas_provider_priority">Priorité du fournisseur d\'animations d\'artiste</string>
+    <string name="artist_canvas_provider_priority_desc">Modifier l\'ordre des fournisseurs d\'animations d\'artiste</string>
 </resources>
