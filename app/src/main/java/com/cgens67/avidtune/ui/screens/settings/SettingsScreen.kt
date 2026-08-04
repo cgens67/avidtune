@@ -835,7 +835,7 @@ private fun buildSettingsGroups(
                 ),
                 SettingsItem(
                     icon = painterResource(R.drawable.schedule),
-                    title = stringResource(R.string.alarm),
+                    title = "Alarm",
                     keywords = listOf("alarm", "wake", "time", "clock", "snooze"),
                     onClick = { resetSearch(); navController.navigate("alarm_settings") }
                 ),
