@@ -216,7 +216,7 @@ fun AppearanceSettings(
     val isSystemInDarkTheme = isSystemInDarkTheme()
     val useDarkTheme =
         remember(darkMode, isSystemInDarkTheme) {
-            if (darkMode == DarkMode.AUTO) isSystemInDarkTheme else darkMode == DarkMode.ON
+            if (darkMode == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON
         }
 
     // Automatically disable pureBlack when switching to light mode
@@ -600,19 +600,32 @@ fun AppearanceSettings(
                 )},
                 {AnimatedVisibility(visible = enableArtistCanvas) {
                     Column {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 76.dp, end = 20.dp),
+                            thickness = 0.5.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        )
                         SwitchPreference(
                             title = { Text("Enable AvidCanvas") },
-                            description = "Use AvidTune's custom canvas repository",
                             icon = { Icon(painterResource(R.drawable.artist), null) },
                             checked = enableAvidCanvas,
                             onCheckedChange = onEnableAvidCanvasChange
                         )
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 76.dp, end = 20.dp),
+                            thickness = 0.5.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        )
                         SwitchPreference(
                             title = { Text("Enable Apple Music Canvas") },
-                            description = "Fetch animated canvas from Apple Music",
                             icon = { Icon(painterResource(R.drawable.artist), null) },
                             checked = enableAppleMusicCanvas,
                             onCheckedChange = onEnableAppleMusicCanvasChange
+                        )
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 76.dp, end = 20.dp),
+                            thickness = 0.5.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                         )
                         PreferenceEntry(
                             title = { Text("Canvas Provider Priority") },
