@@ -8,39 +8,64 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.AppTextSize
 import com.cgens67.avidtune.constants.AppTextSizeKey
+import com.cgens67.avidtune.constants.ArtistCanvasProviderOrderKey
 import com.cgens67.avidtune.constants.ChipSortTypeKey
 import com.cgens67.avidtune.constants.DarkModeKey
 import com.cgens67.avidtune.constants.DefaultMiniPlayerThumbnailShape
@@ -48,7 +73,9 @@ import com.cgens67.avidtune.constants.DefaultOpenTabKey
 import com.cgens67.avidtune.constants.DefaultPlayPauseButtonShape
 import com.cgens67.avidtune.constants.DefaultSmallButtonsShape
 import com.cgens67.avidtune.constants.DynamicThemeKey
+import com.cgens67.avidtune.constants.EnableAppleMusicCanvasKey
 import com.cgens67.avidtune.constants.EnableArtistCanvasKey
+import com.cgens67.avidtune.constants.EnableAvidCanvasKey
 import com.cgens67.avidtune.constants.GridItemSize
 import com.cgens67.avidtune.constants.GridItemsSizeKey
 import com.cgens67.avidtune.constants.LibraryFilter
@@ -82,8 +109,12 @@ import com.cgens67.avidtune.ui.component.ThumbnailCornerRadiusSelectorButton
 import com.cgens67.avidtune.ui.component.UnifiedShapeSelectorButton
 import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
+import kotlinx.coroutines.launch
 import me.saket.squiggles.SquigglySlider
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 import timber.log.Timber
+import androidx.compose.animation.core.animateDpAsState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -149,6 +180,19 @@ fun AppearanceSettings(
         EnableArtistCanvasKey,
         defaultValue = true
     )
+    val (enableAppleMusicCanvas, onEnableAppleMusicCanvasChange) = rememberPreference(EnableAppleMusicCanvasKey, true)
+    val (enableAvidCanvas, onEnableAvidCanvasChange) = rememberPreference(EnableAvidCanvasKey, true)
+    
+    val defaultCanvasOrder = listOf("AvidCanvas", "Apple Music")
+    val (canvasProviderOrderStr, onCanvasProviderOrderChange) = rememberPreference(ArtistCanvasProviderOrderKey, defaultCanvasOrder.joinToString(","))
+    
+    val currentCanvasOrder = remember(canvasProviderOrderStr) {
+        canvasProviderOrderStr.split(",").filter { it.isNotBlank() }.let { saved ->
+            val missing = defaultCanvasOrder.filter { it !in saved }
+            saved + missing
+        }
+    }
+    var showCanvasReorderDialog by remember { mutableStateOf(false) }
 
     val smallButtonsShapeState = rememberPreference(
         key = SmallButtonsShapeKey,
@@ -323,6 +367,17 @@ fun AppearanceSettings(
                 }
             }
         }
+    }
+
+    if (showCanvasReorderDialog) {
+        ReorderCanvasProvidersBottomSheet(
+            currentOrder = currentCanvasOrder,
+            onDismiss = { showCanvasReorderDialog = false },
+            onSave = { newOrder ->
+                onCanvasProviderOrderChange(newOrder.joinToString(","))
+                showCanvasReorderDialog = false
+            }
+        )
     }
 
     SettingsPage(
@@ -541,6 +596,28 @@ fun AppearanceSettings(
                     checked = enableArtistCanvas,
                     onCheckedChange = onEnableArtistCanvasChange
                 )},
+                {AnimatedVisibility(visible = enableArtistCanvas) {
+                    Column {
+                        SwitchPreference(
+                            title = { Text("Enable AvidCanvas") },
+                            icon = { Icon(painterResource(R.drawable.artist), null) },
+                            checked = enableAvidCanvas,
+                            onCheckedChange = onEnableAvidCanvasChange
+                        )
+                        SwitchPreference(
+                            title = { Text("Enable Apple Music Canvas") },
+                            icon = { Icon(painterResource(R.drawable.artist), null) },
+                            checked = enableAppleMusicCanvas,
+                            onCheckedChange = onEnableAppleMusicCanvasChange
+                        )
+                        PreferenceEntry(
+                            title = { Text("Canvas Provider Priority") },
+                            description = "Change the order of artist canvas providers",
+                            icon = { Icon(painterResource(R.drawable.list), null) },
+                            onClick = { showCanvasReorderDialog = true }
+                        )
+                    }
+                }},
                 {EnumListPreference(
                     title = { Text(stringResource(R.string.default_open_tab)) },
                     icon = { Icon(painterResource(R.drawable.nav_bar), null) },
@@ -598,6 +675,163 @@ fun AppearanceSettings(
         )
 
         AvatarSelector(modifier = Modifier.padding(vertical = 8.dp))
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ReorderCanvasProvidersBottomSheet(
+    currentOrder: List<String>,
+    onDismiss: () -> Unit,
+    onSave: (List<String>) -> Unit
+) {
+    val list = remember { currentOrder.toMutableStateList() }
+    val lazyListState = rememberLazyListState()
+    val reorderableState = rememberReorderableLazyListState(lazyListState) { from, to ->
+        val item = list.removeAt(from.index)
+        list.add(to.index, item)
+    }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val coroutineScope = rememberCoroutineScope()
+
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                return Offset(0f, available.y)
+            }
+        }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .nestedScroll(nestedScrollConnection)
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .padding(bottom = 16.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
+                    Text(
+                        text = "Canvas Priority",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Change the order of artist canvas providers",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(
+                        onClick = { 
+                            coroutineScope.launch {
+                                sheetState.hide()
+                                onDismiss()
+                            }
+                        }
+                    ) {
+                        Text(stringResource(android.R.string.cancel))
+                    }
+                    Button(
+                        onClick = { 
+                            coroutineScope.launch {
+                                sheetState.hide()
+                                onSave(list)
+                            }
+                        }
+                    ) {
+                        Text(stringResource(R.string.save))
+                    }
+                }
+            }
+
+            HorizontalDivider()
+
+            LazyColumn(
+                state = lazyListState,
+                contentPadding = PaddingValues(bottom = 80.dp, top = 8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 400.dp)
+            ) {
+                items(list, key = { it }) { item ->
+                    ReorderableItem(reorderableState, key = item) { isDragging ->
+                        val elevation by animateDpAsState(if (isDragging) 8.dp else 0.dp, label = "elevation")
+                        
+                        val index = list.indexOf(item)
+                        
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
+                            tonalElevation = elevation,
+                            shadowElevation = elevation,
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isDragging) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surfaceContainer
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(16.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .background(
+                                            if (index == 0) MaterialTheme.colorScheme.primary 
+                                            else MaterialTheme.colorScheme.surfaceVariant,
+                                            CircleShape
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "${index + 1}",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = if (index == 0) MaterialTheme.colorScheme.onPrimary 
+                                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                
+                                Spacer(Modifier.width(16.dp))
+                                
+                                Text(
+                                    text = item,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = if (index == 0) FontWeight.Bold else FontWeight.Normal,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                
+                                Icon(
+                                    painter = painterResource(R.drawable.drag_handle),
+                                    contentDescription = "Drag",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier
+                                        .draggableHandle()
+                                        .padding(8.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
