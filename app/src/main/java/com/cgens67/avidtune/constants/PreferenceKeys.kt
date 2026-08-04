@@ -125,6 +125,9 @@ val ArtistFilterKey = stringPreferencesKey("artistFilter")
 val AlbumFilterKey = stringPreferencesKey("albumFilter")
 
 val EnableArtistCanvasKey = booleanPreferencesKey("enableArtistCanvas")
+val EnableAppleMusicCanvasKey = booleanPreferencesKey("enableAppleMusicCanvas")
+val EnableAvidCanvasKey = booleanPreferencesKey("enableAvidCanvas")
+val ArtistCanvasProviderOrderKey = stringPreferencesKey("artistCanvasProviderOrder")
 
 val LyricsScrollKey = booleanPreferencesKey("lyricsScrollKey")
 
