@@ -1236,5 +1236,10 @@
     <string name="sync_lyrics">Songtext synchronisieren</string>
     <string name="sync_next_line">NÄCHSTE ZEILE SYNCHRONISIEREN</string>
     <string name="seek_back_2s">-2s</string>
+    
+    <string name="enable_avidcanvas_artist_canvas">AvidCanvas Künstler-Hintergründe aktivieren</string>
+    <string name="enable_apple_music_artist_canvas">Apple Music Künstler-Hintergründe aktivieren</string>
+    <string name="artist_canvas_provider_priority">Priorität der Anbieter von Künstler-Hintergründen</string>
+    <string name="artist_canvas_provider_priority_desc">Reihenfolge der Anbieter von Künstler-Hintergründen ändern</string>
 
 </resources>
