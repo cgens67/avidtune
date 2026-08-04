@@ -834,6 +834,12 @@ private fun buildSettingsGroups(
                     onClick = { resetSearch(); navController.navigate("settings/backup_restore") }
                 ),
                 SettingsItem(
+                    icon = painterResource(R.drawable.schedule),
+                    title = stringResource(R.string.alarm),
+                    keywords = listOf("alarm", "wake", "time", "clock", "snooze"),
+                    onClick = { resetSearch(); navController.navigate("alarm_settings") }
+                ),
+                SettingsItem(
                     icon = painterResource(R.drawable.link),
                     title = stringResource(R.string.open_supported_links),
                     keywords = listOf("open", "supported", "links", "default"),
