@@ -2,14 +2,16 @@ package com.cgens67.avidtune.ui.screens.settings
 
 import android.content.Context
 import android.widget.Toast
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -20,19 +22,17 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntrinsicSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.cgens67.avidtune.LocalDatabase
@@ -331,7 +331,7 @@ fun AlarmSettingsScreen(
                             .fillMaxWidth()
                             .clickable {
                                 if (alarmSongId.isNotBlank()) {
-                                    // RESET the song
+                                    // Reset the song to default
                                     alarmSongId = ""
                                     alarmSongTitle = "Default Alarm"
                                     alarmSongArtist = null
@@ -344,7 +344,6 @@ fun AlarmSettingsScreen(
                                         AlarmManagerHelper.setAlarm(context, alarmTime, "")
                                     }
                                 } else {
-                                    // User tries to pick one - direct them
                                     Toast.makeText(context, "Select 'Set as Alarm' from a song's menu to use it as alarm.", Toast.LENGTH_LONG).show()
                                 }
                             }
@@ -359,79 +358,86 @@ fun AlarmSettingsScreen(
                         
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        if (alarmSongId.isNotBlank()) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                AsyncImage(
-                                    model = alarmSongThumbnail,
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .size(48.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                                )
-                                Spacer(modifier = Modifier.width(16.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = alarmSongTitle,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        color = MaterialTheme.colorScheme.onSurface
+                        AnimatedContent(
+                            targetState = alarmSongId.isNotBlank(),
+                            transitionSpec = {
+                                fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
+                            },
+                            label = "AlarmSoundTransition"
+                        ) { hasSong ->
+                            if (hasSong) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    AsyncImage(
+                                        model = alarmSongThumbnail,
+                                        contentDescription = null,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(MaterialTheme.colorScheme.surfaceVariant)
                                     )
-                                    alarmSongArtist?.let {
+                                    Spacer(modifier = Modifier.width(16.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = it,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            text = alarmSongTitle,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = FontWeight.SemiBold,
                                             maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
+                                            overflow = TextOverflow.Ellipsis,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        alarmSongArtist?.let {
+                                            Text(
+                                                text = it,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                    Icon(
+                                        painter = painterResource(R.drawable.close),
+                                        contentDescription = "Remove song",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(start = 8.dp)
+                                    )
+                                }
+                            } else {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(MaterialTheme.colorScheme.primaryContainer),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(R.drawable.notifications),
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onPrimaryContainer
                                         )
                                     }
-                                }
-                                Icon(
-                                    painter = painterResource(R.drawable.close),
-                                    contentDescription = "Remove song",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(start = 8.dp)
-                                )
-                            }
-                        } else {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(48.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(MaterialTheme.colorScheme.primaryContainer),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        // Using 'schedule' as a safe, existing icon reference
-                                        painter = painterResource(R.drawable.schedule),
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(16.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "Default Alarm",
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Text(
-                                        text = "Tap to remove custom alarm track",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
+                                    Spacer(modifier = Modifier.width(16.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Default Alarm",
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = "Tap to view instructions",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
                                 }
                             }
                         }
