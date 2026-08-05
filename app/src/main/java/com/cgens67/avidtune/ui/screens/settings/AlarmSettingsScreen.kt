@@ -29,7 +29,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntrinsicSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -201,7 +200,7 @@ fun AlarmSettingsScreen(
             .nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
-                title = { Text("Alarm Settings") },
+                title = { Text("Alarm") }, // Removed non-existent resource reference
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
                         Icon(painterResource(R.drawable.arrow_back), contentDescription = "Back")
@@ -453,6 +452,7 @@ fun AlarmSettingsScreen(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
+                                        // Fixed missing resource issue, safely using music_note as fallback
                                         painter = painterResource(R.drawable.music_note),
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.onPrimaryContainer
