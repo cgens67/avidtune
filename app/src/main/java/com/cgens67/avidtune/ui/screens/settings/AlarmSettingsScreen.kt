@@ -29,6 +29,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntrinsicSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -377,7 +378,14 @@ fun AlarmSettingsScreen(
                                     AlarmManagerHelper.cancelAlarm(context)
                                 } else {
                                     // Navigate to library so they can choose
-                                    navController.navigate("library")
+                                    navController.navigate("library") {
+                                        // Mimics Bottom Nav Bar behavior, prevents stacking backstack
+                                        popUpTo(navController.graph.startDestinationId) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
                                 }
                             }
                             .padding(horizontal = 20.dp, vertical = 20.dp)
