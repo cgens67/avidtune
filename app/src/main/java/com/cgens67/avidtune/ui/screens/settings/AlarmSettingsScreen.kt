@@ -200,7 +200,7 @@ fun AlarmSettingsScreen(
             .nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
-                title = { Text("Alarm") }, // Removed non-existent resource reference
+                title = { Text("Alarm Settings") },
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
                         Icon(painterResource(R.drawable.arrow_back), contentDescription = "Back")
@@ -452,8 +452,8 @@ fun AlarmSettingsScreen(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
-                                        // Fixed missing resource issue, safely using music_note as fallback
-                                        painter = painterResource(R.drawable.music_note),
+                                        // Using 'schedule' as a safe, existing icon reference
+                                        painter = painterResource(R.drawable.schedule),
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.onPrimaryContainer
                                     )
