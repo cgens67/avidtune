@@ -14,13 +14,17 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -29,20 +33,29 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntrinsicSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.cgens67.avidtune.LocalDatabase
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.alarm.AlarmManagerHelper
+import com.cgens67.avidtune.models.toMediaMetadata
 import com.cgens67.avidtune.ui.component.SettingsPage
-import com.cgens67.avidtune.ui.utils.backToMain
+import com.cgens67.avidtune.utils.makeTimeString
+import com.cgens67.innertube.YouTube
+import com.cgens67.innertube.models.SongItem
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -73,6 +86,7 @@ fun AlarmSettingsScreen(
     var showTimePicker by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
     var isTimeInput by remember { mutableStateOf(false) }
+    var showSearchSheet by remember { mutableStateOf(false) }
 
     val cal = remember { Calendar.getInstance().apply { timeInMillis = System.currentTimeMillis() } }
 
@@ -119,9 +133,11 @@ fun AlarmSettingsScreen(
         getNextAlarmTime(alarmHour, alarmMinute, alarmDays)
     }
 
-    // Handle song argument from navigation ONLY on first launch/change
+    // Process navigation argument ONLY on first launch to avoid the sticky bug
+    var hasProcessedArg by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(songIdArg) {
-        if (!songIdArg.isNullOrBlank() && songIdArg != "{songId}") {
+        if (!hasProcessedArg && !songIdArg.isNullOrBlank() && songIdArg != "{songId}") {
+            hasProcessedArg = true
             alarmSongId = songIdArg
             val song = database.song(songIdArg).firstOrNull()
             if (song != null) {
@@ -136,7 +152,7 @@ fun AlarmSettingsScreen(
         }
     }
 
-    // Refresh song info whenever ID changes
+    // Refresh song info whenever ID changes (e.g. from the search bottom sheet)
     LaunchedEffect(alarmSongId) {
         if (alarmSongId.isNotBlank()) {
             val song = database.song(alarmSongId).firstOrNull()
@@ -232,13 +248,37 @@ fun AlarmSettingsScreen(
         }
     }
 
+    if (showSearchSheet) {
+        AlarmSongSearchSheet(
+            onDismiss = { showSearchSheet = false },
+            onSongSelected = { songItem ->
+                alarmSongId = songItem.id
+                alarmSongTitle = songItem.title
+                alarmSongArtist = songItem.artists.joinToString { it.name }
+                alarmSongThumbnail = songItem.thumbnail
+                
+                prefs.edit()
+                    .putString("alarm_song_id", alarmSongId)
+                    .putString("alarm_song_title", alarmSongTitle)
+                    .apply()
+
+                // Insert to local database so AlarmManager can find it without loading YouTube network API
+                kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+                    database.transaction {
+                        insert(songItem.toMediaMetadata())
+                    }
+                }
+            }
+        )
+    }
+
     Scaffold(
         modifier = Modifier
             .fillMaxSize()
             .nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
-                title = { Text("Alarm") },
+                title = { Text("Alarm Settings") },
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
                         Icon(painterResource(R.drawable.arrow_back), contentDescription = "Back")
@@ -437,7 +477,7 @@ fun AlarmSettingsScreen(
                             .fillMaxWidth()
                             .clickable {
                                 if (alarmSongId.isNotBlank()) {
-                                    // Remove the song
+                                    // Remove the song and turn off the alarm safely
                                     alarmSongId = ""
                                     alarmSongTitle = "No Alarm Sound"
                                     alarmSongArtist = null
@@ -451,14 +491,10 @@ fun AlarmSettingsScreen(
                                         .apply()
                                         
                                     AlarmManagerHelper.cancelAlarm(context)
-                                    Toast.makeText(context, "Alarm sound removed and alarm turned off.", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Alarm sound removed. Alarm turned off.", Toast.LENGTH_SHORT).show()
                                 } else {
-                                    // Navigate to library so they can choose
-                                    navController.backToMain()
-                                    navController.navigate("library") {
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
+                                    // Open Search Bottom Sheet
+                                    showSearchSheet = true
                                 }
                             }
                             .padding(horizontal = 24.dp, vertical = 20.dp)
@@ -526,7 +562,7 @@ fun AlarmSettingsScreen(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
-                                        painter = painterResource(R.drawable.schedule),
+                                        painter = painterResource(R.drawable.music_note),
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.onPrimaryContainer
                                     )
@@ -540,7 +576,7 @@ fun AlarmSettingsScreen(
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
-                                        text = "Tap to choose a track from library",
+                                        text = "Tap to search for a track",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.primary
                                     )
@@ -551,6 +587,240 @@ fun AlarmSettingsScreen(
                 }
             }
             Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AlarmSongSearchSheet(
+    onDismiss: () -> Unit,
+    onSongSelected: (SongItem) -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val coroutineScope = rememberCoroutineScope()
+    var query by remember { mutableStateOf("") }
+    var searchResults by remember { mutableStateOf<List<SongItem>>(emptyList()) }
+    var isSearching by remember { mutableStateOf(false) }
+    val focusRequester = remember { FocusRequester() }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        dragHandle = { BottomSheetDefaults.DragHandle() },
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.85f)
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 20.dp)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.music_note),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = "Select Alarm Sound",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Search YouTube Music",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                IconButton(
+                    onClick = {
+                        coroutineScope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() }
+                    }
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.close),
+                        contentDescription = "Close",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            // Search Input Field
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.search),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+
+                    BasicTextField(
+                        value = query,
+                        onValueChange = { newQuery ->
+                            query = newQuery
+                            if (newQuery.isNotBlank()) {
+                                isSearching = true
+                                coroutineScope.launch(Dispatchers.IO) {
+                                    delay(500) // Debounce
+                                    YouTube.search(newQuery, YouTube.SearchFilter.FILTER_SONG).onSuccess { res ->
+                                        withContext(Dispatchers.Main) {
+                                            searchResults = res.items.filterIsInstance<SongItem>()
+                                            isSearching = false
+                                        }
+                                    }.onFailure { withContext(Dispatchers.Main) { isSearching = false } }
+                                }
+                            } else {
+                                searchResults = emptyList()
+                                isSearching = false
+                            }
+                        },
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                        modifier = Modifier
+                            .weight(1f)
+                            .focusRequester(focusRequester),
+                        decorationBox = { innerTextField ->
+                            if (query.isEmpty()) {
+                                Text(
+                                    "Search for a song...",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                )
+                            }
+                            innerTextField()
+                        }
+                    )
+
+                    if (query.isNotEmpty()) {
+                        Icon(
+                            painter = painterResource(R.drawable.close),
+                            contentDescription = "Clear",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .size(18.dp)
+                                .clip(CircleShape)
+                                .clickable { query = ""; searchResults = emptyList() }
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            // Results
+            if (isSearching) {
+                Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                }
+            } else if (searchResults.isEmpty()) {
+                Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(painter = painterResource(R.drawable.search), contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
+                        Text(if (query.isBlank()) "Type to search songs" else "No songs found for '$query'", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(searchResults, key = { it.id }) { song ->
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainer,
+                            modifier = Modifier.fillMaxWidth().clickable {
+                                coroutineScope.launch { sheetState.hide() }.invokeOnCompletion { onSongSelected(song) }
+                            }
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                AsyncImage(
+                                    model = song.thumbnail,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(52.dp).clip(RoundedCornerShape(12.dp)),
+                                    contentScale = ContentScale.Crop
+                                )
+
+                                Spacer(Modifier.width(12.dp))
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = song.title,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(
+                                        text = song.artists.joinToString(", ") { it.name },
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+
+                                Spacer(Modifier.width(8.dp))
+
+                                // Display duration
+                                val durationText = song.duration?.let { makeTimeString(it * 1000L) } ?: ""
+                                if (durationText.isNotEmpty()) {
+                                    Text(
+                                        text = durationText,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        LaunchedEffect(Unit) {
+            delay(150)
+            focusRequester.requestFocus()
         }
     }
 }
