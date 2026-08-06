@@ -21,9 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -34,14 +32,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.cgens67.avidtune.LocalDatabase
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.alarm.AlarmManagerHelper
-import com.cgens67.avidtune.ui.component.SettingsPage
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.isActive
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -58,27 +57,60 @@ fun AlarmSettingsScreen(
     val prefs = context.getSharedPreferences("alarm_prefs", Context.MODE_PRIVATE)
 
     var alarmEnabled by remember { mutableStateOf(prefs.getBoolean("alarm_enabled", false)) }
-    var alarmTime by remember { mutableStateOf(prefs.getLong("alarm_time", System.currentTimeMillis())) }
+    var alarmHour by remember { mutableIntStateOf(prefs.getInt("alarm_hour", 8)) }
+    var alarmMinute by remember { mutableIntStateOf(prefs.getInt("alarm_minute", 0)) }
+    var alarmDays by remember { 
+        mutableStateOf(prefs.getStringSet("alarm_days", emptySet())?.map { it.toInt() }?.toSet() ?: emptySet()) 
+    }
+    
     var alarmSongId by remember { mutableStateOf(prefs.getString("alarm_song_id", null) ?: "") }
     var alarmSongTitle by remember { mutableStateOf(prefs.getString("alarm_song_title", "No Alarm Sound") ?: "No Alarm Sound") }
     var alarmSongArtist by remember { mutableStateOf<String?>(null) }
     var alarmSongThumbnail by remember { mutableStateOf<String?>(null) }
 
     var showTimePicker by remember { mutableStateOf(false) }
-    var showDatePicker by remember { mutableStateOf(false) }
     var isTimeInput by remember { mutableStateOf(false) }
 
-    val cal = remember { Calendar.getInstance().apply { timeInMillis = alarmTime } }
-
     val timePickerState = rememberTimePickerState(
-        initialHour = cal.get(Calendar.HOUR_OF_DAY),
-        initialMinute = cal.get(Calendar.MINUTE),
+        initialHour = alarmHour,
+        initialMinute = alarmMinute,
         is24Hour = android.text.format.DateFormat.is24HourFormat(context)
     )
 
-    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = alarmTime)
+    // Calculate the next exact timestamp the alarm should ring based on time and days
+    fun getNextAlarmTime(hour: Int, minute: Int, days: Set<Int>): Long {
+        val now = Calendar.getInstance()
+        val target = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, hour)
+            set(Calendar.MINUTE, minute)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
 
-    // Handle song argument from navigation ONLY on first launch
+        if (days.isEmpty()) {
+            if (target.before(now)) {
+                target.add(Calendar.DAY_OF_MONTH, 1)
+            }
+            return target.timeInMillis
+        }
+
+        for (i in 0..7) {
+            val candidate = target.clone() as Calendar
+            candidate.add(Calendar.DAY_OF_MONTH, i)
+            if (days.contains(candidate.get(Calendar.DAY_OF_WEEK))) {
+                if (candidate.after(now)) {
+                    return candidate.timeInMillis
+                }
+            }
+        }
+        return target.timeInMillis
+    }
+
+    val nextAlarmTime = remember(alarmHour, alarmMinute, alarmDays) {
+        getNextAlarmTime(alarmHour, alarmMinute, alarmDays)
+    }
+
+    // Process navigation argument ONLY on first launch/change
     LaunchedEffect(songIdArg) {
         if (!songIdArg.isNullOrBlank() && songIdArg != "{songId}") {
             alarmSongId = songIdArg
@@ -95,7 +127,7 @@ fun AlarmSettingsScreen(
         }
     }
 
-    // Update details when alarmSongId changes
+    // Refresh song info whenever ID changes
     LaunchedEffect(alarmSongId) {
         if (alarmSongId.isNotBlank()) {
             val song = database.song(alarmSongId).firstOrNull()
@@ -109,22 +141,17 @@ fun AlarmSettingsScreen(
 
     // Time remaining calculator
     var timeRemainingText by remember { mutableStateOf("") }
-    LaunchedEffect(alarmTime, alarmEnabled) {
-        while (true) {
+    LaunchedEffect(nextAlarmTime, alarmEnabled) {
+        while (isActive) {
             if (alarmEnabled) {
-                var triggerTime = alarmTime
-                if (triggerTime <= System.currentTimeMillis()) {
-                    triggerTime += 24 * 60 * 60 * 1000
-                }
-                val diff = triggerTime - System.currentTimeMillis()
+                val diff = nextAlarmTime - System.currentTimeMillis()
                 if (diff > 0) {
-                    val hours = diff / (1000 * 60 * 60)
+                    val days = diff / (1000 * 60 * 60 * 24)
+                    val hours = (diff / (1000 * 60 * 60)) % 24
                     val minutes = (diff / (1000 * 60)) % 60
-                    val days = hours / 24
-                    val remainingHours = hours % 24
                     
                     timeRemainingText = when {
-                        days > 0 -> "Alarm in $days days ${remainingHours}h ${minutes}m"
+                        days > 0 -> "Alarm in $days days ${hours}h ${minutes}m"
                         hours > 0 -> "Alarm in ${hours}h ${minutes}m"
                         minutes > 0 -> "Alarm in ${minutes}m"
                         else -> "Alarm in less than a minute"
@@ -144,13 +171,14 @@ fun AlarmSettingsScreen(
             title = "Set Alarm Time",
             onCancel = { showTimePicker = false },
             onConfirm = {
-                cal.set(Calendar.HOUR_OF_DAY, timePickerState.hour)
-                cal.set(Calendar.MINUTE, timePickerState.minute)
-                cal.set(Calendar.SECOND, 0)
-                alarmTime = cal.timeInMillis
-                prefs.edit().putLong("alarm_time", alarmTime).apply()
+                alarmHour = timePickerState.hour
+                alarmMinute = timePickerState.minute
+                prefs.edit()
+                    .putInt("alarm_hour", alarmHour)
+                    .putInt("alarm_minute", alarmMinute)
+                    .apply()
                 if (alarmEnabled) {
-                    AlarmManagerHelper.setAlarm(context, alarmTime, alarmSongId)
+                    AlarmManagerHelper.setAlarm(context, getNextAlarmTime(alarmHour, alarmMinute, alarmDays), alarmSongId)
                 }
                 showTimePicker = false
             },
@@ -168,40 +196,13 @@ fun AlarmSettingsScreen(
         }
     }
 
-    if (showDatePicker) {
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { selected ->
-                        val dateCal = Calendar.getInstance().apply { timeInMillis = selected }
-                        cal.set(Calendar.YEAR, dateCal.get(Calendar.YEAR))
-                        cal.set(Calendar.MONTH, dateCal.get(Calendar.MONTH))
-                        cal.set(Calendar.DAY_OF_MONTH, dateCal.get(Calendar.DAY_OF_MONTH))
-                        alarmTime = cal.timeInMillis
-                        prefs.edit().putLong("alarm_time", alarmTime).apply()
-                        if (alarmEnabled) {
-                            AlarmManagerHelper.setAlarm(context, alarmTime, alarmSongId)
-                        }
-                    }
-                    showDatePicker = false
-                }) { Text("OK") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
-            }
-        ) {
-            DatePicker(state = datePickerState)
-        }
-    }
-
     Scaffold(
         modifier = Modifier
             .fillMaxSize()
             .nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
-                title = { Text("Alarm Settings") },
+                title = { Text("Alarm") },
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
                         Icon(painterResource(R.drawable.arrow_back), contentDescription = "Back")
@@ -221,31 +222,35 @@ fun AlarmSettingsScreen(
                 .padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             // Main Time Display
             val is24Hour = android.text.format.DateFormat.is24HourFormat(context)
+            val calToDisplay = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, alarmHour)
+                set(Calendar.MINUTE, alarmMinute)
+            }
             val timeFormat = if (is24Hour) SimpleDateFormat("HH:mm", Locale.getDefault()) else SimpleDateFormat("h:mm", Locale.getDefault())
             val amPmFormat = SimpleDateFormat("a", Locale.getDefault())
 
             Row(
                 verticalAlignment = Alignment.Bottom,
                 modifier = Modifier
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(RoundedCornerShape(24.dp))
                     .clickable { showTimePicker = true }
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .padding(horizontal = 20.dp, vertical = 8.dp)
             ) {
                 Text(
-                    text = timeFormat.format(alarmTime),
+                    text = timeFormat.format(calToDisplay.time),
                     fontSize = 86.sp,
                     fontWeight = FontWeight.Light,
                     color = MaterialTheme.colorScheme.onBackground
                 )
                 if (!is24Hour) {
                     Text(
-                        text = amPmFormat.format(alarmTime),
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Medium,
+                        text = amPmFormat.format(calToDisplay.time),
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(bottom = 16.dp, start = 8.dp)
                     )
@@ -263,7 +268,7 @@ fun AlarmSettingsScreen(
 
             // Unified Settings Card
             Card(
-                shape = RoundedCornerShape(28.dp),
+                shape = RoundedCornerShape(32.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -281,12 +286,12 @@ fun AlarmSettingsScreen(
                                 alarmEnabled = newState
                                 prefs.edit().putBoolean("alarm_enabled", newState).apply()
                                 if (newState) {
-                                    AlarmManagerHelper.setAlarm(context, alarmTime, alarmSongId)
+                                    AlarmManagerHelper.setAlarm(context, nextAlarmTime, alarmSongId)
                                 } else {
                                     AlarmManagerHelper.cancelAlarm(context)
                                 }
                             }
-                            .padding(horizontal = 20.dp, vertical = 20.dp),
+                            .padding(horizontal = 24.dp, vertical = 24.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
@@ -306,69 +311,104 @@ fun AlarmSettingsScreen(
                                 alarmEnabled = isChecked
                                 prefs.edit().putBoolean("alarm_enabled", isChecked).apply()
                                 if (isChecked) {
-                                    AlarmManagerHelper.setAlarm(context, alarmTime, alarmSongId)
+                                    AlarmManagerHelper.setAlarm(context, nextAlarmTime, alarmSongId)
                                 } else {
                                     AlarmManagerHelper.cancelAlarm(context)
                                 }
-                            },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                checkedTrackColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                uncheckedThumbColor = MaterialTheme.colorScheme.outline,
-                                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                            )
+                            }
+                            // Using default colors ensures perfect light/dark mode contrast
                         )
                     }
 
                     HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 20.dp),
+                        modifier = Modifier.padding(horizontal = 24.dp),
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     )
 
-                    // Date Selection row
-                    val dateFormat = SimpleDateFormat("EEE, MMM dd", Locale.getDefault())
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { showDatePicker = true }
-                            .padding(horizontal = 20.dp, vertical = 20.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
+                    // Repeat Days Section
+                    Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
                         Text(
-                            text = "Date",
+                            text = "Repeat",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(bottom = 16.dp)
                         )
-                        Text(
-                            text = dateFormat.format(alarmTime),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Medium
+                        
+                        val daysList = listOf(
+                            "M" to Calendar.MONDAY,
+                            "T" to Calendar.TUESDAY,
+                            "W" to Calendar.WEDNESDAY,
+                            "T" to Calendar.THURSDAY,
+                            "F" to Calendar.FRIDAY,
+                            "S" to Calendar.SATURDAY,
+                            "S" to Calendar.SUNDAY
                         )
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            daysList.forEach { (label, dayValue) ->
+                                val isSelected = alarmDays.contains(dayValue)
+                                
+                                val circleColor by animateColorAsState(
+                                    targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                                    label = "dayColor"
+                                )
+                                val textColor by animateColorAsState(
+                                    targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    label = "dayTextColor"
+                                )
+
+                                Box(
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(CircleShape)
+                                        .background(circleColor)
+                                        .clickable {
+                                            val newDays = if (isSelected) alarmDays - dayValue else alarmDays + dayValue
+                                            alarmDays = newDays
+                                            prefs.edit().putStringSet("alarm_days", newDays.map { it.toString() }.toSet()).apply()
+                                            
+                                            // Reschedule if currently active
+                                            if (alarmEnabled) {
+                                                val updatedTime = getNextAlarmTime(alarmHour, alarmMinute, newDays)
+                                                AlarmManagerHelper.setAlarm(context, updatedTime, alarmSongId)
+                                            }
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = label,
+                                        color = textColor,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 15.sp
+                                    )
+                                }
+                            }
+                        }
                     }
 
                     HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 20.dp),
+                        modifier = Modifier.padding(horizontal = 24.dp),
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     )
 
-                    // Alarm Sound row
+                    // Alarm Sound Selector
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
                                 if (alarmSongId.isNotBlank()) {
-                                    // RESET the song
+                                    // Remove the song
                                     alarmSongId = ""
                                     alarmSongTitle = "No Alarm Sound"
                                     alarmSongArtist = null
                                     alarmSongThumbnail = null
-                                    
-                                    // Automatically turn off the alarm
                                     alarmEnabled = false
-
+                                    
                                     prefs.edit()
                                         .putString("alarm_song_id", "")
                                         .putString("alarm_song_title", "No Alarm Sound")
@@ -376,18 +416,12 @@ fun AlarmSettingsScreen(
                                         .apply()
                                         
                                     AlarmManagerHelper.cancelAlarm(context)
+                                    Toast.makeText(context, "Alarm sound removed and alarm turned off.", Toast.LENGTH_SHORT).show()
                                 } else {
-                                    // Navigate to library so they can choose
-                                    navController.navigate("library") {
-                                        popUpTo(navController.graph.startDestinationId) {
-                                            saveState = true
-                                        }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
+                                    Toast.makeText(context, "Select 'Set as Alarm' from a song's menu to add a sound.", Toast.LENGTH_LONG).show()
                                 }
                             }
-                            .padding(horizontal = 20.dp, vertical = 20.dp)
+                            .padding(horizontal = 24.dp, vertical = 20.dp)
                     ) {
                         Text(
                             text = "Alarm sound",
@@ -408,7 +442,7 @@ fun AlarmSettingsScreen(
                                     contentDescription = null,
                                     contentScale = ContentScale.Crop,
                                     modifier = Modifier
-                                        .size(48.dp)
+                                        .size(52.dp)
                                         .clip(RoundedCornerShape(12.dp))
                                         .background(MaterialTheme.colorScheme.surfaceVariant)
                                 )
@@ -446,13 +480,13 @@ fun AlarmSettingsScreen(
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(48.dp)
+                                        .size(52.dp)
                                         .clip(RoundedCornerShape(12.dp))
                                         .background(MaterialTheme.colorScheme.primaryContainer),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
-                                        painter = painterResource(R.drawable.music_note),
+                                        painter = painterResource(R.drawable.notifications),
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.onPrimaryContainer
                                     )
@@ -466,7 +500,7 @@ fun AlarmSettingsScreen(
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
-                                        text = "Tap to choose a track from library",
+                                        text = "Tap to view instructions",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.primary
                                     )
