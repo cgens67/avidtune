@@ -29,6 +29,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntrinsicSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -38,6 +39,8 @@ import coil.compose.AsyncImage
 import com.cgens67.avidtune.LocalDatabase
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.alarm.AlarmManagerHelper
+import com.cgens67.avidtune.ui.component.SettingsPage
+import com.cgens67.avidtune.ui.utils.backToMain
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.isActive
@@ -69,12 +72,19 @@ fun AlarmSettingsScreen(
     var alarmSongThumbnail by remember { mutableStateOf<String?>(null) }
 
     var showTimePicker by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
     var isTimeInput by remember { mutableStateOf(false) }
+
+    val cal = remember { Calendar.getInstance().apply { timeInMillis = System.currentTimeMillis() } }
 
     val timePickerState = rememberTimePickerState(
         initialHour = alarmHour,
         initialMinute = alarmMinute,
         is24Hour = android.text.format.DateFormat.is24HourFormat(context)
+    )
+
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = System.currentTimeMillis()
     )
 
     // Calculate the next exact timestamp the alarm should ring based on time and days
@@ -110,7 +120,7 @@ fun AlarmSettingsScreen(
         getNextAlarmTime(alarmHour, alarmMinute, alarmDays)
     }
 
-    // Process navigation argument ONLY on first launch/change
+    // Handle song argument from navigation ONLY on first launch/change
     LaunchedEffect(songIdArg) {
         if (!songIdArg.isNullOrBlank() && songIdArg != "{songId}") {
             alarmSongId = songIdArg
@@ -193,6 +203,33 @@ fun AlarmSettingsScreen(
             } else {
                 TimePicker(state = timePickerState)
             }
+        }
+    }
+
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { selected ->
+                        val dateCal = Calendar.getInstance().apply { timeInMillis = selected }
+                        cal.set(Calendar.YEAR, dateCal.get(Calendar.YEAR))
+                        cal.set(Calendar.MONTH, dateCal.get(Calendar.MONTH))
+                        cal.set(Calendar.DAY_OF_MONTH, dateCal.get(Calendar.DAY_OF_MONTH))
+                        val finalTime = cal.timeInMillis
+                        prefs.edit().putLong("alarm_time", finalTime).apply()
+                        if (alarmEnabled) {
+                            AlarmManagerHelper.setAlarm(context, finalTime, alarmSongId)
+                        }
+                    }
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
         }
     }
 
@@ -301,6 +338,7 @@ fun AlarmSettingsScreen(
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
+                        // Removed custom colors; letting Material 3 handle perfectly contrasted Switch defaults
                         Switch(
                             checked = alarmEnabled,
                             onCheckedChange = { isChecked ->
@@ -315,13 +353,7 @@ fun AlarmSettingsScreen(
                                 } else {
                                     AlarmManagerHelper.cancelAlarm(context)
                                 }
-                            },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                checkedTrackColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                uncheckedThumbColor = MaterialTheme.colorScheme.outline,
-                                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                            )
+                            }
                         )
                     }
 
@@ -423,7 +455,13 @@ fun AlarmSettingsScreen(
                                     AlarmManagerHelper.cancelAlarm(context)
                                     Toast.makeText(context, "Alarm sound removed and alarm turned off.", Toast.LENGTH_SHORT).show()
                                 } else {
-                                    Toast.makeText(context, "Select 'Set as Alarm' from a song's menu to add a sound.", Toast.LENGTH_LONG).show()
+                                    // Properly navigate to library tab and reset the backstack 
+                                    // so bottom nav works properly 
+                                    navController.backToMain()
+                                    navController.navigate("library") {
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
                                 }
                             }
                             .padding(horizontal = 24.dp, vertical = 20.dp)
@@ -505,7 +543,7 @@ fun AlarmSettingsScreen(
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
-                                        text = "Tap to view instructions",
+                                        text = "Tap to choose a track from library",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.primary
                                     )
