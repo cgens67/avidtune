@@ -27,13 +27,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntrinsicSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -603,6 +608,19 @@ fun AlarmSongSearchSheet(
     var isSearching by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
 
+    // Consumes ALL vertical overscroll to prevent the sheet from dragging and snapping back
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                return Offset(0f, available.y)
+            }
+        }
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -614,6 +632,7 @@ fun AlarmSongSearchSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight(0.85f)
+                .nestedScroll(nestedScrollConnection)
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 20.dp)
         ) {
