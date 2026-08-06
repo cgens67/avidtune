@@ -29,7 +29,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntrinsicSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -338,7 +337,6 @@ fun AlarmSettingsScreen(
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        // Removed custom colors; letting Material 3 handle perfectly contrasted Switch defaults
                         Switch(
                             checked = alarmEnabled,
                             onCheckedChange = { isChecked ->
@@ -455,8 +453,7 @@ fun AlarmSettingsScreen(
                                     AlarmManagerHelper.cancelAlarm(context)
                                     Toast.makeText(context, "Alarm sound removed and alarm turned off.", Toast.LENGTH_SHORT).show()
                                 } else {
-                                    // Properly navigate to library tab and reset the backstack 
-                                    // so bottom nav works properly 
+                                    // Navigate to library so they can choose
                                     navController.backToMain()
                                     navController.navigate("library") {
                                         launchSingleTop = true
