@@ -21,18 +21,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntrinsicSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.cgens67.avidtune.LocalDatabase
@@ -315,8 +315,13 @@ fun AlarmSettingsScreen(
                                 } else {
                                     AlarmManagerHelper.cancelAlarm(context)
                                 }
-                            }
-                            // Using default colors ensures perfect light/dark mode contrast
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                checkedTrackColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
                         )
                     }
 
@@ -396,7 +401,7 @@ fun AlarmSettingsScreen(
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     )
 
-                    // Alarm Sound Selector
+                    // Alarm Sound row
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -486,7 +491,7 @@ fun AlarmSettingsScreen(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
-                                        painter = painterResource(R.drawable.notifications),
+                                        painter = painterResource(R.drawable.schedule),
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.onPrimaryContainer
                                     )
@@ -532,7 +537,6 @@ fun TimePickerDialog(
             tonalElevation = 6.dp,
             modifier = Modifier
                 .width(IntrinsicSize.Min)
-                .height(IntrinsicSize.Min)
                 .background(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainerHigh)
         ) {
             Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
