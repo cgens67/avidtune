@@ -8,8 +8,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.lazy.LazyColumn
@@ -27,7 +25,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -48,8 +45,6 @@ import com.cgens67.avidtune.R
 import com.cgens67.avidtune.alarm.AlarmManagerHelper
 import com.cgens67.avidtune.alarm.AlarmState
 import com.cgens67.avidtune.models.toMediaMetadata
-import com.cgens67.avidtune.ui.component.SettingsPage
-import com.cgens67.avidtune.ui.utils.backToMain
 import com.cgens67.innertube.YouTube
 import com.cgens67.innertube.models.SongItem
 import kotlinx.coroutines.Dispatchers
@@ -57,11 +52,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
-import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -93,6 +86,41 @@ fun AlarmSettingsScreen(
                 )
                 editingAlarm = newAlarm
             }
+        }
+    }
+
+    // Time remaining calculator
+    var timeRemainingText by remember { mutableStateOf("All alarms are off") }
+    LaunchedEffect(alarms) {
+        while (isActive) {
+            val activeAlarms = alarms.filter { it.isEnabled }
+            if (activeAlarms.isEmpty()) {
+                timeRemainingText = "All alarms are off"
+            } else {
+                val nextTime = activeAlarms.map { AlarmManagerHelper.getNextAlarmTime(it.hour, it.minute, it.days) }.minOrNull()
+                if (nextTime != null) {
+                    val diff = nextTime - System.currentTimeMillis()
+                    if (diff > 0) {
+                        val d = diff / (1000 * 60 * 60 * 24)
+                        val h = (diff / (1000 * 60 * 60)) % 24
+                        val m = (diff / (1000 * 60)) % 60
+                        
+                        val parts = mutableListOf<String>()
+                        if (d > 0) parts.add("${d}d")
+                        if (h > 0) parts.add("${h}h")
+                        if (m > 0) parts.add("${m}m")
+                        
+                        if (parts.isEmpty()) {
+                            timeRemainingText = "Next alarm in less than a minute"
+                        } else {
+                            timeRemainingText = "Next alarm in ${parts.joinToString(" ")}"
+                        }
+                    } else {
+                        timeRemainingText = "Alarm will sound soon"
+                    }
+                }
+            }
+            delay(1000)
         }
     }
 
@@ -131,11 +159,20 @@ fun AlarmSettingsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(top = 16.dp, bottom = 88.dp) // space for FAB
         ) {
+            item {
+                Text(
+                    text = timeRemainingText,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
+            
             if (alarms.isEmpty()) {
                 item {
                     Box(modifier = Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
-                            "No Alarms set",
+                            "No alarms set",
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -189,7 +226,7 @@ fun AlarmSettingsScreen(
         AlarmSongSearchSheet(
             onDismiss = { showSearchSheet = false },
             onSongSelected = { songItem ->
-                // Update the currently editing alarm state
+                // Update the currently editing alarm state properly
                 editingAlarm = editingAlarm?.copy(
                     songId = songItem.id,
                     songTitle = songItem.title,
@@ -285,7 +322,11 @@ fun EditAlarmBottomSheet(
     onOpenSearch: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    
+    // Crucial to sync changes returned from the search screen
     var currentAlarm by remember { mutableStateOf(initialAlarm) }
+    LaunchedEffect(initialAlarm) { currentAlarm = initialAlarm }
+    
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
 
@@ -342,7 +383,9 @@ fun EditAlarmBottomSheet(
                     fontWeight = FontWeight.Bold
                 )
                 Row {
-                    TextButton(onClick = onDelete, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+                    TextButton(onClick = {
+                        coroutineScope.launch { sheetState.hide() }.invokeOnCompletion { onDelete() }
+                    }, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
                         Text("Delete")
                     }
                     Button(onClick = { 
@@ -427,14 +470,7 @@ fun EditAlarmBottomSheet(
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable {
-                        if (currentAlarm.songId.isNotBlank()) {
-                            currentAlarm = currentAlarm.copy(songId = "", songTitle = "No Alarm Sound", songArtist = null, songThumbnail = null, isEnabled = false)
-                            Toast.makeText(context, "Alarm sound removed. Alarm turned off.", Toast.LENGTH_SHORT).show()
-                        } else {
-                            onOpenSearch()
-                        }
-                    }
+                    .clickable { onOpenSearch() } // Re-open search if clicked
             ) {
                 if (currentAlarm.songId.isNotBlank()) {
                     Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -451,7 +487,12 @@ fun EditAlarmBottomSheet(
                                 Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
-                        Icon(painterResource(R.drawable.close), contentDescription = "Remove", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        IconButton(onClick = {
+                            currentAlarm = currentAlarm.copy(songId = "", songTitle = "No Alarm Sound", songArtist = null, songThumbnail = null, isEnabled = false)
+                            Toast.makeText(context, "Alarm sound removed", Toast.LENGTH_SHORT).show()
+                        }) {
+                            Icon(painterResource(R.drawable.close), contentDescription = "Remove", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 } else {
                     Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
