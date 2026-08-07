@@ -26,6 +26,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
@@ -76,6 +77,7 @@ fun AlarmSettingsScreen(
     
     var alarms by remember { mutableStateOf(AlarmManagerHelper.getAlarms(context)) }
     var editingAlarm by remember { mutableStateOf<AlarmState?>(null) }
+    var isNewAlarm by remember { mutableStateOf(false) }
     var showSearchSheet by remember { mutableStateOf(false) }
 
     // If passed a song from another screen, create a new alarm automatically
@@ -92,6 +94,7 @@ fun AlarmSettingsScreen(
                     songThumbnail = song.song.thumbnailUrl,
                     isEnabled = true // auto enable when created from song
                 )
+                isNewAlarm = true
                 editingAlarm = newAlarm
             }
         }
@@ -150,7 +153,10 @@ fun AlarmSettingsScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { editingAlarm = AlarmState() },
+                onClick = { 
+                    isNewAlarm = true
+                    editingAlarm = AlarmState() 
+                },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
@@ -178,12 +184,38 @@ fun AlarmSettingsScreen(
             
             if (alarms.isEmpty()) {
                 item {
-                    Box(modifier = Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(
-                            "No alarms set",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    Box(
+                        modifier = Modifier
+                            .fillParentMaxSize()
+                            .padding(bottom = 64.dp), 
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.schedule),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(80.dp)
+                                    .alpha(0.5f),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = "No alarms set",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Tap the + button to create one",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             } else {
@@ -199,7 +231,10 @@ fun AlarmSettingsScreen(
                             alarms = newAlarms
                             AlarmManagerHelper.saveAlarms(context, newAlarms)
                         },
-                        onClick = { editingAlarm = alarm }
+                        onClick = { 
+                            isNewAlarm = false
+                            editingAlarm = alarm 
+                        }
                     )
                 }
             }
@@ -209,6 +244,7 @@ fun AlarmSettingsScreen(
     if (editingAlarm != null) {
         EditAlarmBottomSheet(
             initialAlarm = editingAlarm!!,
+            isNew = isNewAlarm,
             onDismiss = { editingAlarm = null },
             onSave = { updatedAlarm ->
                 val newAlarms = if (alarms.any { it.id == updatedAlarm.id }) {
@@ -265,12 +301,19 @@ fun AlarmCard(
     val timeFormat = if (is24Hour) SimpleDateFormat("HH:mm", Locale.getDefault()) else SimpleDateFormat("h:mm", Locale.getDefault())
     val amPmFormat = SimpleDateFormat("a", Locale.getDefault())
 
-    val daysText = if (alarm.days.isEmpty()) "Once" 
-                   else if (alarm.days.size == 7) "Everyday" 
-                   else listOf("M", "T", "W", "T", "F", "S", "S").filterIndexed { i, _ -> 
-                       val dayVal = if (i == 6) Calendar.SUNDAY else i + 2
-                       alarm.days.contains(dayVal) 
-                   }.joinToString(", ")
+    val daysText = remember(alarm.days) {
+        if (alarm.days.isEmpty()) "Once" 
+        else if (alarm.days.size == 7) "Everyday" 
+        else {
+            val format = SimpleDateFormat("E", Locale.getDefault())
+            listOf(Calendar.MONDAY, Calendar.TUESDAY, Calendar.WEDNESDAY, Calendar.THURSDAY, Calendar.FRIDAY, Calendar.SATURDAY, Calendar.SUNDAY)
+                .filter { alarm.days.contains(it) }
+                .joinToString(", ") { day ->
+                    val c = Calendar.getInstance().apply { set(Calendar.DAY_OF_WEEK, day) }
+                    format.format(c.time)
+                }
+        }
+    }
 
     Card(
         shape = RoundedCornerShape(24.dp),
@@ -324,6 +367,7 @@ fun AlarmCard(
 @Composable
 fun EditAlarmBottomSheet(
     initialAlarm: AlarmState,
+    isNew: Boolean,
     onSave: (AlarmState) -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
@@ -386,15 +430,23 @@ fun EditAlarmBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Edit Alarm",
+                    text = if (isNew) "Create Alarm" else "Edit Alarm",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
                 Row {
-                    TextButton(onClick = {
-                        coroutineScope.launch { sheetState.hide() }.invokeOnCompletion { onDelete() }
-                    }, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
-                        Text("Delete")
+                    if (!isNew) {
+                        TextButton(onClick = {
+                            coroutineScope.launch { sheetState.hide() }.invokeOnCompletion { onDelete() }
+                        }, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+                            Text("Delete")
+                        }
+                    } else {
+                        TextButton(onClick = {
+                            coroutineScope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() }
+                        }) {
+                            Text("Cancel")
+                        }
                     }
                     Button(onClick = { 
                         coroutineScope.launch { sheetState.hide() }.invokeOnCompletion { 
@@ -446,16 +498,28 @@ fun EditAlarmBottomSheet(
             // Days
             Text("Repeat", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(16.dp))
-            val daysList = listOf("M" to Calendar.MONDAY, "T" to Calendar.TUESDAY, "W" to Calendar.WEDNESDAY, "T" to Calendar.THURSDAY, "F" to Calendar.FRIDAY, "S" to Calendar.SATURDAY, "S" to Calendar.SUNDAY)
+            
+            val daysList = remember {
+                val format = SimpleDateFormat("E", Locale.getDefault())
+                listOf(Calendar.MONDAY, Calendar.TUESDAY, Calendar.WEDNESDAY, Calendar.THURSDAY, Calendar.FRIDAY, Calendar.SATURDAY, Calendar.SUNDAY).map { day ->
+                    val c = Calendar.getInstance().apply { set(Calendar.DAY_OF_WEEK, day) }
+                    val label = format.format(c.time).take(3).replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+                    label to day
+                }
+            }
+
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 daysList.forEach { (label, dayValue) ->
                     val isSelected = currentAlarm.days.contains(dayValue)
                     val circleColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant, label = "")
                     val textColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant, label = "")
+                    
                     Box(
                         modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
+                            .weight(1f)
+                            .padding(horizontal = 3.dp)
+                            .height(40.dp)
+                            .clip(RoundedCornerShape(20.dp))
                             .background(circleColor)
                             .clickable {
                                 val newDays = if (isSelected) currentAlarm.days - dayValue else currentAlarm.days + dayValue
@@ -463,7 +527,14 @@ fun EditAlarmBottomSheet(
                             },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(label, color = textColor, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = label, 
+                            color = textColor, 
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Clip
+                        )
                     }
                 }
             }
