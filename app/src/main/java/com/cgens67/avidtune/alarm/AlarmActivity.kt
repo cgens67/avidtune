@@ -37,7 +37,6 @@ import com.cgens67.avidtune.ui.theme.AvidTuneTheme
 import com.cgens67.avidtune.utils.isInternetAvailable
 import com.cgens67.innertube.models.WatchEndpoint
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -71,14 +70,8 @@ class AlarmActivity : ComponentActivity() {
                                 return@launch
                             }
 
-                            // Fade in volume over 20 seconds
-                            playerConnection?.player?.volume = 0f
-                            launch {
-                                for (i in 1..20) {
-                                    playerConnection?.player?.volume = i / 20f
-                                    delay(1000)
-                                }
-                            }
+                            // Ensure volume is at 100% (fade-in disabled)
+                            playerConnection?.player?.volume = 1f
 
                             if (dbSong != null) {
                                 playerConnection?.playQueue(ListQueue("Alarm", listOf(dbSong.toMediaItem())))
