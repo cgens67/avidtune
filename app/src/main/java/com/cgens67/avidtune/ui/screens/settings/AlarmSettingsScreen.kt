@@ -19,6 +19,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -44,10 +46,10 @@ import coil.compose.AsyncImage
 import com.cgens67.avidtune.LocalDatabase
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.alarm.AlarmManagerHelper
+import com.cgens67.avidtune.alarm.AlarmState
 import com.cgens67.avidtune.models.toMediaMetadata
 import com.cgens67.avidtune.ui.component.SettingsPage
 import com.cgens67.avidtune.ui.utils.backToMain
-import com.cgens67.avidtune.utils.makeTimeString
 import com.cgens67.innertube.YouTube
 import com.cgens67.innertube.models.SongItem
 import kotlinx.coroutines.Dispatchers
@@ -59,6 +61,7 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
+import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,207 +72,28 @@ fun AlarmSettingsScreen(
 ) {
     val context = LocalContext.current
     val database = LocalDatabase.current
-    val prefs = context.getSharedPreferences("alarm_prefs", Context.MODE_PRIVATE)
-
-    var alarmEnabled by remember { mutableStateOf(prefs.getBoolean("alarm_enabled", false)) }
-    var alarmHour by remember { mutableIntStateOf(prefs.getInt("alarm_hour", 8)) }
-    var alarmMinute by remember { mutableIntStateOf(prefs.getInt("alarm_minute", 0)) }
-    var alarmDays by remember { 
-        mutableStateOf(prefs.getStringSet("alarm_days", emptySet())?.map { it.toInt() }?.toSet() ?: emptySet()) 
-    }
     
-    var alarmSongId by remember { mutableStateOf(prefs.getString("alarm_song_id", null) ?: "") }
-    var alarmSongTitle by remember { mutableStateOf(prefs.getString("alarm_song_title", "No Alarm Sound") ?: "No Alarm Sound") }
-    var alarmSongArtist by remember { mutableStateOf<String?>(null) }
-    var alarmSongThumbnail by remember { mutableStateOf<String?>(null) }
-
-    var showTimePicker by remember { mutableStateOf(false) }
-    var showDatePicker by remember { mutableStateOf(false) }
-    var isTimeInput by remember { mutableStateOf(false) }
+    var alarms by remember { mutableStateOf(AlarmManagerHelper.getAlarms(context)) }
+    var editingAlarm by remember { mutableStateOf<AlarmState?>(null) }
     var showSearchSheet by remember { mutableStateOf(false) }
 
-    val cal = remember { Calendar.getInstance().apply { timeInMillis = System.currentTimeMillis() } }
-
-    val timePickerState = rememberTimePickerState(
-        initialHour = alarmHour,
-        initialMinute = alarmMinute,
-        is24Hour = android.text.format.DateFormat.is24HourFormat(context)
-    )
-
-    val datePickerState = rememberDatePickerState(
-        initialSelectedDateMillis = System.currentTimeMillis()
-    )
-
-    // Calculate the next exact timestamp the alarm should ring based on time and days
-    fun getNextAlarmTime(hour: Int, minute: Int, days: Set<Int>): Long {
-        val now = Calendar.getInstance()
-        val target = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, hour)
-            set(Calendar.MINUTE, minute)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
-
-        if (days.isEmpty()) {
-            if (target.before(now)) {
-                target.add(Calendar.DAY_OF_MONTH, 1)
-            }
-            return target.timeInMillis
-        }
-
-        for (i in 0..7) {
-            val candidate = target.clone() as Calendar
-            candidate.add(Calendar.DAY_OF_MONTH, i)
-            if (days.contains(candidate.get(Calendar.DAY_OF_WEEK))) {
-                if (candidate.after(now)) {
-                    return candidate.timeInMillis
-                }
-            }
-        }
-        return target.timeInMillis
-    }
-
-    val nextAlarmTime = remember(alarmHour, alarmMinute, alarmDays) {
-        getNextAlarmTime(alarmHour, alarmMinute, alarmDays)
-    }
-
-    // Process navigation argument ONLY on first launch to avoid the sticky bug
+    // If passed a song from another screen, create a new alarm automatically
     var hasProcessedArg by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(songIdArg) {
         if (!hasProcessedArg && !songIdArg.isNullOrBlank() && songIdArg != "{songId}") {
             hasProcessedArg = true
-            alarmSongId = songIdArg
             val song = database.song(songIdArg).firstOrNull()
             if (song != null) {
-                alarmSongTitle = song.song.title
-                alarmSongArtist = song.artists.joinToString { it.name }
-                alarmSongThumbnail = song.song.thumbnailUrl
-                prefs.edit()
-                    .putString("alarm_song_id", alarmSongId)
-                    .putString("alarm_song_title", alarmSongTitle)
-                    .apply()
+                val newAlarm = AlarmState(
+                    songId = songIdArg,
+                    songTitle = song.song.title,
+                    songArtist = song.artists.joinToString { it.name },
+                    songThumbnail = song.song.thumbnailUrl,
+                    isEnabled = true // auto enable when created from song
+                )
+                editingAlarm = newAlarm
             }
         }
-    }
-
-    // Refresh song info whenever ID changes (e.g. from the search bottom sheet)
-    LaunchedEffect(alarmSongId) {
-        if (alarmSongId.isNotBlank()) {
-            val song = database.song(alarmSongId).firstOrNull()
-            if (song != null) {
-                alarmSongTitle = song.song.title
-                alarmSongArtist = song.artists.joinToString { it.name }
-                alarmSongThumbnail = song.song.thumbnailUrl
-            }
-        }
-    }
-
-    // Time remaining calculator
-    var timeRemainingText by remember { mutableStateOf("") }
-    LaunchedEffect(nextAlarmTime, alarmEnabled) {
-        while (isActive) {
-            if (alarmEnabled) {
-                val diff = nextAlarmTime - System.currentTimeMillis()
-                if (diff > 0) {
-                    val days = diff / (1000 * 60 * 60 * 24)
-                    val hours = (diff / (1000 * 60 * 60)) % 24
-                    val minutes = (diff / (1000 * 60)) % 60
-                    
-                    timeRemainingText = when {
-                        days > 0 -> "Alarm in $days days ${hours}h ${minutes}m"
-                        hours > 0 -> "Alarm in ${hours}h ${minutes}m"
-                        minutes > 0 -> "Alarm in ${minutes}m"
-                        else -> "Alarm in less than a minute"
-                    }
-                } else {
-                    timeRemainingText = "Alarm will sound soon"
-                }
-            } else {
-                timeRemainingText = "Alarm is off"
-            }
-            delay(1000)
-        }
-    }
-
-    if (showTimePicker) {
-        TimePickerDialog(
-            title = "Set Alarm Time",
-            onCancel = { showTimePicker = false },
-            onConfirm = {
-                alarmHour = timePickerState.hour
-                alarmMinute = timePickerState.minute
-                prefs.edit()
-                    .putInt("alarm_hour", alarmHour)
-                    .putInt("alarm_minute", alarmMinute)
-                    .apply()
-                if (alarmEnabled) {
-                    AlarmManagerHelper.setAlarm(context, getNextAlarmTime(alarmHour, alarmMinute, alarmDays), alarmSongId)
-                }
-                showTimePicker = false
-            },
-            toggle = {
-                IconButton(onClick = { isTimeInput = !isTimeInput }) {
-                    Icon(painterResource(if (isTimeInput) R.drawable.schedule else R.drawable.edit), null)
-                }
-            }
-        ) {
-            if (isTimeInput) {
-                TimeInput(state = timePickerState)
-            } else {
-                TimePicker(state = timePickerState)
-            }
-        }
-    }
-
-    if (showDatePicker) {
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { selected ->
-                        val dateCal = Calendar.getInstance().apply { timeInMillis = selected }
-                        cal.set(Calendar.YEAR, dateCal.get(Calendar.YEAR))
-                        cal.set(Calendar.MONTH, dateCal.get(Calendar.MONTH))
-                        cal.set(Calendar.DAY_OF_MONTH, dateCal.get(Calendar.DAY_OF_MONTH))
-                        val finalTime = cal.timeInMillis
-                        prefs.edit().putLong("alarm_time", finalTime).apply()
-                        if (alarmEnabled) {
-                            AlarmManagerHelper.setAlarm(context, finalTime, alarmSongId)
-                        }
-                    }
-                    showDatePicker = false
-                }) { Text("OK") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
-            }
-        ) {
-            DatePicker(state = datePickerState)
-        }
-    }
-
-    if (showSearchSheet) {
-        AlarmSongSearchSheet(
-            onDismiss = { showSearchSheet = false },
-            onSongSelected = { songItem ->
-                alarmSongId = songItem.id
-                alarmSongTitle = songItem.title
-                alarmSongArtist = songItem.artists.joinToString { it.name }
-                alarmSongThumbnail = songItem.thumbnail
-                
-                prefs.edit()
-                    .putString("alarm_song_id", alarmSongId)
-                    .putString("alarm_song_title", alarmSongTitle)
-                    .apply()
-
-                // Insert to local database so AlarmManager can find it without loading YouTube network API
-                kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
-                    database.transaction {
-                        insert(songItem.toMediaMetadata())
-                    }
-                }
-            }
-        )
     }
 
     Scaffold(
@@ -278,7 +102,7 @@ fun AlarmSettingsScreen(
             .nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
-                title = { Text("Alarm Settings") },
+                title = { Text("Alarms") },
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
                         Icon(painterResource(R.drawable.arrow_back), contentDescription = "Back")
@@ -288,23 +112,256 @@ fun AlarmSettingsScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { editingAlarm = AlarmState() },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Add Alarm")
+            }
+        },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
                 .padding(padding)
                 .padding(horizontal = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(top = 16.dp, bottom = 88.dp) // space for FAB
         ) {
-            Spacer(modifier = Modifier.height(24.dp))
+            if (alarms.isEmpty()) {
+                item {
+                    Box(modifier = Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            "No Alarms set",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            } else {
+                items(alarms, key = { it.id }) { alarm ->
+                    AlarmCard(
+                        alarm = alarm,
+                        onCheckedChange = { isChecked ->
+                            if (isChecked && alarm.songId.isBlank()) {
+                                Toast.makeText(context, "Please select an alarm sound first.", Toast.LENGTH_SHORT).show()
+                                return@AlarmCard
+                            }
+                            val newAlarms = alarms.map { if (it.id == alarm.id) alarm.copy(isEnabled = isChecked) else it }
+                            alarms = newAlarms
+                            AlarmManagerHelper.saveAlarms(context, newAlarms)
+                        },
+                        onClick = { editingAlarm = alarm }
+                    )
+                }
+            }
+        }
+    }
 
-            // Main Time Display
+    if (editingAlarm != null) {
+        EditAlarmBottomSheet(
+            initialAlarm = editingAlarm!!,
+            onDismiss = { editingAlarm = null },
+            onSave = { updatedAlarm ->
+                val newAlarms = if (alarms.any { it.id == updatedAlarm.id }) {
+                    alarms.map { if (it.id == updatedAlarm.id) updatedAlarm else it }
+                } else {
+                    alarms + updatedAlarm
+                }
+                alarms = newAlarms
+                AlarmManagerHelper.saveAlarms(context, newAlarms)
+                editingAlarm = null
+            },
+            onDelete = {
+                val newAlarms = alarms.filter { it.id != editingAlarm!!.id }
+                alarms = newAlarms
+                AlarmManagerHelper.saveAlarms(context, newAlarms)
+                editingAlarm = null
+            },
+            onOpenSearch = { showSearchSheet = true }
+        )
+    }
+
+    if (showSearchSheet) {
+        AlarmSongSearchSheet(
+            onDismiss = { showSearchSheet = false },
+            onSongSelected = { songItem ->
+                // Update the currently editing alarm state
+                editingAlarm = editingAlarm?.copy(
+                    songId = songItem.id,
+                    songTitle = songItem.title,
+                    songArtist = songItem.artists.joinToString { it.name },
+                    songThumbnail = songItem.thumbnail
+                )
+                // Ensure it's cached locally
+                kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+                    database.transaction { insert(songItem.toMediaMetadata()) }
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun AlarmCard(
+    alarm: AlarmState,
+    onCheckedChange: (Boolean) -> Unit,
+    onClick: () -> Unit
+) {
+    val context = LocalContext.current
+    val is24Hour = android.text.format.DateFormat.is24HourFormat(context)
+    val cal = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, alarm.hour)
+        set(Calendar.MINUTE, alarm.minute)
+    }
+    val timeFormat = if (is24Hour) SimpleDateFormat("HH:mm", Locale.getDefault()) else SimpleDateFormat("h:mm", Locale.getDefault())
+    val amPmFormat = SimpleDateFormat("a", Locale.getDefault())
+
+    val daysText = if (alarm.days.isEmpty()) "Once" 
+                   else if (alarm.days.size == 7) "Everyday" 
+                   else listOf("M", "T", "W", "T", "F", "S", "S").filterIndexed { i, _ -> 
+                       val dayVal = if (i == 6) Calendar.SUNDAY else i + 2
+                       alarm.days.contains(dayVal) 
+                   }.joinToString(", ")
+
+    Card(
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .clickable { onClick() }
+    ) {
+        Row(
+            modifier = Modifier.padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        text = timeFormat.format(cal.time),
+                        fontSize = 42.sp,
+                        fontWeight = FontWeight.Light,
+                        color = if (alarm.isEnabled) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant.copy(0.6f)
+                    )
+                    if (!is24Hour) {
+                        Text(
+                            text = amPmFormat.format(cal.time),
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (alarm.isEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(0.6f),
+                            modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "$daysText • ${alarm.songTitle}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Switch(
+                checked = alarm.isEnabled,
+                onCheckedChange = onCheckedChange,
+                enabled = alarm.songId.isNotBlank()
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditAlarmBottomSheet(
+    initialAlarm: AlarmState,
+    onSave: (AlarmState) -> Unit,
+    onDelete: () -> Unit,
+    onDismiss: () -> Unit,
+    onOpenSearch: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var currentAlarm by remember { mutableStateOf(initialAlarm) }
+    val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    var showTimePicker by remember { mutableStateOf(false) }
+    var isTimeInput by remember { mutableStateOf(false) }
+    
+    val timePickerState = rememberTimePickerState(
+        initialHour = currentAlarm.hour,
+        initialMinute = currentAlarm.minute,
+        is24Hour = android.text.format.DateFormat.is24HourFormat(context)
+    )
+
+    if (showTimePicker) {
+        TimePickerDialog(
+            title = "Set Time",
+            onCancel = { showTimePicker = false },
+            onConfirm = {
+                currentAlarm = currentAlarm.copy(
+                    hour = timePickerState.hour,
+                    minute = timePickerState.minute
+                )
+                showTimePicker = false
+            },
+            toggle = {
+                IconButton(onClick = { isTimeInput = !isTimeInput }) {
+                    Icon(painterResource(if (isTimeInput) R.drawable.schedule else R.drawable.edit), null)
+                }
+            }
+        ) {
+            if (isTimeInput) TimeInput(state = timePickerState) else TimePicker(state = timePickerState)
+        }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        dragHandle = { BottomSheetDefaults.DragHandle() },
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Edit Alarm",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Row {
+                    TextButton(onClick = onDelete, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+                        Text("Delete")
+                    }
+                    Button(onClick = { 
+                        coroutineScope.launch { sheetState.hide() }.invokeOnCompletion { 
+                            onSave(currentAlarm.copy(isEnabled = currentAlarm.songId.isNotBlank())) 
+                        } 
+                    }) {
+                        Text("Save")
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            // Time 
             val is24Hour = android.text.format.DateFormat.is24HourFormat(context)
             val calToDisplay = Calendar.getInstance().apply {
-                set(Calendar.HOUR_OF_DAY, alarmHour)
-                set(Calendar.MINUTE, alarmMinute)
+                set(Calendar.HOUR_OF_DAY, currentAlarm.hour)
+                set(Calendar.MINUTE, currentAlarm.minute)
             }
             val timeFormat = if (is24Hour) SimpleDateFormat("HH:mm", Locale.getDefault()) else SimpleDateFormat("h:mm", Locale.getDefault())
             val amPmFormat = SimpleDateFormat("a", Locale.getDefault())
@@ -314,280 +371,101 @@ fun AlarmSettingsScreen(
                 modifier = Modifier
                     .clip(RoundedCornerShape(24.dp))
                     .clickable { showTimePicker = true }
-                    .padding(horizontal = 20.dp, vertical = 8.dp)
+                    .padding(8.dp)
             ) {
                 Text(
                     text = timeFormat.format(calToDisplay.time),
-                    fontSize = 86.sp,
+                    fontSize = 72.sp,
                     fontWeight = FontWeight.Light,
                     color = MaterialTheme.colorScheme.onBackground
                 )
                 if (!is24Hour) {
                     Text(
                         text = amPmFormat.format(calToDisplay.time),
-                        fontSize = 24.sp,
+                        fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(bottom = 16.dp, start = 8.dp)
+                        modifier = Modifier.padding(bottom = 12.dp, start = 8.dp)
                     )
                 }
             }
 
-            Text(
-                text = timeRemainingText,
-                style = MaterialTheme.typography.bodyLarge,
-                color = if (alarmEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 8.dp)
-            )
+            Spacer(Modifier.height(32.dp))
 
-            Spacer(modifier = Modifier.height(48.dp))
+            // Days
+            Text("Repeat", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(16.dp))
+            val daysList = listOf("M" to Calendar.MONDAY, "T" to Calendar.TUESDAY, "W" to Calendar.WEDNESDAY, "T" to Calendar.THURSDAY, "F" to Calendar.FRIDAY, "S" to Calendar.SATURDAY, "S" to Calendar.SUNDAY)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                daysList.forEach { (label, dayValue) ->
+                    val isSelected = currentAlarm.days.contains(dayValue)
+                    val circleColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant, label = "")
+                    val textColor by animateColorAsState(if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant, label = "")
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(circleColor)
+                            .clickable {
+                                val newDays = if (isSelected) currentAlarm.days - dayValue else currentAlarm.days + dayValue
+                                currentAlarm = currentAlarm.copy(days = newDays)
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(label, color = textColor, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
 
-            // Unified Settings Card
+            Spacer(Modifier.height(32.dp))
+
+            // Sound
+            Text("Alarm Sound", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(16.dp))
             Card(
-                shape = RoundedCornerShape(32.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column {
-                    // Turn on/off toggle row
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                if (alarmSongId.isBlank()) {
-                                    Toast.makeText(context, "Please select an alarm sound first.", Toast.LENGTH_SHORT).show()
-                                    return@clickable
-                                }
-                                val newState = !alarmEnabled
-                                alarmEnabled = newState
-                                prefs.edit().putBoolean("alarm_enabled", newState).apply()
-                                if (newState) {
-                                    AlarmManagerHelper.setAlarm(context, nextAlarmTime, alarmSongId)
-                                } else {
-                                    AlarmManagerHelper.cancelAlarm(context)
-                                }
-                            }
-                            .padding(horizontal = 24.dp, vertical = 24.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = if (alarmEnabled) "Alarm on" else "Alarm off",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (alarmSongId.isNotBlank()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                        )
-                        Switch(
-                            checked = alarmEnabled,
-                            enabled = alarmSongId.isNotBlank(),
-                            onCheckedChange = { isChecked ->
-                                if (isChecked && alarmSongId.isBlank()) {
-                                    Toast.makeText(context, "Please select an alarm sound first.", Toast.LENGTH_SHORT).show()
-                                    return@Switch
-                                }
-                                alarmEnabled = isChecked
-                                prefs.edit().putBoolean("alarm_enabled", isChecked).apply()
-                                if (isChecked) {
-                                    AlarmManagerHelper.setAlarm(context, nextAlarmTime, alarmSongId)
-                                } else {
-                                    AlarmManagerHelper.cancelAlarm(context)
-                                }
-                            }
-                        )
-                    }
-
-                    HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 24.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                    )
-
-                    // Repeat Days Section
-                    Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
-                        Text(
-                            text = "Repeat",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(bottom = 16.dp)
-                        )
-                        
-                        val daysList = listOf(
-                            "M" to Calendar.MONDAY,
-                            "T" to Calendar.TUESDAY,
-                            "W" to Calendar.WEDNESDAY,
-                            "T" to Calendar.THURSDAY,
-                            "F" to Calendar.FRIDAY,
-                            "S" to Calendar.SATURDAY,
-                            "S" to Calendar.SUNDAY
-                        )
-                        
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            daysList.forEach { (label, dayValue) ->
-                                val isSelected = alarmDays.contains(dayValue)
-                                
-                                val circleColor by animateColorAsState(
-                                    targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-                                    label = "dayColor"
-                                )
-                                val textColor by animateColorAsState(
-                                    targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    label = "dayTextColor"
-                                )
-
-                                Box(
-                                    modifier = Modifier
-                                        .size(38.dp)
-                                        .clip(CircleShape)
-                                        .background(circleColor)
-                                        .clickable {
-                                            val newDays = if (isSelected) alarmDays - dayValue else alarmDays + dayValue
-                                            alarmDays = newDays
-                                            prefs.edit().putStringSet("alarm_days", newDays.map { it.toString() }.toSet()).apply()
-                                            
-                                            // Reschedule if currently active
-                                            if (alarmEnabled) {
-                                                val updatedTime = getNextAlarmTime(alarmHour, alarmMinute, newDays)
-                                                AlarmManagerHelper.setAlarm(context, updatedTime, alarmSongId)
-                                            }
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = label,
-                                        color = textColor,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 15.sp
-                                    )
-                                }
-                            }
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        if (currentAlarm.songId.isNotBlank()) {
+                            currentAlarm = currentAlarm.copy(songId = "", songTitle = "No Alarm Sound", songArtist = null, songThumbnail = null, isEnabled = false)
+                            Toast.makeText(context, "Alarm sound removed. Alarm turned off.", Toast.LENGTH_SHORT).show()
+                        } else {
+                            onOpenSearch()
                         }
                     }
-
-                    HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 24.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                    )
-
-                    // Alarm Sound row
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                if (alarmSongId.isNotBlank()) {
-                                    // Remove the song and turn off the alarm safely
-                                    alarmSongId = ""
-                                    alarmSongTitle = "No Alarm Sound"
-                                    alarmSongArtist = null
-                                    alarmSongThumbnail = null
-                                    alarmEnabled = false
-                                    
-                                    prefs.edit()
-                                        .putString("alarm_song_id", "")
-                                        .putString("alarm_song_title", "No Alarm Sound")
-                                        .putBoolean("alarm_enabled", false)
-                                        .apply()
-                                        
-                                    AlarmManagerHelper.cancelAlarm(context)
-                                    Toast.makeText(context, "Alarm sound removed. Alarm turned off.", Toast.LENGTH_SHORT).show()
-                                } else {
-                                    // Open Search Bottom Sheet
-                                    showSearchSheet = true
-                                }
-                            }
-                            .padding(horizontal = 24.dp, vertical = 20.dp)
-                    ) {
-                        Text(
-                            text = "Alarm sound",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
+            ) {
+                if (currentAlarm.songId.isNotBlank()) {
+                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        AsyncImage(
+                            model = currentAlarm.songThumbnail,
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)),
+                            contentScale = ContentScale.Crop
                         )
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        if (alarmSongId.isNotBlank()) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                AsyncImage(
-                                    model = alarmSongThumbnail,
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .size(52.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                                )
-                                Spacer(modifier = Modifier.width(16.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = alarmSongTitle,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    alarmSongArtist?.let {
-                                        Text(
-                                            text = it,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
-                                }
-                                Icon(
-                                    painter = painterResource(R.drawable.close),
-                                    contentDescription = "Remove song",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(start = 8.dp)
-                                )
+                        Spacer(Modifier.width(16.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(currentAlarm.songTitle, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            currentAlarm.songArtist?.let {
+                                Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
-                        } else {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(52.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(MaterialTheme.colorScheme.primaryContainer),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        painter = painterResource(R.drawable.music_note),
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(16.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "No Alarm Sound",
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Text(
-                                        text = "Tap to search for a track",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            }
+                        }
+                        Icon(painterResource(R.drawable.close), contentDescription = "Remove", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                } else {
+                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
+                            Icon(painterResource(R.drawable.music_note), null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                        }
+                        Spacer(Modifier.width(16.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("No Alarm Sound", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                            Text("Tap to select a track", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
@@ -812,18 +690,6 @@ fun AlarmSongSearchSheet(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-
-                                Spacer(Modifier.width(8.dp))
-
-                                // Display duration
-                                val durationText = song.duration?.let { makeTimeString(it * 1000L) } ?: ""
-                                if (durationText.isNotEmpty()) {
-                                    Text(
-                                        text = durationText,
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
