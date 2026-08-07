@@ -6,9 +6,14 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.media.AudioAttributes
+import android.media.MediaPlayer
+import android.media.RingtoneManager
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -24,14 +29,15 @@ import androidx.lifecycle.lifecycleScope
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.db.MusicDatabase
 import com.cgens67.avidtune.extensions.toMediaItem
-import com.cgens67.avidtune.models.toMediaMetadata
 import com.cgens67.avidtune.playback.MusicService
 import com.cgens67.avidtune.playback.PlayerConnection
 import com.cgens67.avidtune.playback.queues.ListQueue
 import com.cgens67.avidtune.playback.queues.YouTubeQueue
 import com.cgens67.avidtune.ui.theme.AvidTuneTheme
+import com.cgens67.avidtune.utils.isInternetAvailable
 import com.cgens67.innertube.models.WatchEndpoint
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -44,20 +50,43 @@ class AlarmActivity : ComponentActivity() {
 
     private var playerConnection by mutableStateOf<PlayerConnection?>(null)
     private var songId: String? = null
+    private var alarmId: String? = null
+    
+    private var fallbackPlayer: MediaPlayer? = null
+    private var vibrator: Vibrator? = null
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             if (service is MusicService.MusicBinder) {
                 playerConnection = PlayerConnection(this@AlarmActivity, service, database, lifecycleScope)
                 
-                // Play the requested song as soon as the service connects
                 songId?.let { id ->
                     lifecycleScope.launch {
-                        val dbSong = database.song(id).firstOrNull()
-                        if (dbSong != null) {
-                            playerConnection?.playQueue(ListQueue("Alarm", listOf(dbSong.toMediaItem())))
-                        } else {
-                            playerConnection?.playQueue(YouTubeQueue(WatchEndpoint(videoId = id)))
+                        try {
+                            val dbSong = database.song(id).firstOrNull()
+                            val hasInternet = isInternetAvailable(this@AlarmActivity)
+
+                            if (!hasInternet && dbSong == null) {
+                                playFallbackRingtone()
+                                return@launch
+                            }
+
+                            // Fade in volume over 20 seconds
+                            playerConnection?.player?.volume = 0f
+                            launch {
+                                for (i in 1..20) {
+                                    playerConnection?.player?.volume = i / 20f
+                                    delay(1000)
+                                }
+                            }
+
+                            if (dbSong != null) {
+                                playerConnection?.playQueue(ListQueue("Alarm", listOf(dbSong.toMediaItem())))
+                            } else {
+                                playerConnection?.playQueue(YouTubeQueue(WatchEndpoint(videoId = id)))
+                            }
+                        } catch (e: Exception) {
+                            playFallbackRingtone()
                         }
                     }
                 }
@@ -73,6 +102,16 @@ class AlarmActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         songId = intent.getStringExtra("songId")
+        alarmId = intent.getStringExtra("alarmId")
+
+        // Start Vibration Pattern: Pause 0, vibrate 500, pause 500 (repeat 0 means infinite loop)
+        vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 500, 500), 0))
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator?.vibrate(longArrayOf(0, 500, 500), 0)
+        }
 
         // Turn on the screen
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
@@ -100,7 +139,9 @@ class AlarmActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     Column(
-                        modifier = Modifier.fillMaxSize().padding(32.dp),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(32.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
@@ -128,20 +169,26 @@ class AlarmActivity : ComponentActivity() {
                         ) {
                             OutlinedButton(
                                 onClick = {
-                                    songId?.let { AlarmManagerHelper.snoozeAlarm(this@AlarmActivity, it) }
+                                    if (alarmId != null && songId != null) {
+                                        AlarmManagerHelper.snoozeAlarm(this@AlarmActivity, alarmId!!, songId!!)
+                                    }
                                     stopAlarm()
                                 },
-                                modifier = Modifier.weight(1f).height(60.dp)
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(60.dp)
                             ) {
                                 Text("Snooze (10m)", style = MaterialTheme.typography.titleMedium)
                             }
                             
                             Button(
                                 onClick = {
-                                    AlarmManagerHelper.cancelAlarm(this@AlarmActivity)
+                                    handleTurnOffLogic()
                                     stopAlarm()
                                 },
-                                modifier = Modifier.weight(1f).height(60.dp)
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(60.dp)
                             ) {
                                 Text("Stop", style = MaterialTheme.typography.titleMedium)
                             }
@@ -152,18 +199,60 @@ class AlarmActivity : ComponentActivity() {
         }
     }
 
+    private fun playFallbackRingtone() {
+        if (fallbackPlayer?.isPlaying == true) return
+        try {
+            val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+            fallbackPlayer = MediaPlayer().apply {
+                setDataSource(this@AlarmActivity, uri)
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build()
+                )
+                isLooping = true
+                prepare()
+                start()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun handleTurnOffLogic() {
+        if (alarmId == null) return
+        val alarms = AlarmManagerHelper.getAlarms(this).toMutableList()
+        val index = alarms.indexOfFirst { it.id == alarmId }
+        if (index != -1) {
+            val alarm = alarms[index]
+            // Disable one-time alarms automatically
+            if (alarm.days.isEmpty()) {
+                alarms[index] = alarm.copy(isEnabled = false)
+                AlarmManagerHelper.saveAlarms(this, alarms)
+            } else {
+                // Repeating alarm naturally rolls over, just re-save to ensure it's re-scheduled properly
+                AlarmManagerHelper.saveAlarms(this, alarms)
+            }
+        }
+    }
+
     private fun stopAlarm() {
         playerConnection?.player?.pause()
+        fallbackPlayer?.stop()
+        fallbackPlayer?.release()
+        vibrator?.cancel()
         
-        // Remove the persistent notification
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.cancel(12345)
+        alarmId?.let { notificationManager.cancel(it.hashCode()) }
         
         finish()
     }
 
     override fun onDestroy() {
         unbindService(serviceConnection)
+        fallbackPlayer?.release()
+        vibrator?.cancel()
         super.onDestroy()
     }
 }
