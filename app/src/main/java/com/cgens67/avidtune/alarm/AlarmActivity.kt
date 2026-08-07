@@ -6,14 +6,9 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
-import android.media.AudioAttributes
-import android.media.MediaPlayer
-import android.media.RingtoneManager
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
-import android.os.VibrationEffect
-import android.os.Vibrator
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -50,9 +45,6 @@ class AlarmActivity : ComponentActivity() {
     private var playerConnection by mutableStateOf<PlayerConnection?>(null)
     private var songId: String? = null
     private var alarmId: String? = null
-    
-    private var fallbackPlayer: MediaPlayer? = null
-    private var vibrator: Vibrator? = null
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
@@ -66,9 +58,12 @@ class AlarmActivity : ComponentActivity() {
                             val hasInternet = isInternetAvailable(this@AlarmActivity)
 
                             if (!hasInternet && dbSong == null) {
-                                playFallbackRingtone()
+                                // Keep fallback playing
                                 return@launch
                             }
+
+                            // Stop fallback because we have internet or local song
+                            AlarmAudioFallback.stop()
 
                             // Ensure volume is at 100% (fade-in disabled)
                             playerConnection?.player?.volume = 1f
@@ -79,7 +74,7 @@ class AlarmActivity : ComponentActivity() {
                                 playerConnection?.playQueue(YouTubeQueue(WatchEndpoint(videoId = id)))
                             }
                         } catch (e: Exception) {
-                            playFallbackRingtone()
+                            // If YouTube fails, leave fallback playing
                         }
                     }
                 }
@@ -96,15 +91,6 @@ class AlarmActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         songId = intent.getStringExtra("songId")
         alarmId = intent.getStringExtra("alarmId")
-
-        // Start Vibration Pattern: Pause 0, vibrate 500, pause 500 (repeat 0 means infinite loop)
-        vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 500, 500), 0))
-        } else {
-            @Suppress("DEPRECATION")
-            vibrator?.vibrate(longArrayOf(0, 500, 500), 0)
-        }
 
         // Turn on the screen
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
@@ -192,27 +178,6 @@ class AlarmActivity : ComponentActivity() {
         }
     }
 
-    private fun playFallbackRingtone() {
-        if (fallbackPlayer?.isPlaying == true) return
-        try {
-            val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-            fallbackPlayer = MediaPlayer().apply {
-                setDataSource(this@AlarmActivity, uri)
-                setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ALARM)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                        .build()
-                )
-                isLooping = true
-                prepare()
-                start()
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
     private fun handleTurnOffLogic() {
         if (alarmId == null) return
         val alarms = AlarmManagerHelper.getAlarms(this).toMutableList()
@@ -232,9 +197,7 @@ class AlarmActivity : ComponentActivity() {
 
     private fun stopAlarm() {
         playerConnection?.player?.pause()
-        fallbackPlayer?.stop()
-        fallbackPlayer?.release()
-        vibrator?.cancel()
+        AlarmAudioFallback.stop()
         
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         alarmId?.let { notificationManager.cancel(it.hashCode()) }
@@ -244,8 +207,7 @@ class AlarmActivity : ComponentActivity() {
 
     override fun onDestroy() {
         unbindService(serviceConnection)
-        fallbackPlayer?.release()
-        vibrator?.cancel()
+        AlarmAudioFallback.stop()
         super.onDestroy()
     }
 }
