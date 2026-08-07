@@ -354,7 +354,7 @@ fun AlarmSettingsScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                if (!alarmEnabled && alarmSongId.isBlank()) {
+                                if (alarmSongId.isBlank()) {
                                     Toast.makeText(context, "Please select an alarm sound first.", Toast.LENGTH_SHORT).show()
                                     return@clickable
                                 }
@@ -375,10 +375,11 @@ fun AlarmSettingsScreen(
                             text = if (alarmEnabled) "Alarm on" else "Alarm off",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = if (alarmSongId.isNotBlank()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                         )
                         Switch(
                             checked = alarmEnabled,
+                            enabled = alarmSongId.isNotBlank(),
                             onCheckedChange = { isChecked ->
                                 if (isChecked && alarmSongId.isBlank()) {
                                     Toast.makeText(context, "Please select an alarm sound first.", Toast.LENGTH_SHORT).show()
