@@ -101,33 +101,37 @@ fun AlarmSettingsScreen(
     }
 
     // Time remaining calculator
-    var timeRemainingText by remember { mutableStateOf("All alarms are off") }
+    var timeRemainingText by remember { mutableStateOf("") }
     LaunchedEffect(alarms) {
         while (isActive) {
-            val activeAlarms = alarms.filter { it.isEnabled }
-            if (activeAlarms.isEmpty()) {
-                timeRemainingText = "All alarms are off"
+            if (alarms.isEmpty()) {
+                timeRemainingText = ""
             } else {
-                val nextTime = activeAlarms.map { AlarmManagerHelper.getNextAlarmTime(it.hour, it.minute, it.days) }.minOrNull()
-                if (nextTime != null) {
-                    val diff = nextTime - System.currentTimeMillis()
-                    if (diff > 0) {
-                        val d = diff / (1000 * 60 * 60 * 24)
-                        val h = (diff / (1000 * 60 * 60)) % 24
-                        val m = (diff / (1000 * 60)) % 60
-                        
-                        val parts = mutableListOf<String>()
-                        if (d > 0) parts.add("${d}d")
-                        if (h > 0) parts.add("${h}h")
-                        if (m > 0) parts.add("${m}m")
-                        
-                        if (parts.isEmpty()) {
-                            timeRemainingText = "Next alarm in less than a minute"
+                val activeAlarms = alarms.filter { it.isEnabled }
+                if (activeAlarms.isEmpty()) {
+                    timeRemainingText = "All alarms are off"
+                } else {
+                    val nextTime = activeAlarms.map { AlarmManagerHelper.getNextAlarmTime(it.hour, it.minute, it.days) }.minOrNull()
+                    if (nextTime != null) {
+                        val diff = nextTime - System.currentTimeMillis()
+                        if (diff > 0) {
+                            val d = diff / (1000 * 60 * 60 * 24)
+                            val h = (diff / (1000 * 60 * 60)) % 24
+                            val m = (diff / (1000 * 60)) % 60
+                            
+                            val parts = mutableListOf<String>()
+                            if (d > 0) parts.add("${d}d")
+                            if (h > 0) parts.add("${h}h")
+                            if (m > 0) parts.add("${m}m")
+                            
+                            if (parts.isEmpty()) {
+                                timeRemainingText = "Next alarm in less than a minute"
+                            } else {
+                                timeRemainingText = "Next alarm in ${parts.joinToString(" ")}"
+                            }
                         } else {
-                            timeRemainingText = "Next alarm in ${parts.joinToString(" ")}"
+                            timeRemainingText = "Alarm will sound soon"
                         }
-                    } else {
-                        timeRemainingText = "Alarm will sound soon"
                     }
                 }
             }
@@ -173,13 +177,15 @@ fun AlarmSettingsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(top = 16.dp, bottom = 88.dp) // space for FAB
         ) {
-            item {
-                Text(
-                    text = timeRemainingText,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
+            if (timeRemainingText.isNotEmpty()) {
+                item {
+                    Text(
+                        text = timeRemainingText,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
             }
             
             if (alarms.isEmpty()) {
@@ -234,7 +240,8 @@ fun AlarmSettingsScreen(
                         onClick = { 
                             isNewAlarm = false
                             editingAlarm = alarm 
-                        }
+                        },
+                        modifier = Modifier.animateItem()
                     )
                 }
             }
@@ -290,7 +297,8 @@ fun AlarmSettingsScreen(
 fun AlarmCard(
     alarm: AlarmState,
     onCheckedChange: (Boolean) -> Unit,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val is24Hour = android.text.format.DateFormat.is24HourFormat(context)
@@ -318,7 +326,7 @@ fun AlarmCard(
     Card(
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(24.dp))
             .clickable { onClick() }
