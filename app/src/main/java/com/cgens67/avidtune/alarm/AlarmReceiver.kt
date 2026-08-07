@@ -13,15 +13,17 @@ import com.cgens67.avidtune.R
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val songId = intent.getStringExtra("songId") ?: return
+        val alarmId = intent.getStringExtra("alarmId") ?: return
 
         // Launch AlarmActivity using a full-screen intent
         val alarmIntent = Intent(context, AlarmActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra("songId", songId)
+            putExtra("alarmId", alarmId)
         }
 
         val pendingIntent = PendingIntent.getActivity(
-            context, 0, alarmIntent,
+            context, alarmId.hashCode(), alarmIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
@@ -36,7 +38,7 @@ class AlarmReceiver : BroadcastReceiver() {
         }
 
         val notification = NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(R.drawable.avidtune_monochrome) // Assuming this icon exists
+            .setSmallIcon(R.drawable.avidtune_monochrome) 
             .setContentTitle("AvidTune Alarm")
             .setContentText("Wake up! Your alarm is ringing.")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -46,6 +48,6 @@ class AlarmReceiver : BroadcastReceiver() {
             .setOngoing(true)
             .build()
 
-        notificationManager.notify(12345, notification)
+        notificationManager.notify(alarmId.hashCode(), notification)
     }
 }
