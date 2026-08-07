@@ -8,6 +8,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.lazy.LazyColumn
@@ -25,6 +27,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -45,6 +48,8 @@ import com.cgens67.avidtune.R
 import com.cgens67.avidtune.alarm.AlarmManagerHelper
 import com.cgens67.avidtune.alarm.AlarmState
 import com.cgens67.avidtune.models.toMediaMetadata
+import com.cgens67.avidtune.ui.component.SettingsPage
+import com.cgens67.avidtune.ui.utils.backToMain
 import com.cgens67.innertube.YouTube
 import com.cgens67.innertube.models.SongItem
 import kotlinx.coroutines.Dispatchers
@@ -52,9 +57,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
+import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -470,7 +477,13 @@ fun EditAlarmBottomSheet(
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onOpenSearch() } // Re-open search if clicked
+                    .clickable {
+                        if (currentAlarm.songId.isNotBlank()) {
+                            // nothing here, X button removes it
+                        } else {
+                            onOpenSearch()
+                        }
+                    }
             ) {
                 if (currentAlarm.songId.isNotBlank()) {
                     Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -731,6 +744,18 @@ fun AlarmSongSearchSheet(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+
+                                Spacer(Modifier.width(8.dp))
+
+                                // Display duration
+                                val durationText = song.duration?.let { makeTimeString(it * 1000L) } ?: ""
+                                if (durationText.isNotEmpty()) {
+                                    Text(
+                                        text = durationText,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
