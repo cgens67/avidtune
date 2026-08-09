@@ -85,7 +85,6 @@ import com.cgens67.avidtune.ui.component.NewAction
 import com.cgens67.avidtune.ui.component.NewActionGrid
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.time.LocalDateTime
 
 @Composable
 fun SongMenu(
@@ -432,7 +431,7 @@ fun SongMenu(
                     ),
                     // SET AS ALARM
                     MenuItemData(
-                        title = { Text(text = "Set as Alarm") },
+                        title = { Text(text = stringResource(R.string.set_as_alarm)) },
                         icon = {
                             Icon(
                                 painter = painterResource(R.drawable.schedule),
@@ -528,8 +527,8 @@ fun SongMenu(
                         }
                     },
                     MenuItemData(
-                        title = { Text(text = "Export to Device") },
-                        description = { Text(text = "Download as MP3 file") },
+                        title = { Text(text = stringResource(R.string.export_to_device)) },
+                        description = { Text(text = stringResource(R.string.download_as_audio_file)) },
                         icon = {
                             Icon(
                                 painter = painterResource(R.drawable.download),
