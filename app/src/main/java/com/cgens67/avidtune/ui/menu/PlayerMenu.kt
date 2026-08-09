@@ -54,6 +54,8 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -800,8 +802,8 @@ fun ColumnScope.PlayerMenu(
                         }
                     },
                     MenuItemData(
-                        title = { Text(text = stringResource(R.string.export_to_device)) },
-                        description = { Text(text = stringResource(R.string.download_as_audio_file)) },
+                        title = { Text(text = "Export to Device") },
+                        description = { Text(text = "Download as MP3 file") },
                         icon = {
                             Icon(
                                 painter = painterResource(R.drawable.download),
