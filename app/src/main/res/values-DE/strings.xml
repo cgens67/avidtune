@@ -1241,5 +1241,40 @@
     <string name="enable_apple_music_artist_canvas">Apple Music Künstler-Hintergründe aktivieren</string>
     <string name="artist_canvas_provider_priority">Priorität der Anbieter von Künstler-Hintergründen</string>
     <string name="artist_canvas_provider_priority_desc">Reihenfolge der Anbieter von Künstler-Hintergründen ändern</string>
+    
+    <!-- Alarms -->
+    <string name="alarms">Wecker</string>
+    <string name="alarm">Wecker</string>
+    <string name="alarm_wake_up">Aufstehen!</string>
+    <string name="alarm_snooze">Schlummern (10 Min.)</string>
+    <string name="alarm_stop">Stopp</string>
+    <string name="alarm_snoozed_toast">Wecker für 10 Minuten stummgeschaltet</string>
+    <string name="alarm_channel_name">Wecker</string>
+    <string name="alarm_notification_title">AvidTune Wecker</string>
+    <string name="alarm_notification_text">Aufstehen! Ihr Wecker klingelt.</string>
+    <string name="set_as_alarm">Als Wecker stellen</string>
+    <string name="add_alarm">Wecker hinzufügen</string>
+    <string name="alarm_all_off">Alle Wecker sind ausgeschaltet</string>
+    <string name="alarm_next_less_than_minute">Nächster Wecker in weniger als einer Minute</string>
+    <string name="alarm_next_in">Nächster Wecker in %1$s</string>
+    <string name="alarm_sound_soon">Wecker wird bald klingen</string>
+    <string name="no_alarms_set">Keine Wecker gestellt</string>
+    <string name="alarm_create_hint">Tippen Sie auf +, um einen zu erstellen</string>
+    <string name="alarm_select_sound_first">Bitte wählen Sie zuerst einen Weckton aus.</string>
+    <string name="alarm_repeat_once">Einmalig</string>
+    <string name="alarm_repeat_everyday">Jeden Tag</string>
+    <string name="create_alarm">Wecker erstellen</string>
+    <string name="edit_alarm">Wecker bearbeiten</string>
+    <string name="alarm_set_time">Zeit einstellen</string>
+    <string name="alarm_repeat">Wiederholen</string>
+    <string name="alarm_sound">Weckton</string>
+    <string name="no_alarm_sound">Kein Weckton</string>
+    <string name="alarm_sound_removed">Weckton entfernt</string>
+    <string name="alarm_tap_to_select_track">Tippen, um einen Titel auszuwählen</string>
+    <string name="select_alarm_sound">Weckton auswählen</string>
+    <string name="alarm_search_ytm_desc">YouTube Music durchsuchen</string>
+    <string name="alarm_search_placeholder">Nach einem Song suchen…</string>
+    <string name="alarm_type_to_search">Tippen Sie, um Songs zu suchen</string>
+    <string name="alarm_no_songs_found">Keine Songs für „%1$s“ gefunden</string>
 
 </resources>
