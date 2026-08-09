@@ -1,5 +1,6 @@
 package com.cgens67.avidtune.ui.screens.settings
 
+import android.content.Context
 import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
@@ -403,7 +404,7 @@ fun EditAlarmBottomSheet(
     )
 
     if (showTimePicker) {
-        TimePickerDialog(
+        AvidTimePickerDialog(
             title = stringResource(R.string.alarm_set_time),
             onCancel = { showTimePicker = false },
             onConfirm = {
@@ -720,7 +721,7 @@ fun AlarmSongSearchSheet(
                             if (newQuery.isNotBlank()) {
                                 isSearching = true
                                 coroutineScope.launch(Dispatchers.IO) {
-                                    delay(500)
+                                    delay(500) // Debounce
                                     YouTube.search(newQuery, YouTube.SearchFilter.FILTER_SONG).onSuccess { res ->
                                         withContext(Dispatchers.Main) {
                                             searchResults = res.items.filterIsInstance<SongItem>()
@@ -841,6 +842,49 @@ fun AlarmSongSearchSheet(
         LaunchedEffect(Unit) {
             delay(150)
             focusRequester.requestFocus()
+        }
+    }
+}
+
+@Composable
+fun AvidTimePickerDialog(
+    title: String = "Select Time",
+    onCancel: () -> Unit,
+    onConfirm: () -> Unit,
+    toggle: @Composable () -> Unit = {},
+    content: @Composable () -> Unit,
+) {
+    Dialog(
+        onDismissRequest = onCancel,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Surface(
+            shape = MaterialTheme.shapes.extraLarge,
+            tonalElevation = 6.dp,
+            modifier = Modifier
+                .width(IntrinsicSize.Min)
+                .background(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainerHigh)
+        ) {
+            Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 20.dp),
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                content()
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(modifier = Modifier
+                    .height(40.dp)
+                    .fillMaxWidth()) {
+                    toggle()
+                    Spacer(modifier = Modifier.weight(1f))
+                    TextButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) }
+                    Button(onClick = onConfirm, modifier = Modifier.padding(start = 8.dp)) { Text(stringResource(android.R.string.ok)) }
+                }
+            }
         }
     }
 }
