@@ -1250,4 +1250,39 @@
     <string name="artist_canvas_provider_priority">Artist canvas provider priority</string>
     <string name="artist_canvas_provider_priority_desc">Change the order of artist canvas providers</string>
     
+    <!-- Alarms -->
+    <string name="alarms">Alarms</string>
+    <string name="alarm">Alarm</string>
+    <string name="alarm_wake_up">Wake Up!</string>
+    <string name="alarm_snooze">Snooze (10m)</string>
+    <string name="alarm_stop">Stop</string>
+    <string name="alarm_snoozed_toast">Alarm snoozed for 10 minutes</string>
+    <string name="alarm_channel_name">Alarms</string>
+    <string name="alarm_notification_title">AvidTune Alarm</string>
+    <string name="alarm_notification_text">Wake up! Your alarm is ringing.</string>
+    <string name="set_as_alarm">Set as alarm</string>
+    <string name="add_alarm">Add Alarm</string>
+    <string name="alarm_all_off">All alarms are off</string>
+    <string name="alarm_next_less_than_minute">Next alarm in less than a minute</string>
+    <string name="alarm_next_in">Next alarm in %1$s</string>
+    <string name="alarm_sound_soon">Alarm will sound soon</string>
+    <string name="no_alarms_set">No alarms set</string>
+    <string name="alarm_create_hint">Tap the + button to create one</string>
+    <string name="alarm_select_sound_first">Please select an alarm sound first.</string>
+    <string name="alarm_repeat_once">Once</string>
+    <string name="alarm_repeat_everyday">Everyday</string>
+    <string name="create_alarm">Create Alarm</string>
+    <string name="edit_alarm">Edit Alarm</string>
+    <string name="alarm_set_time">Set Time</string>
+    <string name="alarm_repeat">Repeat</string>
+    <string name="alarm_sound">Alarm Sound</string>
+    <string name="no_alarm_sound">No Alarm Sound</string>
+    <string name="alarm_sound_removed">Alarm sound removed</string>
+    <string name="alarm_tap_to_select_track">Tap to select a track</string>
+    <string name="select_alarm_sound">Select Alarm Sound</string>
+    <string name="alarm_search_ytm_desc">Search YouTube Music</string>
+    <string name="alarm_search_placeholder">Search for a song…</string>
+    <string name="alarm_type_to_search">Type to search songs</string>
+    <string name="alarm_no_songs_found">No songs found for \'%1$s\'</string>
+    
 </resources>
