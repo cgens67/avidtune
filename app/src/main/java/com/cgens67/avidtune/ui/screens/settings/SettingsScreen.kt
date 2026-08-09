@@ -70,8 +70,10 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -92,6 +94,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -105,6 +108,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -279,7 +283,6 @@ fun SettingsScreen(
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val animationsDisabled = LocalAnimationsDisabled.current
-    val isAndroid12OrLater = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     val listState = rememberLazyListState()
     val viewModel: HomeViewModel = hiltViewModel()
 
@@ -315,10 +318,9 @@ fun SettingsScreen(
             scrollBehavior = scrollBehavior,
             onBack = { showTogetherScreen = false }
         )
-        return // Stop rendering SettingsScreen beneath it
+        return
     }
 
-    // Search History State
     val prefs = context.getSharedPreferences("settings_search_history", Context.MODE_PRIVATE)
     var searchHistory by remember {
         mutableStateOf(prefs.getStringSet("history", emptySet())?.toList() ?: emptyList())
@@ -835,7 +837,7 @@ private fun buildSettingsGroups(
                 ),
                 SettingsItem(
                     icon = painterResource(R.drawable.schedule),
-                    title = "Alarm",
+                    title = stringResource(R.string.alarm),
                     keywords = listOf("alarm", "wake", "time", "clock", "snooze"),
                     onClick = { resetSearch(); navController.navigate("alarm_settings") }
                 ),
@@ -953,7 +955,7 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
             onClick = { resetSearch(); navController.navigate("settings/appearance") }
         ),
         SettingsItem(
-            icon = painterResource(R.drawable.text_fields), // Changed from format_align_left
+            icon = painterResource(R.drawable.text_fields),
             title = stringResource(R.string.use_system_font),
             keywords = listOf("font", "system", "text", "typeface"),
             onClick = { resetSearch(); navController.navigate("settings/appearance") }
@@ -1169,7 +1171,7 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
             onClick = { resetSearch(); navController.navigate("settings/content") }
         ),
         SettingsItem(
-            icon = painterResource(R.drawable.info), // Fallback icon
+            icon = painterResource(R.drawable.info),
             title = stringResource(R.string.notification),
             keywords = listOf("notification", "permission", "alert"),
             onClick = { resetSearch(); navController.navigate("settings/content") }
@@ -2963,302 +2965,6 @@ fun IntegrationPill(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-        }
-    }
-}
-
-// --- UPDATE DIALOG (From Original) ---
-
-enum class DownloadStatus {
-    NOT_STARTED,
-    DOWNLOADING,
-    COMPLETED,
-    ERROR
-}
-
-suspend fun downloadApk(
-    context: Context,
-    version: String,
-    onProgressUpdate: (Float) -> Unit
-): Uri? = withContext(Dispatchers.IO) {
-    try {
-        val apkUrl = "https://github.com/cgens67/AvidTune/releases/download/$version/app-universal-release.apk"
-
-        val downloadDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
-        val apkFile = File(downloadDir, "app-universal-release-$version.apk")
-
-        if (apkFile.exists()) {
-            apkFile.delete()
-        }
-
-        val client = OkHttpClient()
-        var request = Request.Builder().url(apkUrl).build()
-        var response = client.newCall(request).execute()
-
-        if (!response.isSuccessful) {
-            val altUrl = "https://github.com/cgens67/AvidTune/releases/download/$version/app-release.apk"
-            request = Request.Builder().url(altUrl).build()
-            response = client.newCall(request).execute()
-            
-            if (!response.isSuccessful) {
-                val altUrl2 = "https://github.com/cgens67/AvidTune/releases/download/$version/AvidTune-$version.apk"
-                request = Request.Builder().url(altUrl2).build()
-                response = client.newCall(request).execute()
-                
-                if (!response.isSuccessful) {
-                    return@withContext null
-                }
-            }
-        }
-
-        val body = response.body ?: return@withContext null
-        val contentLength = body.contentLength()
-        val inputStream = body.byteStream()
-        val outputStream = FileOutputStream(apkFile)
-        val buffer = ByteArray(8 * 1024)
-        var totalBytesRead = 0L
-        var bytesRead: Int
-
-        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-            outputStream.write(buffer, 0, bytesRead)
-            totalBytesRead += bytesRead
-
-            if (contentLength > 0) {
-                val progress = totalBytesRead.toFloat() / contentLength.toFloat()
-                withContext(Dispatchers.Main) {
-                    onProgressUpdate(progress)
-                }
-            }
-        }
-        outputStream.flush()
-        outputStream.close()
-        inputStream.close()
-        
-        withContext(Dispatchers.Main) {
-            onProgressUpdate(1f)
-        }
-
-        return@withContext FileProvider.getUriForFile(
-            context,
-            "${context.packageName}.fileprovider",
-            apkFile
-        )
-    } catch (e: Exception) {
-        e.printStackTrace()
-        return@withContext null
-    }
-}
-
-fun installApk(context: Context, apkUri: Uri) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        val pm = context.packageManager
-        val isAllowed = pm.canRequestPackageInstalls()
-        if (!isAllowed) {
-            val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
-                .setData("package:${context.packageName}".toUri())
-            context.startActivity(intent)
-            return
-        }
-    }
-
-    val installIntent = Intent(Intent.ACTION_VIEW).apply {
-        setDataAndType(apkUri, "application/vnd.android.package-archive")
-        flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK
-    }
-
-    context.startActivity(installIntent)
-}
-
-suspend fun checkForUpdates(): String? = withContext(Dispatchers.IO) {
-    try {
-        val url = URL("https://api.github.com/repos/cgens67/AvidTune/releases/latest")
-        val connection = url.openConnection()
-        connection.connect()
-        val json = connection.getInputStream().bufferedReader().use { it.readText() }
-        val jsonObject = JSONObject(json)
-        return@withContext jsonObject.getString("tag_name")
-    } catch (e: Exception) {
-        e.printStackTrace()
-        return@withContext null
-    }
-}
-
-suspend fun checkForBetaUpdates(): String? = withContext(Dispatchers.IO) {
-    try {
-        val url = URL("https://api.github.com/repos/cgens67/AvidTune/releases")
-        val connection = url.openConnection()
-        connection.connect()
-        val json = connection.getInputStream().bufferedReader().use { it.readText() }
-        val jsonArray = org.json.JSONArray(json)
-        for (i in 0 until jsonArray.length()) {
-            val release = jsonArray.getJSONObject(i)
-            if (release.getBoolean("prerelease")) {
-                return@withContext release.getString("tag_name")
-            }
-        }
-        return@withContext null
-    } catch (e: Exception) {
-        e.printStackTrace()
-        return@withContext null
-    }
-}
-
-fun isNewerVersion(remoteVersion: String, currentVersion: String): Boolean {
-    val cleanRemote = remoteVersion.removePrefix("v").substringBefore("-")
-    val cleanCurrent = currentVersion.removePrefix("v").substringBefore("-")
-    val remote = cleanRemote.split(".").map { it.toIntOrNull() ?: 0 }
-    val current = cleanCurrent.split(".").map { it.toIntOrNull() ?: 0 }
-
-    for (i in 0 until maxOf(remote.size, current.size)) {
-        val r = remote.getOrNull(i) ?: 0
-        val c = current.getOrNull(i) ?: 0
-        if (r > c) return true
-        if (r < c) return false
-    }
-
-    // Same base version, check tags
-    val remoteTag = remoteVersion.substringAfter("-", "")
-    val currentTag = currentVersion.substringAfter("-", "")
-
-    if (remoteTag.isEmpty() && currentTag.isNotEmpty()) return true // Stable > Beta
-    if (remoteTag.isNotEmpty() && currentTag.isEmpty()) return false // Beta < Stable
-    if (remoteTag.isNotEmpty() && currentTag.isNotEmpty()) {
-        return remoteTag > currentTag // E.g., beta02 > beta01
-    }
-
-    return false
-}
-
-@Composable
-fun UpdateDownloadDialog(
-    latestVersion: String,
-    isBeta: Boolean = false,
-    onDismiss: () -> Unit
-) {
-    val context = LocalContext.current
-    var downloadProgress by remember { mutableStateOf(0f) }
-    var downloadStatus by remember { mutableStateOf(DownloadStatus.NOT_STARTED) }
-    var downloadedApkUri by remember { mutableStateOf<Uri?>(null) }
-    val downloadScope = rememberCoroutineScope()
-
-    val installPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            if (context.packageManager.canRequestPackageInstalls() && downloadedApkUri != null) {
-                installApk(context, downloadedApkUri!!)
-            }
-        }
-    }
-
-    Dialog(onDismissRequest = {
-        if (downloadStatus != DownloadStatus.DOWNLOADING) {
-            onDismiss()
-        }
-    }) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            shape = RoundedCornerShape(28.dp),
-        ) {
-            Column(
-                modifier = Modifier
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = if (isBeta) stringResource(R.string.update_beta_version, latestVersion) else stringResource(R.string.update_version, latestVersion),
-                    style = MaterialTheme.typography.headlineSmall
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                when (downloadStatus) {
-                    DownloadStatus.NOT_STARTED -> {
-                        Text(if (isBeta) stringResource(R.string.download_beta_update_prompt) else stringResource(R.string.download_update_prompt))
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            TextButton(onClick = onDismiss) {
-                                Text(stringResource(android.R.string.cancel))
-                            }
-                            Button(onClick = {
-                                downloadStatus = DownloadStatus.DOWNLOADING
-                                downloadScope.launch {
-                                    downloadedApkUri =
-                                        downloadApk(context, latestVersion) { progress ->
-                                            downloadProgress = progress
-                                        }
-                                    if (downloadedApkUri != null) {
-                                        downloadStatus = DownloadStatus.COMPLETED
-                                        downloadProgress = 1f
-                                    } else {
-                                        downloadStatus = DownloadStatus.ERROR
-                                    }
-                                }
-                            }) {
-                                Text(stringResource(R.string.download))
-                            }
-                        }
-                    }
-
-                    DownloadStatus.DOWNLOADING -> {
-                        Text(stringResource(R.string.downloading))
-                        Spacer(modifier = Modifier.height(16.dp))
-                        LinearProgressIndicator(
-                            progress = { downloadProgress },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Text(
-                            text = "${(downloadProgress * 100).toInt()}%",
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
-                    }
-
-                    DownloadStatus.COMPLETED -> {
-                        Text(stringResource(R.string.download_completed))
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            TextButton(onClick = onDismiss) {
-                                Text(stringResource(R.string.close))
-                            }
-                            Button(onClick = {
-                                if (downloadedApkUri != null) {
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                        if (!context.packageManager.canRequestPackageInstalls()) {
-                                            val intent =
-                                                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
-                                                    .setData("package:${context.packageName}".toUri())
-
-                                            installPermissionLauncher.launch(intent)
-                                        } else {
-                                            installApk(context, downloadedApkUri!!)
-                                        }
-                                    } else {
-                                        installApk(context, downloadedApkUri!!)
-                                    }
-                                }
-                            }) {
-                                Text(stringResource(R.string.install))
-                            }
-                        }
-                    }
-
-                    DownloadStatus.ERROR -> {
-                        Text(stringResource(R.string.download_error))
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = onDismiss) {
-                            Text(stringResource(R.string.close))
-                        }
-                    }
-                }
-            }
         }
     }
 }
