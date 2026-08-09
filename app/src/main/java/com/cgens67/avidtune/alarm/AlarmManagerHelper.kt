@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.widget.Toast
+import com.cgens67.avidtune.R
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -60,7 +61,6 @@ object AlarmManagerHelper {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
-            // Always cancel to avoid duplicates/ghosts
             alarmManager.cancel(pendingIntent)
 
             if (alarm.isEnabled && alarm.songId.isNotBlank()) {
@@ -125,7 +125,7 @@ object AlarmManagerHelper {
             } else {
                 alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, snoozeTime, pendingIntent)
             }
-            Toast.makeText(context, "Alarm snoozed for 10 minutes", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.alarm_snoozed_toast), Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {}
     }
 }
