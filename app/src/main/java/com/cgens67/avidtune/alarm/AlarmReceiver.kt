@@ -69,7 +69,6 @@ class AlarmReceiver : BroadcastReceiver() {
         if (intent.action == "DISMISS_ALARM") {
             AlarmAudioFallback.stop()
             
-            // Handle turning off non-repeating alarm
             val alarms = AlarmManagerHelper.getAlarms(context).toMutableList()
             val index = alarms.indexOfFirst { it.id == alarmId }
             if (index != -1) {
@@ -82,10 +81,8 @@ class AlarmReceiver : BroadcastReceiver() {
             return
         }
 
-        // Start fallback audio and vibration immediately in case activity is blocked
         AlarmAudioFallback.start(context)
 
-        // Launch AlarmActivity using a full-screen intent
         val alarmIntent = Intent(context, AlarmActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra("songId", songId)
@@ -112,7 +109,7 @@ class AlarmReceiver : BroadcastReceiver() {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
-                channelId, "Alarms", NotificationManager.IMPORTANCE_HIGH
+                channelId, context.getString(R.string.alarm_channel_name), NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 setBypassDnd(true)
                 lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
@@ -122,8 +119,8 @@ class AlarmReceiver : BroadcastReceiver() {
 
         val notification = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.avidtune_monochrome) 
-            .setContentTitle("AvidTune Alarm")
-            .setContentText("Wake up! Your alarm is ringing.")
+            .setContentTitle(context.getString(R.string.alarm_notification_title))
+            .setContentText(context.getString(R.string.alarm_notification_text))
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setFullScreenIntent(pendingIntent, true)
@@ -134,7 +131,6 @@ class AlarmReceiver : BroadcastReceiver() {
 
         notificationManager.notify(alarmId.hashCode(), notification)
         
-        // Try to start activity directly as a fallback for some devices
         try {
             pendingIntent.send()
         } catch (e: Exception) {
