@@ -1,6 +1,5 @@
 package com.cgens67.avidtune.ui.screens.settings
 
-import android.content.Context
 import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
@@ -11,7 +10,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -36,6 +34,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -63,7 +62,6 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
-import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,7 +78,6 @@ fun AlarmSettingsScreen(
     var isNewAlarm by remember { mutableStateOf(false) }
     var showSearchSheet by remember { mutableStateOf(false) }
 
-    // If passed a song from another screen, create a new alarm automatically
     var hasProcessedArg by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(songIdArg) {
         if (!hasProcessedArg && !songIdArg.isNullOrBlank() && songIdArg != "{songId}") {
@@ -92,7 +89,7 @@ fun AlarmSettingsScreen(
                     songTitle = song.song.title,
                     songArtist = song.artists.joinToString { it.name },
                     songThumbnail = song.song.thumbnailUrl,
-                    isEnabled = true // auto enable when created from song
+                    isEnabled = true
                 )
                 isNewAlarm = true
                 editingAlarm = newAlarm
@@ -100,8 +97,12 @@ fun AlarmSettingsScreen(
         }
     }
 
-    // Time remaining calculator
     var timeRemainingText by remember { mutableStateOf("") }
+    val allAlarmsOffText = stringResource(R.string.alarm_all_off)
+    val nextLessMinText = stringResource(R.string.alarm_next_less_than_minute)
+    val nextInText = stringResource(R.string.alarm_next_in)
+    val soundSoonText = stringResource(R.string.alarm_sound_soon)
+
     LaunchedEffect(alarms) {
         while (isActive) {
             if (alarms.isEmpty()) {
@@ -109,7 +110,7 @@ fun AlarmSettingsScreen(
             } else {
                 val activeAlarms = alarms.filter { it.isEnabled }
                 if (activeAlarms.isEmpty()) {
-                    timeRemainingText = "All alarms are off"
+                    timeRemainingText = allAlarmsOffText
                 } else {
                     val nextTime = activeAlarms.map { AlarmManagerHelper.getNextAlarmTime(it.hour, it.minute, it.days) }.minOrNull()
                     if (nextTime != null) {
@@ -125,12 +126,12 @@ fun AlarmSettingsScreen(
                             if (m > 0) parts.add("${m}m")
                             
                             if (parts.isEmpty()) {
-                                timeRemainingText = "Next alarm in less than a minute"
+                                timeRemainingText = nextLessMinText
                             } else {
-                                timeRemainingText = "Next alarm in ${parts.joinToString(" ")}"
+                                timeRemainingText = String.format(nextInText, parts.joinToString(" "))
                             }
                         } else {
-                            timeRemainingText = "Alarm will sound soon"
+                            timeRemainingText = soundSoonText
                         }
                     }
                 }
@@ -145,10 +146,10 @@ fun AlarmSettingsScreen(
             .nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
-                title = { Text("Alarms") },
+                title = { Text(stringResource(R.string.alarms)) },
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(painterResource(R.drawable.arrow_back), contentDescription = "Back")
+                        Icon(painterResource(R.drawable.arrow_back), contentDescription = stringResource(R.string.back))
                     }
                 },
                 scrollBehavior = scrollBehavior,
@@ -164,7 +165,7 @@ fun AlarmSettingsScreen(
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Alarm")
+                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_alarm))
             }
         },
         containerColor = MaterialTheme.colorScheme.background
@@ -175,7 +176,7 @@ fun AlarmSettingsScreen(
                 .padding(padding)
                 .padding(horizontal = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(top = 16.dp, bottom = 88.dp) // space for FAB
+            contentPadding = PaddingValues(top = 16.dp, bottom = 88.dp)
         ) {
             if (timeRemainingText.isNotEmpty()) {
                 item {
@@ -210,14 +211,14 @@ fun AlarmSettingsScreen(
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                text = "No alarms set",
+                                text = stringResource(R.string.no_alarms_set),
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "Tap the + button to create one",
+                                text = stringResource(R.string.alarm_create_hint),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -230,7 +231,7 @@ fun AlarmSettingsScreen(
                         alarm = alarm,
                         onCheckedChange = { isChecked ->
                             if (isChecked && alarm.songId.isBlank()) {
-                                Toast.makeText(context, "Please select an alarm sound first.", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.alarm_select_sound_first), Toast.LENGTH_SHORT).show()
                                 return@AlarmCard
                             }
                             val newAlarms = alarms.map { if (it.id == alarm.id) alarm.copy(isEnabled = isChecked) else it }
@@ -277,14 +278,12 @@ fun AlarmSettingsScreen(
         AlarmSongSearchSheet(
             onDismiss = { showSearchSheet = false },
             onSongSelected = { songItem ->
-                // Update the currently editing alarm state properly
                 editingAlarm = editingAlarm?.copy(
                     songId = songItem.id,
                     songTitle = songItem.title,
                     songArtist = songItem.artists.joinToString { it.name },
                     songThumbnail = songItem.thumbnail
                 )
-                // Ensure it's cached locally
                 kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
                     database.transaction { insert(songItem.toMediaMetadata()) }
                 }
@@ -309,9 +308,12 @@ fun AlarmCard(
     val timeFormat = if (is24Hour) SimpleDateFormat("HH:mm", Locale.getDefault()) else SimpleDateFormat("h:mm", Locale.getDefault())
     val amPmFormat = SimpleDateFormat("a", Locale.getDefault())
 
+    val onceText = stringResource(R.string.alarm_repeat_once)
+    val everydayText = stringResource(R.string.alarm_repeat_everyday)
+
     val daysText = remember(alarm.days) {
-        if (alarm.days.isEmpty()) "Once" 
-        else if (alarm.days.size == 7) "Everyday" 
+        if (alarm.days.isEmpty()) onceText 
+        else if (alarm.days.size == 7) everydayText 
         else {
             val format = SimpleDateFormat("E", Locale.getDefault())
             listOf(Calendar.MONDAY, Calendar.TUESDAY, Calendar.WEDNESDAY, Calendar.THURSDAY, Calendar.FRIDAY, Calendar.SATURDAY, Calendar.SUNDAY)
@@ -322,6 +324,8 @@ fun AlarmCard(
                 }
         }
     }
+
+    val displaySongTitle = if (alarm.songId.isBlank()) stringResource(R.string.no_alarm_sound) else alarm.songTitle
 
     Card(
         shape = RoundedCornerShape(24.dp),
@@ -355,7 +359,7 @@ fun AlarmCard(
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "$daysText • ${alarm.songTitle}",
+                    text = "$daysText • $displaySongTitle",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -383,7 +387,6 @@ fun EditAlarmBottomSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     
-    // Crucial to sync changes returned from the search screen
     var currentAlarm by remember { mutableStateOf(initialAlarm) }
     LaunchedEffect(initialAlarm) { currentAlarm = initialAlarm }
     
@@ -401,7 +404,7 @@ fun EditAlarmBottomSheet(
 
     if (showTimePicker) {
         TimePickerDialog(
-            title = "Set Time",
+            title = stringResource(R.string.alarm_set_time),
             onCancel = { showTimePicker = false },
             onConfirm = {
                 currentAlarm = currentAlarm.copy(
@@ -438,7 +441,7 @@ fun EditAlarmBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (isNew) "Create Alarm" else "Edit Alarm",
+                    text = if (isNew) stringResource(R.string.create_alarm) else stringResource(R.string.edit_alarm),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
@@ -447,13 +450,13 @@ fun EditAlarmBottomSheet(
                         TextButton(onClick = {
                             coroutineScope.launch { sheetState.hide() }.invokeOnCompletion { onDelete() }
                         }, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
-                            Text("Delete")
+                            Text(stringResource(R.string.delete))
                         }
                     } else {
                         TextButton(onClick = {
                             coroutineScope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() }
                         }) {
-                            Text("Cancel")
+                            Text(stringResource(android.R.string.cancel))
                         }
                     }
                     Button(onClick = { 
@@ -461,14 +464,13 @@ fun EditAlarmBottomSheet(
                             onSave(currentAlarm.copy(isEnabled = currentAlarm.songId.isNotBlank())) 
                         } 
                     }) {
-                        Text("Save")
+                        Text(stringResource(R.string.save))
                     }
                 }
             }
 
             Spacer(Modifier.height(24.dp))
 
-            // Time 
             val is24Hour = android.text.format.DateFormat.is24HourFormat(context)
             val calToDisplay = Calendar.getInstance().apply {
                 set(Calendar.HOUR_OF_DAY, currentAlarm.hour)
@@ -503,8 +505,7 @@ fun EditAlarmBottomSheet(
 
             Spacer(Modifier.height(32.dp))
 
-            // Days
-            Text("Repeat", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.alarm_repeat), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(16.dp))
             
             val daysList = remember {
@@ -549,8 +550,7 @@ fun EditAlarmBottomSheet(
 
             Spacer(Modifier.height(32.dp))
 
-            // Sound
-            Text("Alarm Sound", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.alarm_sound), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(16.dp))
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
@@ -558,9 +558,7 @@ fun EditAlarmBottomSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable {
-                        if (currentAlarm.songId.isNotBlank()) {
-                            // nothing here, X button removes it
-                        } else {
+                        if (currentAlarm.songId.isBlank()) {
                             onOpenSearch()
                         }
                     }
@@ -581,10 +579,10 @@ fun EditAlarmBottomSheet(
                             }
                         }
                         IconButton(onClick = {
-                            currentAlarm = currentAlarm.copy(songId = "", songTitle = "No Alarm Sound", songArtist = null, songThumbnail = null, isEnabled = false)
-                            Toast.makeText(context, "Alarm sound removed", Toast.LENGTH_SHORT).show()
+                            currentAlarm = currentAlarm.copy(songId = "", songTitle = "", songArtist = null, songThumbnail = null, isEnabled = false)
+                            Toast.makeText(context, context.getString(R.string.alarm_sound_removed), Toast.LENGTH_SHORT).show()
                         }) {
-                            Icon(painterResource(R.drawable.close), contentDescription = "Remove", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Icon(painterResource(R.drawable.close), contentDescription = stringResource(R.string.clear), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 } else {
@@ -594,8 +592,8 @@ fun EditAlarmBottomSheet(
                         }
                         Spacer(Modifier.width(16.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("No Alarm Sound", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-                            Text("Tap to select a track", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                            Text(stringResource(R.string.no_alarm_sound), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.alarm_tap_to_select_track), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
@@ -617,7 +615,6 @@ fun AlarmSongSearchSheet(
     var isSearching by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
 
-    // Consumes ALL vertical overscroll to prevent the sheet from dragging and snapping back
     val nestedScrollConnection = remember {
         object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
             override fun onPostScroll(
@@ -645,7 +642,6 @@ fun AlarmSongSearchSheet(
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 20.dp)
         ) {
-            // Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -671,12 +667,12 @@ fun AlarmSongSearchSheet(
                     }
                     Column {
                         Text(
-                            text = "Select Alarm Sound",
+                            text = stringResource(R.string.select_alarm_sound),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Search YouTube Music",
+                            text = stringResource(R.string.alarm_search_ytm_desc),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -690,7 +686,7 @@ fun AlarmSongSearchSheet(
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.close),
-                        contentDescription = "Close",
+                        contentDescription = stringResource(R.string.close),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -698,7 +694,6 @@ fun AlarmSongSearchSheet(
 
             Spacer(Modifier.height(16.dp))
 
-            // Search Input Field
             Surface(
                 shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
@@ -725,7 +720,7 @@ fun AlarmSongSearchSheet(
                             if (newQuery.isNotBlank()) {
                                 isSearching = true
                                 coroutineScope.launch(Dispatchers.IO) {
-                                    delay(500) // Debounce
+                                    delay(500)
                                     YouTube.search(newQuery, YouTube.SearchFilter.FILTER_SONG).onSuccess { res ->
                                         withContext(Dispatchers.Main) {
                                             searchResults = res.items.filterIsInstance<SongItem>()
@@ -746,7 +741,7 @@ fun AlarmSongSearchSheet(
                         decorationBox = { innerTextField ->
                             if (query.isEmpty()) {
                                 Text(
-                                    "Search for a song...",
+                                    stringResource(R.string.alarm_search_placeholder),
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                                 )
@@ -758,7 +753,7 @@ fun AlarmSongSearchSheet(
                     if (query.isNotEmpty()) {
                         Icon(
                             painter = painterResource(R.drawable.close),
-                            contentDescription = "Clear",
+                            contentDescription = stringResource(R.string.clear),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier
                                 .size(18.dp)
@@ -771,7 +766,6 @@ fun AlarmSongSearchSheet(
 
             Spacer(Modifier.height(16.dp))
 
-            // Results
             if (isSearching) {
                 Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
@@ -780,7 +774,7 @@ fun AlarmSongSearchSheet(
                 Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(painter = painterResource(R.drawable.search), contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
-                        Text(if (query.isBlank()) "Type to search songs" else "No songs found for '$query'", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(if (query.isBlank()) stringResource(R.string.alarm_type_to_search) else stringResource(R.string.alarm_no_songs_found, query), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             } else {
@@ -829,7 +823,6 @@ fun AlarmSongSearchSheet(
 
                                 Spacer(Modifier.width(8.dp))
 
-                                // Display duration
                                 val durationText = song.duration?.let { makeTimeString(it * 1000L) } ?: ""
                                 if (durationText.isNotEmpty()) {
                                     Text(
@@ -848,49 +841,6 @@ fun AlarmSongSearchSheet(
         LaunchedEffect(Unit) {
             delay(150)
             focusRequester.requestFocus()
-        }
-    }
-}
-
-@Composable
-fun TimePickerDialog(
-    title: String = "Select Time",
-    onCancel: () -> Unit,
-    onConfirm: () -> Unit,
-    toggle: @Composable () -> Unit = {},
-    content: @Composable () -> Unit,
-) {
-    Dialog(
-        onDismissRequest = onCancel,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
-        Surface(
-            shape = MaterialTheme.shapes.extraLarge,
-            tonalElevation = 6.dp,
-            modifier = Modifier
-                .width(IntrinsicSize.Min)
-                .background(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainerHigh)
-        ) {
-            Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 20.dp),
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                content()
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(modifier = Modifier
-                    .height(40.dp)
-                    .fillMaxWidth()) {
-                    toggle()
-                    Spacer(modifier = Modifier.weight(1f))
-                    TextButton(onClick = onCancel) { Text("Cancel") }
-                    Button(onClick = onConfirm, modifier = Modifier.padding(start = 8.dp)) { Text("OK") }
-                }
-            }
         }
     }
 }
