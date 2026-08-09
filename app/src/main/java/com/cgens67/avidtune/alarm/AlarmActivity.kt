@@ -18,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
@@ -58,14 +59,10 @@ class AlarmActivity : ComponentActivity() {
                             val hasInternet = isInternetAvailable(this@AlarmActivity)
 
                             if (!hasInternet && dbSong == null) {
-                                // Keep fallback playing
                                 return@launch
                             }
 
-                            // Stop fallback because we have internet or local song
                             AlarmAudioFallback.stop()
-
-                            // Ensure volume is at 100% (fade-in disabled)
                             playerConnection?.player?.volume = 1f
 
                             if (dbSong != null) {
@@ -74,7 +71,7 @@ class AlarmActivity : ComponentActivity() {
                                 playerConnection?.playQueue(YouTubeQueue(WatchEndpoint(videoId = id)))
                             }
                         } catch (e: Exception) {
-                            // If YouTube fails, leave fallback playing
+                            // Fallback remains active if exception occurs
                         }
                     }
                 }
@@ -92,7 +89,6 @@ class AlarmActivity : ComponentActivity() {
         songId = intent.getStringExtra("songId")
         alarmId = intent.getStringExtra("alarmId")
 
-        // Turn on the screen
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
@@ -126,7 +122,7 @@ class AlarmActivity : ComponentActivity() {
                     ) {
                         Icon(
                             painter = painterResource(R.drawable.schedule),
-                            contentDescription = "Alarm",
+                            contentDescription = stringResource(R.string.alarm),
                             modifier = Modifier.size(120.dp),
                             tint = MaterialTheme.colorScheme.primary
                         )
@@ -134,7 +130,7 @@ class AlarmActivity : ComponentActivity() {
                         Spacer(modifier = Modifier.height(24.dp))
                         
                         Text(
-                            text = "Wake Up!",
+                            text = stringResource(R.string.alarm_wake_up),
                             style = MaterialTheme.typography.displayMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onBackground
@@ -157,7 +153,7 @@ class AlarmActivity : ComponentActivity() {
                                     .weight(1f)
                                     .height(60.dp)
                             ) {
-                                Text("Snooze (10m)", style = MaterialTheme.typography.titleMedium)
+                                Text(stringResource(R.string.alarm_snooze), style = MaterialTheme.typography.titleMedium)
                             }
                             
                             Button(
@@ -169,7 +165,7 @@ class AlarmActivity : ComponentActivity() {
                                     .weight(1f)
                                     .height(60.dp)
                             ) {
-                                Text("Stop", style = MaterialTheme.typography.titleMedium)
+                                Text(stringResource(R.string.alarm_stop), style = MaterialTheme.typography.titleMedium)
                             }
                         }
                     }
@@ -184,12 +180,10 @@ class AlarmActivity : ComponentActivity() {
         val index = alarms.indexOfFirst { it.id == alarmId }
         if (index != -1) {
             val alarm = alarms[index]
-            // Disable one-time alarms automatically
             if (alarm.days.isEmpty()) {
                 alarms[index] = alarm.copy(isEnabled = false)
                 AlarmManagerHelper.saveAlarms(this, alarms)
             } else {
-                // Repeating alarm naturally rolls over, just re-save to ensure it's re-scheduled properly
                 AlarmManagerHelper.saveAlarms(this, alarms)
             }
         }
