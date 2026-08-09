@@ -1224,4 +1224,39 @@
     <string name="enable_apple_music_artist_canvas">Activer les animations d\'artiste Apple Music</string>
     <string name="artist_canvas_provider_priority">Priorité du fournisseur d\'animations d\'artiste</string>
     <string name="artist_canvas_provider_priority_desc">Modifier l\'ordre des fournisseurs d\'animations d\'artiste</string>
+    
+    <!-- Alarms -->
+    <string name="alarms">Alarmes</string>
+    <string name="alarm">Alarme</string>
+    <string name="alarm_wake_up">Réveillez-vous !</string>
+    <string name="alarm_snooze">Répéter (10 min)</string>
+    <string name="alarm_stop">Arrêter</string>
+    <string name="alarm_snoozed_toast">Alarme répétée dans 10 minutes</string>
+    <string name="alarm_channel_name">Alarmes</string>
+    <string name="alarm_notification_title">Alarme AvidTune</string>
+    <string name="alarm_notification_text">Réveillez-vous ! Votre alarme sonne.</string>
+    <string name="set_as_alarm">Définir comme alarme</string>
+    <string name="add_alarm">Ajouter une alarme</string>
+    <string name="alarm_all_off">Toutes les alarmes sont désactivées</string>
+    <string name="alarm_next_less_than_minute">Prochaine alarme dans moins d\'une minute</string>
+    <string name="alarm_next_in">Prochaine alarme dans %1$s</string>
+    <string name="alarm_sound_soon">L\'alarme va bientôt sonner</string>
+    <string name="no_alarms_set">Aucune alarme définie</string>
+    <string name="alarm_create_hint">Appuyez sur le bouton + pour en créer une</string>
+    <string name="alarm_select_sound_first">Veuillez d\'abord sélectionner un son d\'alarme.</string>
+    <string name="alarm_repeat_once">Une seule fois</string>
+    <string name="alarm_repeat_everyday">Chaque jour</string>
+    <string name="create_alarm">Créer une alarme</string>
+    <string name="edit_alarm">Modifier l\'alarme</string>
+    <string name="alarm_set_time">Régler l\'heure</string>
+    <string name="alarm_repeat">Répéter</string>
+    <string name="alarm_sound">Son de l\'alarme</string>
+    <string name="no_alarm_sound">Aucun son d\'alarme</string>
+    <string name="alarm_sound_removed">Son d\'alarme supprimé</string>
+    <string name="alarm_tap_to_select_track">Appuyez pour sélectionner un morceau</string>
+    <string name="select_alarm_sound">Sélectionner le son de l\'alarme</string>
+    <string name="alarm_search_ytm_desc">Rechercher sur YouTube Music</string>
+    <string name="alarm_search_placeholder">Rechercher une chanson…</string>
+    <string name="alarm_type_to_search">Saisissez du texte pour rechercher des chansons</string>
+    <string name="alarm_no_songs_found">Aucune chanson trouvée pour « %1$s »</string>
 </resources>
