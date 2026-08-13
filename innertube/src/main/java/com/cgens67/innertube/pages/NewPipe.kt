@@ -43,6 +43,10 @@ private class NewPipeDownloaderImpl(proxy: Proxy?, proxyAuth: String?) : Downloa
             .url(url)
             .addHeader("User-Agent", YouTubeClient.USER_AGENT_WEB)
 
+        YouTube.cookie?.let {
+            requestBuilder.addHeader("Cookie", it)
+        }
+
         headers.forEach { (headerName, headerValueList) ->
             if (headerValueList.size > 1) {
                 requestBuilder.removeHeader(headerName)
