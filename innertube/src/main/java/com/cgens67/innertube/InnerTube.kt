@@ -122,7 +122,6 @@ class InnerTube {
         videoId: String,
         playlistId: String?,
         signatureTimestamp: Int?,
-        poToken: String? = null,
     ) = httpClient.post("player") {
         ytClient(client, setLogin = true)
         setBody(
@@ -145,7 +144,6 @@ class InnerTube {
                         )
                     )
                 } else null,
-                serviceIntegrityDimensions = poToken?.let { PlayerBody.ServiceIntegrityDimensions(it) }
             )
         )
     }
@@ -468,5 +466,7 @@ class InnerTube {
         httpClient.get("https://returnyoutubedislikeapi.com/Votes?videoId=$videoId") {
             contentType(ContentType.Application.Json)
         }
+
+
 
 }

@@ -73,7 +73,6 @@ fun String.parseTime(): Int? {
 }
 
 fun String.swap(index1: Int, index2: Int): String {
-    if (index1 !in indices || index2 !in indices) return this
     val chars = toCharArray()
     val temp = chars[index1]
     chars[index1] = chars[index2]
@@ -81,20 +80,11 @@ fun String.swap(index1: Int, index2: Int): String {
     return String(chars)
 }
 
-fun String.rotateLeft(n: Int): String {
-    if (n < 0 || n >= length) return this
-    return substring(n) + substring(0, n)
-}
+fun String.rotateLeft(n: Int): String = substring(n) + substring(0, n)
 
-fun String.rotateRight(n: Int): String {
-    if (n < 0 || n >= length) return this
-    return takeLast(n) + dropLast(n)
-}
+fun String.rotateRight(n: Int): String = takeLast(n) + dropLast(n)
 
-fun String.removeIndex(index: Int): String {
-    if (index !in indices) return this
-    return removeRange(index, index + 1)
-}
+fun String.removeIndex(index: Int): String = removeRange(index, index + 1)
 
 fun transform(input: String, key: String, charset: List<Char>): String {
     val keyList = key.toMutableList()
@@ -110,20 +100,12 @@ fun transform(input: String, key: String, charset: List<Char>): String {
     }
 }
 
-fun String.sliceSegment(start: Int, end: Int): String {
-    if (start < 0 || end > length || start > end) return ""
-    return substring(start, end)
-}
+fun String.sliceSegment(start: Int, end: Int): String = substring(start, end)
 
-fun String.sliceFrom(start: Int): String {
-    if (start < 0 || start >= length) return ""
-    return substring(start)
-}
+fun String.sliceFrom(start: Int): String = substring(start)
 
 
 fun nSigDecode(n: String): String {
-    if (n.length < 18) return n // Safety fallback for unexpectedly short 'n' parameters
-
     val step1 = n.swap(0, 3)
     val step2 = step1.swap(0, 14)
     val step3 = step2.reversed()
@@ -152,13 +134,10 @@ fun nSigDecode(n: String): String {
         .reversed()
         .rotateLeft(8)
         .removeIndex(6)
-    
-    if (result.length < 2) return result
     return result.dropLast(2) + result.last()
 }
 
 fun sigDecode(input: String): String {
-    if (input.length < 67) return input // Safety boundary
     val result = input.sliceSegment(6, 11) +
             input[65] +
             input.sliceSegment(12, 65) +
@@ -183,12 +162,13 @@ fun createUrl(
         resUrl = url?.let { URLBuilder(it) } ?: return null
     }
     val n = resUrl.parameters["n"]
-    if (n != null) {
-        resUrl.parameters["n"] = nSigDecode(n.toString())
-    }
+    resUrl.parameters["n"] = nSigDecode(n.toString())
     if (cipher != null) {
         resUrl.parameters[signatureParam] = sigDecode(signature)
     }
     resUrl.parameters["c"] = "ANDROID_MUSIC"
+    println(signature)
+    println(n)
+    println(resUrl)
     return resUrl.toString()
 }

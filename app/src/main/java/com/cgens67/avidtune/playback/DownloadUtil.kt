@@ -91,8 +91,8 @@ constructor(
                         mimeType = format.mimeType.split(";")[0],
                         codecs = format.mimeType.split("codecs=")[1].removeSurrounding("\""),
                         bitrate = format.bitrate,
-                        sampleRate = format.audioSampleRate?.toIntOrNull(),
-                        contentLength = format.contentLength?.toLongOrNull() ?: 0L,
+                        sampleRate = format.audioSampleRate,
+                        contentLength = format.contentLength!!,
                         loudnessDb = playbackData.audioConfig?.loudnessDb,
                         playbackUrl = playbackData.streamUrl
                     ),
