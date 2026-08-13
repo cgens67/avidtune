@@ -74,6 +74,7 @@ object YTPlayerUtils {
         var streamUrl: String? = null
         var streamExpiresInSeconds: Int? = null
         var streamPlayerResponse: PlayerResponse? = null
+        var lastError: Throwable? = null
 
         for (clientIndex in (-1 until STREAM_FALLBACK_CLIENTS.size)) {
             format = null
@@ -100,7 +101,7 @@ object YTPlayerUtils {
             }
 
             if (streamPlayerResponse?.playabilityStatus?.status == "OK") {
-                Timber.tag(logTag).d("Player response status OK for client: ${if (clientIndex == -1) MAIN_CLIENT.clientName else STREAM_FALLBACK_CLIENTS[clientIndex].clientName}")
+                Timber.tag(logTag).d("Player response status OK for client: ${client.clientName}")
 
                 format = findFormat(
                     streamPlayerResponse,
@@ -109,70 +110,47 @@ object YTPlayerUtils {
                 )
 
                 if (format == null) {
-                    Timber.tag(logTag).d("No suitable format found for client")
+                    lastError = Exception("No suitable format found for client: ${client.clientName}")
+                    Timber.tag(logTag).d(lastError.message)
                     continue
                 }
 
                 Timber.tag(logTag).d("Format found: ${format.mimeType}, bitrate: ${format.bitrate}")
 
-                streamUrl = findUrlOrNull(format, videoId)
+                val urlResult = findUrlOrNull(format, videoId)
+                streamUrl = urlResult.getOrNull()
                 if (streamUrl == null) {
-                    Timber.tag(logTag).d("Stream URL not found for format")
+                    lastError = urlResult.exceptionOrNull() ?: Exception("Stream URL not found for format")
+                    Timber.tag(logTag).d("Stream URL not found for format: ${lastError.message}")
                     continue
                 }
 
                 streamExpiresInSeconds = streamPlayerResponse.streamingData?.expiresInSeconds?.toIntOrNull() ?: 21600
-                if (streamExpiresInSeconds == null) {
-                    Timber.tag(logTag).d("Stream expiration time not found")
-                    continue
-                }
-
                 Timber.tag(logTag).d("Stream expires in: $streamExpiresInSeconds seconds")
 
                 if (clientIndex == STREAM_FALLBACK_CLIENTS.size - 1) {
-                    Timber.tag(logTag).d("Using last fallback client without validation: ${STREAM_FALLBACK_CLIENTS[clientIndex].clientName}")
+                    Timber.tag(logTag).d("Using last fallback client without validation: ${client.clientName}")
                     break
                 }
 
                 if (validateStatus(streamUrl)) {
-                    Timber.tag(logTag).d("Stream validated successfully with client")
+                    Timber.tag(logTag).d("Stream validated successfully with client: ${client.clientName}")
                     break
                 } else {
-                    Timber.tag(logTag).d("Stream validation failed for client")
+                    lastError = Exception("Stream URL returned HTTP 403 Forbidden for client: ${client.clientName}")
+                    Timber.tag(logTag).d(lastError.message)
+                    streamUrl = null // Invalidate to ensure we don't accidentally use broken stream
                 }
             } else {
-                Timber.tag(logTag).d("Player response status not OK: ${streamPlayerResponse?.playabilityStatus?.status}, reason: ${streamPlayerResponse?.playabilityStatus?.reason}")
+                val reason = streamPlayerResponse?.playabilityStatus?.reason ?: "Unknown error"
+                lastError = Exception("Playability status not OK for client ${client.clientName}: $reason")
+                Timber.tag(logTag).d(lastError.message)
             }
         }
 
-        if (streamPlayerResponse == null) {
-            Timber.tag(logTag).e("Bad stream player response - all clients failed")
-            throw Exception("Bad stream player response")
-        }
-
-        if (streamPlayerResponse.playabilityStatus?.status != "OK") {
-            val errorReason = streamPlayerResponse.playabilityStatus?.reason ?: "Unknown error"
-            Timber.tag(logTag).e("Playability status not OK: $errorReason")
-            throw PlaybackException(
-                errorReason,
-                null,
-                PlaybackException.ERROR_CODE_REMOTE_ERROR
-            )
-        }
-
-        if (streamExpiresInSeconds == null) {
-            Timber.tag(logTag).e("Missing stream expire time")
-            throw Exception("Missing stream expire time")
-        }
-
-        if (format == null) {
-            Timber.tag(logTag).e("Could not find format")
-            throw Exception("Could not find format")
-        }
-
-        if (streamUrl == null) {
-            Timber.tag(logTag).e("Could not find stream url")
-            throw Exception("Could not find stream url")
+        if (format == null || streamUrl == null || streamExpiresInSeconds == null) {
+            Timber.tag(logTag).e(lastError, "Failed to obtain a valid stream")
+            throw lastError ?: Exception("Failed to obtain a valid stream")
         }
 
         Timber.tag(logTag).d("Successfully obtained playback data with format: ${format.mimeType}, bitrate: ${format.bitrate}")
@@ -253,13 +231,12 @@ object YTPlayerUtils {
     private fun findUrlOrNull(
         format: PlayerResponse.StreamingData.Format,
         videoId: String
-    ): String? {
+    ): Result<String> {
         Timber.tag(logTag).d("Finding stream URL for format: ${format.mimeType}, videoId: $videoId")
         return NewPipeUtils.getStreamUrl(format, videoId)
             .onSuccess { Timber.tag(logTag).d("Stream URL obtained successfully") }
             .onFailure {
                 Timber.tag(logTag).e(it, "Failed to get stream URL")
             }
-            .getOrNull()
     }
 }
