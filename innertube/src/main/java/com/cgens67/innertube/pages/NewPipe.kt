@@ -1,35 +1,19 @@
-package com.cgens67.innertube.pages
+package com.cgens67.innertube
 
-import com.cgens67.innertube.YouTube
-import com.cgens67.innertube.models.YouTubeClient
 import com.cgens67.innertube.models.response.PlayerResponse
-import io.ktor.http.URLBuilder
-import io.ktor.http.parseQueryString
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.schabi.newpipe.extractor.NewPipe
-import org.schabi.newpipe.extractor.downloader.CancellableCall
 import org.schabi.newpipe.extractor.downloader.Downloader
 import org.schabi.newpipe.extractor.downloader.Request
 import org.schabi.newpipe.extractor.downloader.Response
-import org.schabi.newpipe.extractor.exceptions.ParsingException
 import org.schabi.newpipe.extractor.exceptions.ReCaptchaException
 import org.schabi.newpipe.extractor.services.youtube.YoutubeJavaScriptPlayerManager
+import org.schabi.newpipe.extractor.stream.StreamInfo
 import java.io.IOException
-import java.net.Proxy
 
-private class NewPipeDownloaderImpl(proxy: Proxy?, proxyAuth: String?) : Downloader() {
-
-    private val client = OkHttpClient.Builder()
-        .proxy(proxy)
-        .proxyAuthenticator { _, response ->
-            proxyAuth?.let { auth ->
-                response.request.newBuilder()
-                    .header("Proxy-Authorization", auth)
-                    .build()
-            } ?: response.request
-        }
-        .build()
+class NewPipeDownloaderImpl : Downloader() {
+    private val client = OkHttpClient.Builder().build()
 
     @Throws(IOException::class, ReCaptchaException::class)
     override fun execute(request: Request): Response {
@@ -38,10 +22,14 @@ private class NewPipeDownloaderImpl(proxy: Proxy?, proxyAuth: String?) : Downloa
         val headers = request.headers()
         val dataToSend = request.dataToSend()
 
-        val requestBuilder = okhttp3.Request.Builder()
-            .method(httpMethod, dataToSend?.toRequestBody())
-            .url(url)
-            .addHeader("User-Agent", YouTubeClient.USER_AGENT_WEB)
+        println("[NewPipeDownloader] Executing request: $httpMethod $url")
+
+        val requestBuilder =
+            okhttp3.Request
+                .Builder()
+                .method(httpMethod, dataToSend?.toRequestBody())
+                .url(url)
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0")
 
         headers.forEach { (headerName, headerValueList) ->
             if (headerValueList.size > 1) {
@@ -54,61 +42,78 @@ private class NewPipeDownloaderImpl(proxy: Proxy?, proxyAuth: String?) : Downloa
             }
         }
 
-        val response = client.newCall(requestBuilder.build()).execute()
+        try {
+            val response = client.newCall(requestBuilder.build()).execute()
+            println("[NewPipeDownloader] Response code: ${response.code}")
 
-        if (response.code == 429) {
-            response.close()
+            if (response.code == 429) {
+                response.close()
+                throw ReCaptchaException("reCaptcha Challenge requested", url)
+            }
 
-            throw ReCaptchaException("reCaptcha Challenge requested", url)
+            val responseBodyToReturn = response.body?.string() ?: ""
+            val latestUrl = response.request.url.toString()
+            return Response(response.code, response.message, response.headers.toMultimap(), responseBodyToReturn, latestUrl)
+        } catch (e: Exception) {
+            println("[NewPipeDownloader] Request failed: ${e.message}")
+            e.printStackTrace()
+            throw e
         }
-
-        val responseBodyToReturn = response.body?.string()
-
-        val latestUrl = response.request.url.toString()
-        return Response(response.code, response.message, response.headers.toMultimap(), responseBodyToReturn, responseBodyToReturn?.toByteArray(), latestUrl)
     }
-
-    override fun executeAsync(request: Request, callback: AsyncCallback?): CancellableCall {
-        TODO("Placeholder")
-    }
-
 }
 
-object NewPipeUtils {
+object NewPipeExtractor {
+    private var newPipeDownloader: NewPipeDownloaderImpl? = null
+    private var isInitialized = false
 
-    init {
-        NewPipe.init(NewPipeDownloaderImpl(
-            proxy = YouTube.proxy,
-            proxyAuth = null
-        ))
-    }
-
-    fun getSignatureTimestamp(videoId: String): Result<Int> = runCatching {
-        YoutubeJavaScriptPlayerManager.getSignatureTimestamp(videoId)
-    }
-
-    fun getStreamUrl(format: PlayerResponse.StreamingData.Format, videoId: String): Result<String> =
-        runCatching {
-            val url = format.url ?: format.signatureCipher?.let { signatureCipher ->
-                val params = parseQueryString(signatureCipher)
-                val obfuscatedSignature = params["s"]
-                    ?: throw ParsingException("Could not parse cipher signature")
-                val signatureParam = params["sp"]
-                    ?: throw ParsingException("Could not parse cipher signature parameter")
-                val url = params["url"]?.let { URLBuilder(it) }
-                    ?: throw ParsingException("Could not parse cipher url")
-                url.parameters[signatureParam] =
-                    YoutubeJavaScriptPlayerManager.deobfuscateSignature(
-                        videoId,
-                        obfuscatedSignature
-                    )
-                url.toString()
-            } ?: throw ParsingException("Could not find format url")
-
-            return@runCatching YoutubeJavaScriptPlayerManager.getUrlWithThrottlingParameterDeobfuscated(
-                videoId,
-                url
-            )
+    fun init() {
+        if (!isInitialized) {
+            println("[NewPipeExtractor] Initializing NewPipe with Downloader...")
+            newPipeDownloader = NewPipeDownloaderImpl()
+            NewPipe.init(newPipeDownloader)
+            isInitialized = true
         }
+    }
 
+    fun getSignatureTimestamp(videoId: String): Result<Int> {
+        init()
+        return runCatching {
+            YoutubeJavaScriptPlayerManager.getSignatureTimestamp(videoId)
+        }
+    }
+
+    fun getStreamUrl(
+        format: PlayerResponse.StreamingData.Format,
+        videoId: String
+    ): String? {
+        init()
+        val signatureCipher = format.signatureCipher ?: format.cipher
+        return if (!signatureCipher.isNullOrEmpty()) {
+            YouTubeExtractor.decryptUrl(signatureCipher)
+        } else if (!format.url.isNullOrEmpty()) {
+            YouTubeExtractor.deobfuscateUrlNParam(format.url)
+        } else {
+            null
+        }
+    }
+
+    fun newPipePlayer(videoId: String): List<Pair<Int, String>> {
+        init()
+        println("[NewPipeExtractor] Fetching streams for videoId: $videoId")
+        return try {
+            val streamInfo = StreamInfo.getInfo(
+                NewPipe.getService(0),
+                "https://www.youtube.com/watch?v=$videoId"
+            )
+            val streamsList = streamInfo.audioStreams + streamInfo.videoStreams + streamInfo.videoOnlyStreams
+            println("[NewPipeExtractor] Successfully fetched ${streamsList.size} streams via fallback")
+            streamsList.mapNotNull {
+                (it.itagItem?.id ?: return@mapNotNull null) to it.content
+            }
+        } catch (e: Exception) {
+            println("[NewPipeExtractor] Fallback stream extraction failed: ${e.message}")
+            e.printStackTrace()
+            emptyList()
+        }
+    }
 }
