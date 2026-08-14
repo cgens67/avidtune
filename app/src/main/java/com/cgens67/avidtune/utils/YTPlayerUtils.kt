@@ -7,13 +7,17 @@ import com.cgens67.innertube.pages.NewPipeUtils
 import com.cgens67.avidtune.constants.AudioQuality
 import com.cgens67.innertube.YouTube
 import com.cgens67.innertube.models.YouTubeClient
-import com.cgens67.innertube.models.YouTubeClient.Companion.ANDROID_VR_NO_AUTH
+import com.cgens67.innertube.models.YouTubeClient.Companion.ANDROID_CREATOR
+import com.cgens67.innertube.models.YouTubeClient.Companion.ANDROID_MUSIC
+import com.cgens67.innertube.models.YouTubeClient.Companion.ANDROID_TESTSUITE
+import com.cgens67.innertube.models.YouTubeClient.Companion.ANDROID_UNPLUGGED
 import com.cgens67.innertube.models.YouTubeClient.Companion.IOS
-import com.cgens67.innertube.models.YouTubeClient.Companion.MOBILE
+import com.cgens67.innertube.models.YouTubeClient.Companion.IOS_MUSIC
+import com.cgens67.innertube.models.YouTubeClient.Companion.MWEB
 import com.cgens67.innertube.models.YouTubeClient.Companion.TVHTML5_SIMPLY_EMBEDDED_PLAYER
-import com.cgens67.innertube.models.YouTubeClient.Companion.WEB
 import com.cgens67.innertube.models.YouTubeClient.Companion.WEB_CREATOR
 import com.cgens67.innertube.models.YouTubeClient.Companion.WEB_REMIX
+import com.cgens67.innertube.models.YouTubeClient.Companion.WEB_SAFARI
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import timber.log.Timber
@@ -24,6 +28,7 @@ object YTPlayerUtils {
     private val httpClient = OkHttpClient.Builder()
         .proxy(YouTube.proxy)
         .build()
+
     /**
      * The main client is used for metadata and initial streams.
      * Do not use other clients for this because it can result in inconsistent metadata.
@@ -34,17 +39,23 @@ object YTPlayerUtils {
      * - premium formats
      */
     private val MAIN_CLIENT: YouTubeClient = WEB_REMIX
+
     /**
      * Clients used for fallback streams in case the streams of the main client do not work.
      */
     private val STREAM_FALLBACK_CLIENTS: Array<YouTubeClient> = arrayOf(
-        ANDROID_VR_NO_AUTH,
-        MOBILE,
+        ANDROID_TESTSUITE,
+        IOS_MUSIC,
+        ANDROID_UNPLUGGED,
+        ANDROID_MUSIC,
+        MWEB,
         TVHTML5_SIMPLY_EMBEDDED_PLAYER,
         IOS,
-        WEB,
-        WEB_CREATOR
+        WEB_SAFARI,
+        WEB_CREATOR,
+        ANDROID_CREATOR
     )
+
     data class PlaybackData(
         val audioConfig: PlayerResponse.PlayerConfig.AudioConfig?,
         val videoDetails: PlayerResponse.VideoDetails?,
@@ -53,6 +64,7 @@ object YTPlayerUtils {
         val streamUrl: String,
         val streamExpiresInSeconds: Int,
     )
+
     /**
      * Custom player response intended to use for playback.
      * Metadata like audioConfig and videoDetails are from [MAIN_CLIENT].
@@ -65,6 +77,7 @@ object YTPlayerUtils {
         connectivityManager: ConnectivityManager,
     ): Result<PlaybackData> = runCatching {
         Timber.tag(logTag).d("Fetching player response for videoId: $videoId, playlistId: $playlistId")
+
         /**
          * This is required for some clients to get working streams however
          * it should not be forced for the [MAIN_CLIENT] because the response of the [MAIN_CLIENT]
@@ -215,6 +228,7 @@ object YTPlayerUtils {
             streamExpiresInSeconds,
         )
     }
+
     /**
      * Simple player response intended to use for metadata only.
      * Stream URLs of this response might not work so don't use them.
@@ -254,6 +268,7 @@ object YTPlayerUtils {
 
         return format
     }
+
     /**
      * Checks if the stream url returns a successful status.
      * If this returns true the url is likely to work.
@@ -275,6 +290,7 @@ object YTPlayerUtils {
         }
         return false
     }
+
     /**
      * Wrapper around the [NewPipeUtils.getSignatureTimestamp] function which reports exceptions
      */
@@ -290,6 +306,7 @@ object YTPlayerUtils {
             }
             .getOrNull()
     }
+
     /**
      * Wrapper around the [NewPipeUtils.getStreamUrl] function which reports exceptions
      */
