@@ -3,7 +3,7 @@ package com.cgens67.avidtune.utils
 import android.net.ConnectivityManager
 import androidx.media3.common.PlaybackException
 import com.cgens67.innertube.models.response.PlayerResponse
-import com.cgens67.innertube.pages.NewPipeUtils
+import com.cgens67.innertube.NewPipeExtractor
 import com.cgens67.avidtune.constants.AudioQuality
 import com.cgens67.innertube.YouTube
 import com.cgens67.innertube.models.YouTubeClient
@@ -276,13 +276,13 @@ object YTPlayerUtils {
         return false
     }
     /**
-     * Wrapper around the [NewPipeUtils.getSignatureTimestamp] function which reports exceptions
+     * Wrapper around the [NewPipeExtractor.getSignatureTimestamp] function which reports exceptions
      */
     private fun getSignatureTimestampOrNull(
         videoId: String
     ): Int? {
         Timber.tag(logTag).d("Getting signature timestamp for videoId: $videoId")
-        return NewPipeUtils.getSignatureTimestamp(videoId)
+        return NewPipeExtractor.getSignatureTimestamp(videoId)
             .onSuccess { Timber.tag(logTag).d("Signature timestamp obtained: $it") }
             .onFailure {
                 Timber.tag(logTag).e(it, "Failed to get signature timestamp")
@@ -291,19 +291,19 @@ object YTPlayerUtils {
             .getOrNull()
     }
     /**
-     * Wrapper around the [NewPipeUtils.getStreamUrl] function which reports exceptions
+     * Wrapper around the [NewPipeExtractor.getStreamUrl] function which reports exceptions
      */
     private fun findUrlOrNull(
         format: PlayerResponse.StreamingData.Format,
         videoId: String
     ): String? {
-        Timber.tag(logTag).d("Finding stream URL for format: ${format.mimeType}, videoId: $videoId")
-        return NewPipeUtils.getStreamUrl(format, videoId)
-            .onSuccess { Timber.tag(logTag).d("Stream URL obtained successfully") }
-            .onFailure {
-                Timber.tag(logTag).e(it, "Failed to get stream URL")
-                reportException(it)
-            }
-            .getOrNull()
+        Timber.tag(logTag).d("Finding stream URL for format: \${format.mimeType}, videoId: \$videoId")
+        val url = runCatching { NewPipeExtractor.getStreamUrl(format, videoId) }.getOrNull()
+        if (url != null) {
+            Timber.tag(logTag).d("Stream URL obtained successfully")
+        } else {
+            Timber.tag(logTag).e("Failed to get stream URL")
+        }
+        return url
     }
 }
