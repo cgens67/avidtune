@@ -13,12 +13,16 @@ data class YouTubeClient(
     val deviceMake: String? = null,
     val deviceModel: String? = null,
     val androidSdkVersion: String? = null,
+    val buildId: String? = null,
+    val cronetVersion: String? = null,
+    val packageName: String? = null,
+    val friendlyName: String? = null,
     val loginSupported: Boolean = false,
+    val supportsCookieAuthentication: Boolean = false,
     val loginRequired: Boolean = false,
     val useSignatureTimestamp: Boolean = false,
+    val useWebPoTokens: Boolean = false,
     val isEmbedded: Boolean = false,
-    // val origin: String? = null,
-    // val referer: String? = null,
 ) {
     fun toContext(locale: YouTubeLocale, visitorData: String?, dataSyncId: String?) = Context(
         client = Context.Client(
@@ -35,9 +39,6 @@ data class YouTubeClient(
     )
 
     companion object {
-        /**
-         * The standard web user agent used by default for most web clients.
-         */
         const val USER_AGENT_WEB = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
 
         const val ORIGIN_YOUTUBE_MUSIC = "https://music.youtube.com"
@@ -56,7 +57,9 @@ data class YouTubeClient(
             clientVersion = "2.20260708.00.00",
             clientId = "1",
             userAgent = USER_AGENT_WEB,
+            friendlyName = "Web Primary",
             loginSupported = true,
+            supportsCookieAuthentication = true,
             useSignatureTimestamp = true,
         )
 
@@ -66,7 +69,9 @@ data class YouTubeClient(
             clientId = "67",
             userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0",
             loginSupported = true,
+            supportsCookieAuthentication = true,
             useSignatureTimestamp = true,
+            useWebPoTokens = true,
         )
 
         val WEB_CREATOR = YouTubeClient(
@@ -75,6 +80,7 @@ data class YouTubeClient(
             clientId = "62",
             userAgent = USER_AGENT_WEB,
             loginSupported = true,
+            supportsCookieAuthentication = true,
             loginRequired = true,
             useSignatureTimestamp = true,
         )
@@ -85,6 +91,7 @@ data class YouTubeClient(
             clientId = "7",
             userAgent = "Mozilla/5.0(SMART-TV; Linux; Tizen 4.0.0.2) AppleWebkit/605.1.15 (KHTML, like Gecko) SamsungBrowser/9.2 TV Safari/605.1.15",
             loginSupported = true,
+            supportsCookieAuthentication = true,
             loginRequired = true,
             useSignatureTimestamp = true,
         )
@@ -142,6 +149,9 @@ data class YouTubeClient(
             deviceMake = "Oculus",
             deviceModel = "Quest 3",
             androidSdkVersion = "32",
+            buildId = "SQ3A.220605.009.A1",
+            packageName = "com.google.android.apps.youtube.vr.oculus",
+            friendlyName = "Android VR 1.65",
         )
 
         val ANDROID_VR_1_61_48 = YouTubeClient(
@@ -154,6 +164,10 @@ data class YouTubeClient(
             deviceMake = "Oculus",
             deviceModel = "Quest 3",
             androidSdkVersion = "32",
+            buildId = "SQ3A.220605.009.A1",
+            cronetVersion = "132.0.6808.3",
+            packageName = "com.google.android.apps.youtube.vr.oculus",
+            friendlyName = "Android VR 1.61",
         )
 
         val ANDROID_VR_1_43_32 = YouTubeClient(
@@ -166,6 +180,10 @@ data class YouTubeClient(
             deviceMake = "Oculus",
             deviceModel = "Quest 3",
             androidSdkVersion = "32",
+            buildId = "SQ3A.220605.009.A1",
+            cronetVersion = "107.0.5284.2",
+            packageName = "com.google.android.apps.youtube.vr.oculus",
+            friendlyName = "Android VR 1.43",
         )
 
         val ANDROID_CREATOR = YouTubeClient(
@@ -178,6 +196,10 @@ data class YouTubeClient(
             deviceMake = "Google",
             deviceModel = "Pixel 9 Pro Fold",
             androidSdkVersion = "35",
+            buildId = "AP3A.241005.015.A2",
+            cronetVersion = "132.0.6779.0",
+            packageName = "com.google.android.apps.youtube.creator",
+            friendlyName = "Android Studio",
             loginSupported = true,
             useSignatureTimestamp = true,
         )
@@ -191,6 +213,7 @@ data class YouTubeClient(
             osVersion = "1.3.21O771",
             deviceMake = "Apple",
             deviceModel = "RealityDevice14,1",
+            friendlyName = "visionOS",
         )
 
         val IPADOS = YouTubeClient(
@@ -202,6 +225,8 @@ data class YouTubeClient(
             osVersion = "17.7.10.21H450",
             deviceMake = "Apple",
             deviceModel = "iPad7,6",
+            friendlyName = "iPadOS",
+            packageName = "com.google.ios.youtube",
         )
 
         val MWEB = YouTubeClient(
@@ -209,6 +234,7 @@ data class YouTubeClient(
             clientVersion = "2.20260708.05.00",
             clientId = "2",
             userAgent = "Mozilla/5.0 (Linux; Android 15; Pixel 9 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36",
+            friendlyName = "Mobile Web",
         )
 
         val WEB_SAFARI = YouTubeClient(
@@ -216,13 +242,15 @@ data class YouTubeClient(
             clientVersion = "2.20260708.00.00",
             clientId = "1",
             userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Safari/605.1.15",
+            friendlyName = "Web (Safari)",
         )
 
         val WEB_EMBEDDED = YouTubeClient(
             clientName = "WEB_EMBEDDED_PLAYER",
             clientVersion = "2.20260708.00.00",
             clientId = "56",
-            userAgent = USER_AGENT_WEB,
+            userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+            friendlyName = "Web Embedded Player",
             isEmbedded = true,
         )
 
@@ -231,8 +259,11 @@ data class YouTubeClient(
             clientVersion = "1.20260707.12.00",
             clientId = "67",
             userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0",
+            friendlyName = "Web Music (YouTube Music)",
             loginSupported = true,
+            supportsCookieAuthentication = true,
             useSignatureTimestamp = true,
+            useWebPoTokens = true,
         )
 
         val ANDROID_MUSIC = YouTubeClient(
@@ -245,6 +276,10 @@ data class YouTubeClient(
             deviceMake = "Google",
             deviceModel = "Pixel 9 Pro",
             androidSdkVersion = "35",
+            buildId = "AP4A.250205.002",
+            cronetVersion = "132.0.6834.79",
+            packageName = "com.google.android.apps.youtube.music",
+            friendlyName = "Android Music",
             loginSupported = true,
             useSignatureTimestamp = true,
         )
@@ -259,6 +294,7 @@ data class YouTubeClient(
             deviceMake = "Google",
             deviceModel = "Pixel 9 Pro",
             androidSdkVersion = "35",
+            friendlyName = "Android TestSuite",
         )
 
         val ANDROID_UNPLUGGED = YouTubeClient(
@@ -271,6 +307,7 @@ data class YouTubeClient(
             deviceMake = "Google",
             deviceModel = "Pixel 9 Pro",
             androidSdkVersion = "35",
+            friendlyName = "Android TV",
             loginSupported = true,
             useSignatureTimestamp = true,
         )
@@ -284,6 +321,7 @@ data class YouTubeClient(
             osVersion = "17.5.1.21F90",
             deviceMake = "Apple",
             deviceModel = "iPhone16,2",
+            friendlyName = "iOS Music",
         )
     }
 }
