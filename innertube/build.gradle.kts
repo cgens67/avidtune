@@ -1,25 +1,11 @@
 plugins {
-    id("com.android.library")
+    kotlin("jvm")
+    @Suppress("DSL_SCOPE_VIOLATION")
     alias(libs.plugins.kotlin.serialization)
 }
 
-android {
-    namespace = "com.cgens67.innertube"
-    compileSdk = 35
-
-    defaultConfig {
-        minSdk = 24
-    }
-
-    compileOptions {
-        isCoreLibraryDesugaringEnabled = true
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
-    }
-}
-
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain(17)
 }
 
 dependencies {
@@ -30,8 +16,5 @@ dependencies {
     implementation(libs.ktor.client.encoding)
     implementation(libs.brotli)
     implementation(libs.newpipe.extractor)
-    implementation(libs.rhino)
     testImplementation(libs.junit)
-
-    coreLibraryDesugaring(libs.desugaring)
 }

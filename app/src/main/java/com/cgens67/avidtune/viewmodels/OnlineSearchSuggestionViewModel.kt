@@ -6,7 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.cgens67.innertube.YouTube
 import com.cgens67.innertube.models.YTItem
 import com.cgens67.innertube.models.filterExplicit
-import com.cgens67.innertube.models.filterVideoSongs
+import com.cgens67.innertube.models.filterMusicVideos
 import com.cgens67.avidtune.constants.HideExplicitKey
 import com.cgens67.avidtune.constants.HideMusicVideosKey
 import com.cgens67.avidtune.db.MusicDatabase
@@ -68,7 +68,7 @@ constructor(
                                                     false,
                                                 ),
                                             )
-                                            ?.filterVideoSongs(
+                                            ?.filterMusicVideos(
                                                 context.dataStore.get(
                                                     HideMusicVideosKey,
                                                     false,
