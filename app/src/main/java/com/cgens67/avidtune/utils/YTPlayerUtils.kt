@@ -91,15 +91,12 @@ object YTPlayerUtils {
         Timber.tag(logTag).d("Signature timestamp: $signatureTimestamp")
 
         val isLoggedIn = YouTube.cookie != null
-        val sessionId =
-            if (isLoggedIn) {
-                // signed in sessions use dataSyncId as identifier
-                YouTube.dataSyncId
-            } else {
-                // signed out sessions use visitorData as identifier
-                YouTube.visitorData
-            } ?: ""
+        val sessionId = (if (isLoggedIn) YouTube.dataSyncId else YouTube.visitorData) ?: ""
         Timber.tag(logTag).d("Session authentication status: ${if (isLoggedIn) "Logged in" else "Not logged in"}")
+
+        val mainPoToken = if (MAIN_CLIENT.useWebPoTokens) {
+            poTokenGenerator.getWebClientPoToken(videoId, sessionId)?.playerRequestPoToken
+        } else null
 
         var audioConfig: PlayerResponse.PlayerConfig.AudioConfig? = null
         var videoDetails: PlayerResponse.VideoDetails? = null
@@ -117,7 +114,8 @@ object YTPlayerUtils {
             Timber.tag(logTag).d("Attempting with client: ${client.clientName}")
 
             val poToken = if (client.useWebPoTokens) {
-                poTokenGenerator.getWebClientPoToken(videoId, sessionId)?.playerRequestPoToken
+                if (client == MAIN_CLIENT) mainPoToken
+                else poTokenGenerator.getWebClientPoToken(videoId, sessionId)?.playerRequestPoToken
             } else null
 
             val response = YouTube.player(videoId, playlistId, client, signatureTimestamp, poToken).getOrNull()
@@ -177,7 +175,7 @@ object YTPlayerUtils {
         playlistId: String? = null,
     ): Result<PlayerResponse> = runCatching {
         val isLoggedIn = YouTube.cookie != null
-        val sessionId = if (isLoggedIn) YouTube.dataSyncId else YouTube.visitorData ?: ""
+        val sessionId = (if (isLoggedIn) YouTube.dataSyncId else YouTube.visitorData) ?: ""
         
         val mainPoToken = if (MAIN_CLIENT.useWebPoTokens) {
             poTokenGenerator.getWebClientPoToken(videoId, sessionId)?.playerRequestPoToken
@@ -185,9 +183,9 @@ object YTPlayerUtils {
 
         Timber.tag(logTag).d("Fetching metadata-only player response for videoId: $videoId")
         
-        var response = YouTube.player(videoId, playlistId, client = MAIN_CLIENT, poToken = mainPoToken).getOrNull()
+        var response = YouTube.player(videoId, playlistId, client = MAIN_CLIENT, signatureTimestamp = null, poToken = mainPoToken).getOrNull()
         if (response == null || response.playabilityStatus.status != "OK") {
-            response = YouTube.player(videoId, playlistId, client = YouTubeClient.ANDROID_TESTSUITE).getOrNull()
+            response = YouTube.player(videoId, playlistId, client = YouTubeClient.ANDROID_TESTSUITE, signatureTimestamp = null).getOrNull()
         }
         
         response ?: throw Exception("Failed to fetch metadata from any client")
@@ -236,7 +234,7 @@ object YTPlayerUtils {
             return isSuccessful
         } catch (e: Exception) {
             Timber.tag(logTag).e(e, "Stream URL validation failed with exception")
-            reportException(e)
+            // Don't report this exception as it's a normal validation failure
         }
         return false
     }
