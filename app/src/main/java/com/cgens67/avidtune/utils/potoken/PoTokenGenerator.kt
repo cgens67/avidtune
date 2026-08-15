@@ -4,10 +4,10 @@ import android.util.Log
 import android.webkit.CookieManager
 import com.cgens67.avidtune.App
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 class PoTokenGenerator {
     private val TAG = "PoTokenGenerator"
@@ -20,13 +20,16 @@ class PoTokenGenerator {
     private var webPoTokenStreamingPot: String? = null
     private var webPoTokenGenerator: PoTokenWebView? = null
 
-    fun getWebClientPoToken(videoId: String, sessionId: String): PoTokenResult? {
+    suspend fun getWebClientPoToken(videoId: String, sessionId: String): PoTokenResult? {
         if (!webViewSupported || webViewBadImpl) {
             return null
         }
 
         return try {
-            runBlocking { getWebClientPoToken(videoId, sessionId, forceRecreate = false) }
+            // Apply a timeout so that if the WebView hangs, it doesn't block playback forever
+            withTimeoutOrNull(8000) {
+                getWebClientPoTokenInternal(videoId, sessionId, forceRecreate = false)
+            }
         } catch (e: Exception) {
             when (e) {
                 is BadWebViewException -> {
@@ -34,8 +37,7 @@ class PoTokenGenerator {
                     webViewBadImpl = true
                     null
                 }
-
-                else -> throw e // includes PoTokenException
+                else -> null
             }
         }
     }
@@ -46,7 +48,7 @@ class PoTokenGenerator {
      *    [webPoTokenGenerator] threw an error last time
      *    [PoTokenWebView.generatePoToken] was called
      */
-    private suspend fun getWebClientPoToken(
+    private suspend fun getWebClientPoTokenInternal(
         videoId: String,
         sessionId: String,
         forceRecreate: Boolean
@@ -92,7 +94,7 @@ class PoTokenGenerator {
                 // this might happen for example if the app goes in the background and the WebView
                 // content is lost
                 Log.e(TAG, "Failed to obtain poToken, retrying", throwable)
-                return getWebClientPoToken(
+                return getWebClientPoTokenInternal(
                     videoId = videoId,
                     sessionId = sessionId,
                     forceRecreate = true
