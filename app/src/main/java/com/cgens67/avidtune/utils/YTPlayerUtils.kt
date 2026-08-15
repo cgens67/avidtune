@@ -18,6 +18,7 @@ import com.cgens67.innertube.models.YouTubeClient.Companion.TVHTML5_SIMPLY_EMBED
 import com.cgens67.innertube.models.YouTubeClient.Companion.WEB_CREATOR
 import com.cgens67.innertube.models.YouTubeClient.Companion.WEB_REMIX
 import com.cgens67.innertube.models.YouTubeClient.Companion.WEB_SAFARI
+import com.cgens67.avidtune.utils.potoken.PoTokenGenerator
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import timber.log.Timber
@@ -28,6 +29,8 @@ object YTPlayerUtils {
     private val httpClient = OkHttpClient.Builder()
         .proxy(YouTube.proxy)
         .build()
+
+    private val poTokenGenerator = PoTokenGenerator()
 
     /**
      * The main client is used for metadata and initial streams.
@@ -95,12 +98,16 @@ object YTPlayerUtils {
             } else {
                 // signed out sessions use visitorData as identifier
                 YouTube.visitorData
-            }
+            } ?: ""
         Timber.tag(logTag).d("Session authentication status: ${if (isLoggedIn) "Logged in" else "Not logged in"}")
+
+        val mainPoToken = if (MAIN_CLIENT.useWebPoTokens) {
+            poTokenGenerator.getWebClientPoToken(videoId, sessionId)?.playerRequestPoToken
+        } else null
 
         Timber.tag(logTag).d("Attempting to get player response using MAIN_CLIENT: ${MAIN_CLIENT.clientName}")
         val mainPlayerResponse =
-            YouTube.player(videoId, playlistId, MAIN_CLIENT, signatureTimestamp).getOrThrow()
+            YouTube.player(videoId, playlistId, MAIN_CLIENT, signatureTimestamp, mainPoToken).getOrThrow()
         val audioConfig = mainPlayerResponse.playerConfig?.audioConfig
         val videoDetails = mainPlayerResponse.videoDetails
         val playbackTracking = mainPlayerResponse.playbackTracking
@@ -133,9 +140,13 @@ object YTPlayerUtils {
                     continue
                 }
 
+                val fallbackPoToken = if (client.useWebPoTokens) {
+                    poTokenGenerator.getWebClientPoToken(videoId, sessionId)?.playerRequestPoToken
+                } else null
+
                 Timber.tag(logTag).d("Fetching player response for fallback client: ${client.clientName}")
                 streamPlayerResponse =
-                    YouTube.player(videoId, playlistId, client, signatureTimestamp).getOrNull()
+                    YouTube.player(videoId, playlistId, client, signatureTimestamp, fallbackPoToken).getOrNull()
             }
 
             // process current client response
@@ -237,8 +248,21 @@ object YTPlayerUtils {
         videoId: String,
         playlistId: String? = null,
     ): Result<PlayerResponse> {
+        val isLoggedIn = YouTube.cookie != null
+        val sessionId =
+            if (isLoggedIn) {
+                // signed in sessions use dataSyncId as identifier
+                YouTube.dataSyncId
+            } else {
+                // signed out sessions use visitorData as identifier
+                YouTube.visitorData
+            } ?: ""
+        val mainPoToken = if (MAIN_CLIENT.useWebPoTokens) {
+            poTokenGenerator.getWebClientPoToken(videoId, sessionId)?.playerRequestPoToken
+        } else null
+
         Timber.tag(logTag).d("Fetching metadata-only player response for videoId: $videoId using MAIN_CLIENT: ${MAIN_CLIENT.clientName}")
-        return YouTube.player(videoId, playlistId, client = WEB_REMIX) // ANDROID_VR does not work with history
+        return YouTube.player(videoId, playlistId, client = WEB_REMIX, poToken = mainPoToken) // ANDROID_VR does not work with history
             .onSuccess { Timber.tag(logTag).d("Successfully fetched metadata") }
             .onFailure { Timber.tag(logTag).e(it, "Failed to fetch metadata") }
     }
