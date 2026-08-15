@@ -86,9 +86,7 @@ class PoTokenWebView private constructor(
         Log.d(TAG, "loadHtmlAndObtainBotguard() called")
 
         scope.launch(exceptionHandler) {
-            val html = withContext(Dispatchers.IO) {
-                webView.context.assets.open("po_token.html").bufferedReader().use { it.readText() }
-            }
+            val html = PO_TOKEN_HTML
 
             // calls downloadAndRunBotguard() when the page has finished loading
             val data =
@@ -336,6 +334,57 @@ class PoTokenWebView private constructor(
         private const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
                 "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.3"
         private const val JS_INTERFACE = "PoTokenWebView"
+
+        private const val PO_TOKEN_HTML = """<!DOCTYPE html>
+<html>
+<head>
+<script type="text/javascript" src="https://www.youtube.com/s/player/9183cc94/www-player.vflset/botguard.js"></script>
+<script>
+    var webPoSignalOutput = null;
+    var integrityToken = null;
+    var data = null;
+    var identifier = "";
+    var u8Identifier = null;
+    var poTokenU8 = null;
+    var poTokenU8String = "";
+
+    function runBotGuard(challengeData) {
+        return new Promise(function(resolve, reject) {
+            try {
+                var bg = new botguard.bg(challengeData.program, challengeData.globalName, function() {
+                    try {
+                        bg.invoke(challengeData.interpreterJavascript, false, function(botguardResponse) {
+                            try {
+                                var webPoSignalOutput = bg.invoke(challengeData.clientExperimentsStateBlob, true);
+                                resolve({
+                                    botguardResponse: botguardResponse,
+                                    webPoSignalOutput: webPoSignalOutput
+                                });
+                            } catch (e) {
+                                reject(e);
+                            }
+                        });
+                    } catch (e) {
+                        reject(e);
+                    }
+                });
+            } catch (e) {
+                reject(e);
+            }
+        });
+    }
+
+    function obtainPoToken(webPoSignalOutput, integrityToken, identifier) {
+        return window.generateITQ(
+            webPoSignalOutput,
+            integrityToken,
+            identifier
+        );
+    }
+</script>
+</head>
+<body></body>
+</html>"""
 
         private val httpClient = OkHttpClient.Builder()
             .proxy(YouTube.proxy)
