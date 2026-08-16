@@ -45,7 +45,7 @@ object YTPlayerUtils {
 
     /**
      * Clients used for fallback streams in case the streams of the main client do not work.
-     * Placed most robust unauthenticated clients first.
+     * We place clients known to supply clean (non-throttled) direct URLs earlier in the list.
      */
     private val STREAM_FALLBACK_CLIENTS: Array<YouTubeClient> = arrayOf(
         IOS,
@@ -145,15 +145,15 @@ object YTPlayerUtils {
                         if (fallbackStreamUrl == null) {
                             fallbackFormat = candidateFormat
                             fallbackStreamUrl = candidateUrl
-                            fallbackStreamExpiresInSeconds = response.streamingData?.expiresInSeconds
+                            fallbackStreamExpiresInSeconds = response.streamingData.expiresInSeconds
                             fallbackStreamPlayerResponse = response
                         }
 
-                        // Accept directly for embedded clients or validate using the HEAD/GET request
+                        // Accept directly for embedded clients or validate using the GET request
                         if (client.isEmbedded || validateStatus(candidateUrl)) {
                             format = candidateFormat
                             streamUrl = candidateUrl
-                            streamExpiresInSeconds = response.streamingData?.expiresInSeconds
+                            streamExpiresInSeconds = response.streamingData.expiresInSeconds
                             streamPlayerResponse = response
                             Timber.tag(logTag).d("Working stream found with client: ${client.clientName}")
                             break
@@ -224,23 +224,28 @@ object YTPlayerUtils {
     ): PlayerResponse.StreamingData.Format? {
         Timber.tag(logTag).d("Finding format with audioQuality: $audioQuality, network metered: ${connectivityManager.isActiveNetworkMetered}")
 
-        val format = playerResponse.streamingData?.adaptiveFormats
-            ?.filter { it.isAudio }
-            ?.maxByOrNull {
+        val streamingData = playerResponse.streamingData ?: return null
+        val allFormats = (streamingData.adaptiveFormats) + (streamingData.formats ?: emptyList())
+        
+        // Try pure audio formats first
+        val audioOnlyFormats = allFormats.filter { it.width == null || it.mimeType.startsWith("audio/") }
+        if (audioOnlyFormats.isNotEmpty()) {
+            val format = audioOnlyFormats.maxByOrNull {
                 it.bitrate * when (audioQuality) {
                     AudioQuality.AUTO -> if (connectivityManager.isActiveNetworkMetered) -1 else 1
                     AudioQuality.HIGH -> 1
                     AudioQuality.LOW -> -1
                 } + (if (it.mimeType.startsWith("audio/webm")) 10240 else 0) // prefer opus stream
             }
-
-        if (format != null) {
-            Timber.tag(logTag).d("Selected format: ${format.mimeType}, bitrate: ${format.bitrate}")
-        } else {
-            Timber.tag(logTag).d("No suitable audio format found")
+            Timber.tag(logTag).d("Selected pure audio format: ${format?.mimeType}, bitrate: ${format?.bitrate}")
+            return format
         }
 
-        return format
+        // Fallback to mixed video/audio formats if no pure audio format exists
+        val mixedFormats = allFormats.filter { it.mimeType.contains("video/") || it.mimeType.contains("audio/") }
+        val fallbackFormat = mixedFormats.minByOrNull { it.bitrate }
+        Timber.tag(logTag).d("Selected mixed format: ${fallbackFormat?.mimeType}, bitrate: ${fallbackFormat?.bitrate}")
+        return fallbackFormat
     }
 
     /**
@@ -253,8 +258,7 @@ object YTPlayerUtils {
             val requestBuilder = Request.Builder()
                 .url(url)
                 .addHeader("User-Agent", YouTubeClient.USER_AGENT_WEB)
-                .addHeader("Range", "bytes=0-0")
-                .addHeader("Connection", "close")
+                .addHeader("Range", "bytes=0-1024")
                 .get()
             val response = httpClient.newCall(requestBuilder.build()).execute()
             val isSuccessful = response.code in 200..299
@@ -291,12 +295,18 @@ object YTPlayerUtils {
         videoId: String
     ): String? {
         Timber.tag(logTag).d("Finding stream URL for format: ${format.mimeType}, videoId: $videoId")
-        return NewPipeUtils.getStreamUrl(format, videoId)
-            .onSuccess { Timber.tag(logTag).d("Stream URL obtained successfully") }
+        
+        val newpipeUrl = NewPipeUtils.getStreamUrl(format, videoId)
+            .onSuccess { Timber.tag(logTag).d("Stream URL obtained successfully from NewPipe") }
             .onFailure {
-                Timber.tag(logTag).e(it, "Failed to get stream URL")
+                Timber.tag(logTag).w(it, "Failed to get stream URL from NewPipe, falling back to raw format url")
                 reportException(it)
             }
             .getOrNull()
+            
+        if (!newpipeUrl.isNullOrBlank()) return newpipeUrl
+        
+        // Strict fallback to format.url if it doesn't require complex signature decoding
+        return format.url
     }
 }
