@@ -27,18 +27,15 @@ class PoTokenGenerator {
 
         return try {
             // Apply a timeout so that if the WebView hangs, it doesn't block playback forever
-            withTimeoutOrNull(8000) {
+            withTimeoutOrNull(4000) {
                 getWebClientPoTokenInternal(videoId, sessionId, forceRecreate = false)
             }
         } catch (e: Exception) {
-            when (e) {
-                is BadWebViewException -> {
-                    Log.e(TAG, "Could not obtain poToken because WebView is broken", e)
-                    webViewBadImpl = true
-                    null
-                }
-                else -> null
+            Log.w(TAG, "Failed to obtain poToken: ${e.message}")
+            if (e is BadWebViewException) {
+                webViewBadImpl = true
             }
+            null
         }
     }
 
