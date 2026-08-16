@@ -101,10 +101,17 @@ object YTPlayerUtils {
         var audioConfig: PlayerResponse.PlayerConfig.AudioConfig? = null
         var videoDetails: PlayerResponse.VideoDetails? = null
         var playbackTracking: PlayerResponse.PlaybackTracking? = null
+        
         var format: PlayerResponse.StreamingData.Format? = null
         var streamUrl: String? = null
         var streamExpiresInSeconds: Int? = null
         var streamPlayerResponse: PlayerResponse? = null
+        
+        // Backup properties to fall back to if validation fails for all
+        var fallbackFormat: PlayerResponse.StreamingData.Format? = null
+        var fallbackStreamUrl: String? = null
+        var fallbackStreamExpiresInSeconds: Int? = null
+        var fallbackStreamPlayerResponse: PlayerResponse? = null
 
         val clientsToTry = listOf(MAIN_CLIENT) + STREAM_FALLBACK_CLIENTS
 
@@ -132,11 +139,20 @@ object YTPlayerUtils {
                 if (candidateFormat != null) {
                     val candidateUrl = findUrlOrNull(candidateFormat, videoId)
                     if (!candidateUrl.isNullOrBlank()) {
-                        // Accept directly for embedded/mobile clients or validate
-                        if (client.isEmbedded || client == clientsToTry.last() || validateStatus(candidateUrl)) {
+                        
+                        // Register the first found URL as fallback just in case validation rejects everything
+                        if (fallbackStreamUrl == null) {
+                            fallbackFormat = candidateFormat
+                            fallbackStreamUrl = candidateUrl
+                            fallbackStreamExpiresInSeconds = response.streamingData.expiresInSeconds
+                            fallbackStreamPlayerResponse = response
+                        }
+
+                        // Accept directly for embedded clients or validate using the HEAD/GET request
+                        if (client.isEmbedded || validateStatus(candidateUrl)) {
                             format = candidateFormat
                             streamUrl = candidateUrl
-                            streamExpiresInSeconds = response.streamingData?.expiresInSeconds
+                            streamExpiresInSeconds = response.streamingData.expiresInSeconds
                             streamPlayerResponse = response
                             Timber.tag(logTag).d("Working stream found with client: ${client.clientName}")
                             break
@@ -148,6 +164,15 @@ object YTPlayerUtils {
             } else {
                 Timber.tag(logTag).d("Player response status not OK for ${client.clientName}: ${response?.playabilityStatus?.status}")
             }
+        }
+        
+        // Final fallback block: if we found streams but validation failed on all of them, use the first we encountered
+        if (streamPlayerResponse == null && fallbackStreamPlayerResponse != null) {
+            Timber.tag(logTag).w("All clients failed URL validation, using first fallback stream")
+            format = fallbackFormat
+            streamUrl = fallbackStreamUrl
+            streamExpiresInSeconds = fallbackStreamExpiresInSeconds
+            streamPlayerResponse = fallbackStreamPlayerResponse
         }
 
         if (streamPlayerResponse == null || format == null || streamUrl == null || streamExpiresInSeconds == null) {
@@ -218,7 +243,7 @@ object YTPlayerUtils {
     }
 
     /**
-     * Checks if the stream url returns a valid response (using Range header).
+     * Checks if the stream url returns a valid response (using GET Request and Range header).
      */
     private fun validateStatus(url: String): Boolean {
         Timber.tag(logTag).d("Validating stream URL status")
@@ -226,8 +251,8 @@ object YTPlayerUtils {
             val requestBuilder = Request.Builder()
                 .url(url)
                 .addHeader("User-Agent", YouTubeClient.USER_AGENT_WEB)
-                .addHeader("Range", "bytes=0-0")
-                .head()
+                .addHeader("Range", "bytes=0-1024")
+                .get()
             val response = httpClient.newCall(requestBuilder.build()).execute()
             val isSuccessful = response.isSuccessful || response.code == 206 || response.code == 200
             response.close()
