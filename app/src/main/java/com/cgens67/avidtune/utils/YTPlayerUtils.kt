@@ -45,17 +45,18 @@ object YTPlayerUtils {
 
     /**
      * Clients used for fallback streams in case the streams of the main client do not work.
+     * Placed most robust unauthenticated clients first.
      */
     private val STREAM_FALLBACK_CLIENTS: Array<YouTubeClient> = arrayOf(
+        IOS,
+        MWEB,
+        TVHTML5_SIMPLY_EMBEDDED_PLAYER,
+        WEB_CREATOR,
         ANDROID_TESTSUITE,
         IOS_MUSIC,
         ANDROID_UNPLUGGED,
         ANDROID_MUSIC,
-        MWEB,
-        TVHTML5_SIMPLY_EMBEDDED_PLAYER,
-        IOS,
         WEB_SAFARI,
-        WEB_CREATOR,
         ANDROID_CREATOR
     )
 
@@ -244,6 +245,7 @@ object YTPlayerUtils {
 
     /**
      * Checks if the stream url returns a valid response (using GET Request and Range header).
+     * Bare HEAD requests are now frequently blocked by YouTube's CDNs.
      */
     private fun validateStatus(url: String): Boolean {
         Timber.tag(logTag).d("Validating stream URL status")
@@ -251,10 +253,11 @@ object YTPlayerUtils {
             val requestBuilder = Request.Builder()
                 .url(url)
                 .addHeader("User-Agent", YouTubeClient.USER_AGENT_WEB)
-                .addHeader("Range", "bytes=0-1024")
+                .addHeader("Range", "bytes=0-0")
+                .addHeader("Connection", "close")
                 .get()
             val response = httpClient.newCall(requestBuilder.build()).execute()
-            val isSuccessful = response.isSuccessful || response.code == 206 || response.code == 200
+            val isSuccessful = response.code in 200..299
             response.close()
             Timber.tag(logTag).d("Stream URL validation result: $isSuccessful (${response.code})")
             return isSuccessful
