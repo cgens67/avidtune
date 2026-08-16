@@ -145,7 +145,7 @@ object YTPlayerUtils {
                         if (fallbackStreamUrl == null) {
                             fallbackFormat = candidateFormat
                             fallbackStreamUrl = candidateUrl
-                            fallbackStreamExpiresInSeconds = response.streamingData.expiresInSeconds
+                            fallbackStreamExpiresInSeconds = response.streamingData?.expiresInSeconds
                             fallbackStreamPlayerResponse = response
                         }
 
@@ -153,7 +153,7 @@ object YTPlayerUtils {
                         if (client.isEmbedded || validateStatus(candidateUrl)) {
                             format = candidateFormat
                             streamUrl = candidateUrl
-                            streamExpiresInSeconds = response.streamingData.expiresInSeconds
+                            streamExpiresInSeconds = response.streamingData?.expiresInSeconds
                             streamPlayerResponse = response
                             Timber.tag(logTag).d("Working stream found with client: ${client.clientName}")
                             break
