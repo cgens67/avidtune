@@ -120,7 +120,7 @@ object YTPlayerUtils {
 
             val response = YouTube.player(videoId, playlistId, client, signatureTimestamp, poToken).getOrNull()
 
-            if (response?.playabilityStatus?.status == "OK") {
+            if (response?.playabilityStatus?.status == "OK" && response.streamingData != null) {
                 // Keep the metadata of the first working client we hit (usually MAIN_CLIENT)
                 if (videoDetails == null) {
                     audioConfig = response.playerConfig?.audioConfig
@@ -131,12 +131,12 @@ object YTPlayerUtils {
                 val candidateFormat = findFormat(response, audioQuality, connectivityManager)
                 if (candidateFormat != null) {
                     val candidateUrl = findUrlOrNull(candidateFormat, videoId)
-                    if (candidateUrl != null) {
-                        // Use it immediately if it's the last fallback, else validate it
-                        if (client == clientsToTry.last() || validateStatus(candidateUrl)) {
+                    if (!candidateUrl.isNullOrBlank()) {
+                        // Accept directly for embedded/mobile clients or validate
+                        if (client.isEmbedded || client == clientsToTry.last() || validateStatus(candidateUrl)) {
                             format = candidateFormat
                             streamUrl = candidateUrl
-                            streamExpiresInSeconds = response.streamingData?.expiresInSeconds
+                            streamExpiresInSeconds = response.streamingData.expiresInSeconds
                             streamPlayerResponse = response
                             Timber.tag(logTag).d("Working stream found with client: ${client.clientName}")
                             break
@@ -146,7 +146,7 @@ object YTPlayerUtils {
                     }
                 }
             } else {
-                Timber.tag(logTag).d("Player response status not OK: ${response?.playabilityStatus?.status}, reason: ${response?.playabilityStatus?.reason}")
+                Timber.tag(logTag).d("Player response status not OK for ${client.clientName}: ${response?.playabilityStatus?.status}")
             }
         }
 
@@ -218,23 +218,23 @@ object YTPlayerUtils {
     }
 
     /**
-     * Checks if the stream url returns a successful status.
-     * If this returns true the url is likely to work.
-     * If this returns false the url might cause an error during playback.
+     * Checks if the stream url returns a valid response (using Range header).
      */
     private fun validateStatus(url: String): Boolean {
         Timber.tag(logTag).d("Validating stream URL status")
         try {
             val requestBuilder = Request.Builder()
-                .head()
                 .url(url)
+                .addHeader("User-Agent", YouTubeClient.USER_AGENT_WEB)
+                .addHeader("Range", "bytes=0-0")
+                .head()
             val response = httpClient.newCall(requestBuilder.build()).execute()
-            val isSuccessful = response.isSuccessful
-            Timber.tag(logTag).d("Stream URL validation result: ${if (isSuccessful) "Success" else "Failed"} (${response.code})")
+            val isSuccessful = response.isSuccessful || response.code == 206 || response.code == 200
+            response.close()
+            Timber.tag(logTag).d("Stream URL validation result: $isSuccessful (${response.code})")
             return isSuccessful
         } catch (e: Exception) {
-            Timber.tag(logTag).e(e, "Stream URL validation failed with exception")
-            // Don't report this exception as it's a normal validation failure
+            Timber.tag(logTag).w(e, "Stream URL validation failed with exception")
         }
         return false
     }
