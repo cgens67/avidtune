@@ -136,7 +136,7 @@ object YTPlayerUtils {
                         if (client.isEmbedded || client == clientsToTry.last() || validateStatus(candidateUrl)) {
                             format = candidateFormat
                             streamUrl = candidateUrl
-                            streamExpiresInSeconds = response.streamingData.expiresInSeconds
+                            streamExpiresInSeconds = response.streamingData?.expiresInSeconds
                             streamPlayerResponse = response
                             Timber.tag(logTag).d("Working stream found with client: ${client.clientName}")
                             break
