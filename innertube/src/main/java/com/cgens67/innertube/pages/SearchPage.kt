@@ -8,6 +8,7 @@ import com.cgens67.innertube.models.BrowseEndpoint.BrowseEndpointContextSupporte
 import com.cgens67.innertube.models.EpisodeItem
 import com.cgens67.innertube.models.MusicResponsiveListItemRenderer
 import com.cgens67.innertube.models.PlaylistItem
+import com.cgens67.innertube.models.PodcastItem
 import com.cgens67.innertube.models.SongItem
 import com.cgens67.innertube.models.YTItem
 import com.cgens67.innertube.models.oddElements
