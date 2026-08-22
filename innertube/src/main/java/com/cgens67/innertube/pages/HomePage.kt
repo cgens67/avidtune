@@ -15,6 +15,8 @@ import com.cgens67.innertube.models.PodcastItem
 import com.cgens67.innertube.models.SectionListRenderer
 import com.cgens67.innertube.models.SongItem
 import com.cgens67.innertube.models.YTItem
+import com.cgens67.innertube.models.filterExplicit
+import com.cgens67.innertube.models.filterVideoSongs
 import com.cgens67.innertube.models.oddElements
 import com.cgens67.innertube.models.splitBySeparator
 import com.cgens67.innertube.utils.parseTime
