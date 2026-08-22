@@ -13,7 +13,12 @@ data class Context(
     data class Client(
         val clientName: String,
         val clientVersion: String,
-        val osVersion: String?,
+        val userAgent: String? = null,
+        val osName: String? = null,
+        val osVersion: String? = null,
+        val deviceMake: String? = null,
+        val deviceModel: String? = null,
+        val androidSdkVersion: String? = null,
         val gl: String,
         val hl: String,
         val visitorData: String?,
