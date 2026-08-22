@@ -30,11 +30,11 @@ object NewReleaseAlbumPage {
                     )
                 } ?: return null,
             year =
-                renderer.subtitle.runs
-                    .lastOrNull()
+                renderer.subtitle?.runs
+                    ?.lastOrNull()
                     ?.text
                     ?.toIntOrNull(),
-            thumbnail = renderer.thumbnailRenderer.musicThumbnailRenderer?.getThumbnailUrl() ?: return null,
+            thumbnail = renderer.thumbnailRenderer.getThumbnailUrl() ?: return null,
             explicit =
                 renderer.subtitleBadges?.find {
                     it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
