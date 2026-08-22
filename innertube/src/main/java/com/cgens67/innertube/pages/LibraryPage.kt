@@ -14,7 +14,6 @@ import com.cgens67.innertube.models.YTItem
 import com.cgens67.innertube.models.oddElements
 import com.cgens67.innertube.models.splitBySeparator
 import com.cgens67.innertube.utils.parseTime
-import timber.log.Timber
 
 data class LibraryPage(
     val items: List<YTItem>,
