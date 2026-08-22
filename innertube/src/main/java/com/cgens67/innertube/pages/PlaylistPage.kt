@@ -5,7 +5,6 @@ import com.cgens67.innertube.models.MusicResponsiveListItemRenderer
 import com.cgens67.innertube.models.PlaylistItem
 import com.cgens67.innertube.models.SongItem
 import com.cgens67.innertube.utils.parseTime
-import timber.log.Timber
 
 data class PlaylistPage(
     val playlist: PlaylistItem,
@@ -28,7 +27,7 @@ data class PlaylistPage(
                 ?.runs?.firstOrNull()?.text ?: return null
 
             if (secondaryLineRuns == null) {
-                Timber.w("PlaylistPage.fromMusicResponsiveListItemRenderer: Song '$title' - NO SECONDARY LINE (flexColumns[1] is null)")
+                System.err.println("PlaylistPage.fromMusicResponsiveListItemRenderer: Song '$title' - NO SECONDARY LINE (flexColumns[1] is null)")
             }
 
             val artists = PageHelper.extractArtists(secondaryLineRuns)
