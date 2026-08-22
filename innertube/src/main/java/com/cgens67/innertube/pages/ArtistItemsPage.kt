@@ -11,7 +11,6 @@ import com.cgens67.innertube.models.YTItem
 import com.cgens67.innertube.models.splitArtistsByConjunction
 import com.cgens67.innertube.models.splitBySeparator
 import com.cgens67.innertube.utils.parseTime
-import timber.log.Timber
 
 data class ArtistItemsPage(
     val title: String,
@@ -113,7 +112,7 @@ data class ArtistItemsPage(
                     }
                     
                     if (artists.isEmpty() && renderer.subtitle?.runs != null) {
-                        Timber.w("ArtistItemsPage.fromMusicTwoRowItemRenderer: Song '$title' (id=$videoId) - SUBTITLE RUNS EXIST but parsing returned EMPTY")
+                        System.err.println("ArtistItemsPage.fromMusicTwoRowItemRenderer: Song '$title' (id=$videoId) - SUBTITLE RUNS EXIST but parsing returned EMPTY")
                     }
 
                     SongItem(
