@@ -83,7 +83,6 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
-import timber.log.Timber
 import java.net.Proxy
 import kotlin.random.Random
 import com.cgens67.innertube.pages.NewPipeExtractor
@@ -150,7 +149,7 @@ object YouTube {
                         allSummaries.add(SearchSummary(title = cardRenderer.header?.musicCardShelfHeaderBasicRenderer?.title?.runs?.firstOrNull()?.text ?: YouTubeConstants.DEFAULT_TOP_RESULT, items = items))
                     }
                 } else if (section.musicShelfRenderer != null) {
-                    val items = section.musicShelfRenderer.contents?.getItems()?.mapNotNull { SearchSummaryPage.fromMusicResponsiveListItemRenderer(it) }?.distinctBy { it.id } ?: emptyList()
+                    val items = section.musicShelfRenderer.contents.getItems().mapNotNull { SearchSummaryPage.fromMusicResponsiveListItemRenderer(it) }.distinctBy { it.id }
                     if (items.isEmpty()) return@forEach
                     val apiTitle = section.musicShelfRenderer.title?.runs?.firstOrNull()?.text
                     if (apiTitle != null) {
@@ -354,7 +353,7 @@ object YouTube {
                 musicShelfRenderer != null -> {
                     ArtistItemsPage(
                         title = musicShelfRenderer.title?.runs?.firstOrNull()?.text ?: response.header?.musicHeaderRenderer?.title?.runs?.firstOrNull()?.text ?: "",
-                        items = musicShelfRenderer.contents?.getItems()?.mapNotNull { ArtistItemsPage.fromMusicResponsiveListItemRenderer(it) } ?: emptyList(),
+                        items = musicShelfRenderer.contents.getItems().mapNotNull { ArtistItemsPage.fromMusicResponsiveListItemRenderer(it) },
                         continuation = musicShelfRenderer.continuations?.getContinuation(),
                     )
                 }
@@ -579,7 +578,7 @@ object YouTube {
                             }
                             BrowseResult.Item(title = content.musicCarouselShelfRenderer.header?.musicCarouselShelfBasicHeaderRenderer?.title?.runs?.firstOrNull()?.text, items = content.musicCarouselShelfRenderer.contents.mapNotNull { content -> content.musicTwoRowItemRenderer?.let { renderer -> LibraryPage.fromMusicTwoRowItemRenderer(renderer) ?: RelatedPage.fromMusicTwoRowItemRenderer(renderer) } ?: content.musicMultiRowListItemRenderer?.let { renderer -> PodcastPage.fromMusicMultiRowListItemRenderer(renderer) } ?: content.musicResponsiveListItemRenderer?.let { renderer -> LibraryPage.fromMusicResponsiveListItemRenderer(renderer) ?: RelatedPage.fromMusicResponsiveListItemRenderer(renderer) } })
                         }
-                        content.musicShelfRenderer != null -> BrowseResult.Item(title = content.musicShelfRenderer.title?.runs?.firstOrNull()?.text, items = content.musicShelfRenderer.contents?.mapNotNull(MusicShelfRenderer.Content::musicResponsiveListItemRenderer)?.mapNotNull(LibraryPage.Companion::fromMusicResponsiveListItemRenderer) ?: emptyList())
+                        content.musicShelfRenderer != null -> BrowseResult.Item(title = content.musicShelfRenderer.title?.runs?.firstOrNull()?.text, items = content.musicShelfRenderer.contents.mapNotNull(MusicShelfRenderer.Content::musicResponsiveListItemRenderer).mapNotNull(LibraryPage.Companion::fromMusicResponsiveListItemRenderer))
                         content.musicPlaylistShelfRenderer != null -> BrowseResult.Item(title = null, items = content.musicPlaylistShelfRenderer.contents.getItems().mapNotNull(LibraryPage.Companion::fromMusicResponsiveListItemRenderer))
                         else -> null
                     }
@@ -838,7 +837,7 @@ object YouTube {
                     val artists = PageHelper.extractArtists(secondColumn.runs)
                     
                     if (artists.isEmpty()) {
-                        Timber.w("convertMusicResponsiveListItemRenderer: Song '$title' (id=${renderer.videoId}) has EMPTY artists list")
+                        System.err.println("WARN: convertMusicResponsiveListItemRenderer: Song '$title' (id=${renderer.videoId}) has EMPTY artists list")
                     }
 
                     val thirdColumn =
@@ -887,7 +886,7 @@ object YouTube {
                     val videoId = renderer.navigationEndpoint.watchEndpoint?.videoId ?: return null
                     
                     if (artists.isEmpty()) {
-                        Timber.w("convertMusicTwoRowItem: Song '$title' (id=$videoId) has EMPTY artists list from ${subtitle.size} subtitle runs")
+                        System.err.println("WARN: convertMusicTwoRowItem: Song '$title' (id=$videoId) has EMPTY artists list from ${subtitle.size} subtitle runs")
                     }
                     
                     SongItem(
@@ -1048,7 +1047,7 @@ object YouTube {
         save: Boolean,
     ) = runCatching {
         val playlistId = podcastId.removePrefix("MPSP")
-        Timber.d("[PODCAST_API] savePodcast: podcastId=$podcastId, playlistId=$playlistId, save=$save")
+        println("[PODCAST_API] savePodcast: podcastId=$podcastId, playlistId=$playlistId, save=$save")
         if (save) {
             innerTube.likePlaylist(WEB_REMIX, playlistId)
         } else {
@@ -1069,7 +1068,7 @@ object YouTube {
     }
 
     suspend fun libraryPodcastChannels(): Result<LibraryPage> {
-        Timber.d("[PODCAST_API] libraryPodcastChannels: calling browse with FEmusic_library_non_music_audio_channels_list")
+        println("[PODCAST_API] libraryPodcastChannels: calling browse with FEmusic_library_non_music_audio_channels_list")
         return runCatching {
             val response =
                 innerTube
@@ -1128,13 +1127,13 @@ object YouTube {
                 continuation = null,
             )
         }.also { result ->
-            result.onFailure { e -> Timber.e(e, "[PODCAST_API] libraryPodcastChannels FAILED") }
-            result.onSuccess { Timber.d("[PODCAST_API] libraryPodcastChannels SUCCESS: ${it.items.size} items") }
+            result.onFailure { e -> System.err.println("[PODCAST_API] libraryPodcastChannels FAILED: ${e.message}") }
+            result.onSuccess { println("[PODCAST_API] libraryPodcastChannels SUCCESS: ${it.items.size} items") }
         }
     }
 
     suspend fun libraryPodcastEpisodes(): Result<LibraryPage> {
-        Timber.d("[PODCAST_API] libraryPodcastEpisodes: calling browse with FEmusic_library_non_music_audio_list")
+        println("[PODCAST_API] libraryPodcastEpisodes: calling browse with FEmusic_library_non_music_audio_list")
         return runCatching {
             val response =
                 innerTube
@@ -1180,8 +1179,8 @@ object YouTube {
                 continuation = null,
             )
         }.also { result ->
-            result.onFailure { e -> Timber.e(e, "[PODCAST_API] libraryPodcastEpisodes FAILED") }
-            result.onSuccess { Timber.d("[PODCAST_API] libraryPodcastEpisodes SUCCESS: ${it.items.size} items") }
+            result.onFailure { e -> System.err.println("[PODCAST_API] libraryPodcastEpisodes FAILED: ${e.message}") }
+            result.onSuccess { println("[PODCAST_API] libraryPodcastEpisodes SUCCESS: ${it.items.size} items") }
         }
     }
 
@@ -1192,7 +1191,7 @@ object YouTube {
         }
 
     suspend fun newEpisodes(): Result<List<SongItem>> {
-        Timber.d("[PODCAST_API] newEpisodes: calling browse with VLRDPN")
+        println("[PODCAST_API] newEpisodes: calling browse with VLRDPN")
         return runCatching {
             val response =
                 innerTube
@@ -2037,7 +2036,8 @@ object YouTube {
             feedback(feedbackTokens).getOrThrow()
         }
 
-    data class SearchFilter(
+    @JvmInline
+    value class SearchFilter(
         val value: String,
     ) {
         companion object {
@@ -2053,7 +2053,8 @@ object YouTube {
         }
     }
 
-    data class LibraryFilter(
+    @JvmInline
+    value class LibraryFilter(
         val value: String,
     ) {
         companion object {
