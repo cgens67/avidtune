@@ -6,7 +6,6 @@ import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.annotation.MainThread
 import androidx.collection.ArrayMap
 import com.cgens67.innertube.YouTube
@@ -49,7 +48,7 @@ class PoTokenWebView private constructor(
         webViewSettings.javaScriptEnabled = true
         webViewSettings.safeBrowsingEnabled = false
         webViewSettings.userAgentString = USER_AGENT
-        webViewSettings.blockNetworkLoads = false // botguard.js requires network to be downloaded
+        webViewSettings.blockNetworkLoads = true // the WebView does not need internet access
 
         // so that we can run async functions and get back the result
         webView.addJavascriptInterface(this, JS_INTERFACE)
@@ -68,7 +67,9 @@ class PoTokenWebView private constructor(
 
                     onInitializationErrorCloseAndCancel(exception)
                     popAllPoTokenContinuations().forEach { (_, cont) ->
-                        cont.resumeWithException(exception)
+                        cont.resumeWithException(
+                            exception
+                        )
                     }
                 }
                 return super.onConsoleMessage(m)
@@ -85,83 +86,14 @@ class PoTokenWebView private constructor(
         Log.d(TAG, "loadHtmlAndObtainBotguard() called")
 
         scope.launch(exceptionHandler) {
-            // Dynamically fetch the correct botguard.js URL from YouTube's homepage
-            val botguardUrl = withContext(Dispatchers.IO) {
-                try {
-                    val homePageHtml = httpClient.newCall(
-                        okhttp3.Request.Builder().url("https://www.youtube.com").build()
-                    ).execute().body?.string() ?: ""
-                    
-                    val playerVersion = Regex("""/s/player/([a-zA-Z0-9_-]+)/www-player\.vflset/""")
-                        .find(homePageHtml)?.groupValues?.get(1) ?: "9183cc94"
-                        
-                    "https://www.youtube.com/s/player/$playerVersion/www-player.vflset/botguard.js"
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to fetch botguard URL, using fallback", e)
-                    "https://www.youtube.com/s/player/9183cc94/www-player.vflset/botguard.js"
-                }
+            val html = withContext(Dispatchers.IO) {
+                webView.context.assets.open("po_token.html").bufferedReader().use { it.readText() }
             }
 
-            val html = """<!DOCTYPE html>
-<html>
-<head>
-<script type="text/javascript" src="$botguardUrl"></script>
-<script>
-    var webPoSignalOutput = null;
-    var integrityToken = null;
-    var data = null;
-    var identifier = "";
-    var u8Identifier = null;
-    var poTokenU8 = null;
-    var poTokenU8String = "";
-
-    function runBotGuard(challengeData) {
-        return new Promise(function(resolve, reject) {
-            try {
-                var bg = new botguard.bg(challengeData.program, challengeData.globalName, function() {
-                    try {
-                        bg.invoke(challengeData.interpreterJavascript, false, function(botguardResponse) {
-                            try {
-                                var webPoSignalOutput = bg.invoke(challengeData.clientExperimentsStateBlob, true);
-                                resolve({
-                                    botguardResponse: botguardResponse,
-                                    webPoSignalOutput: webPoSignalOutput
-                                });
-                            } catch (e) {
-                                reject(e);
-                            }
-                        });
-                    } catch (e) {
-                        reject(e);
-                    }
-                });
-            } catch (e) {
-                reject(e);
-            }
-        });
-    }
-
-    function obtainPoToken(webPoSignalOutput, integrityToken, identifier) {
-        return window.generateITQ(
-            webPoSignalOutput,
-            integrityToken,
-            identifier
-        );
-    }
-</script>
-</head>
-<body></body>
-</html>"""
-
-            webView.webViewClient = object : WebViewClient() {
-                override fun onPageFinished(view: WebView?, url: String?) {
-                    super.onPageFinished(view, url)
-                    // Trigger botguard execution only AFTER the script is fully loaded
-                    webView.evaluateJavascript("$JS_INTERFACE.downloadAndRunBotguard();", null)
-                }
-            }
-
-            webView.loadDataWithBaseURL("https://www.youtube.com", html, "text/html", "utf-8", null)
+            // calls downloadAndRunBotguard() when the page has finished loading
+            val data =
+                html.replaceFirst("</script>", "\n$JS_INTERFACE.downloadAndRunBotguard()</script>")
+            webView.loadDataWithBaseURL("https://www.youtube.com", data, "text/html", "utf-8", null)
         }
     }
 
@@ -401,7 +333,8 @@ class PoTokenWebView private constructor(
         private const val TAG = "PoTokenWebView"
         private const val GOOGLE_API_KEY = "AIzaSyDyT5W0Jh49F30Pqqtyfdf7pDLFKLJoAnw"
         private const val REQUEST_KEY = "O43z0dpjhgX20SCx4KAo"
-        private const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
+        private const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.3"
         private const val JS_INTERFACE = "PoTokenWebView"
 
         private val httpClient = OkHttpClient.Builder()

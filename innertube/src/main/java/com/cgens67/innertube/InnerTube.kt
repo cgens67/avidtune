@@ -74,22 +74,19 @@ class InnerTube {
     }
 
     private fun HttpRequestBuilder.ytClient(client: YouTubeClient, setLogin: Boolean = false) {
-        val isMusicClient = client.clientName.endsWith("MUSIC") || client.clientName == "WEB_REMIX"
-        val origin = if (isMusicClient) YouTubeClient.ORIGIN_YOUTUBE_MUSIC else "https://www.youtube.com"
-
         contentType(ContentType.Application.Json)
         headers {
             append("X-Goog-Api-Format-Version", "1")
             append("X-YouTube-Client-Name", client.clientId /* Not a typo. The Client-Name header does contain the client id. */)
             append("X-YouTube-Client-Version", client.clientVersion)
-            append("X-Origin", origin)
-            append("Referer", "$origin/")
+            append("X-Origin", YouTubeClient.ORIGIN_YOUTUBE_MUSIC)
+            append("Referer", YouTubeClient.REFERER_YOUTUBE_MUSIC)
             if (setLogin && client.loginSupported) {
                 cookie?.let { cookie ->
                     append("cookie", cookie)
                     if ("SAPISID" !in cookieMap) return@let
                     val currentTime = System.currentTimeMillis() / 1000
-                    val sapisidHash = sha1("$currentTime ${cookieMap["SAPISID"]} $origin")
+                    val sapisidHash = sha1("$currentTime ${cookieMap["SAPISID"]} ${YouTubeClient.ORIGIN_YOUTUBE_MUSIC}")
                     append("Authorization", "SAPISIDHASH ${currentTime}_${sapisidHash}")
                 }
             }
@@ -125,11 +122,7 @@ class InnerTube {
         videoId: String,
         playlistId: String?,
         signatureTimestamp: Int?,
-        poToken: String? = null,
-    ) = httpClient.post {
-        val isMusicClient = client.clientName.endsWith("MUSIC") || client.clientName == "WEB_REMIX"
-        url(if (isMusicClient) "${YouTubeClient.API_URL_YOUTUBE_MUSIC}player" else "https://www.youtube.com/youtubei/v1/player")
-        
+    ) = httpClient.post("player") {
         ytClient(client, setLogin = true)
         setBody(
             PlayerBody(
@@ -151,7 +144,6 @@ class InnerTube {
                         )
                     )
                 } else null,
-                serviceIntegrityDimensions = poToken?.let { PlayerBody.ServiceIntegrityDimensions(it) }
             )
         )
     }
@@ -474,4 +466,7 @@ class InnerTube {
         httpClient.get("https://returnyoutubedislikeapi.com/Votes?videoId=$videoId") {
             contentType(ContentType.Application.Json)
         }
+
+
+
 }
