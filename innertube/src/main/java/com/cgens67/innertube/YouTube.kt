@@ -1358,6 +1358,7 @@ object YouTube {
 
             episodesList
         }
+    }
 
     suspend fun newEpisodesPlaylistInfo(): Result<PlaylistItem> =
         runCatching {
