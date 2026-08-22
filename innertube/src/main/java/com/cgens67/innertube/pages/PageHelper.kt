@@ -1,4 +1,3 @@
-
 package com.cgens67.innertube.pages
 
 import com.cgens67.innertube.models.Artist
