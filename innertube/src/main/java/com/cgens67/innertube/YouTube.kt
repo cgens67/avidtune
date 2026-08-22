@@ -607,19 +607,17 @@ object YouTube {
                     LibraryPage(items = playlistShelfRenderer.contents.getItems().mapNotNull(LibraryPage.Companion::fromMusicResponsiveListItemRenderer), continuation = playlistShelfRenderer.continuations?.getContinuation())
                 }
                 musicShelfRenderer != null -> {
-                    val listItemRenderers = music.mapNotNull(MusicShelfRenderer.Content::musicResponsiveListItemRenderer)
-                        val parsedItems =
-                            listItemRenderers.mapNotNull { renderer ->
-                                LibraryPage.fromMusicResponsiveListItemRenderer(renderer)
-                            }
-                        LibraryPage(
-                            items = parsedItems,
-                            continuation = musicShelfRenderer.continuations?.getContinuation(),
-                        )
+                    val listItemRenderers = musicShelfRenderer.contents?.mapNotNull(MusicShelfRenderer.Content::musicResponsiveListItemRenderer) ?: emptyList()
+                    val parsedItems = listItemRenderers.mapNotNull { renderer ->
+                        LibraryPage.fromMusicResponsiveListItemRenderer(renderer)
                     }
-
-                    else -> LibraryPage(items = emptyList(), continuation = null)
+                    LibraryPage(
+                        items = parsedItems,
+                        continuation = musicShelfRenderer.continuations?.getContinuation(),
+                    )
                 }
+
+                else -> LibraryPage(items = emptyList(), continuation = null)
             }
         }
 
@@ -2039,8 +2037,7 @@ object YouTube {
             feedback(feedbackTokens).getOrThrow()
         }
 
-    @JvmInline
-    value class SearchFilter(
+    data class SearchFilter(
         val value: String,
     ) {
         companion object {
@@ -2056,8 +2053,7 @@ object YouTube {
         }
     }
 
-    @JvmInline
-    value class LibraryFilter(
+    data class LibraryFilter(
         val value: String,
     ) {
         companion object {
