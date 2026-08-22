@@ -1,6 +1,7 @@
 package com.cgens67.innertube.pages
 
 import com.cgens67.innertube.models.Album
+import com.cgens67.innertube.models.AlbumItem
 import com.cgens67.innertube.models.Artist
 import com.cgens67.innertube.models.ArtistItem
 import com.cgens67.innertube.models.EpisodeItem
@@ -125,7 +126,7 @@ object SearchSuggestionPage {
                             id = it.navigationEndpoint?.browseEndpoint?.browseId,
                         )
                     } ?: return null,
-                    songCountText = secondaryLine.lastOrNull()?.firstOrNull()?.text,
+                    songCountText = secondaryLine?.lastOrNull()?.firstOrNull()?.text,
                     thumbnail = renderer.thumbnail?.getThumbnailUrl() ?: return null,
                     playEndpoint = renderer.overlay
                         ?.musicItemThumbnailOverlayRenderer
@@ -265,7 +266,7 @@ object SearchSuggestionPage {
                         ?.text
                         ?.runs
                         ?.splitBySeparator() ?: return null
-                com.cgens67.innertube.models.AlbumItem(
+                AlbumItem(
                     browseId = renderer.navigationEndpoint?.browseEndpoint?.browseId ?: return null,
                     playlistId =
                         renderer.menu
@@ -286,7 +287,7 @@ object SearchSuggestionPage {
                             ?.firstOrNull()
                             ?.text ?: return null,
                     artists =
-                        secondaryLine.getOrNull(1)?.com.cgens67.innertube.models.oddElements()?.map {
+                        secondaryLine.getOrNull(1)?.oddElements()?.map {
                             Artist(
                                 name = it.text,
                                 id = it.navigationEndpoint?.browseEndpoint?.browseId,
