@@ -149,7 +149,7 @@ object YouTube {
                         allSummaries.add(SearchSummary(title = cardRenderer.header?.musicCardShelfHeaderBasicRenderer?.title?.runs?.firstOrNull()?.text ?: YouTubeConstants.DEFAULT_TOP_RESULT, items = items))
                     }
                 } else if (section.musicShelfRenderer != null) {
-                    val items = section.musicShelfRenderer.contents.getItems().mapNotNull { SearchSummaryPage.fromMusicResponsiveListItemRenderer(it) }.distinctBy { it.id }
+                    val items = section.musicShelfRenderer.contents?.getItems()?.mapNotNull { SearchSummaryPage.fromMusicResponsiveListItemRenderer(it) }?.distinctBy { it.id } ?: emptyList()
                     if (items.isEmpty()) return@forEach
                     val apiTitle = section.musicShelfRenderer.title?.runs?.firstOrNull()?.text
                     if (apiTitle != null) {
@@ -353,7 +353,7 @@ object YouTube {
                 musicShelfRenderer != null -> {
                     ArtistItemsPage(
                         title = musicShelfRenderer.title?.runs?.firstOrNull()?.text ?: response.header?.musicHeaderRenderer?.title?.runs?.firstOrNull()?.text ?: "",
-                        items = musicShelfRenderer.contents.getItems().mapNotNull { ArtistItemsPage.fromMusicResponsiveListItemRenderer(it) },
+                        items = musicShelfRenderer.contents?.getItems()?.mapNotNull { ArtistItemsPage.fromMusicResponsiveListItemRenderer(it) } ?: emptyList(),
                         continuation = musicShelfRenderer.continuations?.getContinuation(),
                     )
                 }
@@ -576,9 +576,9 @@ object YouTube {
                                 val item = carouselContent.musicTwoRowItemRenderer?.let { renderer -> LibraryPage.fromMusicTwoRowItemRenderer(renderer) ?: RelatedPage.fromMusicTwoRowItemRenderer(renderer) } ?: carouselContent.musicMultiRowListItemRenderer?.let { renderer -> PodcastPage.fromMusicMultiRowListItemRenderer(renderer) } ?: carouselContent.musicResponsiveListItemRenderer?.let { renderer -> LibraryPage.fromMusicResponsiveListItemRenderer(renderer) ?: RelatedPage.fromMusicResponsiveListItemRenderer(renderer) }
                                 if (item != null) carouselItems.add(item)
                             }
-                            BrowseResult.Item(title = content.musicCarouselShelfRenderer.header?.musicCarouselShelfBasicHeaderRenderer?.title?.runs?.firstOrNull()?.text, items = content.musicCarouselShelfRenderer.contents.mapNotNull { content -> content.musicTwoRowItemRenderer?.let { renderer -> LibraryPage.fromMusicTwoRowItemRenderer(renderer) ?: RelatedPage.fromMusicTwoRowItemRenderer(renderer) } ?: content.musicMultiRowListItemRenderer?.let { renderer -> PodcastPage.fromMusicMultiRowListItemRenderer(renderer) } ?: content.musicResponsiveListItemRenderer?.let { renderer -> LibraryPage.fromMusicResponsiveListItemRenderer(renderer) ?: RelatedPage.fromMusicResponsiveListItemRenderer(renderer) } })
+                            BrowseResult.Item(title = content.musicCarouselShelfRenderer.header?.musicCarouselShelfBasicHeaderRenderer?.title?.runs?.firstOrNull()?.text, items = content.musicCarouselShelfRenderer.contents.mapNotNull { childContent -> childContent.musicTwoRowItemRenderer?.let { renderer -> LibraryPage.fromMusicTwoRowItemRenderer(renderer) ?: RelatedPage.fromMusicTwoRowItemRenderer(renderer) } ?: childContent.musicMultiRowListItemRenderer?.let { renderer -> PodcastPage.fromMusicMultiRowListItemRenderer(renderer) } ?: childContent.musicResponsiveListItemRenderer?.let { renderer -> LibraryPage.fromMusicResponsiveListItemRenderer(renderer) ?: RelatedPage.fromMusicResponsiveListItemRenderer(renderer) } })
                         }
-                        content.musicShelfRenderer != null -> BrowseResult.Item(title = content.musicShelfRenderer.title?.runs?.firstOrNull()?.text, items = content.musicShelfRenderer.contents.mapNotNull(MusicShelfRenderer.Content::musicResponsiveListItemRenderer).mapNotNull(LibraryPage.Companion::fromMusicResponsiveListItemRenderer))
+                        content.musicShelfRenderer != null -> BrowseResult.Item(title = content.musicShelfRenderer.title?.runs?.firstOrNull()?.text, items = content.musicShelfRenderer.contents?.mapNotNull(MusicShelfRenderer.Content::musicResponsiveListItemRenderer)?.mapNotNull(LibraryPage.Companion::fromMusicResponsiveListItemRenderer) ?: emptyList())
                         content.musicPlaylistShelfRenderer != null -> BrowseResult.Item(title = null, items = content.musicPlaylistShelfRenderer.contents.getItems().mapNotNull(LibraryPage.Companion::fromMusicResponsiveListItemRenderer))
                         else -> null
                     }
@@ -1105,12 +1105,12 @@ object YouTube {
                         }
 
                         content.musicCarouselShelfRenderer != null -> {
-                            content.musicCarouselShelfRenderer.contents.mapNotNull { content ->
-                                content.musicTwoRowItemRenderer?.let { renderer ->
+                            content.musicCarouselShelfRenderer.contents.mapNotNull { childContent ->
+                                childContent.musicTwoRowItemRenderer?.let { renderer ->
                                     LibraryPage.fromMusicTwoRowItemRenderer(renderer)
-                                } ?: content.musicMultiRowListItemRenderer?.let { renderer ->
+                                } ?: childContent.musicMultiRowListItemRenderer?.let { renderer ->
                                     PodcastPage.fromMusicMultiRowListItemRenderer(renderer)
-                                } ?: content.musicResponsiveListItemRenderer?.let { renderer ->
+                                } ?: childContent.musicResponsiveListItemRenderer?.let { renderer ->
                                     LibraryPage.fromMusicResponsiveListItemRenderer(renderer)
                                 }
                             }
@@ -2002,9 +2002,7 @@ object YouTube {
         }
 
     suspend fun getMediaInfo(videoId: String): Result<MediaInfo> =
-        runCatching {
-            return innerTube.getMediaInfo(videoId)
-        }
+        innerTube.getMediaInfo(videoId)
 
     suspend fun getTasteProfile(): Result<TasteProfile> =
         runCatching {
