@@ -17,10 +17,7 @@ import com.cgens67.innertube.models.SongItem
 import com.cgens67.innertube.models.YTItem
 import com.cgens67.innertube.models.oddElements
 import com.cgens67.innertube.models.splitBySeparator
-import com.cgens67.innertube.models.filterExplicit
-import com.cgens67.innertube.models.filterVideoSongs
 import com.cgens67.innertube.utils.parseTime
-import timber.log.Timber
 
 data class HomePage(
     val chips: List<Chip>?,
