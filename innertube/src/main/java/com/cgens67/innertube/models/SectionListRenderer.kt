@@ -49,27 +49,3 @@ data class SectionListRenderer(
         val itemSectionRenderer: ItemSectionRenderer?,
     )
 }
-
-@Serializable
-data class ItemSectionRenderer(
-    val contents: List<Content>?,
-    val header: Header? = null,
-) {
-    @Serializable
-    data class Content(
-        val musicResponsiveListItemRenderer: MusicResponsiveListItemRenderer? = null,
-        val musicShelfRenderer: MusicShelfRenderer? = null,
-        val musicPlaylistShelfRenderer: MusicPlaylistShelfRenderer? = null,
-        val gridRenderer: GridRenderer? = null,
-    )
-
-    @Serializable
-    data class Header(
-        val itemSectionTabbedHeaderRenderer: ItemSectionTabbedHeaderRenderer?,
-    )
-
-    @Serializable
-    data class ItemSectionTabbedHeaderRenderer(
-        val title: Runs?,
-    )
-}
