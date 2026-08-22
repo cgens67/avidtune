@@ -7,7 +7,6 @@ import com.cgens67.innertube.models.Run
 import com.cgens67.innertube.models.splitArtistsByConjunction
 import com.cgens67.innertube.models.splitBySeparator
 import com.cgens67.innertube.utils.parseTime
-import timber.log.Timber
 
 object PageHelper {
     private val LIBRARY_ADD_ICONS = setOf("LIBRARY_ADD", "BOOKMARK_BORDER")
