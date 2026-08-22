@@ -120,7 +120,9 @@ import com.cgens67.avidtune.extensions.toMediaItem
 import com.cgens67.innertube.YouTube
 import com.cgens67.innertube.models.AlbumItem
 import com.cgens67.innertube.models.ArtistItem
+import com.cgens67.innertube.models.EpisodeItem
 import com.cgens67.innertube.models.PlaylistItem
+import com.cgens67.innertube.models.PodcastItem
 import com.cgens67.innertube.models.SongItem
 import com.cgens67.innertube.models.YTItem
 import com.cgens67.avidtune.models.MediaMetadata
@@ -135,7 +137,6 @@ import com.cgens67.avidtune.utils.reportException
 import kotlin.math.roundToInt
 
 const val ActiveBoxAlpha = 0.6f
-
 private var cachedItemCornerRadius = 16f
 
 @Composable
@@ -1413,6 +1414,14 @@ fun YouTubeListItem(
                     is PlaylistItem -> {
                         joinByBullet(item.author?.name, item.songCountText)
                     }
+                    
+                    is EpisodeItem -> {
+                        joinByBullet(item.author?.name, item.publishDateText)
+                    }
+                    
+                    is PodcastItem -> {
+                        joinByBullet(item.author?.name, item.episodeCountText)
+                    }
                 },
             badges = badges,
             thumbnailContent = {
@@ -1493,6 +1502,8 @@ fun YouTubeGridItem(
                     is AlbumItem -> joinByBullet(item.artists?.joinToString { it.name }, item.year?.toString())
                     is ArtistItem -> null
                     is PlaylistItem -> joinByBullet(item.author?.name, item.songCountText)
+                    is EpisodeItem -> joinByBullet(item.author?.name, item.publishDateText)
+                    is PodcastItem -> joinByBullet(item.author?.name, item.episodeCountText)
                 }
             if (subtitle != null) {
                 Text(
@@ -1518,7 +1529,7 @@ fun YouTubeGridItem(
                 thumbnailRatio = thumbnailRatio,
             )
 
-            if (item is SongItem && !isActive) {
+            if ((item is SongItem && !isActive) || (item is EpisodeItem && !isActive)) {
                 OverlayPlayButton(
                     visible = true,
                 )
@@ -2170,7 +2181,6 @@ fun SwipeToSongBox(
     }
 }
 
-// Helper to animate reset of swipe offset
 private fun reset(
     offset: MutableState<Float>,
     scope: CoroutineScope,
@@ -2184,7 +2194,6 @@ private fun reset(
     }
 }
 
-// Data holder for swipe visuals
 data class Quadruple<A, B, C, D>(
     val first: A,
     val second: B,
@@ -2278,7 +2287,6 @@ private object Icon {
     }
 }
 
-// Ensure compatibility with existing calls from Avidtune's missing elements
 @Composable
 fun SmallGridItem(
     modifier: Modifier = Modifier,
@@ -2497,7 +2505,7 @@ fun YouTubeSmallGridItem(
                         .fillMaxWidth()
                         .clip(if (item is ArtistItem) CircleShape else RoundedCornerShape(itemCornerRadius)),
             )
-            if (item is SongItem) {
+            if (item is SongItem || item is EpisodeItem) {
                 AnimatedVisibility(
                     visible = isActive,
                     enter = fadeIn(tween(500)),
@@ -2550,10 +2558,6 @@ fun YouTubeSmallGridItem(
         },
         thumbnailShape = if (item is ArtistItem) CircleShape else RoundedCornerShape(itemCornerRadius),
         modifier = modifier,
-        isArtist =
-            when (item) {
-                is ArtistItem -> true
-                else -> false
-            },
+        isArtist = item is ArtistItem,
     )
 }
