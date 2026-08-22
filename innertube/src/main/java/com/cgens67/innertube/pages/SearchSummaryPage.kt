@@ -1,13 +1,16 @@
 package com.cgens67.innertube.pages
 
 import com.cgens67.innertube.models.Album
+import com.cgens67.innertube.models.AlbumItem
 import com.cgens67.innertube.models.Artist
+import com.cgens67.innertube.models.ArtistItem
 import com.cgens67.innertube.models.BrowseEndpoint.BrowseEndpointContextSupportedConfigs.BrowseEndpointContextMusicConfig.Companion.MUSIC_PAGE_TYPE_ALBUM
 import com.cgens67.innertube.models.BrowseEndpoint.BrowseEndpointContextSupportedConfigs.BrowseEndpointContextMusicConfig.Companion.MUSIC_PAGE_TYPE_ARTIST
 import com.cgens67.innertube.models.BrowseEndpoint.BrowseEndpointContextSupportedConfigs.BrowseEndpointContextMusicConfig.Companion.MUSIC_PAGE_TYPE_USER_CHANNEL
 import com.cgens67.innertube.models.MusicCardShelfRenderer
 import com.cgens67.innertube.models.MusicResponsiveListItemRenderer
 import com.cgens67.innertube.models.PlaylistItem
+import com.cgens67.innertube.models.PodcastItem
 import com.cgens67.innertube.models.SongItem
 import com.cgens67.innertube.models.YTItem
 import com.cgens67.innertube.models.filterExplicit
@@ -117,7 +120,7 @@ data class SearchSummaryPage(
                 }
 
                 renderer.onTap.browseEndpoint?.isArtistEndpoint == true -> {
-                    com.cgens67.innertube.models.ArtistItem(
+                    ArtistItem(
                         id = renderer.onTap.browseEndpoint.browseId,
                         title =
                             renderer.title.runs
@@ -140,7 +143,7 @@ data class SearchSummaryPage(
                 }
 
                 renderer.onTap.browseEndpoint?.isAlbumEndpoint == true -> {
-                    com.cgens67.innertube.models.AlbumItem(
+                    AlbumItem(
                         browseId = renderer.onTap.browseEndpoint.browseId,
                         playlistId =
                             renderer.buttons
@@ -204,7 +207,7 @@ data class SearchSummaryPage(
                 }
 
                 renderer.onTap.browseEndpoint?.isPodcastEndpoint == true -> {
-                    com.cgens67.innertube.models.PodcastItem(
+                    PodcastItem(
                         id = renderer.onTap.browseEndpoint.browseId,
                         title =
                             renderer.header?.musicCardShelfHeaderBasicRenderer?.title?.runs
@@ -361,7 +364,7 @@ data class SearchSummaryPage(
                 }
 
                 renderer.isArtist -> {
-                    com.cgens67.innertube.models.ArtistItem(
+                    ArtistItem(
                         id = renderer.navigationEndpoint?.browseEndpoint?.browseId ?: return null,
                         title =
                             renderer.flexColumns
@@ -391,7 +394,7 @@ data class SearchSummaryPage(
                 }
 
                 renderer.isUserChannel -> {
-                    com.cgens67.innertube.models.ArtistItem(
+                    ArtistItem(
                         id = renderer.navigationEndpoint?.browseEndpoint?.browseId ?: return null,
                         title =
                             renderer.flexColumns
@@ -422,7 +425,7 @@ data class SearchSummaryPage(
                 }
 
                 renderer.isAlbum -> {
-                    com.cgens67.innertube.models.AlbumItem(
+                    AlbumItem(
                         browseId = renderer.navigationEndpoint?.browseEndpoint?.browseId ?: return null,
                         playlistId =
                             renderer.overlay
@@ -518,7 +521,7 @@ data class SearchSummaryPage(
                 }
 
                 renderer.isPodcast -> {
-                    com.cgens67.innertube.models.PodcastItem(
+                    PodcastItem(
                         id =
                             renderer.navigationEndpoint
                                 ?.browseEndpoint
