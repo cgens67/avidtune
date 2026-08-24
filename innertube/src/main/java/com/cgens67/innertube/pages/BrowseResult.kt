@@ -2,7 +2,8 @@ package com.cgens67.innertube.pages
 
 import com.cgens67.innertube.models.YTItem
 import com.cgens67.innertube.models.filterExplicit
-import com.cgens67.innertube.models.filterMusicVideos
+import com.cgens67.innertube.models.filterVideoSongs
+import com.cgens67.innertube.models.filterYoutubeShorts
 
 data class BrowseResult(
     val title: String?,
@@ -30,20 +31,32 @@ data class BrowseResult(
             this
         }
 
-    fun filterMusicVideos(enabled: Boolean = true) =
+    fun filterVideoSongs(disableVideos: Boolean = false) =
+        if (disableVideos) {
+            copy(
+                items =
+                    items.mapNotNull {
+                        it.copy(
+                            items =
+                                it.items
+                                    .filterVideoSongs(true)
+                                    .ifEmpty { return@mapNotNull null },
+                        )
+                    },
+            )
+        } else {
+            this
+        }
+
+    fun filterYoutubeShorts(enabled: Boolean = false) =
         if (enabled) {
             copy(
                 items =
                     items.mapNotNull {
-                        val isVideoSection = it.title?.lowercase()?.let { title ->
-                            title.contains("video") || title.contains("vídeo") || title.contains("vidéo") || title.contains("видео") || title.contains("βίντεο")
-                        } == true
-                        if (isVideoSection) return@mapNotNull null
-
                         it.copy(
                             items =
                                 it.items
-                                    .filterMusicVideos()
+                                    .filterYoutubeShorts(true)
                                     .ifEmpty { return@mapNotNull null },
                         )
                     },

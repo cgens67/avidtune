@@ -6,7 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.cgens67.innertube.YouTube
 import com.cgens67.innertube.models.AlbumItem
 import com.cgens67.innertube.models.filterExplicit
-import com.cgens67.innertube.models.filterMusicVideos
+import com.cgens67.innertube.models.filterVideoSongs
 import com.cgens67.avidtune.constants.HideExplicitKey
 import com.cgens67.avidtune.constants.HideMusicVideosKey
 import com.cgens67.avidtune.constants.LastNewReleaseCheckKey
@@ -66,7 +66,7 @@ constructor(
                                 } ?: Int.MAX_VALUE
                             firstArtistKey
                         }.filterExplicit(context.dataStore.get(HideExplicitKey, false))
-                         .filterMusicVideos(context.dataStore.get(HideMusicVideosKey, false))
+                         .filterVideoSongs(context.dataStore.get(HideMusicVideosKey, false))
 
                     _newReleaseAlbums.value = sortedAlbums
 

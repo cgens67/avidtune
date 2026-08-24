@@ -1,7 +1,6 @@
 package com.cgens67.innertube.models.body
 
 import com.cgens67.innertube.models.Context
-import com.cgens67.innertube.models.Continuation
 import kotlinx.serialization.Serializable
 
 @Serializable

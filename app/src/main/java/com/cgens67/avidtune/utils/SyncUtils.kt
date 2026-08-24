@@ -6,7 +6,6 @@ import com.cgens67.innertube.models.ArtistItem
 import com.cgens67.innertube.models.PlaylistItem
 import com.cgens67.innertube.models.SongItem
 import com.cgens67.innertube.utils.completed
-import com.cgens67.innertube.utils.completedLibraryPage
 import com.cgens67.avidtune.db.MusicDatabase
 import com.cgens67.avidtune.db.entities.ArtistEntity
 import com.cgens67.avidtune.db.entities.PlaylistEntity
@@ -45,7 +44,7 @@ class SyncUtils @Inject constructor(
     }
 
     suspend fun syncLibrarySongs() {
-        YouTube.library("FEmusic_liked_videos").completedLibraryPage().onSuccess { page ->
+        YouTube.library("FEmusic_liked_videos").completed().onSuccess { page ->
             val songs = page.items.filterIsInstance<SongItem>().reversed()
 
             database.songsByNameAsc().first()
@@ -65,7 +64,7 @@ class SyncUtils @Inject constructor(
     }
 
     suspend fun syncLikedAlbums() {
-        YouTube.library("FEmusic_liked_albums").completedLibraryPage().onSuccess { page ->
+        YouTube.library("FEmusic_liked_albums").completed().onSuccess { page ->
             val albums = page.items.filterIsInstance<AlbumItem>().reversed()
 
             database.albumsLikedByNameAsc().first()
@@ -91,7 +90,7 @@ class SyncUtils @Inject constructor(
     }
 
     suspend fun syncArtistsSubscriptions() {
-        YouTube.library("FEmusic_library_corpus_artists").completedLibraryPage().onSuccess { page ->
+        YouTube.library("FEmusic_library_corpus_artists").completed().onSuccess { page ->
             val artists = page.items.filterIsInstance<ArtistItem>()
 
             database.artistsBookmarkedByNameAsc().first()
@@ -122,7 +121,7 @@ class SyncUtils @Inject constructor(
     }
 
     suspend fun syncSavedPlaylists() {
-        YouTube.library("FEmusic_liked_playlists").completedLibraryPage().onSuccess { page ->
+        YouTube.library("FEmusic_liked_playlists").completed().onSuccess { page ->
             val playlistList = page.items.filterIsInstance<PlaylistItem>()
                 .filterNot { it.id == "LM" ||  it.id == "SE" }
                 .reversed()

@@ -23,22 +23,26 @@ data class NextResult(
 object NextPage {
     fun fromPlaylistPanelVideoRenderer(renderer: PlaylistPanelVideoRenderer): SongItem? {
         val longByLineRuns = renderer.longBylineText?.runs?.splitBySeparator() ?: return null
-        val isVideo = renderer.navigationEndpoint.watchEndpoint?.watchEndpointMusicSupportedConfigs?.watchEndpointMusicConfig?.musicVideoType in listOf("MUSIC_VIDEO_TYPE_OMV", "MUSIC_VIDEO_TYPE_UGC")
+
+        val libraryTokens = PageHelper.extractLibraryTokensFromMenuItems(renderer.menu?.menuRenderer?.items)
+        val views = PageHelper.extractViews(longByLineRuns.flatten())
 
         return SongItem(
-            id = renderer.videoId ?: return null,
+            id = renderer.videoId
+                ?: renderer.navigationEndpoint.watchEndpoint?.videoId
+                ?: return null,
             title =
                 renderer.title
                     ?.runs
                     ?.firstOrNull()
                     ?.text ?: return null,
             artists =
-                longByLineRuns.firstOrNull()?.oddElements()?.filter { it.text.parseTime() == null }?.map {
+                longByLineRuns.firstOrNull()?.oddElements()?.map {
                     Artist(
                         name = it.text,
                         id = it.navigationEndpoint?.browseEndpoint?.browseId,
                     )
-                } ?: emptyList(),
+                } ?: return null,
             album =
                 longByLineRuns
                     .getOrNull(1)
@@ -57,6 +61,7 @@ object NextPage {
                     ?.firstOrNull()
                     ?.text
                     ?.parseTime() ?: return null,
+            musicVideoType = renderer.navigationEndpoint.musicVideoType,
             thumbnail =
                 renderer.thumbnail.thumbnails
                     .lastOrNull()
@@ -65,7 +70,9 @@ object NextPage {
                 renderer.badges?.find {
                     it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
                 } != null,
-            isVideo = isVideo,
+            libraryAddToken = libraryTokens.addToken,
+            libraryRemoveToken = libraryTokens.removeToken,
+            views = views
         )
     }
 }

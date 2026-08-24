@@ -50,6 +50,7 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ShapeDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -434,6 +435,7 @@ fun SongListItem(
 fun SongGridItem(
     song: Song,
     modifier: Modifier = Modifier,
+    viewCountText: String? = null,
     showLikedIcon: Boolean = true,
     showInLibraryIcon: Boolean = false,
     showDownloadIcon: Boolean = true,
@@ -471,6 +473,7 @@ fun SongGridItem(
                     joinByBullet(
                         song.artists.joinToString { it.name },
                         makeTimeString(song.song.duration * 1000L),
+                        viewCountText,
                     ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.secondary,
@@ -1321,6 +1324,7 @@ fun LibraryArtistSpotlightCard(
 fun MediaMetadataListItem(
     mediaMetadata: MediaMetadata,
     modifier: Modifier = Modifier,
+    viewCountText: String? = null,
     isSelected: Boolean = false,
     isActive: Boolean = false,
     isPlaying: Boolean = false,
@@ -1334,6 +1338,7 @@ fun MediaMetadataListItem(
             joinByBullet(
                 mediaMetadata.artists.joinToString { it.name },
                 makeTimeString(mediaMetadata.duration * 1000L),
+                viewCountText,
             ),
         thumbnailContent = {
             ItemThumbnail(
@@ -1396,10 +1401,21 @@ fun YouTubeListItem(
             subtitle =
                 when (item) {
                     is SongItem -> {
+                        val rawViews = viewCountText
+                            ?: item.views
+                            ?: (if (item.chartPosition != null) "#${item.chartPosition}" else null)
+                            ?: item.chartChange
+                        
+                        val viewsStr = stringResource(R.string.views)
+                        val playsStr = stringResource(R.string.plays)
+                        val views = rawViews
+                            ?.replace(" views", " $viewsStr", ignoreCase = true)
+                            ?.replace(" plays", " $playsStr", ignoreCase = true)
+
                         joinByBullet(
                             item.artists.joinToString { it.name },
                             makeTimeString(item.duration?.times(1000L)),
-                            viewCountText,
+                            views,
                         )
                     }
 
@@ -1416,7 +1432,14 @@ fun YouTubeListItem(
                     }
                     
                     is EpisodeItem -> {
-                        joinByBullet(item.author?.name, item.publishDateText)
+                        val rawViews = viewCountText ?: item.views
+                        val viewsStr = stringResource(R.string.views)
+                        val playsStr = stringResource(R.string.plays)
+                        val views = rawViews
+                            ?.replace(" views", " $viewsStr", ignoreCase = true)
+                            ?.replace(" plays", " $playsStr", ignoreCase = true)
+                        
+                        joinByBullet(item.author?.name, item.publishDateText, views)
                     }
                     
                     is PodcastItem -> {
@@ -1458,6 +1481,7 @@ fun YouTubeListItem(
 fun YouTubeGridItem(
     item: YTItem,
     modifier: Modifier = Modifier,
+    viewCountText: String? = null,
     coroutineScope: CoroutineScope? = null,
     badges: @Composable RowScope.() -> Unit = {
         val database = LocalDatabase.current
@@ -1498,11 +1522,36 @@ fun YouTubeGridItem(
         subtitle = {
             val subtitle =
                 when (item) {
-                    is SongItem -> joinByBullet(item.artists.joinToString { it.name }, makeTimeString(item.duration?.times(1000L)))
+                    is SongItem -> {
+                        val rawViews = viewCountText
+                            ?: item.views
+                            ?: (if (item.chartPosition != null) "#${item.chartPosition}" else null)
+                            ?: item.chartChange
+                            
+                        val viewsStr = stringResource(R.string.views)
+                        val playsStr = stringResource(R.string.plays)
+                        val views = rawViews
+                            ?.replace(" views", " $viewsStr", ignoreCase = true)
+                            ?.replace(" plays", " $playsStr", ignoreCase = true)
+
+                        joinByBullet(
+                            item.artists.joinToString { it.name },
+                            makeTimeString(item.duration?.times(1000L)),
+                            views
+                        )
+                    }
                     is AlbumItem -> joinByBullet(item.artists?.joinToString { it.name }, item.year?.toString())
                     is ArtistItem -> null
                     is PlaylistItem -> joinByBullet(item.author?.name, item.songCountText)
-                    is EpisodeItem -> joinByBullet(item.author?.name, item.publishDateText)
+                    is EpisodeItem -> {
+                        val rawViews = viewCountText ?: item.views
+                        val viewsStr = stringResource(R.string.views)
+                        val playsStr = stringResource(R.string.plays)
+                        val views = rawViews
+                            ?.replace(" views", " $viewsStr", ignoreCase = true)
+                            ?.replace(" plays", " $playsStr", ignoreCase = true)
+                        joinByBullet(item.author?.name, item.publishDateText, views)
+                    }
                     is PodcastItem -> joinByBullet(item.author?.name, item.episodeCountText)
                 }
             if (subtitle != null) {
@@ -2291,6 +2340,7 @@ private object Icon {
 fun SmallGridItem(
     modifier: Modifier = Modifier,
     title: String,
+    subtitle: String? = null,
     thumbnailContent: @Composable BoxWithConstraintsScope.() -> Unit,
     thumbnailShape: Shape,
     thumbnailRatio: Float = 1f,
@@ -2318,7 +2368,7 @@ fun SmallGridItem(
         Spacer(modifier = Modifier.height(6.dp))
 
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
+            horizontalAlignment = if (isArtist == true) Alignment.CenterHorizontally else Alignment.Start,
             verticalArrangement = Arrangement.Center,
             modifier = Modifier.width(SmallGridThumbnailHeight),
         ) {
@@ -2328,12 +2378,23 @@ fun SmallGridItem(
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Start,
+                textAlign = if (isArtist == true) TextAlign.Center else TextAlign.Start,
                 modifier =
                     Modifier
                         .basicMarquee()
                         .fillMaxWidth(),
             )
+            if (!subtitle.isNullOrBlank()) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = if (isArtist == true) TextAlign.Center else TextAlign.Start,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
     }
 }
@@ -2342,12 +2403,18 @@ fun SmallGridItem(
 fun SongSmallGridItem(
     song: Song,
     modifier: Modifier = Modifier,
+    viewCountText: String? = null,
     isActive: Boolean = false,
     isPlaying: Boolean = false,
 ) {
     val itemCornerRadius = rememberItemCornerRadius()
+    val subtitle = joinByBullet(
+        song.artists.joinToString { it.name },
+        viewCountText
+    )
     SmallGridItem(
         title = song.song.title,
+        subtitle = subtitle,
         thumbnailContent = {
             AsyncImage(
                 model = song.song.thumbnailUrl,
@@ -2488,14 +2555,44 @@ fun AlbumSmallGridItem(
 fun YouTubeSmallGridItem(
     item: YTItem,
     modifier: Modifier = Modifier,
+    viewCountText: String? = null,
     coroutineScope: CoroutineScope? = null,
     isActive: Boolean = false,
     isPlaying: Boolean = false,
     fillMaxWidth: Boolean = false,
 ) {
     val itemCornerRadius = rememberItemCornerRadius()
+    val subtitle = when (item) {
+        is SongItem -> {
+            val rawViews = item.views ?: (if (item.chartPosition != null) "#${item.chartPosition}" else null) ?: item.chartChange ?: viewCountText
+            val viewsStr = stringResource(R.string.views)
+            val playsStr = stringResource(R.string.plays)
+            val views = rawViews
+                ?.replace(" views", " $viewsStr", ignoreCase = true)
+                ?.replace(" plays", " $playsStr", ignoreCase = true)
+            
+            joinByBullet(
+                item.artists.joinToString { it.name },
+                views
+            )
+        }
+        is AlbumItem -> item.artists?.joinToString { it.name }
+        is ArtistItem -> null
+        is PlaylistItem -> item.songCountText ?: item.author?.name
+        is EpisodeItem -> {
+            val rawViews = viewCountText ?: item.views
+            val viewsStr = stringResource(R.string.views)
+            val playsStr = stringResource(R.string.plays)
+            val views = rawViews
+                ?.replace(" views", " $viewsStr", ignoreCase = true)
+                ?.replace(" plays", " $playsStr", ignoreCase = true)
+            joinByBullet(item.author?.name, item.publishDateText, views)
+        }
+        is PodcastItem -> item.episodeCountText ?: item.author?.name
+    }
     SmallGridItem(
         title = item.title,
+        subtitle = subtitle,
         thumbnailContent = {
             AsyncImage(
                 model = item.thumbnail,

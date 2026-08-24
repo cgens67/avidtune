@@ -6,7 +6,7 @@ import com.cgens67.innertube.YouTube
 import com.cgens67.innertube.models.AlbumItem
 import com.cgens67.innertube.models.ArtistItem
 import com.cgens67.innertube.models.PlaylistItem
-import com.cgens67.innertube.utils.completedLibraryPage
+import com.cgens67.innertube.utils.completed
 import com.cgens67.avidtune.utils.reportException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,18 +21,18 @@ class AccountViewModel @Inject constructor() : ViewModel() {
 
     init {
         viewModelScope.launch {
-            YouTube.library("FEmusic_liked_playlists").completedLibraryPage().onSuccess {
+            YouTube.library("FEmusic_liked_playlists").completed().onSuccess {
                 playlists.value = it.items.filterIsInstance<PlaylistItem>()
                     .filterNot { it.id == "SE" }
             }.onFailure {
                 reportException(it)
             }
-            YouTube.library("FEmusic_liked_albums").completedLibraryPage().onSuccess {
+            YouTube.library("FEmusic_liked_albums").completed().onSuccess {
                 albums.value = it.items.filterIsInstance<AlbumItem>()
             }.onFailure {
                 reportException(it)
             }
-            YouTube.library("FEmusic_library_corpus_artists").completedLibraryPage().onSuccess {
+            YouTube.library("FEmusic_library_corpus_artists").completed().onSuccess {
                 artists.value = it.items.filterIsInstance<ArtistItem>()
             }.onFailure {
                 reportException(it)

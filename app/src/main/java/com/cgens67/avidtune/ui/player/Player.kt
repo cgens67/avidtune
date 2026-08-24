@@ -152,6 +152,7 @@ import com.cgens67.avidtune.ui.menu.PlayerMenu
 import com.cgens67.avidtune.ui.screens.settings.DarkMode
 import com.cgens67.avidtune.ui.screens.settings.PlayerTextAlignment
 import com.cgens67.avidtune.ui.theme.PlayerColorExtractor
+import com.cgens67.avidtune.ui.utils.resize
 import com.cgens67.avidtune.utils.makeTimeString
 import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
@@ -165,6 +166,7 @@ import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.ui.platform.LocalView
@@ -849,8 +851,7 @@ fun PlayerBackground(
                         Box(modifier = Modifier.alpha(backgroundAlpha)) {
                             AsyncImage(
                                 model = ImageRequest.Builder(context)
-                                    .data(thumbnailUrl)
-                                    .size(32, 32)
+                                    .data(thumbnailUrl.resize(800, 800))
                                     .allowHardware(false)
                                     .build(),
                                 contentDescription = "Blurred background",
@@ -913,8 +914,7 @@ fun PlayerBackground(
                     Box(modifier = Modifier.fillMaxSize()) {
                         AsyncImage(
                             model = ImageRequest.Builder(context)
-                                .data(thumbnailUrl)
-                                .size(32, 32)
+                                .data(thumbnailUrl?.resize(800, 800))
                                 .allowHardware(false)
                                 .build(),
                             contentDescription = null,
@@ -924,8 +924,7 @@ fun PlayerBackground(
                         )
                         AsyncImage(
                             model = ImageRequest.Builder(context)
-                                .data(thumbnailUrl)
-                                .size(32, 32)
+                                .data(thumbnailUrl?.resize(800, 800))
                                 .allowHardware(false)
                                 .build(),
                             contentDescription = null,
@@ -1005,8 +1004,7 @@ fun PlayerBackground(
                         ) {
                             val imageRequest = remember(thumbnailUrl) {
                                 ImageRequest.Builder(context)
-                                    .data(thumbnailUrl)
-                                    .size(32, 32)
+                                    .data(thumbnailUrl.resize(800, 800))
                                     .allowHardware(true)
                                     .build()
                             }

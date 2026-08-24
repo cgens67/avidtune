@@ -11,8 +11,8 @@ import okio.ByteString.Companion.decodeBase64
 import okio.ByteString.Companion.toByteString
 
 /**
- * Parses the raw challenge data obtained from the Create endpoint and
- * returns an object that can be embedded in a JavaScript snippet.
+ * Parses the raw challenge data obtained from the Create endpoint and returns an object that can be
+ * embedded in a JavaScript snippet.
  */
 fun parseChallengeData(rawChallengeData: String): String {
     val scrambled = Json.parseToJsonElement(rawChallengeData).jsonArray
@@ -21,7 +21,7 @@ fun parseChallengeData(rawChallengeData: String): String {
         val descrambled = descramble(scrambled[1].jsonPrimitive.content)
         Json.parseToJsonElement(descrambled).jsonArray
     } else {
-        scrambled[1].jsonArray
+        scrambled[0].jsonArray
     }
 
     val messageId = challengeData[0].jsonPrimitive.content
@@ -61,10 +61,9 @@ fun parseChallengeData(rawChallengeData: String): String {
 }
 
 /**
- * Parses the raw integrity token data obtained from the GenerateIT
- * endpoint to a JavaScript `Uint8Array` that can be embedded directly in
- * JavaScript code, and an [Int] representing the duration of this token in
- * seconds.
+ * Parses the raw integrity token data obtained from the GenerateIT endpoint to a JavaScript
+ * `Uint8Array` that can be embedded directly in JavaScript code, and a [Long] representing the
+ * duration of this token in seconds.
  */
 fun parseIntegrityTokenData(rawIntegrityTokenData: String): Pair<String, Long> {
     val integrityTokenData = Json.parseToJsonElement(rawIntegrityTokenData).jsonArray
@@ -72,19 +71,17 @@ fun parseIntegrityTokenData(rawIntegrityTokenData: String): Pair<String, Long> {
 }
 
 /**
- * Converts a string (usually the identifier used as input to
- * `obtainPoToken`) to a JavaScript `Uint8Array` that can be embedded
- * directly in JavaScript code.
+ * Converts a string (usually the identifier used as input to `obtainPoToken`) to a JavaScript
+ * `Uint8Array` that can be embedded directly in JavaScript code.
  */
 fun stringToU8(identifier: String): String {
     return newUint8Array(identifier.toByteArray())
 }
 
 /**
- * Takes a poToken encoded as a sequence of bytes represented as integers
- * separated by commas (e.g. "97,98,99" would be "abc"), which is the
- * output of `Uint8Array::toString()` in JavaScript, and converts it to the
- * specific base64 representation for poTokens.
+ * Takes a poToken encoded as a sequence of bytes represented as integers separated by commas
+ * (e.g. "97,98,99" would be "abc"), which is the output of `Uint8Array::toString()` in JavaScript,
+ * and converts it to the specific base64 representation for poTokens.
  */
 fun u8ToBase64(poToken: String): String {
     return poToken.split(",")
@@ -97,8 +94,7 @@ fun u8ToBase64(poToken: String): String {
 }
 
 /**
- * Takes the scrambled challenge, decodes it from base64, adds 97 to each
- * byte.
+ * Takes the scrambled challenge, decodes it from base64, adds 97 to each byte.
  */
 private fun descramble(scrambledChallenge: String): String {
     return base64ToByteString(scrambledChallenge)
@@ -108,23 +104,19 @@ private fun descramble(scrambledChallenge: String): String {
 }
 
 /**
- * Decodes a base64 string encoded in the specific base64 representation
- * used by YouTube, and returns a JavaScript `Uint8Array` that can be
- * embedded directly in JavaScript code.
+ * Decodes a base64 string encoded in the specific base64 representation used by YouTube, and
+ * returns a JavaScript `Uint8Array` that can be embedded directly in JavaScript code.
  */
 private fun base64ToU8(base64: String): String {
     return newUint8Array(base64ToByteString(base64))
 }
 
 private fun newUint8Array(contents: ByteArray): String {
-    return "new Uint8Array([" + contents.joinToString(separator = ",") {
-        it.toUByte().toString()
-    } + "])"
+    return "new Uint8Array([" + contents.joinToString(separator = ",") { it.toUByte().toString() } + "])"
 }
 
 /**
- * Decodes a base64 string encoded in the specific base64 representation
- * used by YouTube.
+ * Decodes a base64 string encoded in the specific base64 representation used by YouTube.
  */
 private fun base64ToByteString(base64: String): ByteArray {
     val base64Mod = base64

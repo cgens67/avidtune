@@ -1121,7 +1121,7 @@
     <string name="action_copy">复制</string>
     <string name="description">描述</string>
     <string name="subscribers">订阅者</string>
-    <string name="views">观看次数</string>
+    <string name="views">次观看</string>
     <string name="likes">点赞</string>
     <string name="dislikes">点踩</string>
     <string name="itag">Itag</string>
@@ -1260,5 +1260,16 @@
     <string name="alarm_search_placeholder">搜索歌曲…</string>
     <string name="alarm_type_to_search">输入内容以搜索歌曲</string>
     <string name="alarm_no_songs_found">未找到与“%1$s”相关的歌曲</string>
+    
+    <string name="profiles">个人主页</string>
+    <string name="plays">次播放</string>
+    <string name="cover_resolution">专辑封面分辨率</string>
+    <string name="cover_resolution_desc">专辑封面的图像质量。较低的分辨率可减少内存占用和流量消耗。</string>
+    <string name="resolution_1200">1200 × 1200 (最高)</string>
+    <string name="resolution_1080">1080 × 1080 (高)</string>
+    <string name="resolution_800">800 × 800 (中)</string>
+    <string name="resolution_500">500 × 500 (低)</string>
+    <string name="resolution_300">300 × 300 (最低)</string>
+
 
 </resources>

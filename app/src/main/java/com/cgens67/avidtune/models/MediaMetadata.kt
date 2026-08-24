@@ -90,5 +90,5 @@ fun SongItem.toMediaMetadata() =
             },
         explicit = explicit,
         setVideoId = setVideoId,
-        isVideo = isVideo
+        isVideo = isVideoSong
     )

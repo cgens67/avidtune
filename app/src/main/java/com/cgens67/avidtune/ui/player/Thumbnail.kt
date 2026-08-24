@@ -73,6 +73,11 @@ fun Thumbnail(
         defaultValue = PlayerBackgroundStyle.DEFAULT
     )
 
+    val (coverResolution) = rememberEnumPreference(
+        key = CoverResolutionKey,
+        defaultValue = CoverResolution.RES_1080
+    )
+
     val isAppleMusicStyle = playerBackground == PlayerBackgroundStyle.APPLE_MUSIC
 
     var thumbnailCornerRadius by remember { mutableStateOf(16f) }
@@ -114,14 +119,14 @@ fun Thumbnail(
         )
     }
 
-    // Fix 1: Ensure grid scrolls back to the current track when the song actually changes
+    // Ensure grid scrolls back to the current track when the song actually changes
     LaunchedEffect(currentMediaItem) {
         if (currentMediaIndex != -1) {
             thumbnailLazyGridState.scrollToItem(currentMediaIndex)
         }
     }
 
-    // Fix 2: Detect when user has finished swiping to change the song
+    // Detect when user has finished swiping to change the song
     LaunchedEffect(thumbnailLazyGridState.isScrollInProgress) {
         if (!thumbnailLazyGridState.isScrollInProgress) {
             val visibleIndex = thumbnailLazyGridState.firstVisibleItemIndex
@@ -234,7 +239,7 @@ fun Thumbnail(
                                     ) {
                                         SubcomposeAsyncImage(
                                             model = ImageRequest.Builder(LocalContext.current)
-                                                .data(item.mediaMetadata.artworkUri?.toString()?.resize(1200, 1200))
+                                                .data(item.mediaMetadata.artworkUri?.toString()?.resize(coverResolution.size, coverResolution.size))
                                                 .memoryCachePolicy(CachePolicy.ENABLED)
                                                 .diskCachePolicy(CachePolicy.ENABLED)
                                                 .networkCachePolicy(CachePolicy.ENABLED)

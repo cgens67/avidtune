@@ -86,7 +86,9 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.cgens67.innertube.models.AlbumItem
 import com.cgens67.innertube.models.ArtistItem
+import com.cgens67.innertube.models.EpisodeItem
 import com.cgens67.innertube.models.PlaylistItem
+import com.cgens67.innertube.models.PodcastItem
 import com.cgens67.innertube.models.SongItem
 import com.cgens67.innertube.models.WatchEndpoint
 import com.cgens67.avidtune.LocalDatabase
@@ -484,7 +486,7 @@ fun ArtistScreen(
                                     .horizontalScroll(rememberScrollState()),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                artistPage?.artist?.subscriberCountText?.let { subscribers ->
+                                artistPage?.subscriberCountText?.let { subscribers ->
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
                                         modifier = Modifier
@@ -508,7 +510,7 @@ fun ArtistScreen(
                                     }
                                 }
 
-                                artistPage?.artist?.monthlyListenerCountText?.let { monthlyListeners ->
+                                artistPage?.monthlyListenerCount?.let { monthlyListeners ->
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
                                         modifier = Modifier
@@ -927,6 +929,8 @@ fun ArtistScreen(
                                             is AlbumItem -> "album"
                                             is ArtistItem -> "artist"
                                             is PlaylistItem -> "playlist"
+                                            is EpisodeItem -> "episode"
+                                            is PodcastItem -> "podcast"
                                             else -> "item"
                                         }
                                         "youtube_${type}_${it.id}"
@@ -937,6 +941,7 @@ fun ArtistScreen(
                                         isActive = when (item) {
                                             is SongItem -> mediaMetadata?.id == item.id
                                             is AlbumItem -> mediaMetadata?.album?.id == item.id
+                                            is EpisodeItem -> mediaMetadata?.id == item.id
                                             else -> false
                                         },
                                         isPlaying = isPlaying,
@@ -952,10 +957,18 @@ fun ArtistScreen(
                                                                     item.toMediaMetadata()
                                                                 ),
                                                             )
+                                                        is EpisodeItem ->
+                                                            playerConnection.playQueue(
+                                                                YouTubeQueue(
+                                                                    WatchEndpoint(videoId = item.id),
+                                                                    item.asSongItem().toMediaMetadata()
+                                                                ),
+                                                            )
 
                                                         is AlbumItem -> navController.navigate("album/${item.id}")
                                                         is ArtistItem -> navController.navigate("artist/${item.id}")
                                                         is PlaylistItem -> navController.navigate("online_playlist/${item.id}")
+                                                        is PodcastItem -> navController.navigate("online_playlist/${item.id}")
                                                     }
                                                 },
                                                 onLongClick = {
@@ -978,6 +991,16 @@ fun ArtistScreen(
                                                             )
                                                             is PlaylistItem -> YouTubePlaylistMenu(
                                                                 playlist = item,
+                                                                coroutineScope = coroutineScope,
+                                                                onDismiss = menuState::dismiss,
+                                                            )
+                                                            is EpisodeItem -> YouTubeSongMenu(
+                                                                song = item.asSongItem(),
+                                                                navController = navController,
+                                                                onDismiss = menuState::dismiss,
+                                                            )
+                                                            is PodcastItem -> YouTubePlaylistMenu(
+                                                                playlist = item.asPlaylistItem(),
                                                                 coroutineScope = coroutineScope,
                                                                 onDismiss = menuState::dismiss,
                                                             )

@@ -9,7 +9,7 @@ import com.cgens67.innertube.models.WatchEndpoint
 import com.cgens67.innertube.models.YTItem
 import com.cgens67.innertube.pages.ExplorePage
 import com.cgens67.innertube.pages.HomePage
-import com.cgens67.innertube.utils.completedLibraryPage
+import com.cgens67.innertube.utils.completed
 import com.cgens67.avidtune.db.MusicDatabase
 import com.cgens67.avidtune.db.entities.Album
 import com.cgens67.avidtune.db.entities.Artist
@@ -75,7 +75,7 @@ class HomeViewModel @Inject constructor(
                 .filter { it is Song || it is Album }
 
         if (YouTube.cookie != null) {
-            YouTube.library("FEmusic_liked_playlists").completedLibraryPage().onSuccess {
+            YouTube.library("FEmusic_liked_playlists").completed().onSuccess {
                 accountPlaylists.value = it.items.filterIsInstance<PlaylistItem>()
                     .filterNot { it.id == "SE" }
             }.onFailure {

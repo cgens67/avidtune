@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -109,6 +110,8 @@ import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
 import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.AccountNameKey
+import com.cgens67.avidtune.constants.CoverResolution
+import com.cgens67.avidtune.constants.CoverResolutionKey
 import com.cgens67.avidtune.constants.DisableBlurKey
 import com.cgens67.avidtune.constants.GridThumbnailHeight
 import com.cgens67.avidtune.constants.InnerTubeCookieKey
@@ -149,6 +152,7 @@ import com.cgens67.avidtune.ui.menu.YouTubeSongMenu
 import com.cgens67.avidtune.ui.utils.SnapLayoutInfoProvider
 import com.cgens67.avidtune.ui.utils.backToMain
 import com.cgens67.avidtune.ui.utils.resize
+import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
 import com.cgens67.avidtune.viewmodels.HomeViewModel
 import kotlinx.coroutines.Dispatchers
@@ -602,6 +606,10 @@ fun QuickPicksSection(
     modifier: Modifier = Modifier
 ) {
     val distinctQuickPicks = remember(quickPicks) { quickPicks.distinctBy { it.id } }
+    val (coverResolution) = rememberEnumPreference(
+        key = CoverResolutionKey,
+        defaultValue = CoverResolution.RES_1080
+    )
 
     HorizontalCenteredHeroCarousel(
         state = rememberCarouselState { distinctQuickPicks.size },
@@ -629,7 +637,7 @@ fun QuickPicksSection(
                     }
                 )
         ) {
-            AsyncImage(model = ImageRequest.Builder(LocalContext.current).data(song.song.thumbnailUrl?.resize(1200, 1200)).crossfade(true).build(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            AsyncImage(model = ImageRequest.Builder(LocalContext.current).data(song.song.thumbnailUrl?.resize(coverResolution.size, coverResolution.size)).crossfade(true).build(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(colors = listOf(Color.Transparent, Color.Transparent, Color.Black.copy(alpha = 0.7f)))))
             if (isActive && isPlaying) {
                 Box(modifier = Modifier.align(Alignment.TopEnd).padding(12.dp).size(32.dp).background(MaterialTheme.colorScheme.primary, CircleShape), contentAlignment = Alignment.Center) {

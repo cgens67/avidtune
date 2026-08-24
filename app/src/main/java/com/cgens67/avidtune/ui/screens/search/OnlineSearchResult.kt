@@ -117,7 +117,7 @@ fun OnlineSearchResult(
                 val title = summary.title.lowercase()
                 val isFirstFromApi = searchSummary.summaries.firstOrNull()?.title == summary.title
                 
-                // Priority Mapping: 1=Top Result, 2=Songs, 3=Videos, 4=Episodes/Podcasts, 5=Albums, 6=Artists, 7=Playlists, 8=Other
+                // Priority Mapping: 1=Top Result, 2=Songs, 3=Videos, 4=Episodes/Podcasts, 5=Albums, 6=Artists, 7=Playlists, 8=Profiles, 9=Other
                 when {
                     title.contains("top") || title.contains("principal") || title.contains("result") || title.contains("resultado") -> 1
                     title.contains("song") || title.contains("cancion") || title.contains("canción") -> 2
@@ -126,6 +126,7 @@ fun OnlineSearchResult(
                     title.contains("album") || title.contains("álbum") -> 5
                     title.contains("artist") || title.contains("artista") -> 6
                     title.contains("playlist") || title.contains("lista") -> 7
+                    title.contains("profile") || title.contains("perfil") -> 8
                     isFirstFromApi -> 1 // Fallback if API returned it first but it's localized differently
                     summary.items.firstOrNull() is SongItem -> 2
                     summary.items.firstOrNull() is AlbumItem -> 5
@@ -133,7 +134,7 @@ fun OnlineSearchResult(
                     summary.items.firstOrNull() is PlaylistItem -> 7
                     summary.items.firstOrNull() is EpisodeItem -> 4
                     summary.items.firstOrNull() is PodcastItem -> 4
-                    else -> 8
+                    else -> 9
                 }
             }
     }
@@ -335,6 +336,7 @@ private fun getTranslatedSearchSummaryTitle(title: String): String {
         titleLower.contains("album") || titleLower.contains("álbum") -> stringResource(R.string.albums)
         titleLower.contains("artist") || titleLower.contains("artista") -> stringResource(R.string.artists)
         titleLower.contains("playlist") || titleLower.contains("lista") -> stringResource(R.string.playlists)
+        titleLower.contains("profile") || titleLower.contains("perfil") -> stringResource(R.string.profiles)
         titleLower.contains("other") || titleLower.contains("otros") -> stringResource(R.string.other)
         else -> title
     }

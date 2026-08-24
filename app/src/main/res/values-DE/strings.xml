@@ -1276,5 +1276,15 @@
     <string name="alarm_search_placeholder">Nach einem Song suchen…</string>
     <string name="alarm_type_to_search">Tippen Sie, um Songs zu suchen</string>
     <string name="alarm_no_songs_found">Keine Songs für „%1$s“ gefunden</string>
+    
+    <string name="profiles">Profile</string>
+    <string name="plays">Wiedergaben</string>
+    <string name="cover_resolution">Albumcover-Auflösung</string>
+    <string name="cover_resolution_desc">Bildqualität für Albumcover. Niedrigere Auflösungen sparen Speicher und Datenvolumen.</string>
+    <string name="resolution_1200">1200 × 1200 (Höchste)</string>
+    <string name="resolution_1080">1080 × 1080 (Hoch)</string>
+    <string name="resolution_800">800 × 800 (Mittel)</string>
+    <string name="resolution_500">500 × 500 (Niedrig)</string>
+    <string name="resolution_300">300 × 300 (Niedrigste)</string>
 
 </resources>

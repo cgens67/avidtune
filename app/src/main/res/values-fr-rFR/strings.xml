@@ -1118,7 +1118,7 @@
     <string name="action_copy">Copier</string>
     <string name="description">Description</string>
     <string name="subscribers">Abonnés</string>
-    <string name="views">Vues</string>
+    <string name="views">vues</string>
     <string name="likes">J\'aime</string>
     <string name="dislikes">Je n\'aime pas</string>
     <string name="itag">Itag</string>
@@ -1259,4 +1259,14 @@
     <string name="alarm_search_placeholder">Rechercher une chanson…</string>
     <string name="alarm_type_to_search">Saisissez du texte pour rechercher des chansons</string>
     <string name="alarm_no_songs_found">Aucune chanson trouvée pour « %1$s »</string>
+    
+    <string name="profiles">Profils</string>
+    <string name="plays">écoutes</string>
+    <string name="cover_resolution">Résolution de la pochette</string>
+    <string name="cover_resolution_desc">Qualité des pochettes d\'album. Les résolutions inférieures économisent la mémoire et les données.</string>
+    <string name="resolution_1200">1200 × 1200 (Maximale)</string>
+    <string name="resolution_1080">1080 × 1080 (Élevée)</string>
+    <string name="resolution_800">800 × 800 (Moyenne)</string>
+    <string name="resolution_500">500 × 500 (Basse)</string>
+    <string name="resolution_300">300 × 300 (Minimale)</string>
 </resources>

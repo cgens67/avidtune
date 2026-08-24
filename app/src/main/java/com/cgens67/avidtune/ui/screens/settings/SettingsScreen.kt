@@ -1182,6 +1182,12 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
         ),
         SettingsItem(
             icon = painterResource(R.drawable.lyrics),
+            title = stringResource(R.string.enable_avid_lyrics),
+            keywords = listOf("avidlyrics", "avid", "lyrics", "provider"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.lyrics),
             title = stringResource(R.string.enable_lyrics_plus),
             keywords = listOf("lyrics", "plus", "provider", "ttml"),
             onClick = { resetSearch(); navController.navigate("settings/content") }
@@ -1214,6 +1220,18 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
             icon = painterResource(R.drawable.lyrics),
             title = stringResource(R.string.enable_kugou),
             keywords = listOf("kugou", "lyrics", "provider"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.lyrics),
+            title = stringResource(R.string.enable_netease),
+            keywords = listOf("netease", "cloud", "music", "lyrics", "provider"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.lyrics),
+            title = stringResource(R.string.enable_genius),
+            keywords = listOf("genius", "lyrics", "provider"),
             onClick = { resetSearch(); navController.navigate("settings/content") }
         ),
         SettingsItem(

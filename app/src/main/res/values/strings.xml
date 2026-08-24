@@ -1285,4 +1285,14 @@
     <string name="alarm_type_to_search">Type to search songs</string>
     <string name="alarm_no_songs_found">No songs found for \'%1$s\'</string>
     
+    <string name="profiles">Profiles</string>
+    <string name="plays">plays</string>
+    <string name="cover_resolution">Album cover resolution</string>
+    <string name="cover_resolution_desc">Quality of album artwork. Lower resolutions save memory and reduce data consumption.</string>
+    <string name="resolution_1200">1200 × 1200 (Highest)</string>
+    <string name="resolution_1080">1080 × 1080 (High)</string>
+    <string name="resolution_800">800 × 800 (Medium)</string>
+    <string name="resolution_500">500 × 500 (Low)</string>
+    <string name="resolution_300">300 × 300 (Lowest)</string>
+    
 </resources>

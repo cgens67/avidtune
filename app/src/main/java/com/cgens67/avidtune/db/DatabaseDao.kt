@@ -1213,7 +1213,7 @@ interface DatabaseDao {
         update(
             artist.copy(
                 name = artistPage.artist.title,
-                thumbnailUrl = artistPage.artist.thumbnail.resize(1080, 1080),
+                thumbnailUrl = artistPage.artist.thumbnail?.resize(1080, 1080),
                 lastUpdateTime = LocalDateTime.now(),
             ),
         )

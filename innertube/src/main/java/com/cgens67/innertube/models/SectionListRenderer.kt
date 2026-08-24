@@ -1,6 +1,5 @@
 package com.cgens67.innertube.models
 
-import com.cgens67.innertube.models.response.BrowseResponse
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonNames
@@ -25,8 +24,8 @@ data class SectionListRenderer(
             ) {
                 @Serializable
                 data class ChipCloudChipRenderer(
-                    val isSelected: Boolean,
-                    val navigationEndpoint: NavigationEndpoint,
+                    val isSelected: Boolean = false,
+                    val navigationEndpoint: NavigationEndpoint? = null,
                     val onDeselectedCommand: NavigationEndpoint? = null,
                     val text: Runs?,
                     val uniqueId: String?,
@@ -44,9 +43,9 @@ data class SectionListRenderer(
         val musicCardShelfRenderer: MusicCardShelfRenderer?,
         val musicPlaylistShelfRenderer: MusicPlaylistShelfRenderer?,
         val musicDescriptionShelfRenderer: MusicDescriptionShelfRenderer?,
-        val musicResponsiveHeaderRenderer: BrowseResponse.Header.MusicHeaderRenderer?,
-        val musicEditablePlaylistDetailHeaderRenderer: BrowseResponse.Header.MusicEditablePlaylistDetailHeaderRenderer?,
+        val musicResponsiveHeaderRenderer: MusicResponsiveHeaderRenderer?,
+        val musicEditablePlaylistDetailHeaderRenderer: MusicEditablePlaylistDetailHeaderRenderer?,
         val gridRenderer: GridRenderer?,
-        val itemSectionRenderer: ItemSectionRenderer? = null,
+        val itemSectionRenderer: ItemSectionRenderer?,
     )
 }

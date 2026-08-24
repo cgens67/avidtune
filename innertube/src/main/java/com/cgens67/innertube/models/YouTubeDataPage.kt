@@ -1,6 +1,5 @@
 package com.cgens67.innertube.models
 
-
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 

@@ -40,6 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -84,6 +85,8 @@ import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
 import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.AlbumThumbnailSize
+import com.cgens67.avidtune.constants.CoverResolution
+import com.cgens67.avidtune.constants.CoverResolutionKey
 import com.cgens67.avidtune.constants.HideExplicitKey
 import com.cgens67.avidtune.constants.ThumbnailCornerRadius
 import com.cgens67.avidtune.db.entities.PlaylistEntity
@@ -106,6 +109,7 @@ import com.cgens67.avidtune.ui.menu.SelectionMediaMetadataMenu
 import com.cgens67.avidtune.ui.menu.YouTubePlaylistMenu
 import com.cgens67.avidtune.ui.menu.YouTubeSongMenu
 import com.cgens67.avidtune.ui.utils.ItemWrapper
+import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
 import com.cgens67.avidtune.viewmodels.OnlinePlaylistViewModel
 import com.cgens67.avidtune.ui.utils.resize
@@ -127,6 +131,11 @@ fun OnlinePlaylistScreen(
     val playlist by viewModel.playlist.collectAsState()
     val songs by viewModel.playlistSongs.collectAsState()
     val dbPlaylist by viewModel.dbPlaylist.collectAsState()
+
+    val (coverResolution) = rememberEnumPreference(
+        key = CoverResolutionKey,
+        defaultValue = CoverResolution.RES_1080
+    )
 
     var selection by remember {
         mutableStateOf(false)
@@ -172,15 +181,7 @@ fun OnlinePlaylistScreen(
         }
     }
 
-
-
-
-
-
-
-
     LaunchedEffect(playlist?.id) {
-        // Restaurar posición si cambias de playlist
         if (playlist?.id != null) {
             lazyListState.scrollToItem(0)
         }
@@ -192,7 +193,12 @@ fun OnlinePlaylistScreen(
         }
     }
 
-    // Calcular el padding del contenido considerando WindowInsets
+    val transparentAppBar by remember {
+        derivedStateOf {
+            lazyListState.firstVisibleItemIndex == 0 && lazyListState.firstVisibleItemScrollOffset < 200
+        }
+    }
+
     val contentPadding = LocalPlayerAwareWindowInsets.current.union(WindowInsets.ime)
         .asPaddingValues()
     val wrappedSongs = filteredSongs.map { item -> ItemWrapper(item) }.toMutableList()
@@ -232,7 +238,7 @@ fun OnlinePlaylistScreen(
                                                 .fillMaxWidth(),
                                         ) {
                                             AsyncImage(
-                                                model = playlist.thumbnail.resize(1200, 1200),
+                                                model = playlist.thumbnail?.resize(coverResolution.size, coverResolution.size),
                                                 contentDescription = null,
                                                 modifier = Modifier
                                                     .fillMaxWidth()
@@ -624,7 +630,13 @@ fun OnlinePlaylistScreen(
                         }
                     }
                 }
-            }
+            },
+            colors = if (transparentAppBar && !selection && !isSearching) {
+                TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+            } else {
+                TopAppBarDefaults.topAppBarColors()
+            },
+            scrollBehavior = scrollBehavior
         )
 
         SnackbarHost(

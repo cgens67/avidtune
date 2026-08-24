@@ -22,6 +22,16 @@ val SlimNavBarKey = booleanPreferencesKey("slimNavBar")
 val GridItemsSizeKey = stringPreferencesKey("gridItemSize")
 val SliderStyleKey = stringPreferencesKey("sliderStyle")
 
+val CoverResolutionKey = stringPreferencesKey("coverResolution")
+
+enum class CoverResolution(val size: Int) {
+    RES_1200(1200),
+    RES_1080(1080),
+    RES_800(800),
+    RES_500(500),
+    RES_300(300),
+}
+
 enum class SliderStyle {
     DEFAULT,
     SQUIGGLY,

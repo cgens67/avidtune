@@ -33,13 +33,18 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.cgens67.innertube.models.AlbumItem
 import com.cgens67.innertube.models.ArtistItem
+import com.cgens67.innertube.models.EpisodeItem
 import com.cgens67.innertube.models.PlaylistItem
+import com.cgens67.innertube.models.PodcastItem
 import com.cgens67.innertube.models.SongItem
 import com.cgens67.innertube.models.WatchEndpoint
+import com.cgens67.innertube.models.filterVideoSongs
 import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
 import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.GridThumbnailHeight
+import com.cgens67.avidtune.constants.HideExplicitKey
+import com.cgens67.avidtune.constants.HideMusicVideosKey
 import com.cgens67.avidtune.extensions.togglePlayPause
 import com.cgens67.avidtune.models.toMediaMetadata
 import com.cgens67.avidtune.playback.queues.YouTubeQueue
@@ -55,6 +60,8 @@ import com.cgens67.avidtune.ui.menu.YouTubeArtistMenu
 import com.cgens67.avidtune.ui.menu.YouTubePlaylistMenu
 import com.cgens67.avidtune.ui.menu.YouTubeSongMenu
 import com.cgens67.avidtune.ui.utils.backToMain
+import com.cgens67.avidtune.utils.dataStore
+import com.cgens67.avidtune.utils.get
 import com.cgens67.avidtune.viewmodels.ArtistItemsViewModel
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
@@ -105,7 +112,7 @@ fun ArtistItemsScreen(
         }
     }
 
-    if (itemsPage?.items?.firstOrNull() is SongItem) {
+    if (itemsPage?.items?.firstOrNull() is SongItem || itemsPage?.items?.firstOrNull() is EpisodeItem) {
         LazyColumn(
             state = lazyListState,
             contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues(),
@@ -120,6 +127,7 @@ fun ArtistItemsScreen(
                         when (item) {
                             is SongItem -> mediaMetadata?.id == item.id
                             is AlbumItem -> mediaMetadata?.album?.id == item.id
+                            is EpisodeItem -> mediaMetadata?.id == item.id
                             else -> false
                         },
                     isPlaying = isPlaying,
@@ -154,6 +162,18 @@ fun ArtistItemsScreen(
                                                 coroutineScope = coroutineScope,
                                                 onDismiss = menuState::dismiss,
                                             )
+                                        is EpisodeItem ->
+                                            YouTubeSongMenu(
+                                                song = item.asSongItem(),
+                                                navController = navController,
+                                                onDismiss = menuState::dismiss,
+                                            )
+                                        is PodcastItem ->
+                                            YouTubePlaylistMenu(
+                                                playlist = item.asPlaylistItem(),
+                                                coroutineScope = coroutineScope,
+                                                onDismiss = menuState::dismiss,
+                                            )
                                     }
                                 }
                             },
@@ -181,10 +201,24 @@ fun ArtistItemsScreen(
                                             )
                                         }
                                     }
+                                    is EpisodeItem -> {
+                                        if (item.id == mediaMetadata?.id) {
+                                            playerConnection.player.togglePlayPause()
+                                        } else {
+                                            playerConnection.playQueue(
+                                                YouTubeQueue(
+                                                    item.endpoint
+                                                        ?: WatchEndpoint(videoId = item.id),
+                                                    item.asSongItem().toMediaMetadata()
+                                                ),
+                                            )
+                                        }
+                                    }
 
                                     is AlbumItem -> navController.navigate("album/${item.id}")
                                     is ArtistItem -> navController.navigate("artist/${item.id}")
                                     is PlaylistItem -> navController.navigate("online_playlist/${item.id}")
+                                    is PodcastItem -> navController.navigate("online_playlist/${item.id}")
                                 }
                             },
                 )
@@ -215,6 +249,7 @@ fun ArtistItemsScreen(
                     isActive = when (item) {
                         is SongItem -> mediaMetadata?.id == item.id
                         is AlbumItem -> mediaMetadata?.album?.id == item.id
+                        is EpisodeItem -> mediaMetadata?.id == item.id
                         else -> false
                     },
                     isPlaying = isPlaying,
@@ -230,10 +265,17 @@ fun ArtistItemsScreen(
                                             item.toMediaMetadata()
                                         )
                                     )
+                                    is EpisodeItem -> playerConnection.playQueue(
+                                        YouTubeQueue(
+                                            item.endpoint ?: WatchEndpoint(videoId = item.id),
+                                            item.asSongItem().toMediaMetadata()
+                                        )
+                                    )
 
                                     is AlbumItem -> navController.navigate("album/${item.id}")
                                     is ArtistItem -> navController.navigate("artist/${item.id}")
                                     is PlaylistItem -> navController.navigate("online_playlist/${item.id}")
+                                    is PodcastItem -> navController.navigate("online_playlist/${item.id}")
                                 }
                             },
                             onLongClick = {
@@ -259,6 +301,16 @@ fun ArtistItemsScreen(
 
                                         is PlaylistItem -> YouTubePlaylistMenu(
                                             playlist = item,
+                                            coroutineScope = coroutineScope,
+                                            onDismiss = menuState::dismiss
+                                        )
+                                        is EpisodeItem -> YouTubeSongMenu(
+                                            song = item.asSongItem(),
+                                            navController = navController,
+                                            onDismiss = menuState::dismiss
+                                        )
+                                        is PodcastItem -> YouTubePlaylistMenu(
+                                            playlist = item.asPlaylistItem(),
                                             coroutineScope = coroutineScope,
                                             onDismiss = menuState::dismiss
                                         )

@@ -99,6 +99,8 @@ import com.cgens67.avidtune.LocalDownloadUtil
 import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
 import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
+import com.cgens67.avidtune.constants.CoverResolution
+import com.cgens67.avidtune.constants.CoverResolutionKey
 import com.cgens67.avidtune.db.entities.Album
 import com.cgens67.avidtune.extensions.togglePlayPause
 import com.cgens67.avidtune.playback.ExoDownloadService
@@ -115,6 +117,7 @@ import com.cgens67.avidtune.ui.menu.SongMenu
 import com.cgens67.avidtune.ui.menu.YouTubeAlbumMenu
 import com.cgens67.avidtune.ui.utils.ItemWrapper
 import com.cgens67.avidtune.ui.utils.resize
+import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.viewmodels.AlbumViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -144,6 +147,11 @@ fun AlbumScreen(
 
     val isPlaying by playerConnection.isPlaying.collectAsState()
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
+
+    val (coverResolution) = rememberEnumPreference(
+        key = CoverResolutionKey,
+        defaultValue = CoverResolution.RES_1080
+    )
 
     val playlistId by viewModel.playlistId.collectAsState()
     val albumWithSongs by viewModel.albumWithSongs.collectAsState()
@@ -238,7 +246,7 @@ fun AlbumScreen(
                                 .padding(horizontal = 48.dp)
                         ) {
                             AsyncImage(
-                                model = albumWithSongs.album.thumbnailUrl?.resize(1200, 1200),
+                                model = albumWithSongs.album.thumbnailUrl?.resize(coverResolution.size, coverResolution.size),
                                 contentDescription = null,
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -254,7 +262,7 @@ fun AlbumScreen(
                                         albumWithSongs.album.thumbnailUrl?.let {
                                             saveAlbumImageToGallery(
                                                 context,
-                                                it.resize(1200, 1200),
+                                                it.resize(coverResolution.size, coverResolution.size),
                                                 albumWithSongs.album.title
                                             )
                                         }

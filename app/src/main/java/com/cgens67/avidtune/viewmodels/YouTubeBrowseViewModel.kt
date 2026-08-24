@@ -6,7 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cgens67.innertube.YouTube
 import com.cgens67.innertube.models.filterExplicit
-import com.cgens67.innertube.models.filterMusicVideos
+import com.cgens67.innertube.models.filterVideoSongs
 import com.cgens67.innertube.pages.BrowseResult
 import com.cgens67.avidtune.constants.HideExplicitKey
 import com.cgens67.avidtune.constants.HideMusicVideosKey
@@ -37,7 +37,7 @@ constructor(
                 .browse(browseId, params)
                 .onSuccess {
                     result.value = it.filterExplicit(context.dataStore.get(HideExplicitKey, false))
-                                     .filterMusicVideos(context.dataStore.get(HideMusicVideosKey, false))
+                                     .filterVideoSongs(context.dataStore.get(HideMusicVideosKey, false))
                 }.onFailure {
                     reportException(it)
                 }
