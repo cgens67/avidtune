@@ -214,10 +214,7 @@ object PlayerSliderColors {
     ) = SliderDefaults.colors(
         activeTrackColor = when (playerBackground) {
             PlayerBackgroundStyle.DEFAULT -> textButtonColor
-            PlayerBackgroundStyle.BLUR -> Color.White
-            PlayerBackgroundStyle.GRADIENT -> Color.White
-            PlayerBackgroundStyle.APPLE_MUSIC -> Color.White
-            PlayerBackgroundStyle.LIVE_MESH -> Color.White
+            else -> Color.White
         },
         inactiveTrackColor = when {
             useDarkTheme -> Color.Gray.copy(alpha = 0.5f)
@@ -225,18 +222,12 @@ object PlayerSliderColors {
         },
         activeTickColor = when (playerBackground) {
             PlayerBackgroundStyle.DEFAULT -> textButtonColor
-            PlayerBackgroundStyle.BLUR -> Color.White
-            PlayerBackgroundStyle.GRADIENT -> Color.White
-            PlayerBackgroundStyle.APPLE_MUSIC -> Color.White
-            PlayerBackgroundStyle.LIVE_MESH -> Color.White
+            else -> Color.White
         },
         inactiveTickColor = Color.Gray,
         thumbColor = when (playerBackground) {
             PlayerBackgroundStyle.DEFAULT -> textButtonColor
-            PlayerBackgroundStyle.BLUR -> Color.White
-            PlayerBackgroundStyle.GRADIENT -> Color.White
-            PlayerBackgroundStyle.APPLE_MUSIC -> Color.White
-            PlayerBackgroundStyle.LIVE_MESH -> Color.White
+            else -> Color.White
         }
     )
 }
