@@ -79,6 +79,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
@@ -1004,21 +1005,17 @@ fun PlayerBackground(
                             animationSpec = infiniteRepeatable(tween(60000, easing = LinearEasing), RepeatMode.Restart),
                             label = "slow"
                         )
+
+                        val saturationMatrix = remember { ColorMatrix().apply { setToSaturation(1.8f) } }
                         
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .alpha(backgroundAlpha),
-                            contentAlignment = Alignment.Center
-                        ) {
+                        Box(modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = 3f; scaleY = 3f }) {
                             val imageRequest = remember(thumbnailUrl) {
                                 ImageRequest.Builder(context)
                                     .data(thumbnailUrl.resize(800, 800))
                                     .allowHardware(true)
                                     .build()
                             }
-                            val saturationMatrix = remember { ColorMatrix().apply { setToSaturation(1.8f) } }
-                            val baseBlur = if (!disableBlur) 24.dp else 0.dp
+                            val baseBlur = if (!disableBlur) 32.dp else 0.dp
 
                             // Layer 1 (Anchor)
                             AsyncImage(
