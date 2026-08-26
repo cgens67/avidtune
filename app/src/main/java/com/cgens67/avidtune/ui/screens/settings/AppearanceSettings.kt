@@ -117,6 +117,7 @@ import me.saket.squiggles.SquigglySlider
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import timber.log.Timber
+import androidx.compose.ui.platform.LocalContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -124,6 +125,7 @@ fun AppearanceSettings(
     navController: NavController,
     scrollBehavior: TopAppBarScrollBehavior,
 ) {
+    val context = LocalContext.current
     val (dynamicTheme, onDynamicThemeChange) = rememberPreference(
         DynamicThemeKey,
         defaultValue = true
@@ -216,7 +218,7 @@ fun AppearanceSettings(
     val isSystemInDarkTheme = isSystemInDarkTheme()
     val useDarkTheme =
         remember(darkMode, isSystemInDarkTheme) {
-            if (darkMode == DarkMode.AUTO) isSystemInDarkTheme else darkMode == DarkMode.ON
+            if (darkMode == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON
         }
 
     // Automatically disable pureBlack when switching to light mode
@@ -442,7 +444,10 @@ fun AppearanceSettings(
                     title = { Text(stringResource(R.string.app_text_size)) },
                     icon = { Icon(painterResource(R.drawable.format_align_left), null) },
                     selectedValue = appTextSize,
-                    onValueSelected = onAppTextSizeChange,
+                    onValueSelected = {
+                        onAppTextSizeChange(it)
+                        com.cgens67.avidtune.ui.component.LocaleManager.getInstance(context).restartApp(context)
+                    },
                     valueText = {
                         when (it) {
                             AppTextSize.SMALL -> stringResource(R.string.text_size_small)
