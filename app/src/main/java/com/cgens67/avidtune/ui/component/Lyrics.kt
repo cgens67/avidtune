@@ -457,7 +457,7 @@ fun Lyrics(
     val darkTheme by rememberEnumPreference(DarkModeKey, defaultValue = DarkMode.AUTO)
     val isSystemInDarkTheme = isSystemInDarkTheme()
     val useDarkTheme = remember(darkTheme, isSystemInDarkTheme) {
-        if (darkTheme == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON
+        if (darkMode == DarkMode.AUTO) isSystemInDarkTheme else darkMode == DarkMode.ON
     }
 
     var progress by remember { mutableFloatStateOf(0f) }
@@ -483,7 +483,7 @@ fun Lyrics(
 
     val textBackgroundColor = when (playerBackground) {
         PlayerBackgroundStyle.DEFAULT -> MaterialTheme.colorScheme.onBackground
-        PlayerBackgroundStyle.BLUR, PlayerBackgroundStyle.GRADIENT, PlayerBackgroundStyle.APPLE_MUSIC, PlayerBackgroundStyle.LIVE_MESH -> Color.White
+        else -> Color.White
     }
 
     val primaryColor = MaterialTheme.colorScheme.primary
@@ -1053,11 +1053,11 @@ fun Lyrics(
                             }
                         }
                     }
-                    PlayerBackgroundStyle.DEFAULT -> {
+                    PlayerBackgroundStyle.DEFAULT, PlayerBackgroundStyle.SPINNING_VINYL -> {
                     }
                 }
 
-                if (playerBackground != PlayerBackgroundStyle.DEFAULT) {
+                if (playerBackground != PlayerBackgroundStyle.DEFAULT && playerBackground != PlayerBackgroundStyle.SPINNING_VINYL) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
