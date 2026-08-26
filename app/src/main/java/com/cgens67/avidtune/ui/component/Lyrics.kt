@@ -483,7 +483,7 @@ fun Lyrics(
 
     val textBackgroundColor = when (playerBackground) {
         PlayerBackgroundStyle.DEFAULT -> MaterialTheme.colorScheme.onBackground
-        else -> Color.White
+        PlayerBackgroundStyle.BLUR, PlayerBackgroundStyle.GRADIENT, PlayerBackgroundStyle.APPLE_MUSIC, PlayerBackgroundStyle.LIVE_MESH -> Color.White
     }
 
     val primaryColor = MaterialTheme.colorScheme.primary
@@ -1053,11 +1053,11 @@ fun Lyrics(
                             }
                         }
                     }
-                    PlayerBackgroundStyle.DEFAULT, PlayerBackgroundStyle.SPINNING_VINYL -> {
+                    PlayerBackgroundStyle.DEFAULT -> {
                     }
                 }
 
-                if (playerBackground != PlayerBackgroundStyle.DEFAULT && playerBackground != PlayerBackgroundStyle.SPINNING_VINYL) {
+                if (playerBackground != PlayerBackgroundStyle.DEFAULT) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()

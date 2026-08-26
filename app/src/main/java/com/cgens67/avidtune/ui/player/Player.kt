@@ -10,7 +10,6 @@ import android.content.res.Configuration
 import android.graphics.drawable.BitmapDrawable
 import android.text.format.Formatter
 import android.widget.Toast
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -79,7 +78,6 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
@@ -174,12 +172,6 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.ui.platform.LocalView
 import android.app.Activity
 import androidx.core.view.WindowCompat
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.runtime.withFrameNanos
-import androidx.compose.ui.graphics.drawscope.Stroke
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -224,7 +216,7 @@ fun BottomSheetPlayer(
         }
         
     val bottomSheetBackgroundColor = when (playerBackground) {
-        PlayerBackgroundStyle.LIVE_MESH, PlayerBackgroundStyle.BLUR, PlayerBackgroundStyle.GRADIENT, PlayerBackgroundStyle.APPLE_MUSIC, PlayerBackgroundStyle.SPINNING_VINYL ->
+        PlayerBackgroundStyle.LIVE_MESH, PlayerBackgroundStyle.BLUR, PlayerBackgroundStyle.GRADIENT, PlayerBackgroundStyle.APPLE_MUSIC ->
             if (useDarkTheme) MaterialTheme.colorScheme.surfaceContainer else Color(0xFF424242)
         else ->
             if (useBlackBackground) Color.Black
@@ -359,7 +351,7 @@ fun BottomSheetPlayer(
 
     val (textButtonColor, iconButtonColor) = when (playerButtonsStyle) {
         PlayerButtonsStyle.DEFAULT -> {
-            if (playerBackground == PlayerBackgroundStyle.LIVE_MESH || playerBackground == PlayerBackgroundStyle.SPINNING_VINYL) {
+            if (playerBackground == PlayerBackgroundStyle.LIVE_MESH) {
                 Pair(Color.White.copy(alpha = 0.2f), Color.White)
             } else {
                 Pair(TextBackgroundColor, icBackgroundColor)
@@ -487,8 +479,7 @@ fun BottomSheetPlayer(
                     mediaMetadata = mediaMetadata,
                     gradientColors = gradientColors,
                     backgroundAlpha = backgroundAlpha,
-                    disableBlur = disableBlur,
-                    isPlaying = isPlaying
+                    disableBlur = disableBlur
                 )
             }
         },
@@ -842,8 +833,7 @@ fun PlayerBackground(
     mediaMetadata: MediaMetadata?,
     gradientColors: List<Color>,
     backgroundAlpha: Float,
-    disableBlur: Boolean,
-    isPlaying: Boolean = false
+    disableBlur: Boolean
 ) {
     val context = LocalContext.current
     Box(modifier = Modifier.fillMaxSize()) {
@@ -1005,17 +995,21 @@ fun PlayerBackground(
                             animationSpec = infiniteRepeatable(tween(60000, easing = LinearEasing), RepeatMode.Restart),
                             label = "slow"
                         )
-
-                        val saturationMatrix = remember { ColorMatrix().apply { setToSaturation(1.8f) } }
                         
-                        Box(modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = 3f; scaleY = 3f }) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .alpha(backgroundAlpha),
+                            contentAlignment = Alignment.Center
+                        ) {
                             val imageRequest = remember(thumbnailUrl) {
                                 ImageRequest.Builder(context)
                                     .data(thumbnailUrl.resize(800, 800))
                                     .allowHardware(true)
                                     .build()
                             }
-                            val baseBlur = if (!disableBlur) 32.dp else 0.dp
+                            val saturationMatrix = remember { ColorMatrix().apply { setToSaturation(1.8f) } }
+                            val baseBlur = if (!disableBlur) 24.dp else 0.dp
 
                             // Layer 1 (Anchor)
                             AsyncImage(
@@ -1087,135 +1081,9 @@ fun PlayerBackground(
                     }
                 }
             }
-            PlayerBackgroundStyle.SPINNING_VINYL -> {
-                AnimatedContent(
-                    targetState = mediaMetadata?.thumbnailUrl,
-                    transitionSpec = {
-                        fadeIn(tween(800)) togetherWith fadeOut(tween(800))
-                    },
-                    label = "vinylBackground"
-                ) { thumbnailUrl ->
-                    if (thumbnailUrl != null) {
-                        var currentRotation by remember { mutableFloatStateOf(0f) }
-                        
-                        LaunchedEffect(isPlaying) {
-                            if (isPlaying) {
-                                var lastTime = withFrameNanos { it }
-                                while(isActive) {
-                                    val currentTime = withFrameNanos { it }
-                                    val delta = (currentTime - lastTime) / 1_000_000_000f // seconds
-                                    currentRotation = (currentRotation + delta * 45f) % 360f
-                                    lastTime = currentTime
-                                }
-                            }
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .alpha(backgroundAlpha)
-                                .background(
-                                    Brush.verticalGradient(
-                                        colors = listOf(
-                                            Color(0xFF1E1E1E),
-                                            Color.Black
-                                        )
-                                    )
-                                ),
-                            contentAlignment = Alignment.TopCenter
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .padding(top = 100.dp)
-                                    .size(320.dp)
-                                    .graphicsLayer { rotationZ = currentRotation }
-                                    .shadow(24.dp, CircleShape)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFF0A0A0A))
-                                    .border(1.dp, Color(0xFF2A2A2A), CircleShape)
-                            ) {
-                                Canvas(modifier = Modifier.fillMaxSize()) {
-                                    val grooveColor = Color.White.copy(alpha = 0.04f)
-                                    val stroke = Stroke(width = 1.dp.toPx())
-                                    val cx = size.width / 2f
-                                    val cy = size.height / 2f
-
-                                    for (i in 1..15) {
-                                        val r = size.width / 2f - (i * 8.dp.toPx())
-                                        if (r > 60.dp.toPx()) {
-                                            drawCircle(color = grooveColor, radius = r, center = Offset(cx, cy), style = stroke)
-                                        }
-                                    }
-                                    
-                                    drawArc(
-                                        brush = Brush.sweepGradient(
-                                            colors = listOf(
-                                                Color.Transparent, 
-                                                Color.White.copy(alpha = 0.15f), 
-                                                Color.Transparent, 
-                                                Color.White.copy(alpha = 0.15f), 
-                                                Color.Transparent
-                                            )
-                                        ),
-                                        startAngle = 0f,
-                                        sweepAngle = 360f,
-                                        useCenter = true,
-                                        size = size
-                                    )
-                                }
-
-                                AsyncImage(
-                                    model = ImageRequest.Builder(context)
-                                        .data(thumbnailUrl.resize(800, 800))
-                                        .allowHardware(false)
-                                        .build(),
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .size(110.dp)
-                                        .align(Alignment.Center)
-                                        .clip(CircleShape)
-                                        .border(2.dp, Color.Black, CircleShape)
-                                )
-
-                                Box(
-                                    modifier = Modifier
-                                        .size(12.dp)
-                                        .align(Alignment.Center)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFF0A0A0A))
-                                )
-                            }
-                            
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(
-                                        Brush.verticalGradient(
-                                            colors = listOf(
-                                                Color.Transparent,
-                                                Color.Black.copy(alpha = 0.5f),
-                                                Color.Black
-                                            ),
-                                            startY = 500f
-                                        )
-                                    )
-                            )
-                        }
-                    }
-                }
-            }
             else -> {
                 // DEFAULT
             }
-        }
-
-        if (playerBackground != PlayerBackgroundStyle.DEFAULT && playerBackground != PlayerBackgroundStyle.SPINNING_VINYL) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = if (isSystemInDarkTheme()) 0.3f else 0.45f))
-            )
         }
     }
 }

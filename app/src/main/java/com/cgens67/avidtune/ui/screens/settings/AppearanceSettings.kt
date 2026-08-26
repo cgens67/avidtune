@@ -196,17 +196,17 @@ fun AppearanceSettings(
     }
     var showCanvasReorderDialog by remember { mutableStateOf(false) }
 
-    val (smallButtonsShapeState, onSmallButtonsShapeStateChange) = rememberPreference(
+    val smallButtonsShapeState = rememberPreference(
         key = SmallButtonsShapeKey,
         defaultValue = DefaultSmallButtonsShape
     )
 
-    val (playPauseShapeState, onPlayPauseShapeStateChange) = rememberPreference(
+    val playPauseShapeState = rememberPreference(
         key = PlayPauseButtonShapeKey,
         defaultValue = DefaultPlayPauseButtonShape
     )
 
-    val (miniPlayerThumbnailShapeState, onMiniPlayerThumbnailShapeStateChange) = rememberPreference(
+    val miniPlayerThumbnailShapeState = rememberPreference(
         key = MiniPlayerThumbnailShapeKey,
         defaultValue = DefaultMiniPlayerThumbnailShape
     )
@@ -495,7 +495,6 @@ fun AppearanceSettings(
                             PlayerBackgroundStyle.BLUR -> stringResource(R.string.player_background_blur)
                             PlayerBackgroundStyle.APPLE_MUSIC -> stringResource(R.string.apple_music)
                             PlayerBackgroundStyle.LIVE_MESH -> stringResource(R.string.live_mesh)
-                            PlayerBackgroundStyle.SPINNING_VINYL -> "Spinning Vinyl"
                         }
                     },
                     values = availableBackgroundStyles
@@ -503,21 +502,9 @@ fun AppearanceSettings(
 
                 {ThumbnailCornerRadiusSelectorButton(
                     onRadiusSelected = { selectedRadius ->
-                        timber.log.Timber.tag("Thumbnail").d("Selected radio: $selectedRadius")
+                        Timber.tag("Thumbnail").d("Selected radio: $selectedRadius")
                     }
                 )},
-
-                {
-                    UnifiedShapeSelectorButton(
-                        smallButtonsShape = smallButtonsShapeState,
-                        miniPlayerShape = miniPlayerThumbnailShapeState, // Now maps properly
-                        onSmallButtonsShapeSelected = onSmallButtonsShapeStateChange,
-                        onMiniPlayerShapeSelected = { shape ->
-                            onMiniPlayerThumbnailShapeStateChange(shape)
-                            onPlayPauseShapeStateChange(shape)
-                        }
-                    )
-                },
 
                 {EnumListPreference(
                     title = { Text(stringResource(R.string.player_buttons_style)) },
@@ -731,7 +718,6 @@ fun ReorderCanvasProvidersBottomSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val coroutineScope = rememberCoroutineScope()
 
-    // Consumes ALL vertical overscroll to prevent the sheet from dragging and snapping back
     val nestedScrollConnection = remember {
         object : NestedScrollConnection {
             override fun onPostScroll(
@@ -828,7 +814,6 @@ fun ReorderCanvasProvidersBottomSheet(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.padding(16.dp)
                             ) {
-                                // Priority Number Badge
                                 Box(
                                     modifier = Modifier
                                         .size(28.dp)
@@ -850,7 +835,6 @@ fun ReorderCanvasProvidersBottomSheet(
                                 
                                 Spacer(Modifier.width(16.dp))
                                 
-                                // Provider Name
                                 Text(
                                     text = item,
                                     style = MaterialTheme.typography.bodyLarge,
@@ -858,10 +842,9 @@ fun ReorderCanvasProvidersBottomSheet(
                                     modifier = Modifier.weight(1f)
                                 )
                                 
-                                // Drag Handle
                                 Icon(
                                     painter = painterResource(R.drawable.drag_handle),
-                                    contentDescription = "Drag",
+                                    contentDescription = null, // Drag handle, decoration only
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier
                                         .draggableHandle()
