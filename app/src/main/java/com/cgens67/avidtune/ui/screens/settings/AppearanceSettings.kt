@@ -196,17 +196,17 @@ fun AppearanceSettings(
     }
     var showCanvasReorderDialog by remember { mutableStateOf(false) }
 
-    val smallButtonsShapeState = rememberPreference(
+    val (smallButtonsShapeState, onSmallButtonsShapeStateChange) = rememberPreference(
         key = SmallButtonsShapeKey,
         defaultValue = DefaultSmallButtonsShape
     )
 
-    val playPauseShapeState = rememberPreference(
+    val (playPauseShapeState, onPlayPauseShapeStateChange) = rememberPreference(
         key = PlayPauseButtonShapeKey,
         defaultValue = DefaultPlayPauseButtonShape
     )
 
-    val miniPlayerThumbnailShapeState = rememberPreference(
+    val (miniPlayerThumbnailShapeState, onMiniPlayerThumbnailShapeStateChange) = rememberPreference(
         key = MiniPlayerThumbnailShapeKey,
         defaultValue = DefaultMiniPlayerThumbnailShape
     )
@@ -216,7 +216,7 @@ fun AppearanceSettings(
     val isSystemInDarkTheme = isSystemInDarkTheme()
     val useDarkTheme =
         remember(darkMode, isSystemInDarkTheme) {
-            if (darkMode == DarkMode.AUTO) isSystemInDarkTheme else darkMode == DarkMode.ON
+            if (darkMode == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON
         }
 
     // Automatically disable pureBlack when switching to light mode
@@ -495,6 +495,7 @@ fun AppearanceSettings(
                             PlayerBackgroundStyle.BLUR -> stringResource(R.string.player_background_blur)
                             PlayerBackgroundStyle.APPLE_MUSIC -> stringResource(R.string.apple_music)
                             PlayerBackgroundStyle.LIVE_MESH -> stringResource(R.string.live_mesh)
+                            PlayerBackgroundStyle.SPINNING_VINYL -> "Spinning Vinyl"
                         }
                     },
                     values = availableBackgroundStyles
@@ -505,6 +506,18 @@ fun AppearanceSettings(
                         Timber.tag("Thumbnail").d("Selected radio: $selectedRadius")
                     }
                 )},
+
+                {
+                    UnifiedShapeSelectorButton(
+                        smallButtonsShape = smallButtonsShapeState,
+                        miniPlayerShape = miniPlayerThumbnailShapeState, // Now maps properly
+                        onSmallButtonsShapeSelected = onSmallButtonsShapeStateChange,
+                        onMiniPlayerShapeSelected = { shape ->
+                            onMiniPlayerThumbnailShapeStateChange(shape)
+                            onPlayPauseShapeStateChange(shape)
+                        }
+                    )
+                },
 
                 {EnumListPreference(
                     title = { Text(stringResource(R.string.player_buttons_style)) },
@@ -718,6 +731,7 @@ fun ReorderCanvasProvidersBottomSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val coroutineScope = rememberCoroutineScope()
 
+    // Consumes ALL vertical overscroll to prevent the sheet from dragging and snapping back
     val nestedScrollConnection = remember {
         object : NestedScrollConnection {
             override fun onPostScroll(
