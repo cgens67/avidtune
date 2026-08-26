@@ -310,13 +310,17 @@ class MainActivity : ComponentActivity() {
     override fun attachBaseContext(newBase: Context) {
         val localeContext = com.cgens67.avidtune.ui.component.LocaleManager.getInstance(newBase).applyLocaleToContext(newBase)
         
-        val appTextSizeStr = kotlinx.coroutines.runBlocking {
-            try {
+        var appTextSizeStr = com.cgens67.avidtune.constants.AppTextSize.SYSTEM.name
+        try {
+            val savedSize = kotlinx.coroutines.runBlocking {
                 localeContext.dataStore.data.first()[com.cgens67.avidtune.constants.AppTextSizeKey]
-            } catch (e: Exception) {
-                null
             }
-        } ?: com.cgens67.avidtune.constants.AppTextSize.SYSTEM.name
+            if (savedSize != null) {
+                appTextSizeStr = savedSize
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
         
         val appTextSize = try { 
             com.cgens67.avidtune.constants.AppTextSize.valueOf(appTextSizeStr) 
@@ -1616,6 +1620,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
 
     private fun navigateToScreen(
         navController: NavHostController,
