@@ -503,7 +503,7 @@ fun AppearanceSettings(
 
                 {ThumbnailCornerRadiusSelectorButton(
                     onRadiusSelected = { selectedRadius ->
-                        Timber.tag("Thumbnail").d("Selected radio: $selectedRadius")
+                        timber.log.Timber.tag("Thumbnail").d("Selected radio: $selectedRadius")
                     }
                 )},
 
