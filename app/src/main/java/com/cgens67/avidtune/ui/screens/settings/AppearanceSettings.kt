@@ -216,7 +216,7 @@ fun AppearanceSettings(
     val isSystemInDarkTheme = isSystemInDarkTheme()
     val useDarkTheme =
         remember(darkMode, isSystemInDarkTheme) {
-            if (darkMode == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON
+            if (darkMode == DarkMode.AUTO) isSystemInDarkTheme else darkMode == DarkMode.ON
         }
 
     // Automatically disable pureBlack when switching to light mode
@@ -828,6 +828,7 @@ fun ReorderCanvasProvidersBottomSheet(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.padding(16.dp)
                             ) {
+                                // Priority Number Badge
                                 Box(
                                     modifier = Modifier
                                         .size(28.dp)
@@ -849,6 +850,7 @@ fun ReorderCanvasProvidersBottomSheet(
                                 
                                 Spacer(Modifier.width(16.dp))
                                 
+                                // Provider Name
                                 Text(
                                     text = item,
                                     style = MaterialTheme.typography.bodyLarge,
@@ -856,9 +858,10 @@ fun ReorderCanvasProvidersBottomSheet(
                                     modifier = Modifier.weight(1f)
                                 )
                                 
+                                // Drag Handle
                                 Icon(
                                     painter = painterResource(R.drawable.drag_handle),
-                                    contentDescription = null, // Drag handle, decoration only
+                                    contentDescription = "Drag",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier
                                         .draggableHandle()
