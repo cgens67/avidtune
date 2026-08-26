@@ -317,6 +317,7 @@ enum class PlayerBackgroundStyle {
     BLUR,
     APPLE_MUSIC,
     LIVE_MESH,
+    SPINNING_VINYL,
 }
 
 
