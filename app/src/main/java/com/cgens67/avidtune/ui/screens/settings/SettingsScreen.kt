@@ -818,6 +818,14 @@ private fun buildSettingsGroups(
                     onClick = { resetSearch(); navController.navigate("settings/account") }
                 ),
                 SettingsItem(
+                    icon = painterResource(R.drawable.speed),
+                    title = stringResource(R.string.performance),
+                    subtitle = stringResource(R.string.performance),
+                    accentColor = MaterialTheme.colorScheme.secondary,
+                    keywords = listOf("performance", "speed", "blur", "minimal"),
+                    onClick = { resetSearch(); navController.navigate("settings/performance") }
+                ),
+                SettingsItem(
                     icon = painterResource(R.drawable.security),
                     title = stringResource(R.string.privacy),
                     subtitle = stringResource(R.string.pause_listen_history),
@@ -829,7 +837,7 @@ private fun buildSettingsGroups(
                     icon = painterResource(R.drawable.history),
                     title = stringResource(R.string.backup_restore),
                     subtitle = stringResource(R.string.backup_restore),
-                    accentColor = MaterialTheme.colorScheme.secondary,
+                    accentColor = MaterialTheme.colorScheme.tertiary,
                     keywords = listOf("backup", "restore", "data"),
                     onClick = { resetSearch(); navController.navigate("settings/backup_restore") }
                 ),
@@ -837,7 +845,7 @@ private fun buildSettingsGroups(
                     icon = painterResource(R.drawable.schedule),
                     title = stringResource(R.string.alarm),
                     subtitle = stringResource(R.string.alarm),
-                    accentColor = MaterialTheme.colorScheme.tertiary,
+                    accentColor = MaterialTheme.colorScheme.primary,
                     keywords = listOf("alarm", "wake", "time", "clock", "snooze"),
                     onClick = { resetSearch(); navController.navigate("alarm_settings") }
                 ),
@@ -845,7 +853,7 @@ private fun buildSettingsGroups(
                     icon = painterResource(R.drawable.link),
                     title = stringResource(R.string.open_supported_links),
                     subtitle = stringResource(R.string.default_),
-                    accentColor = MaterialTheme.colorScheme.primary,
+                    accentColor = MaterialTheme.colorScheme.secondary,
                     keywords = listOf("open", "supported", "links", "default"),
                     onClick = { 
                         resetSearch()
@@ -869,7 +877,7 @@ private fun buildSettingsGroups(
                     icon = painterResource(R.drawable.info),
                     title = stringResource(R.string.about),
                     subtitle = stringResource(R.string.version_name, BuildConfig.VERSION_NAME),
-                    accentColor = MaterialTheme.colorScheme.secondary,
+                    accentColor = MaterialTheme.colorScheme.tertiary,
                     keywords = listOf("about", "info", "version"),
                     onClick = { resetSearch(); navController.navigate("settings/about") }
                 )
@@ -883,14 +891,14 @@ private fun buildSettingsGroups(
                     title = stringResource(R.string.news),
                     badge = if (hasUnreadNews) stringResource(R.string.new_badge) else null,
                     showUpdateIndicator = hasUnreadNews,
-                    accentColor = MaterialTheme.colorScheme.tertiary,
+                    accentColor = MaterialTheme.colorScheme.primary,
                     keywords = listOf("news", "updates", "announcements"),
                     onClick = { resetSearch(); navController.navigate("news") }
                 ),
                 SettingsItem(
                     icon = painterResource(R.drawable.schedule),
                     title = stringResource(R.string.Changelog),
-                    accentColor = MaterialTheme.colorScheme.primary,
+                    accentColor = MaterialTheme.colorScheme.secondary,
                     keywords = listOf("changelog", "updates", "features"),
                     onClick = { resetSearch(); onChangelogClick() }
                 ),
