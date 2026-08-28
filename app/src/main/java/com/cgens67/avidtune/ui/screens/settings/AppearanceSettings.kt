@@ -60,10 +60,12 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.datastore.preferences.core.edit
 import androidx.navigation.NavController
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.AppTextSize
@@ -110,6 +112,7 @@ import com.cgens67.avidtune.ui.component.SettingsPage
 import com.cgens67.avidtune.ui.component.SwitchPreference
 import com.cgens67.avidtune.ui.component.ThumbnailCornerRadiusSelectorButton
 import com.cgens67.avidtune.ui.component.UnifiedShapeSelectorButton
+import com.cgens67.avidtune.utils.dataStore
 import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
 import kotlinx.coroutines.launch
@@ -117,7 +120,6 @@ import me.saket.squiggles.SquigglySlider
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import timber.log.Timber
-import androidx.compose.ui.platform.LocalContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -126,6 +128,8 @@ fun AppearanceSettings(
     scrollBehavior: TopAppBarScrollBehavior,
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    
     val (dynamicTheme, onDynamicThemeChange) = rememberPreference(
         DynamicThemeKey,
         defaultValue = true
@@ -444,9 +448,13 @@ fun AppearanceSettings(
                     title = { Text(stringResource(R.string.app_text_size)) },
                     icon = { Icon(painterResource(R.drawable.format_align_left), null) },
                     selectedValue = appTextSize,
-                    onValueSelected = {
-                        onAppTextSizeChange(it)
-                        com.cgens67.avidtune.ui.component.LocaleManager.getInstance(context).restartApp(context)
+                    onValueSelected = { newValue ->
+                        coroutineScope.launch {
+                            context.dataStore.edit {
+                                it[AppTextSizeKey] = newValue.name
+                            }
+                            com.cgens67.avidtune.ui.component.LocaleManager.getInstance(context).restartApp(context)
+                        }
                     },
                     valueText = {
                         when (it) {
