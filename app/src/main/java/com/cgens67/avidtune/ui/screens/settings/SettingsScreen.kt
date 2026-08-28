@@ -156,20 +156,20 @@ val LocalAnimationsDisabled = compositionLocalOf { false }
 // --- DIMENSIONS & ANIMATIONS ---
 
 object SettingsDimensions {
-    val GroupCardCornerRadius = 16.dp
+    val GroupCardCornerRadius = 24.dp
     val QuickActionCardCornerRadius = 20.dp
     val IntegrationPillCornerRadius = 14.dp
     val BannerCardCornerRadius = 20.dp
     val HeroCardCornerRadius = 24.dp
-    val RowIconCornerRadius = 12.dp
+    val RowIconCornerRadius = 16.dp
 
     val ScreenHorizontalPadding = 16.dp
-    val SectionSpacing = 14.dp
-    val RowVerticalPadding = 14.dp
+    val SectionSpacing = 24.dp
+    val RowVerticalPadding = 12.dp
     val RowHorizontalPadding = 16.dp
 
-    val RowIconSize = 36.dp
-    val RowIconInnerSize = 20.dp
+    val RowIconSize = 48.dp
+    val RowIconInnerSize = 24.dp
     val QuickActionIconSize = 40.dp
     val QuickActionIconInnerSize = 22.dp
     val HeroIconSize = 56.dp
@@ -178,10 +178,10 @@ object SettingsDimensions {
     val IntegrationIconInnerSize = 16.dp
     val BannerIconSize = 44.dp
     val BannerIconInnerSize = 22.dp
-    val ChevronSize = 18.dp
+    val ChevronSize = 20.dp
 
     val DividerThickness = 0.5.dp
-    val DividerStartIndent = 60.dp
+    val DividerStartIndent = 80.dp
 
     val SectionHeaderBottomPadding = 6.dp
     val SectionHeaderHorizontalPadding = 20.dp
@@ -810,38 +810,66 @@ private fun buildSettingsGroups(
             title = stringResource(R.string.general_settings),
             items = listOf(
                 SettingsItem(
+                    icon = painterResource(R.drawable.palette),
+                    title = stringResource(R.string.appearance),
+                    subtitle = stringResource(R.string.dark_theme),
+                    keywords = listOf("appearance", "theme", "color", "dark"),
+                    onClick = { resetSearch(); navController.navigate("settings/appearance") }
+                ),
+                SettingsItem(
                     icon = painterResource(R.drawable.person),
                     title = stringResource(R.string.account),
+                    subtitle = stringResource(R.string.account),
                     keywords = listOf("account", "login", "profile"),
                     onClick = { resetSearch(); navController.navigate("settings/account") }
                 ),
                 SettingsItem(
-                    icon = painterResource(R.drawable.speed),
-                    title = stringResource(R.string.performance),
-                    keywords = listOf("performance", "speed", "blur", "minimal"),
-                    onClick = { resetSearch(); navController.navigate("settings/performance") }
+                    icon = painterResource(R.drawable.language),
+                    title = stringResource(R.string.content),
+                    subtitle = stringResource(R.string.content_language),
+                    keywords = listOf("content", "language", "lyrics"),
+                    onClick = { resetSearch(); navController.navigate("settings/content") }
+                ),
+                SettingsItem(
+                    icon = painterResource(R.drawable.play),
+                    title = stringResource(R.string.player_and_audio),
+                    subtitle = stringResource(R.string.audio_quality),
+                    keywords = listOf("player", "audio", "quality"),
+                    onClick = { resetSearch(); navController.navigate("settings/player") }
+                ),
+                SettingsItem(
+                    icon = painterResource(R.drawable.list),
+                    title = stringResource(R.string.storage),
+                    subtitle = "Cache",
+                    keywords = listOf("storage", "cache", "download"),
+                    onClick = { resetSearch(); navController.navigate("settings/storage") }
                 ),
                 SettingsItem(
                     icon = painterResource(R.drawable.security),
                     title = stringResource(R.string.privacy),
+                    subtitle = stringResource(R.string.pause_listen_history),
+                    accentColor = MaterialTheme.colorScheme.error,
                     keywords = listOf("privacy", "history", "security"),
                     onClick = { resetSearch(); navController.navigate("settings/privacy") }
                 ),
                 SettingsItem(
-                    icon = painterResource(R.drawable.restore),
+                    icon = painterResource(R.drawable.history),
                     title = stringResource(R.string.backup_restore),
+                    subtitle = stringResource(R.string.backup_restore),
                     keywords = listOf("backup", "restore", "data"),
                     onClick = { resetSearch(); navController.navigate("settings/backup_restore") }
                 ),
                 SettingsItem(
                     icon = painterResource(R.drawable.schedule),
                     title = stringResource(R.string.alarm),
+                    subtitle = stringResource(R.string.alarm),
                     keywords = listOf("alarm", "wake", "time", "clock", "snooze"),
                     onClick = { resetSearch(); navController.navigate("alarm_settings") }
                 ),
                 SettingsItem(
                     icon = painterResource(R.drawable.link),
                     title = stringResource(R.string.open_supported_links),
+                    subtitle = stringResource(R.string.default_),
                     keywords = listOf("open", "supported", "links", "default"),
                     onClick = { 
                         resetSearch()
@@ -864,6 +892,7 @@ private fun buildSettingsGroups(
                 SettingsItem(
                     icon = painterResource(R.drawable.info),
                     title = stringResource(R.string.about),
+                    subtitle = stringResource(R.string.version_name, BuildConfig.VERSION_NAME),
                     keywords = listOf("about", "info", "version"),
                     onClick = { resetSearch(); navController.navigate("settings/about") }
                 )
@@ -953,7 +982,7 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
             onClick = { resetSearch(); navController.navigate("settings/appearance") }
         ),
         SettingsItem(
-            icon = painterResource(R.drawable.text_fields), // Changed from format_align_left
+            icon = painterResource(R.drawable.text_fields),
             title = stringResource(R.string.use_system_font),
             keywords = listOf("font", "system", "text", "typeface"),
             onClick = { resetSearch(); navController.navigate("settings/appearance") }
@@ -2740,12 +2769,12 @@ fun SettingsRow(
                 }
             }
 
-            Spacer(modifier = Modifier.width(14.dp))
+            Spacer(modifier = Modifier.width(16.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = item.title,
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
@@ -2783,7 +2812,7 @@ fun SettingsRow(
             Spacer(modifier = Modifier.width(4.dp))
 
             Icon(
-                painter = painterResource(R.drawable.arrow_forward),
+                painter = painterResource(R.drawable.navigate_next),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
                 modifier = Modifier.size(SettingsDimensions.ChevronSize),
