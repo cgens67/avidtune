@@ -31,7 +31,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -745,25 +744,25 @@ private fun buildQuickActions(navController: NavController, resetSearch: () -> U
             icon = painterResource(R.drawable.palette),
             label = stringResource(R.string.appearance),
             onClick = { resetSearch(); navController.navigate("settings/appearance") },
-            accentColor = Color(0xFF3B82F6) // Blue
+            accentColor = MaterialTheme.colorScheme.primary
         ),
         SettingsQuickAction(
             icon = painterResource(R.drawable.play),
             label = stringResource(R.string.player_and_audio),
             onClick = { resetSearch(); navController.navigate("settings/player") },
-            accentColor = Color(0xFF8B5CF6) // Purple
+            accentColor = MaterialTheme.colorScheme.secondary
         ),
         SettingsQuickAction(
             icon = painterResource(R.drawable.language),
             label = stringResource(R.string.content),
             onClick = { resetSearch(); navController.navigate("settings/content") },
-            accentColor = Color(0xFFF59E0B) // Amber
+            accentColor = MaterialTheme.colorScheme.tertiary
         ),
         SettingsQuickAction(
             icon = painterResource(R.drawable.storage),
             label = stringResource(R.string.storage),
             onClick = { resetSearch(); navController.navigate("settings/storage") },
-            accentColor = Color(0xFF10B981) // Emerald
+            accentColor = MaterialTheme.colorScheme.onSurface
         )
     )
 }
@@ -775,25 +774,24 @@ private fun buildIntegrationActions(
     onTogetherClick: () -> Unit
 ): List<SettingsIntegrationAction> {
     val uriHandler = LocalUriHandler.current
-    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
     return listOf(
         SettingsIntegrationAction(
             icon = painterResource(R.drawable.person),
             label = stringResource(R.string.music_together),
             onClick = { resetSearch(); onTogetherClick() },
-            accentColor = Color(0xFF1DB954) // Spotify Green
+            accentColor = Color(0xFF1DB954)
         ),
         SettingsIntegrationAction(
             icon = painterResource(R.drawable.discord),
             label = stringResource(R.string.discord),
             onClick = { resetSearch(); navController.navigate("settings/discord") },
-            accentColor = Color(0xFF5865F2) // Blurple
+            accentColor = Color(0xFF5865F2)
         ),
         SettingsIntegrationAction(
             icon = painterResource(R.drawable.github),
             label = stringResource(R.string.github),
             onClick = { resetSearch(); uriHandler.openUri("https://github.com/cgens67/AvidTune") },
-            accentColor = if (isDark) Color.White else Color(0xFF24292E) // GitHub color
+            accentColor = MaterialTheme.colorScheme.onSurface
         )
     )
 }
@@ -812,18 +810,26 @@ private fun buildSettingsGroups(
             title = stringResource(R.string.general_settings),
             items = listOf(
                 SettingsItem(
+                    icon = painterResource(R.drawable.person),
+                    title = stringResource(R.string.account),
+                    subtitle = stringResource(R.string.account),
+                    accentColor = MaterialTheme.colorScheme.primary,
+                    keywords = listOf("account", "login", "profile"),
+                    onClick = { resetSearch(); navController.navigate("settings/account") }
+                ),
+                SettingsItem(
                     icon = painterResource(R.drawable.security),
                     title = stringResource(R.string.privacy),
                     subtitle = stringResource(R.string.pause_listen_history),
-                    accentColor = Color(0xFFEF4444), // Red
+                    accentColor = MaterialTheme.colorScheme.error,
                     keywords = listOf("privacy", "history", "security"),
                     onClick = { resetSearch(); navController.navigate("settings/privacy") }
                 ),
                 SettingsItem(
-                    icon = painterResource(R.drawable.restore),
+                    icon = painterResource(R.drawable.history),
                     title = stringResource(R.string.backup_restore),
                     subtitle = stringResource(R.string.backup_restore),
-                    accentColor = Color(0xFF06B6D4), // Cyan
+                    accentColor = MaterialTheme.colorScheme.secondary,
                     keywords = listOf("backup", "restore", "data"),
                     onClick = { resetSearch(); navController.navigate("settings/backup_restore") }
                 ),
@@ -831,7 +837,7 @@ private fun buildSettingsGroups(
                     icon = painterResource(R.drawable.schedule),
                     title = stringResource(R.string.alarm),
                     subtitle = stringResource(R.string.alarm),
-                    accentColor = Color(0xFFF97316), // Orange
+                    accentColor = MaterialTheme.colorScheme.tertiary,
                     keywords = listOf("alarm", "wake", "time", "clock", "snooze"),
                     onClick = { resetSearch(); navController.navigate("alarm_settings") }
                 ),
@@ -839,7 +845,7 @@ private fun buildSettingsGroups(
                     icon = painterResource(R.drawable.link),
                     title = stringResource(R.string.open_supported_links),
                     subtitle = stringResource(R.string.default_),
-                    accentColor = Color(0xFF6366F1), // Indigo
+                    accentColor = MaterialTheme.colorScheme.primary,
                     keywords = listOf("open", "supported", "links", "default"),
                     onClick = { 
                         resetSearch()
@@ -863,7 +869,7 @@ private fun buildSettingsGroups(
                     icon = painterResource(R.drawable.info),
                     title = stringResource(R.string.about),
                     subtitle = stringResource(R.string.version_name, BuildConfig.VERSION_NAME),
-                    accentColor = Color(0xFF64748B), // Slate
+                    accentColor = MaterialTheme.colorScheme.secondary,
                     keywords = listOf("about", "info", "version"),
                     onClick = { resetSearch(); navController.navigate("settings/about") }
                 )
@@ -877,21 +883,21 @@ private fun buildSettingsGroups(
                     title = stringResource(R.string.news),
                     badge = if (hasUnreadNews) stringResource(R.string.new_badge) else null,
                     showUpdateIndicator = hasUnreadNews,
-                    accentColor = Color(0xFFEAB308), // Yellow
+                    accentColor = MaterialTheme.colorScheme.tertiary,
                     keywords = listOf("news", "updates", "announcements"),
                     onClick = { resetSearch(); navController.navigate("news") }
                 ),
                 SettingsItem(
                     icon = painterResource(R.drawable.schedule),
                     title = stringResource(R.string.Changelog),
-                    accentColor = Color(0xFF14B8A6), // Teal
+                    accentColor = MaterialTheme.colorScheme.primary,
                     keywords = listOf("changelog", "updates", "features"),
                     onClick = { resetSearch(); onChangelogClick() }
                 ),
                 SettingsItem(
                     icon = painterResource(R.drawable.telegram),
                     title = stringResource(R.string.Telegramchanel),
-                    accentColor = Color(0xFF26A5E4), // Telegram Blue
+                    accentColor = Color(0xFF2AABEE),
                     keywords = listOf("telegram", "community", "channel"),
                     onClick = { resetSearch(); uriHandler.openUri("https://t.me/avidtuneupdates") }
                 )
@@ -2743,12 +2749,12 @@ fun SettingsRow(
                 }
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(14.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = item.title,
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
