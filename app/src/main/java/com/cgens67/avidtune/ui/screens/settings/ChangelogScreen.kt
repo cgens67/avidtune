@@ -193,6 +193,57 @@ fun matchesVersion(tagName: String, query: String): Boolean {
     return false
 }
 
+// --- Empty Search Results Component ---
+
+@Composable
+fun EmptySearchResultsView(
+    modifier: Modifier = Modifier,
+    title: String = stringResource(R.string.no_results_found),
+    subtitle: String = stringResource(R.string.try_another_term)
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(72.dp)
+                .background(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.search),
+                contentDescription = null,
+                modifier = Modifier.size(36.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
 // --- Main Screen ---
 
 @Composable
@@ -721,13 +772,16 @@ fun ReleasesContent(
                     }
                 }
             } else if (!isFetchingOldReleases && !isLoading && !hasError) {
-                Box(modifier = Modifier.fillMaxWidth().heightIn(min = 300.dp).padding(32.dp), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = if (searchQuery.isNotBlank()) stringResource(R.string.no_results_found)
-                               else if (isBetaTab) stringResource(R.string.no_beta_releases) 
-                               else stringResource(R.string.no_stable_releases),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 340.dp)
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    EmptySearchResultsView(
+                        title = stringResource(R.string.no_results_found),
+                        subtitle = stringResource(R.string.try_another_term)
                     )
                 }
             }
@@ -1112,11 +1166,15 @@ fun CommitsContent(
             }
 
             !isLoading -> {
-                Box(modifier = Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = stringResource(R.string.no_results_found),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    EmptySearchResultsView(
+                        title = stringResource(R.string.no_results_found),
+                        subtitle = stringResource(R.string.try_another_term)
                     )
                 }
             }
