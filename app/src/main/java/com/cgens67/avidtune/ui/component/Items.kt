@@ -136,11 +136,6 @@ import com.cgens67.avidtune.utils.rememberPreference
 import com.cgens67.avidtune.utils.getPlaylistImageUri
 import com.cgens67.avidtune.utils.reportException
 import kotlin.math.roundToInt
-import androidx.compose.animation.core.Animatable
-import androidx.compose.foundation.Canvas
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import kotlinx.coroutines.isActive
 
 const val ActiveBoxAlpha = 0.6f
 private var cachedItemCornerRadius = 16f
@@ -1835,6 +1830,8 @@ fun ItemThumbnail(
             }
         }
 
+        val showCircularPlay = (isActive && !isPlaying && albumIndex == null)
+
         PlayingIndicatorBox(
             isActive = isActive,
             playWhenReady = isPlaying,
@@ -1853,7 +1850,7 @@ fun ItemThumbnail(
                     .fillMaxSize()
                     .background(
                         color =
-                            if (albumIndex != null) {
+                            if (albumIndex != null || showCircularPlay) {
                                 Color.Transparent
                             } else {
                                 Color.Black.copy(alpha = ActiveBoxAlpha)
@@ -1919,19 +1916,20 @@ fun LocalThumbnail(
                 modifier =
                     Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.4f), shape),
+                        .background(Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f), shape),
             ) {
-                PlayingIndicator(
-                    color = Color.White,
-                    isPlaying = isPlaying,
-                    modifier = Modifier.height(24.dp),
-                )
+                if (isPlaying) {
+                    PlayingIndicator(
+                        color = Color.White,
+                        modifier = Modifier.height(24.dp),
+                    )
+                }
             }
         }
 
         if (showCenterPlay) {
             AnimatedVisibility(
-                visible = !isActive,
+                visible = !(isActive && isPlaying),
                 enter = fadeIn(),
                 exit = fadeOut(),
                 modifier =
@@ -1978,6 +1976,7 @@ fun LocalThumbnail(
                         painter = painterResource(R.drawable.play),
                         contentDescription = null,
                         tint = Color.White,
+                        modifier = Modifier.size(20.dp),
                     )
                 }
             }
@@ -2125,6 +2124,7 @@ fun BoxScope.AlbumPlayButton(
                 painter = painterResource(R.drawable.play),
                 contentDescription = null,
                 tint = Color.White,
+                modifier = Modifier.size(20.dp),
             )
         }
     }
@@ -2434,20 +2434,21 @@ fun SongSmallGridItem(
                         Modifier
                             .fillMaxSize()
                             .background(
-                                color = Color.Black.copy(alpha = 0.4f),
+                                color = Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f),
                                 shape = RoundedCornerShape(itemCornerRadius),
                             ),
                 ) {
-                    PlayingIndicator(
-                        color = Color.White,
-                        isPlaying = isPlaying,
-                        modifier = Modifier.height(24.dp),
-                    )
+                    if (isPlaying) {
+                        PlayingIndicator(
+                            color = Color.White,
+                            modifier = Modifier.height(24.dp),
+                        )
+                    }
                 }
             }
 
             AnimatedVisibility(
-                visible = !isActive,
+                visible = !(isActive && isPlaying),
                 enter = fadeIn(),
                 exit = fadeOut(),
                 modifier =
@@ -2527,11 +2528,18 @@ fun AlbumSmallGridItem(
                                     shape = RoundedCornerShape(itemCornerRadius),
                                 ),
                     ) {
-                        PlayingIndicator(
-                            color = Color.White,
-                            isPlaying = isPlaying,
-                            modifier = Modifier.height(24.dp),
-                        )
+                        if (isPlaying) {
+                            PlayingIndicator(
+                                color = Color.White,
+                                modifier = Modifier.height(24.dp),
+                            )
+                        } else {
+                            Icon(
+                                painter = painterResource(R.drawable.play),
+                                contentDescription = null,
+                                tint = Color.White,
+                            )
+                        }
                     }
                 }
             },
@@ -2604,20 +2612,21 @@ fun YouTubeSmallGridItem(
                             Modifier
                                 .fillMaxSize()
                                 .background(
-                                    color = Color.Black.copy(alpha = 0.4f),
+                                    color = Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f),
                                     shape = RoundedCornerShape(itemCornerRadius),
                                 ),
                     ) {
-                        PlayingIndicator(
-                            color = Color.White,
-                            isPlaying = isPlaying,
-                            modifier = Modifier.height(24.dp),
-                        )
+                        if (isPlaying) {
+                            PlayingIndicator(
+                                color = Color.White,
+                                modifier = Modifier.height(24.dp),
+                            )
+                        }
                     }
                 }
 
                 AnimatedVisibility(
-                    visible = !isActive,
+                    visible = !(isActive && isPlaying),
                     enter = fadeIn(),
                     exit = fadeOut(),
                     modifier =
@@ -2646,4 +2655,52 @@ fun YouTubeSmallGridItem(
         modifier = modifier,
         isArtist = item is ArtistItem,
     )
+}
+@Composable
+fun PlayingIndicatorBox(
+    modifier: Modifier = Modifier,
+    isActive: Boolean,
+    playWhenReady: Boolean,
+    color: Color = Color.White,
+) {
+    AnimatedVisibility(
+        visible = isActive,
+        enter = fadeIn(tween(500)),
+        exit = fadeOut(tween(500)),
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = modifier,
+        ) {
+            if (playWhenReady) {
+                PlayingIndicator(
+                    color = color,
+                    modifier = Modifier.height(24.dp),
+                )
+            } else {
+                if (color == Color.White) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = ActiveBoxAlpha)),
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.play),
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                } else {
+                    Icon(
+                        painter = painterResource(R.drawable.play),
+                        contentDescription = null,
+                        tint = color,
+                    )
+                }
+            }
+        }
+    }
 }
