@@ -6,13 +6,22 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.util.Log
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -45,6 +54,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SearchBar
+import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -61,6 +72,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -157,6 +169,30 @@ fun getBetaTarget(tagName: String): String? {
     return null
 }
 
+fun normalizeVersionString(version: String): String {
+    return version.trim()
+        .lowercase()
+        .replace(" ", "")
+        .removePrefix("v.")
+        .removePrefix("v")
+        .replace("..", ".")
+}
+
+fun matchesVersion(tagName: String, query: String): Boolean {
+    val cleanQuery = query.trim().lowercase().replace(" ", "")
+    if (cleanQuery.isBlank()) return true
+    if (cleanQuery == "v" || cleanQuery == "v.") return true
+
+    if (tagName.lowercase().replace(" ", "").contains(cleanQuery)) return true
+
+    val normTag = normalizeVersionString(tagName)
+    val normQuery = normalizeVersionString(cleanQuery)
+
+    if (normQuery.isNotEmpty() && normTag.contains(normQuery)) return true
+
+    return false
+}
+
 // --- Main Screen ---
 
 @Composable
@@ -166,7 +202,14 @@ fun ChangelogScreen(
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     var refreshTrigger by remember { mutableIntStateOf(0) }
+    var isSearchActive by rememberSaveable { mutableStateOf(false) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+
+    BackHandler(enabled = isSearchActive) {
+        isSearchActive = false
+        searchQuery = ""
+    }
 
     Scaffold(
         modifier = Modifier
@@ -174,33 +217,94 @@ fun ChangelogScreen(
             .nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
         topBar = {
-            LargeTopAppBar(
-                title = { 
-                    Text(
-                        text = stringResource(R.string.Changelog),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold
-                    ) 
+            AnimatedContent(
+                targetState = isSearchActive,
+                transitionSpec = {
+                    fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) togetherWith
+                            fadeOut(spring(stiffness = Spring.StiffnessMediumLow))
                 },
-                navigationIcon = {
-                    IconButton(onClick = onDismiss) {
-                        Icon(painterResource(R.drawable.arrow_back), null)
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { refreshTrigger++ }) {
-                        Icon(
-                            painter = painterResource(R.drawable.sync),
-                            contentDescription = stringResource(R.string.action_retry)
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.largeTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                ),
-                scrollBehavior = scrollBehavior
-            )
+                label = "changelogTopBar"
+            ) { searching ->
+                if (searching) {
+                    SearchBar(
+                        inputField = {
+                            SearchBarDefaults.InputField(
+                                query = searchQuery,
+                                onQueryChange = { searchQuery = it },
+                                onSearch = { isSearchActive = false },
+                                expanded = false,
+                                onExpandedChange = {},
+                                placeholder = {
+                                    Text(text = stringResource(R.string.search))
+                                },
+                                leadingIcon = {
+                                    IconButton(
+                                        onClick = {
+                                            searchQuery = ""
+                                            isSearchActive = false
+                                        }
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(R.drawable.arrow_back),
+                                            contentDescription = stringResource(R.string.back)
+                                        )
+                                    }
+                                },
+                                trailingIcon = if (searchQuery.isNotEmpty()) {
+                                    {
+                                        IconButton(onClick = { searchQuery = "" }) {
+                                            Icon(
+                                                painter = painterResource(R.drawable.close),
+                                                contentDescription = stringResource(R.string.clear)
+                                            )
+                                        }
+                                    }
+                                } else null
+                            )
+                        },
+                        expanded = false,
+                        onExpandedChange = {},
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .padding(top = 8.dp, bottom = 4.dp)
+                    ) {}
+                } else {
+                    LargeTopAppBar(
+                        title = { 
+                            Text(
+                                text = stringResource(R.string.Changelog),
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold
+                            ) 
+                        },
+                        navigationIcon = {
+                            IconButton(onClick = onDismiss) {
+                                Icon(painterResource(R.drawable.arrow_back), null)
+                            }
+                        },
+                        actions = {
+                            IconButton(onClick = { isSearchActive = true }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.search),
+                                    contentDescription = stringResource(R.string.search)
+                                )
+                            }
+                            IconButton(onClick = { refreshTrigger++ }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.sync),
+                                    contentDescription = stringResource(R.string.action_retry)
+                                )
+                            }
+                        },
+                        colors = TopAppBarDefaults.largeTopAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                            scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        ),
+                        scrollBehavior = scrollBehavior
+                    )
+                }
+            }
         }
     ) { paddingValues ->
         Column(
@@ -230,9 +334,17 @@ fun ChangelogScreen(
             }
 
             if (selectedTab == 0 || selectedTab == 1) {
-                ReleasesContent(versionTag = versionTag, refreshTrigger = refreshTrigger, isBetaTab = selectedTab == 1)
+                ReleasesContent(
+                    versionTag = versionTag,
+                    refreshTrigger = refreshTrigger,
+                    isBetaTab = selectedTab == 1,
+                    searchQuery = searchQuery
+                )
             } else {
-                CommitsContent(refreshTrigger = refreshTrigger)
+                CommitsContent(
+                    refreshTrigger = refreshTrigger,
+                    searchQuery = searchQuery
+                )
             }
         }
     }
@@ -241,7 +353,12 @@ fun ChangelogScreen(
 // --- Releases (News-style) Content ---
 
 @Composable
-fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean) {
+fun ReleasesContent(
+    versionTag: String, 
+    refreshTrigger: Int, 
+    isBetaTab: Boolean,
+    searchQuery: String = ""
+) {
     val context = LocalContext.current
     var changelogSections by remember { mutableStateOf<List<ChangelogSection>>(emptyList()) }
     var updateImage by remember { mutableStateOf<String?>(null) }
@@ -279,6 +396,17 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
     }
 
     val filteredReleases = availableReleases.filter { it.isPrerelease == isBetaTab }
+
+    val searchFilteredReleases = remember(filteredReleases, searchQuery) {
+        if (searchQuery.isBlank()) {
+            filteredReleases
+        } else {
+            filteredReleases.filter { release ->
+                matchesVersion(release.tagName, searchQuery) ||
+                release.name.contains(searchQuery, ignoreCase = true)
+            }
+        }
+    }
 
     fun fetchChangelog(tag: String, bypassCache: Boolean = false) {
         if (tag.isBlank()) return
@@ -336,7 +464,6 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
                                             sections.add(ChangelogSection(title, items))
                                         }
                                     } else {
-                                        // Fallback
                                         val item = changelogArray.optString(i, "")
                                         if (item.isNotBlank()) {
                                             if (sections.isEmpty() || sections[0].title.isNotBlank()) {
@@ -469,6 +596,12 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
         }
     }
 
+    LaunchedEffect(searchFilteredReleases) {
+        if (searchFilteredReleases.isNotEmpty() && searchFilteredReleases.none { it.tagName == currentVersionTag }) {
+            currentVersionTag = searchFilteredReleases.first().tagName
+        }
+    }
+
     LaunchedEffect(currentVersionTag) {
         if (currentVersionTag.isNotBlank()) {
             cleanupOldChangelogCache(context, currentVersionTag)
@@ -501,7 +634,7 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
             .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom))
     ) {
         Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            if (filteredReleases.isNotEmpty()) {
+            if (searchFilteredReleases.isNotEmpty()) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -515,7 +648,7 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
                         horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        filteredReleases.forEachIndexed { index, release ->
+                        searchFilteredReleases.forEachIndexed { index, release ->
                             ToggleButton(
                                 checked = currentVersionTag == release.tagName,
                                 onCheckedChange = {
@@ -524,9 +657,9 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
                                     }
                                 },
                                 shapes = when {
-                                    filteredReleases.size == 1 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                                    searchFilteredReleases.size == 1 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
                                     index == 0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                                    index == filteredReleases.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                                    index == searchFilteredReleases.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
                                     else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
                                 }
                             ) {
@@ -548,7 +681,7 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
                     }
                 }
 
-                val currentRelease = filteredReleases.find { it.tagName == currentVersionTag }
+                val currentRelease = searchFilteredReleases.find { it.tagName == currentVersionTag }
                 
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
@@ -590,7 +723,9 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
             } else if (!isFetchingOldReleases && !isLoading && !hasError) {
                 Box(modifier = Modifier.fillMaxWidth().heightIn(min = 300.dp).padding(32.dp), contentAlignment = Alignment.Center) {
                     Text(
-                        text = if (isBetaTab) stringResource(R.string.no_beta_releases) else stringResource(R.string.no_stable_releases),
+                        text = if (searchQuery.isNotBlank()) stringResource(R.string.no_results_found)
+                               else if (isBetaTab) stringResource(R.string.no_beta_releases) 
+                               else stringResource(R.string.no_stable_releases),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -630,7 +765,7 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
                         }
                     }
                 }
-            } else if (filteredReleases.isNotEmpty()) {
+            } else if (searchFilteredReleases.isNotEmpty()) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -768,7 +903,10 @@ fun ReleasesContent(versionTag: String, refreshTrigger: Int, isBetaTab: Boolean)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CommitsContent(refreshTrigger: Int) {
+fun CommitsContent(
+    refreshTrigger: Int,
+    searchQuery: String = ""
+) {
     val context = LocalContext.current
     var commits by remember { mutableStateOf<List<CommitData>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -871,6 +1009,19 @@ fun CommitsContent(refreshTrigger: Int) {
         }
     }
 
+    val filteredCommits = remember(commits, searchQuery) {
+        if (searchQuery.isBlank()) {
+            commits
+        } else {
+            commits.filter { commit ->
+                commit.message.contains(searchQuery, ignoreCase = true) ||
+                commit.authorName.contains(searchQuery, ignoreCase = true) ||
+                commit.sha.contains(searchQuery, ignoreCase = true) ||
+                (commit.authorLogin?.contains(searchQuery, ignoreCase = true) == true)
+            }
+        }
+    }
+
     LaunchedEffect(Unit) {
         fetchCommits(false)
     }
@@ -932,13 +1083,13 @@ fun CommitsContent(refreshTrigger: Int) {
                 }
             }
 
-            commits.isNotEmpty() -> {
+            filteredCommits.isNotEmpty() -> {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
                 ) {
-                    commits.forEachIndexed { index, commit ->
+                    filteredCommits.forEachIndexed { index, commit ->
                         CommitItem(
                             commit = commit,
                             onClick = {
@@ -949,7 +1100,7 @@ fun CommitsContent(refreshTrigger: Int) {
                                 )
                             }
                         )
-                        if (index < commits.lastIndex) {
+                        if (index < filteredCommits.lastIndex) {
                             HorizontalDivider(
                                 modifier = Modifier.padding(start = 72.dp),
                                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
@@ -957,6 +1108,16 @@ fun CommitsContent(refreshTrigger: Int) {
                         }
                     }
                     Spacer(Modifier.height(8.dp))
+                }
+            }
+
+            !isLoading -> {
+                Box(modifier = Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = stringResource(R.string.no_results_found),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }
@@ -987,7 +1148,6 @@ fun CommitItem(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Left: Commit icon / type indicator
         Box(
             modifier = Modifier
                 .size(40.dp)
@@ -1005,12 +1165,10 @@ fun CommitItem(
             )
         }
 
-        // Center: Commit information
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            // Main commit message
             Text(
                 text = commit.message,
                 style = MaterialTheme.typography.bodyLarge,
@@ -1020,7 +1178,6 @@ fun CommitItem(
                 overflow = TextOverflow.Ellipsis
             )
 
-            // Author + date row
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -1044,7 +1201,6 @@ fun CommitItem(
                 )
             }
 
-            // Short SHA chip
             Surface(
                 color = MaterialTheme.colorScheme.secondaryContainer,
                 shape = RoundedCornerShape(4.dp)
@@ -1060,7 +1216,6 @@ fun CommitItem(
 
         Spacer(Modifier.width(4.dp))
 
-        // Right: Author avatar
         if (commit.authorAvatarUrl != null) {
             AsyncImage(
                 model = commit.authorAvatarUrl,
@@ -1070,7 +1225,6 @@ fun CommitItem(
                     .clip(CircleShape)
             )
         } else {
-            // Fallback avatar with initials
             Box(
                 modifier = Modifier
                     .size(36.dp)
