@@ -73,10 +73,7 @@ import com.cgens67.avidtune.constants.AppTextSizeKey
 import com.cgens67.avidtune.constants.ArtistCanvasProviderOrderKey
 import com.cgens67.avidtune.constants.ChipSortTypeKey
 import com.cgens67.avidtune.constants.DarkModeKey
-import com.cgens67.avidtune.constants.DefaultMiniPlayerThumbnailShape
 import com.cgens67.avidtune.constants.DefaultOpenTabKey
-import com.cgens67.avidtune.constants.DefaultPlayPauseButtonShape
-import com.cgens67.avidtune.constants.DefaultSmallButtonsShape
 import com.cgens67.avidtune.constants.DynamicThemeKey
 import com.cgens67.avidtune.constants.EnableAppleMusicCanvasKey
 import com.cgens67.avidtune.constants.EnableArtistCanvasKey
@@ -86,8 +83,6 @@ import com.cgens67.avidtune.constants.GridItemsSizeKey
 import com.cgens67.avidtune.constants.LibraryFilter
 import com.cgens67.avidtune.constants.LyricsClickKey
 import com.cgens67.avidtune.constants.LyricsTextPositionKey
-import com.cgens67.avidtune.constants.MiniPlayerThumbnailShapeKey
-import com.cgens67.avidtune.constants.PlayPauseButtonShapeKey
 import com.cgens67.avidtune.constants.PlayerBackgroundStyle
 import com.cgens67.avidtune.constants.PlayerBackgroundStyleKey
 import com.cgens67.avidtune.constants.PlayerButtonsStyle
@@ -98,7 +93,6 @@ import com.cgens67.avidtune.constants.UseSystemFontKey
 import com.cgens67.avidtune.constants.SliderStyle
 import com.cgens67.avidtune.constants.SliderStyleKey
 import com.cgens67.avidtune.constants.SlimNavBarKey
-import com.cgens67.avidtune.constants.SmallButtonsShapeKey
 import com.cgens67.avidtune.constants.SwipeThumbnailKey
 import com.cgens67.avidtune.ui.component.AvatarSelector
 import com.cgens67.avidtune.ui.component.DefaultDialog
@@ -111,7 +105,7 @@ import com.cgens67.avidtune.ui.component.SettingsGeneralCategory
 import com.cgens67.avidtune.ui.component.SettingsPage
 import com.cgens67.avidtune.ui.component.SwitchPreference
 import com.cgens67.avidtune.ui.component.ThumbnailCornerRadiusSelectorButton
-import com.cgens67.avidtune.ui.component.UnifiedShapeSelectorButton
+import com.cgens67.avidtune.ui.component.MiniPlayerShapeSelectorButton
 import com.cgens67.avidtune.utils.dataStore
 import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
@@ -201,21 +195,6 @@ fun AppearanceSettings(
         }
     }
     var showCanvasReorderDialog by remember { mutableStateOf(false) }
-
-    val smallButtonsShapeState = rememberPreference(
-        key = SmallButtonsShapeKey,
-        defaultValue = DefaultSmallButtonsShape
-    )
-
-    val playPauseShapeState = rememberPreference(
-        key = PlayPauseButtonShapeKey,
-        defaultValue = DefaultPlayPauseButtonShape
-    )
-
-    val miniPlayerThumbnailShapeState = rememberPreference(
-        key = MiniPlayerThumbnailShapeKey,
-        defaultValue = DefaultMiniPlayerThumbnailShape
-    )
 
     val (slimNav, onSlimNavChange) = rememberPreference(SlimNavBarKey, defaultValue = false)
 
@@ -518,6 +497,8 @@ fun AppearanceSettings(
                         Timber.tag("Thumbnail").d("Selected radio: $selectedRadius")
                     }
                 )},
+
+                {MiniPlayerShapeSelectorButton()},
 
                 {EnumListPreference(
                     title = { Text(stringResource(R.string.player_buttons_style)) },
