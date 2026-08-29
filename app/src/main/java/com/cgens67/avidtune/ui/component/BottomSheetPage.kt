@@ -71,7 +71,7 @@ fun BottomSheetPage(
         enter = fadeIn(),
         exit = fadeOut(),
     ) {
-        BackHandler {
+        BackHandler(enabled = state.isVisible) {
             state.dismiss()
         }
 
