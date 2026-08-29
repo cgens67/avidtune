@@ -90,6 +90,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import coil.compose.AsyncImage
 import com.cgens67.avidtune.BuildConfig
@@ -208,9 +209,9 @@ fun EmptySearchResultsView(
     ) {
         Box(
             modifier = Modifier
-                .size(72.dp)
+                .size(56.dp)
                 .background(
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                     shape = CircleShape
                 ),
             contentAlignment = Alignment.Center
@@ -218,26 +219,26 @@ fun EmptySearchResultsView(
             Icon(
                 painter = painterResource(id = R.drawable.search),
                 contentDescription = null,
-                modifier = Modifier.size(36.dp),
+                modifier = Modifier.size(28.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
         Text(
             text = title,
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center
         )
 
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
         Text(
             text = subtitle,
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
@@ -775,8 +776,7 @@ fun ReleasesContent(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 340.dp)
-                        .padding(32.dp),
+                        .padding(vertical = 48.dp, horizontal = 24.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     EmptySearchResultsView(
@@ -1169,7 +1169,7 @@ fun CommitsContent(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(32.dp),
+                        .padding(vertical = 48.dp, horizontal = 24.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     EmptySearchResultsView(
