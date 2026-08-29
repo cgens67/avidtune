@@ -10,8 +10,17 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -54,6 +63,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -132,7 +142,6 @@ import com.cgens67.avidtune.playback.queues.YouTubeAlbumRadio
 import com.cgens67.avidtune.playback.queues.YouTubeQueue
 import com.cgens67.avidtune.ui.component.AlbumGridItem
 import com.cgens67.avidtune.ui.component.ArtistGridItem
-import com.cgens67.avidtune.ui.component.HideOnScrollFAB
 import com.cgens67.avidtune.ui.component.LocalMenuState
 import com.cgens67.avidtune.ui.component.MenuState
 import com.cgens67.avidtune.ui.component.NavigationTitle
@@ -151,6 +160,7 @@ import com.cgens67.avidtune.ui.menu.YouTubePlaylistMenu
 import com.cgens67.avidtune.ui.menu.YouTubeSongMenu
 import com.cgens67.avidtune.ui.utils.SnapLayoutInfoProvider
 import com.cgens67.avidtune.ui.utils.backToMain
+import com.cgens67.avidtune.ui.utils.isScrollingUp
 import com.cgens67.avidtune.ui.utils.resize
 import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
@@ -417,7 +427,7 @@ fun HomeScreen(
             keepListening?.takeIf { it.isNotEmpty() }?.let { keepListening ->
                 item { NavigationTitle(title = stringResource(R.string.keep_listening), modifier = Modifier.animateItem()) }
                 item {
-                    val rows = if (keepListening.size > 6) 2 else 1
+                    val rows = kotlin.math.min(2, keepListening.size)
                     LazyHorizontalGrid(
                         state = rememberLazyGridState(),
                         rows = GridCells.Fixed(rows),
@@ -552,40 +562,62 @@ fun HomeScreen(
             }
         }
 
-        HideOnScrollFAB(
-            visible = allLocalItems.isNotEmpty() || allYtItems.isNotEmpty(),
-            lazyListState = lazylistState,
-            icon = R.drawable.shuffle,
-            onClick = {
-                val local = when {
-                    allLocalItems.isNotEmpty() && allYtItems.isNotEmpty() -> Random.nextFloat() < 0.5
-                    allLocalItems.isNotEmpty() -> true
-                    else -> false
-                }
-                scope.launch(Dispatchers.Main) {
-                    if (local) {
-                        when (val luckyItem = allLocalItems.random()) {
-                            is Song -> playerConnection.playQueue(YouTubeQueue.radio(luckyItem.toMediaMetadata()))
-                            is Album -> {
-                                val albumWithSongs = withContext(Dispatchers.IO) { database.albumWithSongs(luckyItem.id).first() }
-                                albumWithSongs?.let { playerConnection.playQueue(LocalAlbumRadio(it)) }
+        val isFabVisible = (allLocalItems.isNotEmpty() || allYtItems.isNotEmpty()) && lazylistState.isScrollingUp()
+
+        AnimatedVisibility(
+            visible = isFabVisible,
+            enter = scaleIn(spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow)) +
+                    fadeIn(tween(300, easing = LinearOutSlowInEasing)) +
+                    slideInVertically(spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow)) { it },
+            exit = scaleOut(spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow), targetScale = 0.8f) +
+                   fadeOut(tween(250, easing = FastOutSlowInEasing)) +
+                   slideOutVertically(spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow)) { it },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .windowInsetsPadding(
+                    LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)
+                )
+                .padding(16.dp)
+        ) {
+            FloatingActionButton(
+                onClick = {
+                    val local = when {
+                        allLocalItems.isNotEmpty() && allYtItems.isNotEmpty() -> Random.nextFloat() < 0.5
+                        allLocalItems.isNotEmpty() -> true
+                        else -> false
+                    }
+                    scope.launch(Dispatchers.Main) {
+                        if (local) {
+                            when (val luckyItem = allLocalItems.random()) {
+                                is Song -> playerConnection.playQueue(YouTubeQueue.radio(luckyItem.toMediaMetadata()))
+                                is Album -> {
+                                    val albumWithSongs = withContext(Dispatchers.IO) { database.albumWithSongs(luckyItem.id).first() }
+                                    albumWithSongs?.let { playerConnection.playQueue(LocalAlbumRadio(it)) }
+                                }
+                                is Artist -> {}
+                                is Playlist -> {}
                             }
-                            is Artist -> {}
-                            is Playlist -> {}
-                        }
-                    } else {
-                        when (val luckyItem = allYtItems.random()) {
-                            is SongItem -> playerConnection.playQueue(YouTubeQueue.radio(luckyItem.toMediaMetadata()))
-                            is AlbumItem -> playerConnection.playQueue(YouTubeAlbumRadio(luckyItem.playlistId))
-                            is ArtistItem -> luckyItem.radioEndpoint?.let { playerConnection.playQueue(YouTubeQueue(it)) }
-                            is PlaylistItem -> luckyItem.playEndpoint?.let { playerConnection.playQueue(YouTubeQueue(it)) }
-                            is EpisodeItem -> playerConnection.playQueue(YouTubeQueue.radio(luckyItem.asSongItem().toMediaMetadata()))
-                            is PodcastItem -> luckyItem.playEndpoint?.let { playerConnection.playQueue(YouTubeQueue(it)) }
+                        } else {
+                            when (val luckyItem = allYtItems.random()) {
+                                is SongItem -> playerConnection.playQueue(YouTubeQueue.radio(luckyItem.toMediaMetadata()))
+                                is AlbumItem -> playerConnection.playQueue(YouTubeAlbumRadio(luckyItem.playlistId))
+                                is ArtistItem -> luckyItem.radioEndpoint?.let { playerConnection.playQueue(YouTubeQueue(it)) }
+                                is PlaylistItem -> luckyItem.playEndpoint?.let { playerConnection.playQueue(YouTubeQueue(it)) }
+                                is EpisodeItem -> playerConnection.playQueue(YouTubeQueue.radio(luckyItem.asSongItem().toMediaMetadata()))
+                                is PodcastItem -> luckyItem.playEndpoint?.let { playerConnection.playQueue(YouTubeQueue(it)) }
+                            }
                         }
                     }
-                }
+                },
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.shuffle),
+                    contentDescription = null
+                )
             }
-        )
+        }
 
         Box(Modifier.align(Alignment.TopCenter)) {
             PullToRefreshDefaults.Indicator(state = pullRefreshState, isRefreshing = isRefreshing, modifier = Modifier.padding(LocalPlayerAwareWindowInsets.current.asPaddingValues()))
