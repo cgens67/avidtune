@@ -107,7 +107,8 @@ fun BottomSheet(
                 )
             )
     ) {
-        if (!state.isCollapsed && !state.isDismissed) {
+        val isAnimatingToCollapseOrDismiss = state.targetValue == state.collapsedBound || state.targetValue == state.dismissedBound
+        if (!state.isCollapsed && !state.isDismissed && !isAnimatingToCollapseOrDismiss) {
             BackHandler(onBack = state::collapseSoft)
         }
 
@@ -168,6 +169,9 @@ class BottomSheetState(
     val isExpanded by derivedStateOf {
         value == animatable.upperBound
     }
+
+    val targetValue: Dp
+        get() = animatable.targetValue
 
     val progress by derivedStateOf {
         1f - (animatable.upperBound!! - animatable.value) / (animatable.upperBound!! - collapsedBound)
