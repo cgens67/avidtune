@@ -1,3 +1,4 @@
+
 @file:OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalFoundationApi::class)
 
 package com.cgens67.avidtune.ui.component
@@ -136,6 +137,11 @@ import com.cgens67.avidtune.utils.rememberPreference
 import com.cgens67.avidtune.utils.getPlaylistImageUri
 import com.cgens67.avidtune.utils.reportException
 import kotlin.math.roundToInt
+import androidx.compose.animation.core.Animatable
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import kotlinx.coroutines.isActive
 
 const val ActiveBoxAlpha = 0.6f
 private var cachedItemCornerRadius = 16f
@@ -1916,24 +1922,17 @@ fun LocalThumbnail(
                         .fillMaxSize()
                         .background(Color.Black.copy(alpha = 0.4f), shape),
             ) {
-                if (isPlaying) {
-                    PlayingIndicator(
-                        color = Color.White,
-                        modifier = Modifier.height(24.dp),
-                    )
-                } else {
-                    Icon(
-                        painter = painterResource(R.drawable.play),
-                        contentDescription = null,
-                        tint = Color.White,
-                    )
-                }
+                PlayingIndicator(
+                    color = Color.White,
+                    isPlaying = isPlaying,
+                    modifier = Modifier.height(24.dp),
+                )
             }
         }
 
         if (showCenterPlay) {
             AnimatedVisibility(
-                visible = !(isActive && isPlaying),
+                visible = !isActive,
                 enter = fadeIn(),
                 exit = fadeOut(),
                 modifier =
@@ -2436,21 +2435,20 @@ fun SongSmallGridItem(
                         Modifier
                             .fillMaxSize()
                             .background(
-                                color = Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f),
+                                color = Color.Black.copy(alpha = 0.4f),
                                 shape = RoundedCornerShape(itemCornerRadius),
                             ),
                 ) {
-                    if (isPlaying) {
-                        PlayingIndicator(
-                            color = Color.White,
-                            modifier = Modifier.height(24.dp),
-                        )
-                    }
+                    PlayingIndicator(
+                        color = Color.White,
+                        isPlaying = isPlaying,
+                        modifier = Modifier.height(24.dp),
+                    )
                 }
             }
 
             AnimatedVisibility(
-                visible = !(isActive && isPlaying),
+                visible = !isActive,
                 enter = fadeIn(),
                 exit = fadeOut(),
                 modifier =
@@ -2530,18 +2528,11 @@ fun AlbumSmallGridItem(
                                     shape = RoundedCornerShape(itemCornerRadius),
                                 ),
                     ) {
-                        if (isPlaying) {
-                            PlayingIndicator(
-                                color = Color.White,
-                                modifier = Modifier.height(24.dp),
-                            )
-                        } else {
-                            Icon(
-                                painter = painterResource(R.drawable.play),
-                                contentDescription = null,
-                                tint = Color.White,
-                            )
-                        }
+                        PlayingIndicator(
+                            color = Color.White,
+                            isPlaying = isPlaying,
+                            modifier = Modifier.height(24.dp),
+                        )
                     }
                 }
             },
@@ -2614,21 +2605,20 @@ fun YouTubeSmallGridItem(
                             Modifier
                                 .fillMaxSize()
                                 .background(
-                                    color = Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f),
+                                    color = Color.Black.copy(alpha = 0.4f),
                                     shape = RoundedCornerShape(itemCornerRadius),
                                 ),
                     ) {
-                        if (isPlaying) {
-                            PlayingIndicator(
-                                color = Color.White,
-                                modifier = Modifier.height(24.dp),
-                            )
-                        }
+                        PlayingIndicator(
+                            color = Color.White,
+                            isPlaying = isPlaying,
+                            modifier = Modifier.height(24.dp),
+                        )
                     }
                 }
 
                 AnimatedVisibility(
-                    visible = !(isActive && isPlaying),
+                    visible = !isActive,
                     enter = fadeIn(),
                     exit = fadeOut(),
                     modifier =
@@ -2657,4 +2647,257 @@ fun YouTubeSmallGridItem(
         modifier = modifier,
         isArtist = item is ArtistItem,
     )
+}
+
+package com.cgens67.avidtune.ui.component
+
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
+
+@Composable
+fun LoadingIndicator(
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.onSurface,
+) {
+    val alphaAnimatables =
+        remember {
+            List(3) { Animatable(0f) }
+        }
+
+    LaunchedEffect(Unit) {
+        alphaAnimatables.forEachIndexed { index, animatable ->
+            delay(index * 150L)
+            animatable.animateTo(
+                targetValue = 1f,
+                animationSpec =
+                    infiniteRepeatable(
+                        animation = tween(durationMillis = 600),
+                        repeatMode = RepeatMode.Reverse,
+                    ),
+            )
+        }
+    }
+
+    Canvas(
+        modifier = modifier.padding(12.dp).size(24.dp),
+    ) {
+        val radius = size.width / 2
+        val strokeWidth = 2.dp.toPx()
+
+        alphaAnimatables.forEachIndexed { index, animatable ->
+            val angle = index * 120f
+            val rad = Math.toRadians(angle.toDouble()).toFloat()
+            val x = center.x + radius * kotlin.math.cos(rad)
+            val y = center.y + radius * kotlin.math.sin(rad)
+
+            drawLine(
+                color = color.copy(alpha = animatable.value),
+                start = center,
+                end = Offset(x, y),
+                strokeWidth = strokeWidth,
+                cap = StrokeCap.Round,
+            )
+        }
+    }
+}
+
+package com.cgens67.avidtune.ui.component
+
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
+
+val LocalMenuState = staticCompositionLocalOf<MenuState> { error("No MenuState provided") }
+
+@Stable
+class MenuState {
+    var isVisible by mutableStateOf(false)
+        internal set
+
+    var content by mutableStateOf<@Composable ColumnScope.() -> Unit>({})
+        internal set
+
+    fun show(content: @Composable ColumnScope.() -> Unit) {
+        this.content = content
+        isVisible = true
+    }
+
+    fun dismiss() {
+        isVisible = false
+    }
+}
+
+package com.cgens67.avidtune.ui.component
+
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.addOutline
+import androidx.compose.ui.graphics.drawscope.clipPath
+
+fun Modifier.maskClip(shape: Shape) =
+    drawWithCache {
+        val path = Path().apply { addOutline(shape.createOutline(size, layoutDirection, this@drawWithCache)) }
+        onDrawWithContent {
+            clipPath(path) {
+                this@onDrawWithContent.drawContent()
+            }
+        }
+    }
+
+fun Modifier.maskBorder(
+    border: androidx.compose.foundation.BorderStroke,
+    shape: Shape
+) = drawWithCache {
+    val outline = shape.createOutline(size, layoutDirection, this)
+    val path = Path().apply { addOutline(outline) }
+    onDrawWithContent {
+        drawContent()
+        drawPath(
+            path = path,
+            color = border.brush.let { if (it is androidx.compose.ui.graphics.SolidColor) it.value else Color.Transparent },
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = border.width.toPx())
+        )
+    }
+}
+
+package com.cgens67.avidtune.ui.component
+
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Icon
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import com.cgens67.avidtune.R
+import com.cgens67.avidtune.constants.ThumbnailCornerRadius
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+
+@Composable
+fun PlayingIndicator(
+    color: Color,
+    modifier: Modifier = Modifier,
+    bars: Int = 3,
+    isPlaying: Boolean = true,
+    barWidth: Dp = 4.dp,
+    cornerRadius: Dp = ThumbnailCornerRadius,
+) {
+    val animatables =
+        remember {
+            List(bars) {
+                Animatable(if (isPlaying) 0.2f else 0.2f)
+            }
+        }
+
+    LaunchedEffect(isPlaying) {
+        if (isPlaying) {
+            animatables.forEach { animatable ->
+                launch {
+                    while (isActive) {
+                        animatable.animateTo(
+                            targetValue = kotlin.random.Random.nextFloat() * 0.8f + 0.2f,
+                            animationSpec = tween(durationMillis = 300)
+                        )
+                    }
+                }
+            }
+        } else {
+            animatables.forEach { animatable ->
+                launch {
+                    animatable.animateTo(
+                        targetValue = 0.2f,
+                        animationSpec = tween(durationMillis = 400)
+                    )
+                }
+            }
+        }
+    }
+
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.Bottom,
+        modifier = modifier,
+    ) {
+        animatables.forEach { animatable ->
+            Canvas(
+                modifier =
+                    Modifier
+                        .fillMaxHeight()
+                        .width(barWidth),
+            ) {
+                drawRoundRect(
+                    color = color,
+                    topLeft = Offset(x = 0f, y = size.height * (1 - animatable.value)),
+                    size = size.copy(height = animatable.value * size.height),
+                    cornerRadius = CornerRadius(cornerRadius.toPx()),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun PlayingIndicatorBox(
+    modifier: Modifier = Modifier,
+    isActive: Boolean,
+    playWhenReady: Boolean,
+    color: Color = Color.White,
+) {
+    AnimatedVisibility(
+        visible = isActive,
+        enter = fadeIn(tween(500)),
+        exit = fadeOut(tween(500)),
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = modifier,
+        ) {
+            PlayingIndicator(
+                color = color,
+                isPlaying = playWhenReady,
+                modifier = Modifier.height(24.dp),
+            )
+        }
+    }
 }
