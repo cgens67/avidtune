@@ -43,7 +43,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -186,36 +185,6 @@ private fun NewMiniPlayer(
                 playerConnection = playerConnection,
                 isLiveMesh = playerBackground == com.cgens67.avidtune.constants.PlayerBackgroundStyle.LIVE_MESH
             )
-            
-            // Progress Bar integration
-            val sliderStyle by rememberEnumPreference(
-                com.cgens67.avidtune.constants.SliderStyleKey,
-                com.cgens67.avidtune.constants.SliderStyle.SQUIGGLY
-            )
-            val isPlaying by playerConnection.isPlaying.collectAsState()
-            
-            Box(modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 24.dp)) {
-                // For a more compact look in MiniPlayer, we only show a slim progress bar
-                // We map all slider styles to a slim version for the miniplayer context to save space,
-                // but you can implement specific mini-styles here if needed.
-                val progress = if (duration > 0) (position.toFloat() / duration.toFloat()).coerceIn(0f, 1f) else 0f
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(2.dp)
-                        .clip(RoundedCornerShape(1.dp))
-                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(fraction = progress)
-                            .height(2.dp)
-                            .background(
-                                if (isLiveMesh) Color.White else MaterialTheme.colorScheme.primary
-                            )
-                    )
-                }
-            }
         }
     }
 }
@@ -411,29 +380,35 @@ private fun MiniPlayerArtwork(
     val progressTrackColor = if (isLiveMesh) Color.White.copy(alpha = 0.2f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)
     val imageBorderColor = if (isLiveMesh) Color.White.copy(alpha = 0.2f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
 
-    val (miniPlayerShapeName) = rememberPreference(
-        com.cgens67.avidtune.constants.MiniPlayerThumbnailShapeKey,
-        com.cgens67.avidtune.constants.DefaultMiniPlayerThumbnailShape
-    )
-    val miniPlayerPolygon = remember(miniPlayerShapeName) {
-        com.cgens67.avidtune.utils.getMiniPlayerThumbnailShape(miniPlayerShapeName)
-    }
-    val miniPlayerShape = miniPlayerPolygon.toShape()
-
     Box(
         contentAlignment = Alignment.Center,
-        modifier = modifier.size(54.dp)
+        modifier = modifier.size(47.dp)
     ) {
+        if (isLoading) {
+            CircularWavyProgressIndicator(
+                modifier = Modifier.fillMaxSize(),
+                color = progressColor,
+                trackColor = progressTrackColor
+            )
+        } else {
+            CircularWavyProgressIndicator(
+                progress = { if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f },
+                modifier = Modifier.fillMaxSize(),
+                color = progressColor,
+                trackColor = progressTrackColor
+            )
+        }
+
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .size(46.dp)
-                .clip(miniPlayerShape)
+                .size(37.dp)
+                .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.surfaceVariant)
                 .border(
                     width = 1.dp,
                     color = imageBorderColor,
-                    shape = miniPlayerShape
+                    shape = CircleShape
                 )
         ) {
             val thumbnailUrl = mediaMetadata?.thumbnailUrl
