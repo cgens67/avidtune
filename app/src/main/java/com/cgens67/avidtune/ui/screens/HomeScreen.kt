@@ -427,7 +427,7 @@ fun HomeScreen(
             keepListening?.takeIf { it.isNotEmpty() }?.let { keepListening ->
                 item { NavigationTitle(title = stringResource(R.string.keep_listening), modifier = Modifier.animateItem()) }
                 item {
-                    val rows = kotlin.math.min(2, keepListening.size)
+                    val rows = min(2, keepListening.size)
                     LazyHorizontalGrid(
                         state = rememberLazyGridState(),
                         rows = GridCells.Fixed(rows),
@@ -569,17 +569,17 @@ fun HomeScreen(
             enter = scaleIn(spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow)) +
                     fadeIn(tween(300, easing = LinearOutSlowInEasing)) +
                     slideInVertically(spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow)) { it },
-            exit = scaleOut(spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow), targetScale = 0.8f) +
-                   fadeOut(tween(250, easing = FastOutSlowInEasing)) +
-                   slideOutVertically(spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow)) { it },
+            exit = scaleOut(tween(400, easing = FastOutSlowInEasing), targetScale = 0.7f) +
+                   fadeOut(tween(300, easing = LinearOutSlowInEasing)) +
+                   slideOutVertically(tween(400, easing = FastOutSlowInEasing)) { it },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .windowInsetsPadding(
                     LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)
                 )
-                .padding(16.dp)
         ) {
             FloatingActionButton(
+                modifier = Modifier.padding(16.dp),
                 onClick = {
                     val local = when {
                         allLocalItems.isNotEmpty() && allYtItems.isNotEmpty() -> Random.nextFloat() < 0.5
