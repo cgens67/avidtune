@@ -323,6 +323,7 @@ fun GridItem(
     modifier: Modifier = Modifier,
     title: String,
     subtitle: String,
+    isActive: Boolean = false,
     badges: @Composable RowScope.() -> Unit = {},
     thumbnailContent: @Composable BoxWithConstraintsScope.() -> Unit,
     thumbnailRatio: Float = 1f,
@@ -334,6 +335,7 @@ fun GridItem(
             text = title,
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.Bold,
+            color = if (isActive) MaterialTheme.colorScheme.primary else Color.Unspecified,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Start,
@@ -462,6 +464,7 @@ fun SongGridItem(
                 text = song.song.title,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Bold,
+                color = if (isActive) MaterialTheme.colorScheme.primary else Color.Unspecified,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.basicMarquee().fillMaxWidth(),
@@ -696,6 +699,7 @@ fun AlbumGridItem(
                 text = album.album.title,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Bold,
+                color = if (isActive) MaterialTheme.colorScheme.primary else Color.Unspecified,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.basicMarquee().fillMaxWidth(),
@@ -1513,6 +1517,7 @@ fun YouTubeGridItem(
                 text = item.title,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Bold,
+                color = if (isActive) MaterialTheme.colorScheme.primary else Color.Unspecified,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = if (item is ArtistItem) TextAlign.Center else TextAlign.Start,
@@ -1632,6 +1637,7 @@ fun LocalSongsGrid(
     GridItem(
         title = title,
         subtitle = subtitle,
+        isActive = isActive,
         badges = badges,
         thumbnailContent = {
             LocalThumbnail(
@@ -1662,6 +1668,7 @@ fun LocalArtistsGrid(
 ) = GridItem(
     title = title,
     subtitle = subtitle,
+    isActive = isActive,
     badges = badges,
     thumbnailContent = {
         LocalThumbnail(
@@ -1693,6 +1700,7 @@ fun LocalAlbumsGrid(
     GridItem(
         title = title,
         subtitle = subtitle,
+        isActive = isActive,
         badges = badges,
         thumbnailContent = {
             LocalThumbnail(
@@ -1830,6 +1838,8 @@ fun ItemThumbnail(
             }
         }
 
+        val showCircularPlay = (isActive && !isPlaying && albumIndex == null)
+
         PlayingIndicatorBox(
             isActive = isActive,
             playWhenReady = isPlaying,
@@ -1848,7 +1858,7 @@ fun ItemThumbnail(
                     .fillMaxSize()
                     .background(
                         color =
-                            if (albumIndex != null) {
+                            if (albumIndex != null || showCircularPlay) {
                                 Color.Transparent
                             } else {
                                 Color.Black.copy(alpha = ActiveBoxAlpha)
@@ -1914,7 +1924,7 @@ fun LocalThumbnail(
                 modifier =
                     Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = ActiveBoxAlpha), shape),
+                        .background(Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f), shape),
             ) {
                 if (isPlaying) {
                     PlayingIndicator(
@@ -1922,12 +1932,20 @@ fun LocalThumbnail(
                         modifier = Modifier.height(24.dp),
                     )
                 } else {
-                    Icon(
-                        painter = painterResource(R.drawable.play),
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.play),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(28.dp),
+                        )
+                    }
                 }
             }
         }
@@ -2344,6 +2362,7 @@ fun SmallGridItem(
     modifier: Modifier = Modifier,
     title: String,
     subtitle: String? = null,
+    isActive: Boolean = false,
     thumbnailContent: @Composable BoxWithConstraintsScope.() -> Unit,
     thumbnailShape: Shape,
     thumbnailRatio: Float = 1f,
@@ -2379,6 +2398,7 @@ fun SmallGridItem(
                 text = title,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
+                color = if (isActive) MaterialTheme.colorScheme.primary else Color.Unspecified,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = if (isArtist == true) TextAlign.Center else TextAlign.Start,
@@ -2418,6 +2438,7 @@ fun SongSmallGridItem(
     SmallGridItem(
         title = song.song.title,
         subtitle = subtitle,
+        isActive = isActive,
         thumbnailContent = {
             AsyncImage(
                 model = song.song.thumbnailUrl,
@@ -2439,7 +2460,7 @@ fun SongSmallGridItem(
                         Modifier
                             .fillMaxSize()
                             .background(
-                                color = Color.Black.copy(alpha = ActiveBoxAlpha),
+                                color = Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f),
                                 shape = RoundedCornerShape(itemCornerRadius),
                             ),
                 ) {
@@ -2449,12 +2470,20 @@ fun SongSmallGridItem(
                             modifier = Modifier.height(24.dp),
                         )
                     } else {
-                        Icon(
-                            painter = painterResource(R.drawable.play),
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.play),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(28.dp),
+                            )
+                        }
                     }
                 }
             }
@@ -2518,6 +2547,7 @@ fun AlbumSmallGridItem(
     song.song.albumName?.let {
         SmallGridItem(
             title = it,
+            isActive = isActive,
             thumbnailContent = {
                 AsyncImage(
                     model = song.song.thumbnailUrl,
@@ -2536,7 +2566,7 @@ fun AlbumSmallGridItem(
                             Modifier
                                 .fillMaxSize()
                                 .background(
-                                    color = Color.Black.copy(alpha = ActiveBoxAlpha),
+                                    color = Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f),
                                     shape = RoundedCornerShape(itemCornerRadius),
                                 ),
                     ) {
@@ -2546,12 +2576,20 @@ fun AlbumSmallGridItem(
                                 modifier = Modifier.height(24.dp),
                             )
                         } else {
-                            Icon(
-                                painter = painterResource(R.drawable.play),
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(24.dp)
-                            )
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.play),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(28.dp),
+                                )
+                            }
                         }
                     }
                 }
@@ -2604,6 +2642,7 @@ fun YouTubeSmallGridItem(
     SmallGridItem(
         title = item.title,
         subtitle = subtitle,
+        isActive = isActive,
         thumbnailContent = {
             AsyncImage(
                 model = item.thumbnail,
@@ -2625,7 +2664,7 @@ fun YouTubeSmallGridItem(
                             Modifier
                                 .fillMaxSize()
                                 .background(
-                                    color = Color.Black.copy(alpha = ActiveBoxAlpha),
+                                    color = Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f),
                                     shape = RoundedCornerShape(itemCornerRadius),
                                 ),
                     ) {
@@ -2635,12 +2674,20 @@ fun YouTubeSmallGridItem(
                                 modifier = Modifier.height(24.dp),
                             )
                         } else {
-                            Icon(
-                                painter = painterResource(R.drawable.play),
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(24.dp)
-                            )
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.play),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(28.dp),
+                                )
+                            }
                         }
                     }
                 }
@@ -2675,37 +2722,4 @@ fun YouTubeSmallGridItem(
         modifier = modifier,
         isArtist = item is ArtistItem,
     )
-}
-
-@Composable
-fun PlayingIndicatorBox(
-    modifier: Modifier = Modifier,
-    isActive: Boolean,
-    playWhenReady: Boolean,
-    color: Color = Color.White,
-) {
-    AnimatedVisibility(
-        visible = isActive,
-        enter = fadeIn(tween(500)),
-        exit = fadeOut(tween(500)),
-    ) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = modifier,
-        ) {
-            if (playWhenReady) {
-                PlayingIndicator(
-                    color = color,
-                    modifier = Modifier.height(24.dp),
-                )
-            } else {
-                Icon(
-                    painter = painterResource(R.drawable.play),
-                    contentDescription = null,
-                    tint = color,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-        }
-    }
 }
