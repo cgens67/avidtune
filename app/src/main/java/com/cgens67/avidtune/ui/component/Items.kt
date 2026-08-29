@@ -1830,8 +1830,6 @@ fun ItemThumbnail(
             }
         }
 
-        val showCircularPlay = (isActive && !isPlaying && albumIndex == null)
-
         PlayingIndicatorBox(
             isActive = isActive,
             playWhenReady = isPlaying,
@@ -1850,7 +1848,7 @@ fun ItemThumbnail(
                     .fillMaxSize()
                     .background(
                         color =
-                            if (albumIndex != null || showCircularPlay) {
+                            if (albumIndex != null) {
                                 Color.Transparent
                             } else {
                                 Color.Black.copy(alpha = ActiveBoxAlpha)
@@ -1916,12 +1914,19 @@ fun LocalThumbnail(
                 modifier =
                     Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f), shape),
+                        .background(Color.Black.copy(alpha = ActiveBoxAlpha), shape),
             ) {
                 if (isPlaying) {
                     PlayingIndicator(
                         color = Color.White,
                         modifier = Modifier.height(24.dp),
+                    )
+                } else {
+                    Icon(
+                        painter = painterResource(R.drawable.play),
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
                     )
                 }
             }
@@ -1929,7 +1934,7 @@ fun LocalThumbnail(
 
         if (showCenterPlay) {
             AnimatedVisibility(
-                visible = !(isActive && isPlaying),
+                visible = !isActive,
                 enter = fadeIn(),
                 exit = fadeOut(),
                 modifier =
@@ -2434,7 +2439,7 @@ fun SongSmallGridItem(
                         Modifier
                             .fillMaxSize()
                             .background(
-                                color = Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f),
+                                color = Color.Black.copy(alpha = ActiveBoxAlpha),
                                 shape = RoundedCornerShape(itemCornerRadius),
                             ),
                 ) {
@@ -2443,12 +2448,19 @@ fun SongSmallGridItem(
                             color = Color.White,
                             modifier = Modifier.height(24.dp),
                         )
+                    } else {
+                        Icon(
+                            painter = painterResource(R.drawable.play),
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
                     }
                 }
             }
 
             AnimatedVisibility(
-                visible = !(isActive && isPlaying),
+                visible = !isActive,
                 enter = fadeIn(),
                 exit = fadeOut(),
                 modifier =
@@ -2524,7 +2536,7 @@ fun AlbumSmallGridItem(
                             Modifier
                                 .fillMaxSize()
                                 .background(
-                                    color = Color.Black.copy(alpha = 0.4f),
+                                    color = Color.Black.copy(alpha = ActiveBoxAlpha),
                                     shape = RoundedCornerShape(itemCornerRadius),
                                 ),
                     ) {
@@ -2538,6 +2550,7 @@ fun AlbumSmallGridItem(
                                 painter = painterResource(R.drawable.play),
                                 contentDescription = null,
                                 tint = Color.White,
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     }
@@ -2612,7 +2625,7 @@ fun YouTubeSmallGridItem(
                             Modifier
                                 .fillMaxSize()
                                 .background(
-                                    color = Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f),
+                                    color = Color.Black.copy(alpha = ActiveBoxAlpha),
                                     shape = RoundedCornerShape(itemCornerRadius),
                                 ),
                     ) {
@@ -2621,12 +2634,19 @@ fun YouTubeSmallGridItem(
                                 color = Color.White,
                                 modifier = Modifier.height(24.dp),
                             )
+                        } else {
+                            Icon(
+                                painter = painterResource(R.drawable.play),
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
                         }
                     }
                 }
 
                 AnimatedVisibility(
-                    visible = !(isActive && isPlaying),
+                    visible = !isActive,
                     enter = fadeIn(),
                     exit = fadeOut(),
                     modifier =
@@ -2655,4 +2675,37 @@ fun YouTubeSmallGridItem(
         modifier = modifier,
         isArtist = item is ArtistItem,
     )
+}
+
+@Composable
+fun PlayingIndicatorBox(
+    modifier: Modifier = Modifier,
+    isActive: Boolean,
+    playWhenReady: Boolean,
+    color: Color = Color.White,
+) {
+    AnimatedVisibility(
+        visible = isActive,
+        enter = fadeIn(tween(500)),
+        exit = fadeOut(tween(500)),
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = modifier,
+        ) {
+            if (playWhenReady) {
+                PlayingIndicator(
+                    color = color,
+                    modifier = Modifier.height(24.dp),
+                )
+            } else {
+                Icon(
+                    painter = painterResource(R.drawable.play),
+                    contentDescription = null,
+                    tint = color,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+    }
 }
