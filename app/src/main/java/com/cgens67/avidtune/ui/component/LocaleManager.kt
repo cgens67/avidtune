@@ -112,7 +112,8 @@ data class LanguageItem(
     val nativeName: String,
     val completionStatus: CompletionStatus = CompletionStatus.COMPLETE,
     val isSystemDefault: Boolean = false,
-    val flag: String = ""
+    val flag: String = "",
+    val lastUpdated: String = ""
 )
 
 /** Translation completion status */
@@ -151,39 +152,40 @@ class LocaleManager private constructor(private val context: Context) {
 
         // Flag and translation state mapping
         private val LANGUAGE_METADATA = mapOf(
-            "en" to LanguageMetadata("🇺🇸", CompletionStatus.COMPLETE),
-            "es" to LanguageMetadata("🇪🇸", CompletionStatus.COMPLETE),
-            "fr" to LanguageMetadata("🇫🇷", CompletionStatus.COMPLETE),
-            "de" to LanguageMetadata("🇩🇪", CompletionStatus.COMPLETE),
-            "it" to LanguageMetadata("🇮🇹", CompletionStatus.COMPLETE),
-            "pt" to LanguageMetadata("🇧🇷", CompletionStatus.COMPLETE),
-            "pt-PT" to LanguageMetadata("🇵🇹", CompletionStatus.COMPLETE),
-            "ru" to LanguageMetadata("🇷🇺", CompletionStatus.COMPLETE),
-            "zh-CN" to LanguageMetadata("🇨🇳", CompletionStatus.COMPLETE),
-            "zh-TW" to LanguageMetadata("🇹🇼", CompletionStatus.COMPLETE),
-            "ja" to LanguageMetadata("🇯🇵", CompletionStatus.COMPLETE),
-            "ko" to LanguageMetadata("🇰🇷", CompletionStatus.COMPLETE),
-            "ar" to LanguageMetadata("🇸🇦", CompletionStatus.BETA),
-            "hi" to LanguageMetadata("🇮🇳", CompletionStatus.BETA),
-            "th" to LanguageMetadata("🇹🇭", CompletionStatus.INCOMPLETE),
-            "vi" to LanguageMetadata("🇻🇳", CompletionStatus.INCOMPLETE),
-            "tr" to LanguageMetadata("🇹🇷", CompletionStatus.BETA),
-            "pl" to LanguageMetadata("🇵🇱", CompletionStatus.INCOMPLETE),
-            "nl" to LanguageMetadata("🇳🇱", CompletionStatus.INCOMPLETE),
-            "id" to LanguageMetadata("🇮🇩", CompletionStatus.BETA),
-            "uk" to LanguageMetadata("🇺🇦", CompletionStatus.BETA),
-            "he" to LanguageMetadata("🇮🇱", CompletionStatus.BETA),
-            "ms" to LanguageMetadata("🇲🇾", CompletionStatus.COMPLETE),
+            "en" to LanguageMetadata("🇺🇸", CompletionStatus.COMPLETE, "v1.5.0"),
+            "es" to LanguageMetadata("🇪🇸", CompletionStatus.COMPLETE, "v0.9.4"),
+            "fr" to LanguageMetadata("🇫🇷", CompletionStatus.COMPLETE, "v1.5.0"),
+            "de" to LanguageMetadata("🇩🇪", CompletionStatus.COMPLETE, "v1.5.0"),
+            "it" to LanguageMetadata("🇮🇹", CompletionStatus.COMPLETE, "v0.9.4"),
+            "pt" to LanguageMetadata("🇧🇷", CompletionStatus.COMPLETE, "v0.9.4"),
+            "pt-PT" to LanguageMetadata("🇵🇹", CompletionStatus.COMPLETE, "v0.9.4"),
+            "ru" to LanguageMetadata("🇷🇺", CompletionStatus.COMPLETE, "v0.9.4"),
+            "zh-CN" to LanguageMetadata("🇨🇳", CompletionStatus.COMPLETE, "v1.5.0"),
+            "zh-TW" to LanguageMetadata("🇹🇼", CompletionStatus.COMPLETE, "v1.5.0"),
+            "ja" to LanguageMetadata("🇯🇵", CompletionStatus.COMPLETE, "v0.9.4"),
+            "ko" to LanguageMetadata("🇰🇷", CompletionStatus.COMPLETE, "v0.9.4"),
+            "ar" to LanguageMetadata("🇸🇦", CompletionStatus.BETA, "v0.9.4"),
+            "hi" to LanguageMetadata("🇮🇳", CompletionStatus.BETA, "v0.9.4"),
+            "th" to LanguageMetadata("🇹🇭", CompletionStatus.INCOMPLETE, "v0.9.4"),
+            "vi" to LanguageMetadata("🇻🇳", CompletionStatus.INCOMPLETE, "v0.9.4"),
+            "tr" to LanguageMetadata("🇹🇷", CompletionStatus.BETA, "v0.9.4"),
+            "pl" to LanguageMetadata("🇵🇱", CompletionStatus.INCOMPLETE, "v0.9.4"),
+            "nl" to LanguageMetadata("🇳🇱", CompletionStatus.INCOMPLETE, "v0.9.4"),
+            "id" to LanguageMetadata("🇮🇩", CompletionStatus.BETA, "v0.9.4"),
+            "uk" to LanguageMetadata("🇺🇦", CompletionStatus.BETA, "v0.9.4"),
+            "he" to LanguageMetadata("🇮🇱", CompletionStatus.BETA, "v0.9.4"),
+            "ms" to LanguageMetadata("🇲🇾", CompletionStatus.COMPLETE, "v1.3.0"),
             
             // New languages
-            "bn" to LanguageMetadata("🇧🇩", CompletionStatus.INCOMPLETE),
-            "ur" to LanguageMetadata("🇵🇰", CompletionStatus.INCOMPLETE),
-            "tl" to LanguageMetadata("🇵🇭", CompletionStatus.INCOMPLETE)
+            "bn" to LanguageMetadata("🇧🇩", CompletionStatus.INCOMPLETE, "v1.4.0"),
+            "ur" to LanguageMetadata("🇵🇰", CompletionStatus.INCOMPLETE, "v1.4.0"),
+            "tl" to LanguageMetadata("🇵🇭", CompletionStatus.INCOMPLETE, "v1.4.0")
         )
 
         private data class LanguageMetadata(
             val flag: String,
-            val completionStatus: CompletionStatus
+            val completionStatus: CompletionStatus,
+            val lastUpdated: String = "v0.9.4"
         )
     }
 
@@ -293,7 +295,8 @@ class LocaleManager private constructor(private val context: Context) {
                     nativeName = systemDisplayName,
                     completionStatus = CompletionStatus.COMPLETE,
                     isSystemDefault = true,
-                    flag = "🌐"
+                    flag = "🌐",
+                    lastUpdated = ""
                 )
             )
 
@@ -312,7 +315,7 @@ class LocaleManager private constructor(private val context: Context) {
 
                     // Get metadata (flag and status)
                     val metadata = LANGUAGE_METADATA[localeCode]
-                        ?: LanguageMetadata("🌍", CompletionStatus.COMPLETE)
+                        ?: LanguageMetadata("🌍", CompletionStatus.COMPLETE, "v0.9.4")
 
                     languages.add(
                         LanguageItem(
@@ -321,7 +324,8 @@ class LocaleManager private constructor(private val context: Context) {
                             nativeName = nativeName,
                             completionStatus = metadata.completionStatus,
                             isSystemDefault = false,
-                            flag = metadata.flag
+                            flag = metadata.flag,
+                            lastUpdated = metadata.lastUpdated
                         )
                     )
                 } catch (e: Exception) {
@@ -880,6 +884,21 @@ private fun LanguageItem(
                             MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                if (language.lastUpdated.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Last updated: ${language.lastUpdated}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isSelected) {
+                            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                         },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
