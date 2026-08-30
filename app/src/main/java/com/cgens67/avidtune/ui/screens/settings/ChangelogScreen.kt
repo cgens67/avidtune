@@ -100,7 +100,6 @@ import coil.compose.AsyncImage
 import com.cgens67.avidtune.BuildConfig
 import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
 import com.cgens67.avidtune.R
-import com.cgens67.avidtune.ui.screens.AdvancedMarkdownText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -131,11 +130,11 @@ data class ChangelogSection(val title: String, val items: List<String>)
 data class ReleaseMetadata(
     val tagName: String, 
     val name: String, 
+    val body: String,
     val date: String, 
     val changelogUrl: String?,
     val isPrerelease: Boolean,
-    val rawDate: String,
-    val bodyText: String
+    val rawDate: String
 )
 data class CachedChangelogData(val sections: List<ChangelogSection>, val image: String?, val description: String?, val warning: String?)
 
@@ -494,13 +493,42 @@ fun ReleasesContent(
         if (searchQuery.isBlank()) {
             filteredReleases
         } else {
-            val matched = filteredReleases.filter { release ->
+            filteredReleases.filter { release ->
                 matchesVersion(release.tagName, searchQuery) ||
                 release.name.contains(searchQuery, ignoreCase = true) ||
-                release.bodyText.contains(searchQuery, ignoreCase = true)
+                release.body.contains(searchQuery, ignoreCase = true)
             }
-            if (matched.isNotEmpty()) matched else filteredReleases
         }
+    }
+
+    val displayedSections = remember(changelogSections, searchQuery) {
+        if (searchQuery.isBlank()) {
+            changelogSections
+        } else {
+            changelogSections.mapNotNull { section ->
+                val titleMatches = section.title.contains(searchQuery, ignoreCase = true)
+                val matchedItems = section.items.filter { it.contains(searchQuery, ignoreCase = true) }
+                if (titleMatches) {
+                    section 
+                } else if (matchedItems.isNotEmpty()) {
+                    section.copy(items = matchedItems)
+                } else {
+                    null
+                }
+            }
+        }
+    }
+
+    val showDescription = remember(updateDescription, searchQuery) {
+        updateDescription?.let {
+            searchQuery.isBlank() || it.contains(searchQuery, ignoreCase = true)
+        } ?: false
+    }
+
+    val showWarning = remember(updateWarning, searchQuery) {
+        updateWarning?.let {
+            searchQuery.isBlank() || it.contains(searchQuery, ignoreCase = true)
+        } ?: false
     }
 
     fun fetchChangelog(tag: String, bypassCache: Boolean = false) {
@@ -588,23 +616,10 @@ fun ReleasesContent(
                             }
                         }
                     } else {
-                        // If changelog.json is not found (404), fallback to release bodyText
-                        if (releaseMeta != null && releaseMeta.bodyText.isNotBlank()) {
-                            withContext(Dispatchers.Main) {
-                                changelogSections = emptyList()
-                                updateImage = null
-                                updateDescription = releaseMeta.bodyText
-                                updateWarning = null
-                                isLoading = false
-                                hasError = false
-                                showingCached = false
-                            }
-                        } else {
-                            withContext(Dispatchers.Main) { 
-                                hasError = true
-                                detailedError = if (response.code == 403) context.getString(R.string.github_api_rate_limit_exceeded) else "HTTP ${response.code}: ${response.message}\nURL: $urlToFetch"
-                                isLoading = false 
-                            }
+                        withContext(Dispatchers.Main) { 
+                            hasError = true
+                            detailedError = if (response.code == 403) context.getString(R.string.github_api_rate_limit_exceeded) else "HTTP ${response.code}: ${response.message}\nURL: $urlToFetch"
+                            isLoading = false 
                         }
                     }
                 }
@@ -657,7 +672,7 @@ fun ReleasesContent(
                     val obj = array.getJSONObject(i)
                     val tagName = obj.getString("tag_name")
                     val name = obj.optString("name", tagName)
-                    val bodyText = obj.optString("body", "")
+                    val body = obj.optString("body", "")
                     val publishedAt = obj.getString("published_at")
                     val isPrerelease = obj.getBoolean("prerelease")
                     val formattedDate = getTimeAgo(context, publishedAt)
@@ -672,7 +687,7 @@ fun ReleasesContent(
                         }
                     }
 
-                    list.add(ReleaseMetadata(tagName, name, formattedDate, changelogUrl, isPrerelease, publishedAt, bodyText))
+                    list.add(ReleaseMetadata(tagName, name, body, formattedDate, changelogUrl, isPrerelease, publishedAt))
                 }
                 withContext(Dispatchers.Main) {
                     availableReleases = list
@@ -727,30 +742,6 @@ fun ReleasesContent(
             }
         }
     }
-
-    val currentRelease = searchFilteredReleases.find { it.tagName == currentVersionTag }
-    val isVersionMatch = currentRelease != null && searchQuery.isNotBlank() && (
-        matchesVersion(currentRelease.tagName, searchQuery) ||
-        currentRelease.name.contains(searchQuery, ignoreCase = true)
-    )
-
-    val displaySections = remember(changelogSections, searchQuery, isVersionMatch) {
-        if (searchQuery.isBlank() || isVersionMatch) {
-            changelogSections
-        } else {
-            val filtered = changelogSections.mapNotNull { section ->
-                val titleMatches = section.title.contains(searchQuery, ignoreCase = true)
-                val matchingItems = section.items.filter { it.contains(searchQuery, ignoreCase = true) }
-                if (titleMatches) section
-                else if (matchingItems.isNotEmpty()) section.copy(items = matchingItems)
-                else null
-            }
-            if (filtered.isEmpty() && changelogSections.isNotEmpty()) changelogSections else filtered
-        }
-    }
-
-    val displayImage = if (searchQuery.isBlank() || isVersionMatch) updateImage else null
-    val displayDesc = if (searchQuery.isBlank() || isVersionMatch || updateDescription?.contains(searchQuery, true) == true) updateDescription else null
 
     Box(
         modifier = Modifier
@@ -813,6 +804,8 @@ fun ReleasesContent(
                         )
                     }
                 }
+
+                val currentRelease = searchFilteredReleases.find { it.tagName == currentVersionTag }
                 
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
@@ -898,13 +891,15 @@ fun ReleasesContent(
                         }
                     }
                 }
-            } else if (searchFilteredReleases.isNotEmpty()) {
+            } else if (searchFilteredReleases.isNotEmpty() && !isLoading) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
-                    displayImage?.let { imageUrl ->
+                    val hasVisibleContent = showDescription || displayedSections.isNotEmpty() || showWarning
+                    
+                    if (updateImage != null && (searchQuery.isBlank() || showDescription)) {
                         Spacer(modifier = Modifier.height(8.dp))
                         ElevatedCard(
                             shape = MaterialTheme.shapes.extraLarge,
@@ -915,41 +910,45 @@ fun ReleasesContent(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             AsyncImage(
-                                model = imageUrl,
+                                model = updateImage,
                                 contentDescription = null,
                                 modifier = Modifier.fillMaxWidth(),
                                 contentScale = ContentScale.FillWidth
                             )
-                            displayDesc?.let { desc ->
-                                AdvancedMarkdownText(
-                                    markdown = desc,
+                            if (showDescription) {
+                                updateDescription?.let { desc ->
+                                    Text(
+                                        text = desc,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(16.dp)
+                                    )
+                                }
+                            }
+                        }
+                    } else if (showDescription) {
+                        updateDescription?.let { desc ->
+                            Spacer(Modifier.height(8.dp))
+                            ElevatedCard(
+                                shape = MaterialTheme.shapes.extraLarge,
+                                colors = CardDefaults.elevatedCardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                ),
+                                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = desc,
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(16.dp)
                                 )
                             }
                         }
-                    } ?: displayDesc?.let { desc ->
-                        Spacer(Modifier.height(8.dp))
-                        ElevatedCard(
-                            shape = MaterialTheme.shapes.extraLarge,
-                            colors = CardDefaults.elevatedCardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            ),
-                            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            AdvancedMarkdownText(
-                                markdown = desc,
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(16.dp)
-                            )
-                        }
                     }
 
-                    if (displaySections.isNotEmpty()) {
-                        displaySections.forEach { section ->
+                    if (displayedSections.isNotEmpty()) {
+                        displayedSections.forEach { section ->
                             Spacer(Modifier.height(16.dp))
                             ElevatedCard(
                                 shape = MaterialTheme.shapes.extraLarge,
@@ -1002,26 +1001,31 @@ fun ReleasesContent(
                                 }
                             }
                         }
-                    } else if (searchQuery.isNotBlank() && changelogSections.isNotEmpty() && displayDesc == null) {
-                        Spacer(Modifier.height(32.dp))
-                        Text(
-                            text = stringResource(R.string.no_results_found),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Spacer(Modifier.height(16.dp))
                     }
 
-                    val displayWarning = if (searchQuery.isBlank() || updateWarning?.contains(searchQuery, true) == true) updateWarning else null
-                    displayWarning?.let { warning ->
-                        Spacer(Modifier.height(24.dp))
-                        Surface(color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f), shape = RoundedCornerShape(12.dp)) {
-                            Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Icon(Icons.Default.Error, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
-                                Text(warning, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer)
+                    if (showWarning) {
+                        updateWarning?.let { warning ->
+                            Spacer(Modifier.height(24.dp))
+                            Surface(color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f), shape = RoundedCornerShape(12.dp)) {
+                                Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Icon(Icons.Default.Error, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+                                    Text(warning, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer)
+                                }
                             }
+                        }
+                    }
+                    
+                    if (!hasVisibleContent && searchQuery.isNotBlank()) {
+                        Spacer(Modifier.height(24.dp))
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = stringResource(R.string.no_results_found),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
 
