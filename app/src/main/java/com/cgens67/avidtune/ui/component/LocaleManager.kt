@@ -891,18 +891,29 @@ private fun LanguageItem(
                 }
 
                 if (language.lastUpdated.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = stringResource(R.string.last_updated_version, language.lastUpdated),
-                        style = MaterialTheme.typography.labelSmall,
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
                         color = if (isSelected) {
-                            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.1f)
                         } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                        },
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                        }
+                    ) {
+                        Text(
+                            text = stringResource(R.string.last_updated_version, language.lastUpdated),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (isSelected) {
+                                MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.9f)
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
 
