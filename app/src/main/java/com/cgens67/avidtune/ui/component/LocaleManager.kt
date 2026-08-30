@@ -174,7 +174,7 @@ class LocaleManager private constructor(private val context: Context) {
             "id" to LanguageMetadata("🇮🇩", CompletionStatus.BETA, "v0.9.4"),
             "uk" to LanguageMetadata("🇺🇦", CompletionStatus.BETA, "v0.9.4"),
             "he" to LanguageMetadata("🇮🇱", CompletionStatus.BETA, "v0.9.4"),
-            "ms" to LanguageMetadata("🇲🇾", CompletionStatus.INCOMPLETE, "v1.3.0"),
+            "ms" to LanguageMetadata("🇲🇾", CompletionStatus.COMPLETE, "v1.3.0"),
             
             // New languages
             "bn" to LanguageMetadata("🇧🇩", CompletionStatus.INCOMPLETE, "v1.4.0"),
@@ -889,48 +889,41 @@ private fun LanguageItem(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
+
+                if (language.lastUpdated.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = stringResource(R.string.last_updated_version, language.lastUpdated),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isSelected) {
+                            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
 
-            // Status badges (Version + Status)
-            Row(
-                modifier = Modifier.padding(end = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Version badge
-                if (language.lastUpdated.isNotEmpty()) {
+            // Status badge
+            if (language.completionStatus != CompletionStatus.COMPLETE) {
+                val statusColor = language.completionStatus.color()
+                val labelRes = language.completionStatus.labelRes
+
+                if (labelRes != null) {
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        color = statusColor.copy(alpha = 0.12f),
+                        modifier = Modifier.padding(end = 12.dp)
                     ) {
                         Text(
-                            text = stringResource(R.string.last_updated_version, language.lastUpdated),
+                            text = stringResource(labelRes),
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = statusColor,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
-                    }
-                }
-
-                // Completion status badge
-                if (language.completionStatus != CompletionStatus.COMPLETE) {
-                    val statusColor = language.completionStatus.color()
-                    val labelRes = language.completionStatus.labelRes
-
-                    if (labelRes != null) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = statusColor.copy(alpha = 0.12f),
-                        ) {
-                            Text(
-                                text = stringResource(labelRes),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = statusColor,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
-                        }
                     }
                 }
             }
