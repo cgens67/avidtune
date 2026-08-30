@@ -970,9 +970,9 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
             onClick = { resetSearch(); navController.navigate("settings/appearance") }
         ),
         SettingsItem(
-            icon = painterResource(R.drawable.text_fields), // Changed from format_align_left
-            title = stringResource(R.string.use_system_font),
-            keywords = listOf("font", "system", "text", "typeface"),
+            icon = painterResource(R.drawable.text_fields),
+            title = "App Font",
+            keywords = listOf("font", "system", "text", "typeface", "sf pro", "google sans", "space grotesk"),
             onClick = { resetSearch(); navController.navigate("settings/appearance") }
         ),
         SettingsItem(
