@@ -10,13 +10,13 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -98,7 +98,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -133,16 +132,23 @@ data class CommitData(
 )
 
 data class ChangelogSection(val title: String, val items: List<String>)
+
 data class ReleaseMetadata(
-    val tagName: String, 
-    val name: String, 
-    val date: String, 
+    val tagName: String,
+    val name: String,
+    val date: String,
     val changelogUrl: String?,
     val isPrerelease: Boolean,
     val rawDate: String,
-    val body: String // Added to enable full-text searching across all changelogs
+    val body: String
 )
-data class CachedChangelogData(val sections: List<ChangelogSection>, val image: String?, val description: String?, val warning: String?)
+
+data class CachedChangelogData(
+    val sections: List<ChangelogSection>,
+    val image: String?,
+    val description: String?,
+    val warning: String?
+)
 
 // --- Utils ---
 
@@ -289,58 +295,6 @@ fun EmptySearchResultsView(
             textAlign = TextAlign.Center
         )
     }
-}
-
-// --- Highlighting Support ---
-
-@Composable
-private fun getHighlightAlpha(): Float {
-    val infiniteTransition = rememberInfiniteTransition(label = "highlight_transition")
-    val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.2f,
-        targetValue = 0.7f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(800, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "highlight_alpha"
-    )
-    return alpha
-}
-
-@Composable
-private fun HighlightedText(
-    text: String,
-    query: String,
-    highlightBg: Color,
-    highlightFg: Color,
-    style: androidx.compose.ui.text.TextStyle,
-    color: Color = Color.Unspecified,
-    fontWeight: FontWeight? = null,
-    maxLines: Int = Int.MAX_VALUE,
-    overflow: TextOverflow = TextOverflow.Clip,
-    modifier: Modifier = Modifier
-) {
-    if (query.isBlank() || !text.contains(query, ignoreCase = true)) {
-        Text(text = text, style = style, color = color, fontWeight = fontWeight, maxLines = maxLines, overflow = overflow, modifier = modifier)
-        return
-    }
-
-    val annotatedString = buildAnnotatedString {
-        val matches = Regex(Regex.escape(query), RegexOption.IGNORE_CASE).findAll(text)
-        var lastIndex = 0
-        for (match in matches) {
-            append(text.substring(lastIndex, match.range.first))
-            withStyle(SpanStyle(background = highlightBg, color = highlightFg, fontWeight = FontWeight.Bold)) {
-                append(match.value)
-            }
-            lastIndex = match.range.last + 1
-        }
-        if (lastIndex < text.length) {
-            append(text.substring(lastIndex))
-        }
-    }
-    Text(text = annotatedString, style = style, color = color, fontWeight = fontWeight, maxLines = maxLines, overflow = overflow, modifier = modifier)
 }
 
 // --- Main Screen ---
@@ -532,6 +486,19 @@ fun ReleasesContent(
         else LinearOutSlowInEasing.transform(pullToRefreshState.distanceFraction).coerceIn(0f, 1f)
     }
 
+    val infiniteTransition = rememberInfiniteTransition(label = "highlight_transition")
+    val highlightAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 0.8f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "highlight_alpha"
+    )
+    val highlightColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = highlightAlpha)
+    val highlightTextColor = MaterialTheme.colorScheme.onPrimaryContainer
+
     val httpClient = remember(context) {
         val cacheSize = 10L * 1024 * 1024 // 10 MiB Cache size
         val cache = Cache(File(context.cacheDir, "github_api_cache"), cacheSize)
@@ -700,9 +667,9 @@ fun ReleasesContent(
                     val obj = array.getJSONObject(i)
                     val tagName = obj.getString("tag_name")
                     val name = obj.optString("name", tagName)
-                    val bodyText = obj.optString("body", "")
                     val publishedAt = obj.getString("published_at")
                     val isPrerelease = obj.getBoolean("prerelease")
+                    val bodyText = obj.optString("body", "")
                     val formattedDate = getTimeAgo(context, publishedAt)
 
                     val assets = obj.getJSONArray("assets")
@@ -770,10 +737,6 @@ fun ReleasesContent(
             }
         }
     }
-
-    val highlightAlpha = if (searchQuery.isNotBlank()) getHighlightAlpha() else 0f
-    val highlightBg = MaterialTheme.colorScheme.primaryContainer.copy(alpha = highlightAlpha)
-    val highlightFg = MaterialTheme.colorScheme.onPrimaryContainer
 
     Box(
         modifier = Modifier
@@ -946,11 +909,17 @@ fun ReleasesContent(
                                 contentScale = ContentScale.FillWidth
                             )
                             updateDescription?.let { desc ->
-                                HighlightedText(
-                                    text = desc,
-                                    query = searchQuery,
-                                    highlightBg = highlightBg,
-                                    highlightFg = highlightFg,
+                                val annotatedDesc = buildAnnotatedString {
+                                    append(desc)
+                                    if (searchQuery.isNotBlank()) {
+                                        val matches = Regex(Regex.escape(searchQuery), RegexOption.IGNORE_CASE).findAll(desc)
+                                        matches.forEach { match ->
+                                            addStyle(SpanStyle(background = highlightColor, color = highlightTextColor), match.range.first, match.range.last + 1)
+                                        }
+                                    }
+                                }
+                                Text(
+                                    text = annotatedDesc,
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(16.dp)
@@ -967,11 +936,17 @@ fun ReleasesContent(
                             elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            HighlightedText(
-                                text = desc,
-                                query = searchQuery,
-                                highlightBg = highlightBg,
-                                highlightFg = highlightFg,
+                            val annotatedDesc = buildAnnotatedString {
+                                append(desc)
+                                if (searchQuery.isNotBlank()) {
+                                    val matches = Regex(Regex.escape(searchQuery), RegexOption.IGNORE_CASE).findAll(desc)
+                                    matches.forEach { match ->
+                                        addStyle(SpanStyle(background = highlightColor, color = highlightTextColor), match.range.first, match.range.last + 1)
+                                    }
+                                }
+                            }
+                            Text(
+                                text = annotatedDesc,
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(16.dp)
@@ -979,21 +954,8 @@ fun ReleasesContent(
                         }
                     }
 
-                    val filteredSections = if (searchQuery.isBlank()) {
-                        changelogSections
-                    } else {
-                        changelogSections.mapNotNull { section ->
-                            val matchesTitle = section.title.contains(searchQuery, ignoreCase = true)
-                            val matchedItems = section.items.filter { it.contains(searchQuery, ignoreCase = true) }
-                            
-                            if (matchesTitle || matchedItems.isNotEmpty()) {
-                                ChangelogSection(section.title, if (matchesTitle) section.items else matchedItems)
-                            } else null
-                        }
-                    }
-
-                    if (filteredSections.isNotEmpty()) {
-                        filteredSections.forEach { section ->
+                    if (changelogSections.isNotEmpty()) {
+                        changelogSections.forEach { section ->
                             Spacer(Modifier.height(16.dp))
                             ElevatedCard(
                                 shape = MaterialTheme.shapes.extraLarge,
@@ -1005,11 +967,17 @@ fun ReleasesContent(
                             ) {
                                 Column(modifier = Modifier.padding(20.dp)) {
                                     if (section.title.isNotBlank()) {
-                                        HighlightedText(
-                                            text = section.title,
-                                            query = searchQuery,
-                                            highlightBg = highlightBg,
-                                            highlightFg = highlightFg,
+                                        val annotatedTitle = buildAnnotatedString {
+                                            append(section.title)
+                                            if (searchQuery.isNotBlank()) {
+                                                val matches = Regex(Regex.escape(searchQuery), RegexOption.IGNORE_CASE).findAll(section.title)
+                                                matches.forEach { match ->
+                                                    addStyle(SpanStyle(background = highlightColor, color = highlightTextColor), match.range.first, match.range.last + 1)
+                                                }
+                                            }
+                                        }
+                                        Text(
+                                            text = annotatedTitle,
                                             style = MaterialTheme.typography.headlineSmall,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onSurface
@@ -1018,29 +986,19 @@ fun ReleasesContent(
                                     }
 
                                     section.items.forEach { item ->
-                                        val cleanItem = item.trim()
-                                        val urls = cleanItem.extractUrls()
+                                        val urls = item.extractUrls()
+                                        val itemTrimmed = item.trim()
                                         val annotatedText = buildAnnotatedString {
-                                            if (searchQuery.isNotBlank() && cleanItem.contains(searchQuery, ignoreCase = true)) {
-                                                val matches = Regex(Regex.escape(searchQuery), RegexOption.IGNORE_CASE).findAll(cleanItem)
-                                                var lastIndex = 0
-                                                for (match in matches) {
-                                                    append(cleanItem.substring(lastIndex, match.range.first))
-                                                    withStyle(SpanStyle(background = highlightBg, color = highlightFg, fontWeight = FontWeight.Bold)) {
-                                                        append(match.value)
-                                                    }
-                                                    lastIndex = match.range.last + 1
-                                                }
-                                                if (lastIndex < cleanItem.length) {
-                                                    append(cleanItem.substring(lastIndex))
-                                                }
-                                            } else {
-                                                append(cleanItem)
-                                            }
-
+                                            append(itemTrimmed)
                                             urls.forEach { (range, url) ->
                                                 addStringAnnotation("URL", url, range.first, range.last + 1)
                                                 addStyle(SpanStyle(color = MaterialTheme.colorScheme.primary, textDecoration = TextDecoration.Underline), range.first, range.last + 1)
+                                            }
+                                            if (searchQuery.isNotBlank()) {
+                                                val matches = Regex(Regex.escape(searchQuery), RegexOption.IGNORE_CASE).findAll(itemTrimmed)
+                                                matches.forEach { match ->
+                                                    addStyle(SpanStyle(background = highlightColor, color = highlightTextColor), match.range.first, match.range.last + 1)
+                                                }
                                             }
                                         }
                                         Row(
@@ -1073,14 +1031,16 @@ fun ReleasesContent(
                         Surface(color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f), shape = RoundedCornerShape(12.dp)) {
                             Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Icon(Icons.Default.Error, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
-                                HighlightedText(
-                                    text = warning,
-                                    query = searchQuery,
-                                    highlightBg = highlightBg,
-                                    highlightFg = highlightFg,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onErrorContainer
-                                )
+                                val annotatedWarning = buildAnnotatedString {
+                                    append(warning)
+                                    if (searchQuery.isNotBlank()) {
+                                        val matches = Regex(Regex.escape(searchQuery), RegexOption.IGNORE_CASE).findAll(warning)
+                                        matches.forEach { match ->
+                                            addStyle(SpanStyle(background = highlightColor, color = highlightTextColor), match.range.first, match.range.last + 1)
+                                        }
+                                    }
+                                }
+                                Text(annotatedWarning, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer)
                             }
                         }
                     }
@@ -1226,6 +1186,19 @@ fun CommitsContent(
         }
     }
 
+    val infiniteTransition = rememberInfiniteTransition(label = "highlight_transition")
+    val highlightAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 0.8f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "highlight_alpha"
+    )
+    val highlightColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = highlightAlpha)
+    val highlightTextColor = MaterialTheme.colorScheme.onPrimaryContainer
+
     LaunchedEffect(Unit) {
         fetchCommits(false)
     }
@@ -1235,10 +1208,6 @@ fun CommitsContent(
             fetchCommits(bypassCache = true)
         }
     }
-
-    val highlightAlpha = if (searchQuery.isNotBlank()) getHighlightAlpha() else 0f
-    val highlightBg = MaterialTheme.colorScheme.primaryContainer.copy(alpha = highlightAlpha)
-    val highlightFg = MaterialTheme.colorScheme.onPrimaryContainer
 
     Box(
         modifier = Modifier
@@ -1300,16 +1269,16 @@ fun CommitsContent(
                     filteredCommits.forEachIndexed { index, commit ->
                         CommitItem(
                             commit = commit,
-                            searchQuery = searchQuery,
-                            highlightBg = highlightBg,
-                            highlightFg = highlightFg,
                             onClick = {
                                 ContextCompat.startActivity(
                                     context,
                                     Intent(Intent.ACTION_VIEW, Uri.parse(commit.htmlUrl)),
                                     null
                                 )
-                            }
+                            },
+                            searchQuery = searchQuery,
+                            highlightColor = highlightColor,
+                            highlightTextColor = highlightTextColor
                         )
                         if (index < filteredCommits.lastIndex) {
                             HorizontalDivider(
@@ -1353,10 +1322,10 @@ fun CommitsContent(
 @Composable
 fun CommitItem(
     commit: CommitData,
-    searchQuery: String,
-    highlightBg: Color,
-    highlightFg: Color,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    searchQuery: String = "",
+    highlightColor: Color = Color.Transparent,
+    highlightTextColor: Color = Color.Unspecified
 ) {
     Row(
         modifier = Modifier
@@ -1387,11 +1356,17 @@ fun CommitItem(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            HighlightedText(
-                text = commit.message,
-                query = searchQuery,
-                highlightBg = highlightBg,
-                highlightFg = highlightFg,
+            val annotatedMessage = buildAnnotatedString {
+                append(commit.message)
+                if (searchQuery.isNotBlank()) {
+                    val matches = Regex(Regex.escape(searchQuery), RegexOption.IGNORE_CASE).findAll(commit.message)
+                    matches.forEach { match ->
+                        addStyle(SpanStyle(background = highlightColor, color = highlightTextColor), match.range.first, match.range.last + 1)
+                    }
+                }
+            }
+            Text(
+                text = annotatedMessage,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -1403,11 +1378,17 @@ fun CommitItem(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                HighlightedText(
-                    text = commit.authorName,
-                    query = searchQuery,
-                    highlightBg = highlightBg,
-                    highlightFg = highlightFg,
+                val annotatedAuthor = buildAnnotatedString {
+                    append(commit.authorName)
+                    if (searchQuery.isNotBlank()) {
+                        val matches = Regex(Regex.escape(searchQuery), RegexOption.IGNORE_CASE).findAll(commit.authorName)
+                        matches.forEach { match ->
+                            addStyle(SpanStyle(background = highlightColor, color = highlightTextColor), match.range.first, match.range.last + 1)
+                        }
+                    }
+                }
+                Text(
+                    text = annotatedAuthor,
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
                     maxLines = 1,
@@ -1429,11 +1410,18 @@ fun CommitItem(
                 color = MaterialTheme.colorScheme.secondaryContainer,
                 shape = RoundedCornerShape(4.dp)
             ) {
-                HighlightedText(
-                    text = commit.sha.take(7),
-                    query = searchQuery,
-                    highlightBg = highlightBg,
-                    highlightFg = highlightFg,
+                val shortSha = commit.sha.take(7)
+                val annotatedSha = buildAnnotatedString {
+                    append(shortSha)
+                    if (searchQuery.isNotBlank()) {
+                        val matches = Regex(Regex.escape(searchQuery), RegexOption.IGNORE_CASE).findAll(shortSha)
+                        matches.forEach { match ->
+                            addStyle(SpanStyle(background = highlightColor, color = highlightTextColor), match.range.first, match.range.last + 1)
+                        }
+                    }
+                }
+                Text(
+                    text = annotatedSha,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
