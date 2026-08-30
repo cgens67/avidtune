@@ -15,7 +15,8 @@ val DynamicThemeKey = booleanPreferencesKey("dynamicTheme")
 val CustomThemeColorKey = stringPreferencesKey("customThemeColor")
 val DarkModeKey = stringPreferencesKey("darkMode")
 val PureBlackKey = booleanPreferencesKey("pureBlack")
-val UseSystemFontKey = booleanPreferencesKey("useSystemFont")
+val UseSystemFontKey = booleanPreferencesKey("useSystemFont") // Maintained for fallback/migration
+val AppFontKey = stringPreferencesKey("appFont") // New key for font selection
 val AppTextSizeKey = stringPreferencesKey("appTextSize")
 val DefaultOpenTabKey = stringPreferencesKey("defaultOpenTab")
 val SlimNavBarKey = booleanPreferencesKey("slimNavBar")
@@ -40,6 +41,10 @@ enum class SliderStyle {
 
 enum class AppTextSize {
     SMALL, SYSTEM, MEDIUM, LARGE, EXTRA_LARGE
+}
+
+enum class AppFont {
+    SYSTEM, SF_PRO, GOOGLE_SANS, SPACE_GROTESK
 }
 
 const val SYSTEM_DEFAULT = "SYSTEM_DEFAULT"
