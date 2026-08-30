@@ -161,6 +161,8 @@ import com.cgens67.innertube.YouTube
 import com.cgens67.innertube.models.SongItem
 import com.cgens67.innertube.models.WatchEndpoint
 import com.cgens67.avidtune.constants.AppBarHeight
+import com.cgens67.avidtune.constants.AppFont
+import com.cgens67.avidtune.constants.AppFontKey
 import com.cgens67.avidtune.constants.AppTextSize
 import com.cgens67.avidtune.constants.AppTextSizeKey
 import com.cgens67.avidtune.constants.CustomThemeColorKey
@@ -399,6 +401,15 @@ class MainActivity : ComponentActivity() {
             }
             
             val useSystemFont by rememberPreference(UseSystemFontKey, defaultValue = false)
+            val appFontStr by rememberPreference(AppFontKey, defaultValue = "")
+            
+            val appFont = remember(useSystemFont, appFontStr) {
+                if (appFontStr.isNotEmpty()) {
+                    try { AppFont.valueOf(appFontStr) } catch(e: Exception) { AppFont.SYSTEM }
+                } else {
+                    if (useSystemFont) AppFont.SYSTEM else AppFont.SF_PRO
+                }
+            }
 
             LaunchedEffect(playerConnection, enableDynamicTheme, isSystemInDarkTheme, customThemeColor) {
                 val playerConnection = playerConnection
@@ -445,7 +456,7 @@ class MainActivity : ComponentActivity() {
                 darkTheme = useDarkTheme,
                 pureBlack = pureBlack,
                 themeColor = themeColor,
-                useSystemFont = useSystemFont,
+                appFont = appFont,
             ) {
                 var showUpdateChangelog by rememberSaveable { mutableStateOf(false) }
 
