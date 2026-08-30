@@ -1275,5 +1275,7 @@
     <string name="font_sf_pro">SF Pro</string>
     <string name="font_google_sans">Google Sans</string>
     <string name="font_space_grotesk">Space Grotesk</string>
+    
+    <string name="last_updated_version">Dernière mise à jour : %1$s</string>
 
 </resources>
