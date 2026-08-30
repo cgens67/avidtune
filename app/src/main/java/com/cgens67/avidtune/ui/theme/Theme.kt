@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.palette.graphics.Palette
 import com.cgens67.avidtune.R
+import com.cgens67.avidtune.constants.AppFont
 import com.cgens67.avidtune.constants.PlayerBackgroundStyle
 import com.google.material.color.dynamiccolor.DynamicScheme
 import com.google.material.color.hct.Hct
@@ -32,9 +33,9 @@ import com.google.material.color.score.Score
 
 val DefaultThemeColor = Color(0xFF4285F4)
 
-val sfProDisplayBold = FontFamily(
-    Font(R.font.sfprodisplaybold)
-)
+val sfProDisplayBold = FontFamily(Font(R.font.sfprodisplaybold))
+val googleSansBold = FontFamily(Font(R.font.googlesansbold))
+val spaceGroteskBold = FontFamily(Font(R.font.spacegroteskbold))
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -43,7 +44,7 @@ fun AvidTuneTheme(
     pureBlack: Boolean = false,
     expressive: Boolean = true,
     themeColor: Color = DefaultThemeColor,
-    useSystemFont: Boolean = false,
+    appFont: AppFont = AppFont.SYSTEM,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
@@ -68,27 +69,34 @@ fun AvidTuneTheme(
         MotionScheme.standard()
     }
 
-    val typography = remember(useSystemFont) {
+    val typography = remember(appFont) {
         val default = Typography()
-        if (useSystemFont) {
+        val customFontFamily = when(appFont) {
+            AppFont.SYSTEM -> null
+            AppFont.SF_PRO -> sfProDisplayBold
+            AppFont.GOOGLE_SANS -> googleSansBold
+            AppFont.SPACE_GROTESK -> spaceGroteskBold
+        }
+
+        if (customFontFamily == null) {
             default
         } else {
             Typography(
-                displayLarge = default.displayLarge.copy(fontFamily = sfProDisplayBold),
-                displayMedium = default.displayMedium.copy(fontFamily = sfProDisplayBold),
-                displaySmall = default.displaySmall.copy(fontFamily = sfProDisplayBold),
-                headlineLarge = default.headlineLarge.copy(fontFamily = sfProDisplayBold),
-                headlineMedium = default.headlineMedium.copy(fontFamily = sfProDisplayBold),
-                headlineSmall = default.headlineSmall.copy(fontFamily = sfProDisplayBold),
-                titleLarge = default.titleLarge.copy(fontFamily = sfProDisplayBold),
-                titleMedium = default.titleMedium.copy(fontFamily = sfProDisplayBold),
-                titleSmall = default.titleSmall.copy(fontFamily = sfProDisplayBold),
-                bodyLarge = default.bodyLarge.copy(fontFamily = sfProDisplayBold),
-                bodyMedium = default.bodyMedium.copy(fontFamily = sfProDisplayBold),
-                bodySmall = default.bodySmall.copy(fontFamily = sfProDisplayBold),
-                labelLarge = default.labelLarge.copy(fontFamily = sfProDisplayBold),
-                labelMedium = default.labelMedium.copy(fontFamily = sfProDisplayBold),
-                labelSmall = default.labelSmall.copy(fontFamily = sfProDisplayBold)
+                displayLarge = default.displayLarge.copy(fontFamily = customFontFamily),
+                displayMedium = default.displayMedium.copy(fontFamily = customFontFamily),
+                displaySmall = default.displaySmall.copy(fontFamily = customFontFamily),
+                headlineLarge = default.headlineLarge.copy(fontFamily = customFontFamily),
+                headlineMedium = default.headlineMedium.copy(fontFamily = customFontFamily),
+                headlineSmall = default.headlineSmall.copy(fontFamily = customFontFamily),
+                titleLarge = default.titleLarge.copy(fontFamily = customFontFamily),
+                titleMedium = default.titleMedium.copy(fontFamily = customFontFamily),
+                titleSmall = default.titleSmall.copy(fontFamily = customFontFamily),
+                bodyLarge = default.bodyLarge.copy(fontFamily = customFontFamily),
+                bodyMedium = default.bodyMedium.copy(fontFamily = customFontFamily),
+                bodySmall = default.bodySmall.copy(fontFamily = customFontFamily),
+                labelLarge = default.labelLarge.copy(fontFamily = customFontFamily),
+                labelMedium = default.labelMedium.copy(fontFamily = customFontFamily),
+                labelSmall = default.labelSmall.copy(fontFamily = customFontFamily)
             )
         }
     }
