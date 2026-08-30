@@ -8,8 +8,11 @@ import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -77,6 +80,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
@@ -202,14 +206,49 @@ fun EmptySearchResultsView(
     title: String = stringResource(R.string.no_results_found),
     subtitle: String = stringResource(R.string.try_another_term)
 ) {
+    var visible by remember(title, subtitle) { mutableStateOf(false) }
+    LaunchedEffect(title, subtitle) {
+        visible = true
+    }
+
+    val iconScale by animateFloatAsState(
+        targetValue = if (visible) 1f else 0.4f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "emptyIconScale"
+    )
+
+    val contentAlpha by animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+        label = "emptyContentAlpha"
+    )
+
+    val contentOffsetY by animateDpAsState(
+        targetValue = if (visible) 0.dp else 16.dp,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "emptyContentOffsetY"
+    )
+
     Column(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                alpha = contentAlpha
+                translationY = contentOffsetY.toPx()
+            },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Box(
             modifier = Modifier
                 .size(56.dp)
+                .scale(iconScale)
                 .background(
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                     shape = CircleShape
