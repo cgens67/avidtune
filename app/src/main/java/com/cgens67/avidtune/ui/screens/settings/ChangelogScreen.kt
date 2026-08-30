@@ -133,7 +133,8 @@ data class ReleaseMetadata(
     val date: String, 
     val changelogUrl: String?,
     val isPrerelease: Boolean,
-    val rawDate: String
+    val rawDate: String,
+    val bodyText: String // Field to hold the raw release body for searching
 )
 data class CachedChangelogData(val sections: List<ChangelogSection>, val image: String?, val description: String?, val warning: String?)
 
@@ -494,7 +495,8 @@ fun ReleasesContent(
         } else {
             filteredReleases.filter { release ->
                 matchesVersion(release.tagName, searchQuery) ||
-                release.name.contains(searchQuery, ignoreCase = true)
+                release.name.contains(searchQuery, ignoreCase = true) ||
+                release.bodyText.contains(searchQuery, ignoreCase = true)
             }
         }
     }
@@ -640,6 +642,7 @@ fun ReleasesContent(
                     val obj = array.getJSONObject(i)
                     val tagName = obj.getString("tag_name")
                     val name = obj.optString("name", tagName)
+                    val bodyText = obj.optString("body", "")
                     val publishedAt = obj.getString("published_at")
                     val isPrerelease = obj.getBoolean("prerelease")
                     val formattedDate = getTimeAgo(context, publishedAt)
@@ -654,7 +657,7 @@ fun ReleasesContent(
                         }
                     }
 
-                    list.add(ReleaseMetadata(tagName, name, formattedDate, changelogUrl, isPrerelease, publishedAt))
+                    list.add(ReleaseMetadata(tagName, name, formattedDate, changelogUrl, isPrerelease, publishedAt, bodyText))
                 }
                 withContext(Dispatchers.Main) {
                     availableReleases = list
@@ -706,6 +709,24 @@ fun ReleasesContent(
             fetchOldReleases(bypassCache = true)
             if (currentVersionTag.isNotBlank()) {
                 fetchChangelog(currentVersionTag, bypassCache = true)
+            }
+        }
+    }
+
+    val displaySections = remember(changelogSections, searchQuery) {
+        if (searchQuery.isBlank()) {
+            changelogSections
+        } else {
+            changelogSections.mapNotNull { section ->
+                val titleMatches = section.title.contains(searchQuery, ignoreCase = true)
+                val matchingItems = section.items.filter { it.contains(searchQuery, ignoreCase = true) }
+                if (titleMatches) {
+                    section
+                } else if (matchingItems.isNotEmpty()) {
+                    section.copy(items = matchingItems)
+                } else {
+                    null
+                }
             }
         }
     }
@@ -864,7 +885,10 @@ fun ReleasesContent(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
-                    updateImage?.let { imageUrl ->
+                    val displayImage = if (searchQuery.isBlank()) updateImage else null
+                    val displayDesc = if (searchQuery.isBlank() || updateDescription?.contains(searchQuery, true) == true) updateDescription else null
+
+                    displayImage?.let { imageUrl ->
                         Spacer(modifier = Modifier.height(8.dp))
                         ElevatedCard(
                             shape = MaterialTheme.shapes.extraLarge,
@@ -880,7 +904,7 @@ fun ReleasesContent(
                                 modifier = Modifier.fillMaxWidth(),
                                 contentScale = ContentScale.FillWidth
                             )
-                            updateDescription?.let { desc ->
+                            displayDesc?.let { desc ->
                                 Text(
                                     text = desc,
                                     style = MaterialTheme.typography.bodyLarge,
@@ -889,7 +913,7 @@ fun ReleasesContent(
                                 )
                             }
                         }
-                    } ?: updateDescription?.let { desc ->
+                    } ?: displayDesc?.let { desc ->
                         Spacer(Modifier.height(8.dp))
                         ElevatedCard(
                             shape = MaterialTheme.shapes.extraLarge,
@@ -908,8 +932,8 @@ fun ReleasesContent(
                         }
                     }
 
-                    if (changelogSections.isNotEmpty()) {
-                        changelogSections.forEach { section ->
+                    if (displaySections.isNotEmpty()) {
+                        displaySections.forEach { section ->
                             Spacer(Modifier.height(16.dp))
                             ElevatedCard(
                                 shape = MaterialTheme.shapes.extraLarge,
@@ -962,9 +986,20 @@ fun ReleasesContent(
                                 }
                             }
                         }
+                    } else if (searchQuery.isNotBlank() && changelogSections.isNotEmpty()) {
+                        Spacer(Modifier.height(32.dp))
+                        Text(
+                            text = stringResource(R.string.no_results_found),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(16.dp))
                     }
 
-                    updateWarning?.let { warning ->
+                    val displayWarning = if (searchQuery.isBlank() || updateWarning?.contains(searchQuery, true) == true) updateWarning else null
+                    displayWarning?.let { warning ->
                         Spacer(Modifier.height(24.dp))
                         Surface(color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f), shape = RoundedCornerShape(12.dp)) {
                             Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
