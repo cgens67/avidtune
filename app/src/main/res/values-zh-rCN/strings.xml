@@ -1270,6 +1270,10 @@
     <string name="resolution_800">800 × 800 (中)</string>
     <string name="resolution_500">500 × 500 (低)</string>
     <string name="resolution_300">300 × 300 (最低)</string>
-
-
+    
+    <string name="app_font">应用字体</string>
+    <string name="font_system">系统字体</string>
+    <string name="font_sf_pro">SF Pro</string>
+    <string name="font_google_sans">Google Sans</string>
+    <string name="font_space_grotesk">Space Grotesk</string>
 </resources>
