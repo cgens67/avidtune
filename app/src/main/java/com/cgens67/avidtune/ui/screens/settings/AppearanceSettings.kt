@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+
 package com.cgens67.avidtune.ui.screens.settings
 
 import android.content.Context
@@ -158,6 +160,7 @@ import com.cgens67.avidtune.ui.theme.googleSansBold
 import com.cgens67.avidtune.ui.theme.sfProDisplayBold
 import com.cgens67.avidtune.ui.theme.spaceGroteskBold
 import com.cgens67.avidtune.ui.utils.backToMain
+import com.cgens67.avidtune.utils.dataStore
 import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
 import kotlinx.coroutines.Dispatchers
@@ -169,7 +172,6 @@ import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import timber.log.Timber
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppearanceSettings(
     navController: NavController,
@@ -797,7 +799,6 @@ fun AppFontSelectorButton(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppFontBottomSheet(
     selectedFont: AppFont,
@@ -882,7 +883,6 @@ fun AppFontBottomSheet(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReorderCanvasProvidersBottomSheet(
     currentOrder: List<String>,
@@ -994,6 +994,7 @@ fun ReorderCanvasProvidersBottomSheet(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.padding(16.dp)
                             ) {
+                                // Priority Number Badge
                                 Box(
                                     modifier = Modifier
                                         .size(28.dp)
@@ -1015,6 +1016,7 @@ fun ReorderCanvasProvidersBottomSheet(
                                 
                                 Spacer(Modifier.width(16.dp))
                                 
+                                // Provider Name
                                 Text(
                                     text = item,
                                     style = MaterialTheme.typography.bodyLarge,
@@ -1022,9 +1024,10 @@ fun ReorderCanvasProvidersBottomSheet(
                                     modifier = Modifier.weight(1f)
                                 )
                                 
+                                // Drag Handle
                                 Icon(
                                     painter = painterResource(R.drawable.drag_handle),
-                                    contentDescription = null, // Drag handle, decoration only
+                                    contentDescription = "Drag",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier
                                         .draggableHandle()
