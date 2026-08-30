@@ -130,7 +130,6 @@ data class ChangelogSection(val title: String, val items: List<String>)
 data class ReleaseMetadata(
     val tagName: String, 
     val name: String, 
-    val body: String,
     val date: String, 
     val changelogUrl: String?,
     val isPrerelease: Boolean,
@@ -495,40 +494,9 @@ fun ReleasesContent(
         } else {
             filteredReleases.filter { release ->
                 matchesVersion(release.tagName, searchQuery) ||
-                release.name.contains(searchQuery, ignoreCase = true) ||
-                release.body.contains(searchQuery, ignoreCase = true)
+                release.name.contains(searchQuery, ignoreCase = true)
             }
         }
-    }
-
-    val displayedSections = remember(changelogSections, searchQuery) {
-        if (searchQuery.isBlank()) {
-            changelogSections
-        } else {
-            changelogSections.mapNotNull { section ->
-                val titleMatches = section.title.contains(searchQuery, ignoreCase = true)
-                val matchedItems = section.items.filter { it.contains(searchQuery, ignoreCase = true) }
-                if (titleMatches) {
-                    section 
-                } else if (matchedItems.isNotEmpty()) {
-                    section.copy(items = matchedItems)
-                } else {
-                    null
-                }
-            }
-        }
-    }
-
-    val showDescription = remember(updateDescription, searchQuery) {
-        updateDescription?.let {
-            searchQuery.isBlank() || it.contains(searchQuery, ignoreCase = true)
-        } ?: false
-    }
-
-    val showWarning = remember(updateWarning, searchQuery) {
-        updateWarning?.let {
-            searchQuery.isBlank() || it.contains(searchQuery, ignoreCase = true)
-        } ?: false
     }
 
     fun fetchChangelog(tag: String, bypassCache: Boolean = false) {
@@ -672,7 +640,6 @@ fun ReleasesContent(
                     val obj = array.getJSONObject(i)
                     val tagName = obj.getString("tag_name")
                     val name = obj.optString("name", tagName)
-                    val body = obj.optString("body", "")
                     val publishedAt = obj.getString("published_at")
                     val isPrerelease = obj.getBoolean("prerelease")
                     val formattedDate = getTimeAgo(context, publishedAt)
@@ -687,7 +654,7 @@ fun ReleasesContent(
                         }
                     }
 
-                    list.add(ReleaseMetadata(tagName, name, body, formattedDate, changelogUrl, isPrerelease, publishedAt))
+                    list.add(ReleaseMetadata(tagName, name, formattedDate, changelogUrl, isPrerelease, publishedAt))
                 }
                 withContext(Dispatchers.Main) {
                     availableReleases = list
@@ -891,15 +858,13 @@ fun ReleasesContent(
                         }
                     }
                 }
-            } else if (searchFilteredReleases.isNotEmpty() && !isLoading) {
+            } else if (searchFilteredReleases.isNotEmpty()) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
-                    val hasVisibleContent = showDescription || displayedSections.isNotEmpty() || showWarning
-                    
-                    if (updateImage != null && (searchQuery.isBlank() || showDescription)) {
+                    updateImage?.let { imageUrl ->
                         Spacer(modifier = Modifier.height(8.dp))
                         ElevatedCard(
                             shape = MaterialTheme.shapes.extraLarge,
@@ -910,33 +875,12 @@ fun ReleasesContent(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             AsyncImage(
-                                model = updateImage,
+                                model = imageUrl,
                                 contentDescription = null,
                                 modifier = Modifier.fillMaxWidth(),
                                 contentScale = ContentScale.FillWidth
                             )
-                            if (showDescription) {
-                                updateDescription?.let { desc ->
-                                    Text(
-                                        text = desc,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(16.dp)
-                                    )
-                                }
-                            }
-                        }
-                    } else if (showDescription) {
-                        updateDescription?.let { desc ->
-                            Spacer(Modifier.height(8.dp))
-                            ElevatedCard(
-                                shape = MaterialTheme.shapes.extraLarge,
-                                colors = CardDefaults.elevatedCardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                ),
-                                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
+                            updateDescription?.let { desc ->
                                 Text(
                                     text = desc,
                                     style = MaterialTheme.typography.bodyLarge,
@@ -945,10 +889,27 @@ fun ReleasesContent(
                                 )
                             }
                         }
+                    } ?: updateDescription?.let { desc ->
+                        Spacer(Modifier.height(8.dp))
+                        ElevatedCard(
+                            shape = MaterialTheme.shapes.extraLarge,
+                            colors = CardDefaults.elevatedCardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            ),
+                            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = desc,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(16.dp)
+                            )
+                        }
                     }
 
-                    if (displayedSections.isNotEmpty()) {
-                        displayedSections.forEach { section ->
+                    if (changelogSections.isNotEmpty()) {
+                        changelogSections.forEach { section ->
                             Spacer(Modifier.height(16.dp))
                             ElevatedCard(
                                 shape = MaterialTheme.shapes.extraLarge,
@@ -1003,29 +964,13 @@ fun ReleasesContent(
                         }
                     }
 
-                    if (showWarning) {
-                        updateWarning?.let { warning ->
-                            Spacer(Modifier.height(24.dp))
-                            Surface(color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f), shape = RoundedCornerShape(12.dp)) {
-                                Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Icon(Icons.Default.Error, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
-                                    Text(warning, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer)
-                                }
-                            }
-                        }
-                    }
-                    
-                    if (!hasVisibleContent && searchQuery.isNotBlank()) {
+                    updateWarning?.let { warning ->
                         Spacer(Modifier.height(24.dp))
-                        Box(
-                            modifier = Modifier.fillMaxWidth(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = stringResource(R.string.no_results_found),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                        Surface(color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f), shape = RoundedCornerShape(12.dp)) {
+                            Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Icon(Icons.Default.Error, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+                                Text(warning, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer)
+                            }
                         }
                     }
 
