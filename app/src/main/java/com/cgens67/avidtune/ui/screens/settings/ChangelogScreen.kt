@@ -76,6 +76,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -198,8 +199,8 @@ fun normalizeVersionString(version: String): String {
 
 fun matchesVersion(tagName: String, query: String): Boolean {
     val cleanQuery = query.trim().lowercase().replace(" ", "")
-    if (cleanQuery.isBlank()) return true
-    if (cleanQuery == "v" || cleanQuery == "v.") return true
+    if (cleanQuery.isBlank()) return false
+    if (cleanQuery == "v" || cleanQuery == "v.") return false
 
     if (tagName.lowercase().replace(" ", "").contains(cleanQuery)) return true
 
@@ -464,22 +465,21 @@ fun ReleasesContent(
     searchQuery: String = ""
 ) {
     val context = LocalContext.current
-    var changelogSections by remember { mutableStateOf<List<ChangelogSection>>(emptyList()) }
-    var updateImage by remember { mutableStateOf<String?>(null) }
-    var updateDescription by remember { mutableStateOf<String?>(null) }
-    var updateWarning by remember { mutableStateOf<String?>(null) }
-    var isLoading by remember { mutableStateOf(false) }
-    var hasError by remember { mutableStateOf(false) }
-    var detailedError by remember { mutableStateOf<String?>(null) }
-    var showingCached by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
     var currentVersionTag by remember { mutableStateOf("") }
     var availableReleases by remember { mutableStateOf<List<ReleaseMetadata>>(emptyList()) }
     var isFetchingOldReleases by remember { mutableStateOf(true) }
+    var releasesFetchError by remember { mutableStateOf<String?>(null) }
+
+    val allChangelogsData = remember { mutableStateMapOf<String, CachedChangelogData>() }
+    val changelogFetchErrors = remember { mutableStateMapOf<String, String>() }
+    val changelogLoadingStates = remember { mutableStateMapOf<String, Boolean>() }
 
     val pullToRefreshState = rememberPullToRefreshState()
-    val isRefreshing = isLoading || isFetchingOldReleases
+    
+    val currentIsLoading = isFetchingOldReleases || (changelogLoadingStates[currentVersionTag] == true)
+    val isRefreshing = currentIsLoading
 
     val scaleFraction = {
         if (isRefreshing) 1f
@@ -512,40 +512,24 @@ fun ReleasesContent(
             .build()
     }
 
-    val filteredReleases = availableReleases.filter { it.isPrerelease == isBetaTab }
-
-    val searchFilteredReleases = remember(filteredReleases, searchQuery) {
-        if (searchQuery.isBlank()) {
-            filteredReleases
-        } else {
-            filteredReleases.filter { release ->
-                matchesVersion(release.tagName, searchQuery) ||
-                release.name.contains(searchQuery, ignoreCase = true) ||
-                release.body.contains(searchQuery, ignoreCase = true)
-            }
-        }
-    }
-
-    fun fetchChangelog(tag: String, bypassCache: Boolean = false) {
+    fun ensureChangelogFetched(tag: String, release: ReleaseMetadata?, bypassCache: Boolean = false) {
         if (tag.isBlank()) return
-        isLoading = true
-        hasError = false
-        detailedError = null
+        if (changelogLoadingStates[tag] == true) return
+        if (!bypassCache && allChangelogsData.containsKey(tag)) return
+
+        changelogLoadingStates[tag] = true
+        changelogFetchErrors.remove(tag)
+
         coroutineScope.launch(Dispatchers.IO) {
             try {
                 val cachedData = if (!bypassCache) loadChangelogFromCache(context, tag) else null
                 if (cachedData != null) {
                     withContext(Dispatchers.Main) {
-                        changelogSections = cachedData.sections
-                        updateImage = cachedData.image
-                        updateDescription = cachedData.description
-                        updateWarning = cachedData.warning
-                        isLoading = false
-                        showingCached = true
+                        allChangelogsData[tag] = cachedData
+                        changelogLoadingStates[tag] = false
                     }
                 } else {
-                    val releaseMeta = availableReleases.find { it.tagName == tag }
-                    val urlToFetch = releaseMeta?.changelogUrl 
+                    val urlToFetch = release?.changelogUrl 
                         ?: "https://github.com/cgens67/AvidTune/releases/download/$tag/changelog.json"
 
                     val request = Request.Builder()
@@ -594,35 +578,28 @@ fun ReleasesContent(
                             }
 
                             saveChangelogToCache(context, tag, sections, imageUrl, desc, warning)
+                            val parsed = CachedChangelogData(sections, imageUrl, desc, warning)
                             withContext(Dispatchers.Main) {
-                                changelogSections = sections
-                                updateImage = imageUrl
-                                updateDescription = desc
-                                updateWarning = warning
-                                isLoading = false
-                                hasError = false
-                                showingCached = false
+                                allChangelogsData[tag] = parsed
+                                changelogLoadingStates[tag] = false
                             }
                         } catch (e: Exception) {
                             withContext(Dispatchers.Main) { 
-                                hasError = true
-                                detailedError = "JSON Parse Error: ${e.message}"
-                                isLoading = false 
+                                changelogFetchErrors[tag] = "JSON Parse Error: ${e.message}"
+                                changelogLoadingStates[tag] = false 
                             }
                         }
                     } else {
                         withContext(Dispatchers.Main) { 
-                            hasError = true
-                            detailedError = if (response.code == 403) context.getString(R.string.github_api_rate_limit_exceeded) else "HTTP ${response.code}: ${response.message}\nURL: $urlToFetch"
-                            isLoading = false 
+                            changelogFetchErrors[tag] = if (response.code == 403) context.getString(R.string.github_api_rate_limit_exceeded) else "HTTP ${response.code}: ${response.message}\nURL: $urlToFetch"
+                            changelogLoadingStates[tag] = false 
                         }
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    hasError = true
-                    detailedError = "Network Error: ${e.javaClass.simpleName} - ${e.message}"
-                    isLoading = false
+                    changelogFetchErrors[tag] = "Network Error: ${e.javaClass.simpleName} - ${e.message}"
+                    changelogLoadingStates[tag] = false
                 }
             }
         }
@@ -630,8 +607,7 @@ fun ReleasesContent(
 
     fun fetchOldReleases(bypassCache: Boolean = false) {
         isFetchingOldReleases = true
-        hasError = false
-        detailedError = null
+        releasesFetchError = null
         coroutineScope.launch(Dispatchers.IO) {
             try {
                 val cachedJson = if (!bypassCache) loadReleasesFromCache(context) else null
@@ -653,8 +629,7 @@ fun ReleasesContent(
                     } else {
                         withContext(Dispatchers.Main) {
                             isFetchingOldReleases = false
-                            hasError = true
-                            detailedError = if (response.code == 403) context.getString(R.string.github_api_rate_limit_exceeded) else "HTTP ${response.code}: ${response.message}"
+                            releasesFetchError = if (response.code == 403) context.getString(R.string.github_api_rate_limit_exceeded) else "HTTP ${response.code}: ${response.message}"
                         }
                         return@launch
                     }
@@ -691,8 +666,7 @@ fun ReleasesContent(
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     isFetchingOldReleases = false
-                    hasError = true
-                    detailedError = "Network Error: ${e.message}"
+                    releasesFetchError = "Network Error: ${e.message}"
                 }
             }
         }
@@ -700,6 +674,39 @@ fun ReleasesContent(
 
     LaunchedEffect(Unit) {
         fetchOldReleases(false)
+    }
+
+    LaunchedEffect(availableReleases) {
+        availableReleases.forEach { release ->
+            ensureChangelogFetched(release.tagName, release, false)
+        }
+    }
+
+    val filteredReleases = availableReleases.filter { it.isPrerelease == isBetaTab }
+
+    // Convert map to a tracked form for the remember block
+    val allChangelogsValues = allChangelogsData.toMap()
+    
+    val searchFilteredReleases = remember(filteredReleases, searchQuery, allChangelogsValues) {
+        if (searchQuery.isBlank()) {
+            filteredReleases
+        } else {
+            filteredReleases.filter { release ->
+                val changelogData = allChangelogsData[release.tagName]
+                
+                val changelogText = buildString {
+                    changelogData?.sections?.forEach { section ->
+                        append(section.title).append(" ")
+                        section.items.forEach { append(it).append(" ") }
+                    }
+                    append(changelogData?.description.orEmpty())
+                }
+
+                matchesVersion(release.tagName, searchQuery) ||
+                release.name.contains(searchQuery, ignoreCase = true) ||
+                changelogText.contains(searchQuery, ignoreCase = true)
+            }
+        }
     }
 
     LaunchedEffect(isBetaTab, availableReleases) {
@@ -721,22 +728,32 @@ fun ReleasesContent(
         }
     }
 
-    LaunchedEffect(currentVersionTag) {
+    LaunchedEffect(currentVersionTag, refreshTrigger) {
         if (currentVersionTag.isNotBlank()) {
-            cleanupOldChangelogCache(context, currentVersionTag)
-            fetchChangelog(currentVersionTag)
+            val release = availableReleases.find { it.tagName == currentVersionTag }
+            if (refreshTrigger > 0) {
+                cleanupOldChangelogCache(context, currentVersionTag)
+                ensureChangelogFetched(currentVersionTag, release, bypassCache = true)
+            } else {
+                ensureChangelogFetched(currentVersionTag, release, bypassCache = false)
+            }
         }
     }
 
     LaunchedEffect(refreshTrigger) {
         if (refreshTrigger > 0) {
-            isFetchingOldReleases = true
             fetchOldReleases(bypassCache = true)
-            if (currentVersionTag.isNotBlank()) {
-                fetchChangelog(currentVersionTag, bypassCache = true)
-            }
         }
     }
+
+    val currentChangelog = allChangelogsData[currentVersionTag]
+    val currentHasError = releasesFetchError != null || changelogFetchErrors[currentVersionTag] != null
+    val currentDetailedError = releasesFetchError ?: changelogFetchErrors[currentVersionTag]
+    
+    val changelogSections = currentChangelog?.sections ?: emptyList()
+    val updateImage = currentChangelog?.image
+    val updateDescription = currentChangelog?.description
+    val updateWarning = currentChangelog?.warning
 
     Box(
         modifier = Modifier
@@ -745,9 +762,11 @@ fun ReleasesContent(
                 state = pullToRefreshState,
                 isRefreshing = isRefreshing,
                 onRefresh = { 
-                    isFetchingOldReleases = true
                     fetchOldReleases(bypassCache = true)
-                    if (currentVersionTag.isNotBlank()) fetchChangelog(currentVersionTag, bypassCache = true) 
+                    if (currentVersionTag.isNotBlank()) {
+                        val rel = availableReleases.find { it.tagName == currentVersionTag }
+                        ensureChangelogFetched(currentVersionTag, rel, bypassCache = true) 
+                    }
                 }
             )
             .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom))
@@ -789,7 +808,7 @@ fun ReleasesContent(
                             }
                         }
                     }
-                    if (isFetchingOldReleases) {
+                    if (currentIsLoading) {
                         CircularProgressIndicator(
                             modifier = Modifier
                                 .padding(start = 8.dp)
@@ -833,13 +852,8 @@ fun ReleasesContent(
                             }
                         }
                     }
-                    if (showingCached) {
-                        Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(8.dp)) {
-                            Text(stringResource(R.string.cached), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
-                        }
-                    }
                 }
-            } else if (!isFetchingOldReleases && !isLoading && !hasError) {
+            } else if (!isFetchingOldReleases && !currentIsLoading && !currentHasError) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -853,14 +867,14 @@ fun ReleasesContent(
                 }
             }
 
-            if (hasError && !isLoading && !isFetchingOldReleases) {
+            if (currentHasError && !currentIsLoading) {
                 Box(modifier = Modifier.fillMaxWidth().heightIn(min = 400.dp), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
                         Icon(Icons.Default.Error, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp))
                         Spacer(Modifier.height(16.dp))
                         Text(stringResource(R.string.error_loading_changelog), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
                         
-                        detailedError?.let { detail ->
+                        currentDetailedError?.let { detail ->
                             Spacer(Modifier.height(8.dp))
                             Surface(
                                 color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
@@ -878,15 +892,17 @@ fun ReleasesContent(
                         
                         Spacer(Modifier.height(24.dp))
                         Button(onClick = { 
-                            isFetchingOldReleases = true
                             fetchOldReleases(bypassCache = true)
-                            if (currentVersionTag.isNotBlank()) fetchChangelog(currentVersionTag, bypassCache = true) 
+                            if (currentVersionTag.isNotBlank()) {
+                                val rel = availableReleases.find { it.tagName == currentVersionTag }
+                                ensureChangelogFetched(currentVersionTag, rel, bypassCache = true) 
+                            }
                         }) {
                             Text(stringResource(R.string.action_retry))
                         }
                     }
                 }
-            } else if (searchFilteredReleases.isNotEmpty()) {
+            } else if (searchFilteredReleases.isNotEmpty() && currentChangelog != null) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
