@@ -153,17 +153,17 @@ class LocaleManager private constructor(private val context: Context) {
         // Flag and translation state mapping
         private val LANGUAGE_METADATA = mapOf(
             "en" to LanguageMetadata("🇺🇸", CompletionStatus.COMPLETE, "v1.5.0"),
-            "es" to LanguageMetadata("🇪🇸", CompletionStatus.COMPLETE, "v0.9.4"),
+            "es" to LanguageMetadata("🇪🇸", CompletionStatus.INCOMPLETE, "v0.9.4"),
             "fr" to LanguageMetadata("🇫🇷", CompletionStatus.COMPLETE, "v1.5.0"),
             "de" to LanguageMetadata("🇩🇪", CompletionStatus.COMPLETE, "v1.5.0"),
-            "it" to LanguageMetadata("🇮🇹", CompletionStatus.COMPLETE, "v0.9.4"),
-            "pt" to LanguageMetadata("🇧🇷", CompletionStatus.COMPLETE, "v0.9.4"),
-            "pt-PT" to LanguageMetadata("🇵🇹", CompletionStatus.COMPLETE, "v0.9.4"),
-            "ru" to LanguageMetadata("🇷🇺", CompletionStatus.COMPLETE, "v0.9.4"),
+            "it" to LanguageMetadata("🇮🇹", CompletionStatus.INCOMPLETE, "v0.9.4"),
+            "pt" to LanguageMetadata("🇧🇷", CompletionStatus.INCOMPLETE, "v0.9.4"),
+            "pt-PT" to LanguageMetadata("🇵🇹", CompletionStatus.INCOMPLETE, "v0.9.4"),
+            "ru" to LanguageMetadata("🇷🇺", CompletionStatus.INCOMPLETE, "v0.9.4"),
             "zh-CN" to LanguageMetadata("🇨🇳", CompletionStatus.COMPLETE, "v1.5.0"),
             "zh-TW" to LanguageMetadata("🇹🇼", CompletionStatus.COMPLETE, "v1.5.0"),
-            "ja" to LanguageMetadata("🇯🇵", CompletionStatus.COMPLETE, "v0.9.4"),
-            "ko" to LanguageMetadata("🇰🇷", CompletionStatus.COMPLETE, "v0.9.4"),
+            "ja" to LanguageMetadata("🇯🇵", CompletionStatus.INCOMPLETE, "v0.9.4"),
+            "ko" to LanguageMetadata("🇰🇷", CompletionStatus.INCOMPLETE, "v0.9.4"),
             "ar" to LanguageMetadata("🇸🇦", CompletionStatus.BETA, "v0.9.4"),
             "hi" to LanguageMetadata("🇮🇳", CompletionStatus.BETA, "v0.9.4"),
             "th" to LanguageMetadata("🇹🇭", CompletionStatus.INCOMPLETE, "v0.9.4"),
@@ -174,7 +174,7 @@ class LocaleManager private constructor(private val context: Context) {
             "id" to LanguageMetadata("🇮🇩", CompletionStatus.BETA, "v0.9.4"),
             "uk" to LanguageMetadata("🇺🇦", CompletionStatus.BETA, "v0.9.4"),
             "he" to LanguageMetadata("🇮🇱", CompletionStatus.BETA, "v0.9.4"),
-            "ms" to LanguageMetadata("🇲🇾", CompletionStatus.COMPLETE, "v1.3.0"),
+            "ms" to LanguageMetadata("🇲🇾", CompletionStatus.INCOMPLETE, "v1.3.0"),
             
             // New languages
             "bn" to LanguageMetadata("🇧🇩", CompletionStatus.INCOMPLETE, "v1.4.0"),
@@ -889,41 +889,48 @@ private fun LanguageItem(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-
-                if (language.lastUpdated.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "Last updated: ${language.lastUpdated}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (isSelected) {
-                            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                        },
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
             }
 
-            // Status badge
-            if (language.completionStatus != CompletionStatus.COMPLETE) {
-                val statusColor = language.completionStatus.color()
-                val labelRes = language.completionStatus.labelRes
-
-                if (labelRes != null) {
+            // Status badges (Version + Status)
+            Row(
+                modifier = Modifier.padding(end = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Version badge
+                if (language.lastUpdated.isNotEmpty()) {
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = statusColor.copy(alpha = 0.12f),
-                        modifier = Modifier.padding(end = 12.dp)
+                        color = MaterialTheme.colorScheme.surfaceVariant,
                     ) {
                         Text(
-                            text = stringResource(labelRes),
+                            text = stringResource(R.string.last_updated_version, language.lastUpdated),
                             style = MaterialTheme.typography.labelSmall,
-                            color = statusColor,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
+                    }
+                }
+
+                // Completion status badge
+                if (language.completionStatus != CompletionStatus.COMPLETE) {
+                    val statusColor = language.completionStatus.color()
+                    val labelRes = language.completionStatus.labelRes
+
+                    if (labelRes != null) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = statusColor.copy(alpha = 0.12f),
+                        ) {
+                            Text(
+                                text = stringResource(labelRes),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = statusColor,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
                     }
                 }
             }
