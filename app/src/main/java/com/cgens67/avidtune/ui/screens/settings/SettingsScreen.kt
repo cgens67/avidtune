@@ -971,7 +971,7 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
         ),
         SettingsItem(
             icon = painterResource(R.drawable.text_fields),
-            title = "App Font",
+            title = stringResource(R.string.app_font),
             keywords = listOf("font", "system", "text", "typeface", "sf pro", "google sans", "space grotesk"),
             onClick = { resetSearch(); navController.navigate("settings/appearance") }
         ),
