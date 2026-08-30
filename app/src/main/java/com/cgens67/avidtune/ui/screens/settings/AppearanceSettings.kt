@@ -68,6 +68,8 @@ import androidx.compose.ui.unit.dp
 import androidx.datastore.preferences.core.edit
 import androidx.navigation.NavController
 import com.cgens67.avidtune.R
+import com.cgens67.avidtune.constants.AppFont
+import com.cgens67.avidtune.constants.AppFontKey
 import com.cgens67.avidtune.constants.AppTextSize
 import com.cgens67.avidtune.constants.AppTextSizeKey
 import com.cgens67.avidtune.constants.ArtistCanvasProviderOrderKey
@@ -149,7 +151,21 @@ fun AppearanceSettings(
             defaultValue = PlayerBackgroundStyle.DEFAULT,
         )
     val (pureBlack, onPureBlackChange) = rememberPreference(PureBlackKey, defaultValue = false)
-    val (useSystemFont, onUseSystemFontChange) = rememberPreference(UseSystemFontKey, defaultValue = false)
+    
+    val (useSystemFont, _) = rememberPreference(UseSystemFontKey, defaultValue = false)
+    val (appFontStr, onAppFontStrChange) = rememberPreference(AppFontKey, defaultValue = "")
+    
+    val appFont = remember(useSystemFont, appFontStr) {
+        if (appFontStr.isNotEmpty()) {
+            try { AppFont.valueOf(appFontStr) } catch(e: Exception) { AppFont.SYSTEM }
+        } else {
+            if (useSystemFont) AppFont.SYSTEM else AppFont.SF_PRO
+        }
+    }
+    
+    val onAppFontChange: (AppFont) -> Unit = { newFont ->
+        onAppFontStrChange(newFont.name)
+    }
     
     val (appTextSize, onAppTextSizeChange) = rememberEnumPreference(
         AppTextSizeKey,
@@ -416,12 +432,19 @@ fun AppearanceSettings(
                         isEnabled = useDarkTheme
                     )
                 }},
-                {SwitchPreference(
-                    title = { Text(stringResource(R.string.use_system_font)) },
-                    description = stringResource(R.string.use_system_font_desc),
+                {EnumListPreference(
+                    title = { Text("App Font") },
                     icon = { Icon(painterResource(R.drawable.text_fields), null) },
-                    checked = useSystemFont,
-                    onCheckedChange = onUseSystemFontChange,
+                    selectedValue = appFont,
+                    onValueSelected = onAppFontChange,
+                    valueText = {
+                        when (it) {
+                            AppFont.SYSTEM -> "System Font"
+                            AppFont.SF_PRO -> "SF Pro"
+                            AppFont.GOOGLE_SANS -> "Google Sans"
+                            AppFont.SPACE_GROTESK -> "Space Grotesk"
+                        }
+                    },
                 )},
                 {EnumListPreference(
                     title = { Text(stringResource(R.string.app_text_size)) },
