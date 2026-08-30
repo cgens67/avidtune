@@ -15,8 +15,8 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -92,7 +92,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -140,7 +139,8 @@ data class ReleaseMetadata(
     val date: String, 
     val changelogUrl: String?,
     val isPrerelease: Boolean,
-    val rawDate: String
+    val rawDate: String,
+    val body: String // Added to enable full-text searching across all changelogs
 )
 data class CachedChangelogData(val sections: List<ChangelogSection>, val image: String?, val description: String?, val warning: String?)
 
@@ -291,107 +291,56 @@ fun EmptySearchResultsView(
     }
 }
 
-// --- Highlighting Helper ---
+// --- Highlighting Support ---
 
 @Composable
-fun getHighlightedString(
-    text: String,
-    query: String,
-    baseColor: Color = Color.Unspecified
-): AnnotatedString {
-    if (query.isBlank()) {
-        return buildAnnotatedString {
-            withStyle(SpanStyle(color = baseColor)) { append(text) }
-        }
-    }
-
-    val infiniteTransition = rememberInfiniteTransition(label = "highlight_anim")
-    val highlightAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 0.8f,
+private fun getHighlightAlpha(): Float {
+    val infiniteTransition = rememberInfiniteTransition(label = "highlight_transition")
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.2f,
+        targetValue = 0.7f,
         animationSpec = infiniteRepeatable(
-            animation = tween(700, easing = FastOutSlowInEasing),
+            animation = tween(800, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "highlight_alpha"
     )
-
-    val highlightColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = highlightAlpha)
-    val highlightTextColor = MaterialTheme.colorScheme.onPrimaryContainer
-
-    return buildAnnotatedString {
-        val matches = Regex(Regex.escape(query), RegexOption.IGNORE_CASE).findAll(text)
-        var lastIndex = 0
-        for (match in matches) {
-            withStyle(SpanStyle(color = baseColor)) {
-                append(text.substring(lastIndex, match.range.first))
-            }
-            withStyle(SpanStyle(background = highlightColor, color = highlightTextColor, fontWeight = FontWeight.ExtraBold)) {
-                append(match.value)
-            }
-            lastIndex = match.range.last + 1
-        }
-        withStyle(SpanStyle(color = baseColor)) {
-            append(text.substring(lastIndex))
-        }
-    }
+    return alpha
 }
 
 @Composable
-fun getChangelogItemString(
+private fun HighlightedText(
     text: String,
     query: String,
-    baseColor: Color = Color.Unspecified
-): AnnotatedString {
-    val linkColor = MaterialTheme.colorScheme.primary
-
-    if (query.isBlank()) {
-        return buildAnnotatedString {
-            withStyle(SpanStyle(color = baseColor)) { append(text) }
-            val urls = text.extractUrls()
-            urls.forEach { (range, url) ->
-                addStringAnnotation("URL", url, range.first, range.last + 1)
-                addStyle(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline), range.first, range.last + 1)
-            }
-        }
+    highlightBg: Color,
+    highlightFg: Color,
+    style: androidx.compose.ui.text.TextStyle,
+    color: Color = Color.Unspecified,
+    fontWeight: FontWeight? = null,
+    maxLines: Int = Int.MAX_VALUE,
+    overflow: TextOverflow = TextOverflow.Clip,
+    modifier: Modifier = Modifier
+) {
+    if (query.isBlank() || !text.contains(query, ignoreCase = true)) {
+        Text(text = text, style = style, color = color, fontWeight = fontWeight, maxLines = maxLines, overflow = overflow, modifier = modifier)
+        return
     }
 
-    val infiniteTransition = rememberInfiniteTransition(label = "highlight_anim")
-    val highlightAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 0.8f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(700, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "highlight_alpha"
-    )
-
-    val highlightColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = highlightAlpha)
-    val highlightTextColor = MaterialTheme.colorScheme.onPrimaryContainer
-
-    return buildAnnotatedString {
+    val annotatedString = buildAnnotatedString {
         val matches = Regex(Regex.escape(query), RegexOption.IGNORE_CASE).findAll(text)
         var lastIndex = 0
         for (match in matches) {
-            withStyle(SpanStyle(color = baseColor)) {
-                append(text.substring(lastIndex, match.range.first))
-            }
-            withStyle(SpanStyle(background = highlightColor, color = highlightTextColor, fontWeight = FontWeight.ExtraBold)) {
+            append(text.substring(lastIndex, match.range.first))
+            withStyle(SpanStyle(background = highlightBg, color = highlightFg, fontWeight = FontWeight.Bold)) {
                 append(match.value)
             }
             lastIndex = match.range.last + 1
         }
-        withStyle(SpanStyle(color = baseColor)) {
+        if (lastIndex < text.length) {
             append(text.substring(lastIndex))
         }
-        
-        val urls = text.extractUrls()
-        urls.forEach { (range, url) ->
-            addStringAnnotation("URL", url, range.first, range.last + 1)
-            addStyle(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline), range.first, range.last + 1)
-        }
     }
+    Text(text = annotatedString, style = style, color = color, fontWeight = fontWeight, maxLines = maxLines, overflow = overflow, modifier = modifier)
 }
 
 // --- Main Screen ---
@@ -598,49 +547,17 @@ fun ReleasesContent(
 
     val filteredReleases = availableReleases.filter { it.isPrerelease == isBetaTab }
 
-    val searchFilteredReleases = remember(filteredReleases, searchQuery, changelogSections, updateDescription, currentVersionTag) {
+    val searchFilteredReleases = remember(filteredReleases, searchQuery) {
         if (searchQuery.isBlank()) {
             filteredReleases
         } else {
-            val matchesCurrentChangelog = changelogSections.any { section ->
-                section.title.contains(searchQuery, ignoreCase = true) ||
-                section.items.any { it.contains(searchQuery, ignoreCase = true) }
-            } || (updateDescription?.contains(searchQuery, ignoreCase = true) == true)
-
             filteredReleases.filter { release ->
                 matchesVersion(release.tagName, searchQuery) ||
                 release.name.contains(searchQuery, ignoreCase = true) ||
-                (release.tagName == currentVersionTag && matchesCurrentChangelog)
+                release.body.contains(searchQuery, ignoreCase = true)
             }
         }
     }
-
-    val filteredChangelogSections = remember(changelogSections, searchQuery) {
-        if (searchQuery.isBlank()) {
-            changelogSections
-        } else {
-            changelogSections.mapNotNull { section ->
-                val titleMatches = section.title.contains(searchQuery, ignoreCase = true)
-                val filteredItems = section.items.filter { 
-                    it.contains(searchQuery, ignoreCase = true) 
-                }
-                
-                if (titleMatches) {
-                    section
-                } else if (filteredItems.isNotEmpty()) {
-                    section.copy(items = filteredItems)
-                } else {
-                    null
-                }
-            }
-        }
-    }
-
-    val showDescription = updateDescription?.let { desc ->
-        searchQuery.isBlank() || desc.contains(searchQuery, ignoreCase = true)
-    } ?: false
-
-    val showImage = updateImage != null && (searchQuery.isBlank() || showDescription || filteredChangelogSections.isNotEmpty())
 
     fun fetchChangelog(tag: String, bypassCache: Boolean = false) {
         if (tag.isBlank()) return
@@ -783,6 +700,7 @@ fun ReleasesContent(
                     val obj = array.getJSONObject(i)
                     val tagName = obj.getString("tag_name")
                     val name = obj.optString("name", tagName)
+                    val bodyText = obj.optString("body", "")
                     val publishedAt = obj.getString("published_at")
                     val isPrerelease = obj.getBoolean("prerelease")
                     val formattedDate = getTimeAgo(context, publishedAt)
@@ -797,7 +715,7 @@ fun ReleasesContent(
                         }
                     }
 
-                    list.add(ReleaseMetadata(tagName, name, formattedDate, changelogUrl, isPrerelease, publishedAt))
+                    list.add(ReleaseMetadata(tagName, name, formattedDate, changelogUrl, isPrerelease, publishedAt, bodyText))
                 }
                 withContext(Dispatchers.Main) {
                     availableReleases = list
@@ -852,6 +770,10 @@ fun ReleasesContent(
             }
         }
     }
+
+    val highlightAlpha = if (searchQuery.isNotBlank()) getHighlightAlpha() else 0f
+    val highlightBg = MaterialTheme.colorScheme.primaryContainer.copy(alpha = highlightAlpha)
+    val highlightFg = MaterialTheme.colorScheme.onPrimaryContainer
 
     Box(
         modifier = Modifier
@@ -1007,7 +929,7 @@ fun ReleasesContent(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
-                    if (showImage) {
+                    updateImage?.let { imageUrl ->
                         Spacer(modifier = Modifier.height(8.dp))
                         ElevatedCard(
                             shape = MaterialTheme.shapes.extraLarge,
@@ -1018,20 +940,24 @@ fun ReleasesContent(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             AsyncImage(
-                                model = updateImage,
+                                model = imageUrl,
                                 contentDescription = null,
                                 modifier = Modifier.fillMaxWidth(),
                                 contentScale = ContentScale.FillWidth
                             )
-                            if (showDescription && updateDescription != null) {
-                                Text(
-                                    text = getHighlightedString(updateDescription!!, searchQuery, MaterialTheme.colorScheme.onSurfaceVariant),
+                            updateDescription?.let { desc ->
+                                HighlightedText(
+                                    text = desc,
+                                    query = searchQuery,
+                                    highlightBg = highlightBg,
+                                    highlightFg = highlightFg,
                                     style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(16.dp)
                                 )
                             }
                         }
-                    } else if (showDescription && updateDescription != null) {
+                    } ?: updateDescription?.let { desc ->
                         Spacer(Modifier.height(8.dp))
                         ElevatedCard(
                             shape = MaterialTheme.shapes.extraLarge,
@@ -1041,16 +967,33 @@ fun ReleasesContent(
                             elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(
-                                text = getHighlightedString(updateDescription!!, searchQuery, MaterialTheme.colorScheme.onSurfaceVariant),
+                            HighlightedText(
+                                text = desc,
+                                query = searchQuery,
+                                highlightBg = highlightBg,
+                                highlightFg = highlightFg,
                                 style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(16.dp)
                             )
                         }
                     }
 
-                    if (filteredChangelogSections.isNotEmpty()) {
-                        filteredChangelogSections.forEach { section ->
+                    val filteredSections = if (searchQuery.isBlank()) {
+                        changelogSections
+                    } else {
+                        changelogSections.mapNotNull { section ->
+                            val matchesTitle = section.title.contains(searchQuery, ignoreCase = true)
+                            val matchedItems = section.items.filter { it.contains(searchQuery, ignoreCase = true) }
+                            
+                            if (matchesTitle || matchedItems.isNotEmpty()) {
+                                ChangelogSection(section.title, if (matchesTitle) section.items else matchedItems)
+                            } else null
+                        }
+                    }
+
+                    if (filteredSections.isNotEmpty()) {
+                        filteredSections.forEach { section ->
                             Spacer(Modifier.height(16.dp))
                             ElevatedCard(
                                 shape = MaterialTheme.shapes.extraLarge,
@@ -1062,16 +1005,44 @@ fun ReleasesContent(
                             ) {
                                 Column(modifier = Modifier.padding(20.dp)) {
                                     if (section.title.isNotBlank()) {
-                                        Text(
-                                            text = getHighlightedString(section.title, searchQuery, MaterialTheme.colorScheme.onSurface),
+                                        HighlightedText(
+                                            text = section.title,
+                                            query = searchQuery,
+                                            highlightBg = highlightBg,
+                                            highlightFg = highlightFg,
                                             style = MaterialTheme.typography.headlineSmall,
-                                            fontWeight = FontWeight.Bold
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
                                         )
                                         Spacer(Modifier.height(12.dp))
                                     }
 
                                     section.items.forEach { item ->
-                                        val annotatedText = getChangelogItemString(item.trim(), searchQuery, MaterialTheme.colorScheme.onSurfaceVariant)
+                                        val cleanItem = item.trim()
+                                        val urls = cleanItem.extractUrls()
+                                        val annotatedText = buildAnnotatedString {
+                                            if (searchQuery.isNotBlank() && cleanItem.contains(searchQuery, ignoreCase = true)) {
+                                                val matches = Regex(Regex.escape(searchQuery), RegexOption.IGNORE_CASE).findAll(cleanItem)
+                                                var lastIndex = 0
+                                                for (match in matches) {
+                                                    append(cleanItem.substring(lastIndex, match.range.first))
+                                                    withStyle(SpanStyle(background = highlightBg, color = highlightFg, fontWeight = FontWeight.Bold)) {
+                                                        append(match.value)
+                                                    }
+                                                    lastIndex = match.range.last + 1
+                                                }
+                                                if (lastIndex < cleanItem.length) {
+                                                    append(cleanItem.substring(lastIndex))
+                                                }
+                                            } else {
+                                                append(cleanItem)
+                                            }
+
+                                            urls.forEach { (range, url) ->
+                                                addStringAnnotation("URL", url, range.first, range.last + 1)
+                                                addStyle(SpanStyle(color = MaterialTheme.colorScheme.primary, textDecoration = TextDecoration.Underline), range.first, range.last + 1)
+                                            }
+                                        }
                                         Row(
                                             modifier = Modifier.padding(vertical = 6.dp), 
                                             verticalAlignment = Alignment.Top, 
@@ -1088,22 +1059,12 @@ fun ReleasesContent(
                                                         ContextCompat.startActivity(context, Intent(Intent.ACTION_VIEW, Uri.parse(it.item)), null)
                                                     }
                                                 },
-                                                style = MaterialTheme.typography.bodyLarge
+                                                style = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                                             )
                                         }
                                     }
                                 }
                             }
-                        }
-                    } else if (!showDescription && searchQuery.isNotBlank()) {
-                        Box(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 48.dp, horizontal = 24.dp), 
-                            contentAlignment = Alignment.Center
-                        ) {
-                            EmptySearchResultsView(
-                                title = stringResource(R.string.no_results_found),
-                                subtitle = stringResource(R.string.try_another_term)
-                            )
                         }
                     }
 
@@ -1112,9 +1073,13 @@ fun ReleasesContent(
                         Surface(color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f), shape = RoundedCornerShape(12.dp)) {
                             Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Icon(Icons.Default.Error, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
-                                Text(
-                                    text = getHighlightedString(warning, searchQuery, MaterialTheme.colorScheme.onErrorContainer), 
-                                    style = MaterialTheme.typography.bodyMedium
+                                HighlightedText(
+                                    text = warning,
+                                    query = searchQuery,
+                                    highlightBg = highlightBg,
+                                    highlightFg = highlightFg,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
                                 )
                             }
                         }
@@ -1271,6 +1236,10 @@ fun CommitsContent(
         }
     }
 
+    val highlightAlpha = if (searchQuery.isNotBlank()) getHighlightAlpha() else 0f
+    val highlightBg = MaterialTheme.colorScheme.primaryContainer.copy(alpha = highlightAlpha)
+    val highlightFg = MaterialTheme.colorScheme.onPrimaryContainer
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -1332,6 +1301,8 @@ fun CommitsContent(
                         CommitItem(
                             commit = commit,
                             searchQuery = searchQuery,
+                            highlightBg = highlightBg,
+                            highlightFg = highlightFg,
                             onClick = {
                                 ContextCompat.startActivity(
                                     context,
@@ -1382,7 +1353,9 @@ fun CommitsContent(
 @Composable
 fun CommitItem(
     commit: CommitData,
-    searchQuery: String = "",
+    searchQuery: String,
+    highlightBg: Color,
+    highlightFg: Color,
     onClick: () -> Unit
 ) {
     Row(
@@ -1414,10 +1387,14 @@ fun CommitItem(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Text(
-                text = getHighlightedString(commit.message, searchQuery, MaterialTheme.colorScheme.onSurface),
+            HighlightedText(
+                text = commit.message,
+                query = searchQuery,
+                highlightBg = highlightBg,
+                highlightFg = highlightFg,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -1426,9 +1403,13 @@ fun CommitItem(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Text(
-                    text = getHighlightedString(commit.authorName, searchQuery, MaterialTheme.colorScheme.primary),
+                HighlightedText(
+                    text = commit.authorName,
+                    query = searchQuery,
+                    highlightBg = highlightBg,
+                    highlightFg = highlightFg,
                     style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -1448,9 +1429,13 @@ fun CommitItem(
                 color = MaterialTheme.colorScheme.secondaryContainer,
                 shape = RoundedCornerShape(4.dp)
             ) {
-                Text(
-                    text = getHighlightedString(commit.sha.take(7), searchQuery, MaterialTheme.colorScheme.onSecondaryContainer),
+                HighlightedText(
+                    text = commit.sha.take(7),
+                    query = searchQuery,
+                    highlightBg = highlightBg,
+                    highlightFg = highlightFg,
                     style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                 )
             }
