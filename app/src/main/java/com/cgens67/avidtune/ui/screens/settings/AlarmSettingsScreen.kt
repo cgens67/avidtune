@@ -45,6 +45,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.cgens67.avidtune.LocalDatabase
+import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.alarm.AlarmManagerHelper
 import com.cgens67.avidtune.alarm.AlarmState
@@ -73,6 +74,10 @@ fun AlarmSettingsScreen(
 ) {
     val context = LocalContext.current
     val database = LocalDatabase.current
+    
+    val playerBottom = LocalPlayerAwareWindowInsets.current.asPaddingValues().calculateBottomPadding()
+    val systemBottom = WindowInsets.systemBars.asPaddingValues().calculateBottomPadding()
+    val fabOffset = if (playerBottom > systemBottom) playerBottom - systemBottom else 0.dp
     
     var alarms by remember { mutableStateOf(AlarmManagerHelper.getAlarms(context)) }
     var editingAlarm by remember { mutableStateOf<AlarmState?>(null) }
@@ -164,7 +169,8 @@ fun AlarmSettingsScreen(
                     editingAlarm = AlarmState() 
                 },
                 containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.padding(bottom = fabOffset)
             ) {
                 Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_alarm))
             }
