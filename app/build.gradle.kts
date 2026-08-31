@@ -178,11 +178,6 @@ dependencies {
     implementation("io.ktor:ktor-server-core:3.0.3")
     implementation("io.ktor:ktor-server-cio:3.0.3")
     implementation("io.ktor:ktor-server-websockets:3.0.3")
-    
-    // Firebase required for Real-Time Voting Feature (Manual initialization)
-    implementation(platform("com.google.firebase:firebase-bom:33.1.2"))
-    implementation("com.google.firebase:firebase-auth")
-    implementation("com.google.firebase:firebase-database")
 
     coreLibraryDesugaring(libs.desugaring)
 

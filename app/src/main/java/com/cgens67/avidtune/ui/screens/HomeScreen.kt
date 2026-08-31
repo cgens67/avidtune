@@ -394,7 +394,6 @@ fun HomeScreen(
                         add("liked" to stringResource(R.string.liked))
                         add("downloads" to stringResource(R.string.offline))
                         if (isLoggedIn) add("account" to stringResource(R.string.account))
-                        add("vote" to "Community Poll")
                     }
 
                     chips.forEach { (value, label) ->
@@ -407,7 +406,6 @@ fun HomeScreen(
                                     "liked" -> navController.navigate("auto_playlist/liked")
                                     "downloads" -> navController.navigate("auto_playlist/downloaded")
                                     "account" -> if (isLoggedIn) navController.navigate("account")
-                                    "vote" -> navController.navigate("vote")
                                 }
                             },
                             label = { Text(label) },
