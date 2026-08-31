@@ -71,6 +71,9 @@ fun NavGraphBuilder.navigationBuilder(
     composable("history") {
         HistoryScreen(navController)
     }
+    composable("vote") {
+        VotingScreen(navController)
+    }
     composable("stats") {
         StatsScreen(navController)
     }
