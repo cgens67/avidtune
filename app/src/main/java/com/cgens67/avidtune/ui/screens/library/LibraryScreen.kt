@@ -139,11 +139,10 @@ fun dummyPlaylist(name: String) = Playlist(PlaylistEntity(UUID.randomUUID().toSt
                     item(key = "likedPlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistListItem(playlist = likedPlaylist, autoPlaylist = true, modifier = Modifier.fillMaxWidth().clickable { navController.navigate("auto_playlist/liked") }.animateItem()) }
                     item(key = "downloadedPlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistListItem(playlist = downloadPlaylist, autoPlaylist = true, modifier = Modifier.fillMaxWidth().clickable { navController.navigate("auto_playlist/downloaded") }.animateItem()) }
                     item(key = "TopPlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistListItem(playlist = topPlaylist, autoPlaylist = true, modifier = Modifier.fillMaxWidth().clickable { navController.navigate("top_playlist/$topSize") }.animateItem()) }
-                    item(key = "cachePlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistGridItem(playlist = cachePlaylist, fillMaxWidth = true, autoPlaylist = true, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = { navController.navigate("cache_playlist/cached") }).animateItem(), context = LocalContext.current) }
+                    item(key = "cachePlaylist", contentType = { CONTENT_TYPE_PLAYLIST }) { PlaylistListItem(playlist = cachePlaylist, autoPlaylist = true, modifier = Modifier.fillMaxWidth().clickable { navController.navigate("cache_playlist/cached") }.animateItem()) }
                     if (playlists.isEmpty()) item { }
                     items(items = playlists, key = { it.id }, contentType = { CONTENT_TYPE_PLAYLIST }) { LibraryPlaylistListItem(navController = navController, menuState = menuState, coroutineScope = coroutineScope, playlist = it, modifier = Modifier.animateItem()) }
                 }
-                HideOnScrollFAB(true, lazyListState, R.drawable.add) { showCreatePlaylistDialog = true }
             } else {
                 LazyVerticalGrid(state = lazyGridState, columns = GridCells.Adaptive(GridThumbnailHeight + if (gridItemSize == GridItemSize.BIG) 24.dp else (-24).dp), contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()) {
                     item(key = "filter", span = { GridItemSpan(maxLineSpan) }, contentType = CONTENT_TYPE_HEADER) { filterContent() }; item(key = "header", span = { GridItemSpan(maxLineSpan) }, contentType = CONTENT_TYPE_HEADER) { headerContent() }
@@ -154,8 +153,12 @@ fun dummyPlaylist(name: String) = Playlist(PlaylistEntity(UUID.randomUUID().toSt
                     if (playlists.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) { }
                     items(items = playlists, key = { it.id }, contentType = { CONTENT_TYPE_PLAYLIST }) { LibraryPlaylistGridItem(navController = navController, menuState = menuState, coroutineScope = coroutineScope, playlist = it, modifier = Modifier.animateItem(), context = LocalContext.current) }
                 }
-                HideOnScrollFAB(true, lazyGridState, R.drawable.add) { showCreatePlaylistDialog = true }
             }
+        }
+        if (viewType == LibraryViewType.LIST) {
+            HideOnScrollFAB(true, lazyListState, R.drawable.add) { showCreatePlaylistDialog = true }
+        } else {
+            HideOnScrollFAB(true, lazyGridState, R.drawable.add) { showCreatePlaylistDialog = true }
         }
     }
 }
