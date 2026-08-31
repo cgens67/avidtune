@@ -44,6 +44,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -1004,6 +1005,12 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
             onClick = { resetSearch(); navController.navigate("settings/appearance") }
         ),
         SettingsItem(
+            icon = painterResource(R.drawable.album),
+            title = "Mini-Player Shape",
+            keywords = listOf("mini", "player", "shape", "artwork", "corner", "radius"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
             icon = painterResource(R.drawable.palette),
             title = stringResource(R.string.player_buttons_style),
             keywords = listOf("player", "buttons", "style", "primary", "tertiary"),
@@ -1087,20 +1094,14 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
             keywords = listOf("grid", "cell", "size", "large", "small"),
             onClick = { resetSearch(); navController.navigate("settings/appearance") }
         ),
+        SettingsItem(
+            icon = painterResource(R.drawable.person),
+            title = stringResource(R.string.avatar_selection),
+            keywords = listOf("avatar", "profile", "picture", "dicebear", "custom"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
 
-        // Player
-        SettingsItem(
-            icon = painterResource(R.drawable.play),
-            title = stringResource(R.string.minimal_player_design),
-            keywords = listOf("minimal", "player", "design", "performance"),
-            onClick = { resetSearch(); navController.navigate("settings/performance") }
-        ),
-        SettingsItem(
-            icon = painterResource(R.drawable.image),
-            title = stringResource(R.string.cover_resolution),
-            keywords = listOf("cover", "resolution", "quality", "performance"),
-            onClick = { resetSearch(); navController.navigate("settings/performance") }
-        ),
+        // Player & Audio
         SettingsItem(
             icon = painterResource(R.drawable.graphic_eq),
             title = stringResource(R.string.audio_quality),
@@ -1163,6 +1164,18 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
         ),
 
         // Performance
+        SettingsItem(
+            icon = painterResource(R.drawable.play),
+            title = stringResource(R.string.minimal_player_design),
+            keywords = listOf("minimal", "player", "design", "performance"),
+            onClick = { resetSearch(); navController.navigate("settings/performance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.image),
+            title = stringResource(R.string.cover_resolution),
+            keywords = listOf("cover", "resolution", "quality", "performance"),
+            onClick = { resetSearch(); navController.navigate("settings/performance") }
+        ),
         SettingsItem(
             icon = painterResource(R.drawable.image),
             title = stringResource(R.string.disable_blur_effects),
@@ -3237,7 +3250,7 @@ fun UpdateDownloadDialog(
             }
         },
         sheetState = sheetState,
-        dragHandle = { androidx.compose.material3.BottomSheetDefaults.DragHandle() },
+        dragHandle = { BottomSheetDefaults.DragHandle() },
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
     ) {
@@ -3246,7 +3259,7 @@ fun UpdateDownloadDialog(
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 32.dp)
-                .windowInsetsPadding(WindowInsets.navigationBars),
+                .navigationBarsPadding(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
