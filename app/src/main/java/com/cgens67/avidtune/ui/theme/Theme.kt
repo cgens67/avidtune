@@ -20,10 +20,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.unit.isUnspecified
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import androidx.palette.graphics.Palette
 import com.cgens67.avidtune.R
@@ -84,40 +83,37 @@ fun AvidTuneTheme(
         if (customFontFamily == null) {
             default
         } else {
-            // Adds a slightly wider tracking baseline specifically for Google Sans
-            // to stop it from looking so tight/squished.
-            val lsOffset = if (appFont == AppFont.GOOGLE_SANS) 0.35f else 0f
+            // Adjust tracking for custom fonts which often look too loose with Roboto's default letter spacing
+            val titleLetterSpacing = when (appFont) {
+                AppFont.GOOGLE_SANS -> (-0.4).sp
+                AppFont.SPACE_GROTESK -> (-0.5).sp
+                AppFont.SF_PRO -> (-0.2).sp
+                else -> 0.sp
+            }
             
-            fun TextStyle.applyFont(): TextStyle {
-                val currentLs = this.letterSpacing
-                val newSpacing = if (lsOffset > 0f) {
-                    if (!currentLs.isUnspecified) {
-                        (currentLs.value + lsOffset).sp
-                    } else {
-                        lsOffset.sp
-                    }
-                } else {
-                    currentLs
-                }
-                return this.copy(fontFamily = customFontFamily, letterSpacing = newSpacing)
+            val bodyLetterSpacing = when (appFont) {
+                AppFont.GOOGLE_SANS -> 0.sp
+                AppFont.SPACE_GROTESK -> (-0.2).sp
+                AppFont.SF_PRO -> 0.sp
+                else -> 0.sp
             }
 
             Typography(
-                displayLarge = default.displayLarge.applyFont(),
-                displayMedium = default.displayMedium.applyFont(),
-                displaySmall = default.displaySmall.applyFont(),
-                headlineLarge = default.headlineLarge.applyFont(),
-                headlineMedium = default.headlineMedium.applyFont(),
-                headlineSmall = default.headlineSmall.applyFont(),
-                titleLarge = default.titleLarge.applyFont(),
-                titleMedium = default.titleMedium.applyFont(),
-                titleSmall = default.titleSmall.applyFont(),
-                bodyLarge = default.bodyLarge.applyFont(),
-                bodyMedium = default.bodyMedium.applyFont(),
-                bodySmall = default.bodySmall.applyFont(),
-                labelLarge = default.labelLarge.applyFont(),
-                labelMedium = default.labelMedium.applyFont(),
-                labelSmall = default.labelSmall.applyFont()
+                displayLarge = default.displayLarge.copy(fontFamily = customFontFamily, letterSpacing = titleLetterSpacing),
+                displayMedium = default.displayMedium.copy(fontFamily = customFontFamily, letterSpacing = titleLetterSpacing),
+                displaySmall = default.displaySmall.copy(fontFamily = customFontFamily, letterSpacing = titleLetterSpacing),
+                headlineLarge = default.headlineLarge.copy(fontFamily = customFontFamily, letterSpacing = titleLetterSpacing),
+                headlineMedium = default.headlineMedium.copy(fontFamily = customFontFamily, letterSpacing = titleLetterSpacing),
+                headlineSmall = default.headlineSmall.copy(fontFamily = customFontFamily, letterSpacing = titleLetterSpacing),
+                titleLarge = default.titleLarge.copy(fontFamily = customFontFamily, letterSpacing = titleLetterSpacing),
+                titleMedium = default.titleMedium.copy(fontFamily = customFontFamily, letterSpacing = titleLetterSpacing),
+                titleSmall = default.titleSmall.copy(fontFamily = customFontFamily, letterSpacing = titleLetterSpacing),
+                bodyLarge = default.bodyLarge.copy(fontFamily = customFontFamily, letterSpacing = bodyLetterSpacing),
+                bodyMedium = default.bodyMedium.copy(fontFamily = customFontFamily, letterSpacing = bodyLetterSpacing),
+                bodySmall = default.bodySmall.copy(fontFamily = customFontFamily, letterSpacing = bodyLetterSpacing),
+                labelLarge = default.labelLarge.copy(fontFamily = customFontFamily, letterSpacing = bodyLetterSpacing),
+                labelMedium = default.labelMedium.copy(fontFamily = customFontFamily, letterSpacing = bodyLetterSpacing),
+                labelSmall = default.labelSmall.copy(fontFamily = customFontFamily, letterSpacing = bodyLetterSpacing)
             )
         }
     }
