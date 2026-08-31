@@ -24,6 +24,9 @@ class SyncUtils @Inject constructor(
     val database: MusicDatabase,
 ) {
     suspend fun syncLikedSongs() {
+        val cookie = YouTube.cookie ?: return
+        if ("SAPISID" !in cookie) return
+
         YouTube.playlist("LM").completed().onSuccess { page ->
             val songs = page.songs.reversed()
 
@@ -44,6 +47,9 @@ class SyncUtils @Inject constructor(
     }
 
     suspend fun syncLibrarySongs() {
+        val cookie = YouTube.cookie ?: return
+        if ("SAPISID" !in cookie) return
+
         YouTube.library("FEmusic_liked_videos").completed().onSuccess { page ->
             val songs = page.items.filterIsInstance<SongItem>().reversed()
 
@@ -64,6 +70,9 @@ class SyncUtils @Inject constructor(
     }
 
     suspend fun syncLikedAlbums() {
+        val cookie = YouTube.cookie ?: return
+        if ("SAPISID" !in cookie) return
+
         YouTube.library("FEmusic_liked_albums").completed().onSuccess { page ->
             val albums = page.items.filterIsInstance<AlbumItem>().reversed()
 
@@ -90,6 +99,9 @@ class SyncUtils @Inject constructor(
     }
 
     suspend fun syncArtistsSubscriptions() {
+        val cookie = YouTube.cookie ?: return
+        if ("SAPISID" !in cookie) return
+
         YouTube.library("FEmusic_library_corpus_artists").completed().onSuccess { page ->
             val artists = page.items.filterIsInstance<ArtistItem>()
 
@@ -121,6 +133,9 @@ class SyncUtils @Inject constructor(
     }
 
     suspend fun syncSavedPlaylists() {
+        val cookie = YouTube.cookie ?: return
+        if ("SAPISID" !in cookie) return
+
         YouTube.library("FEmusic_liked_playlists").completed().onSuccess { page ->
             val playlistList = page.items.filterIsInstance<PlaylistItem>()
                 .filterNot { it.id == "LM" ||  it.id == "SE" }
