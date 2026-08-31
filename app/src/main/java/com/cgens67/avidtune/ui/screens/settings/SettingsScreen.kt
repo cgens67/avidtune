@@ -62,6 +62,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -75,6 +76,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -82,6 +84,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -113,6 +116,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -1042,6 +1046,24 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
             onClick = { resetSearch(); navController.navigate("settings/appearance") }
         ),
         SettingsItem(
+            icon = painterResource(R.drawable.artist),
+            title = stringResource(R.string.enable_avidcanvas_artist_canvas),
+            keywords = listOf("avidcanvas", "artist", "canvas", "video", "background"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.artist),
+            title = stringResource(R.string.enable_apple_music_artist_canvas),
+            keywords = listOf("apple", "music", "artist", "canvas", "video", "background"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.list),
+            title = stringResource(R.string.artist_canvas_provider_priority),
+            keywords = listOf("artist", "canvas", "provider", "priority", "order"),
+            onClick = { resetSearch(); navController.navigate("settings/appearance") }
+        ),
+        SettingsItem(
             icon = painterResource(R.drawable.nav_bar),
             title = stringResource(R.string.default_open_tab),
             keywords = listOf("default", "open", "tab", "home", "explore", "library"),
@@ -1065,8 +1087,20 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
             keywords = listOf("grid", "cell", "size", "large", "small"),
             onClick = { resetSearch(); navController.navigate("settings/appearance") }
         ),
-        
+
         // Player
+        SettingsItem(
+            icon = painterResource(R.drawable.play),
+            title = stringResource(R.string.minimal_player_design),
+            keywords = listOf("minimal", "player", "design", "performance"),
+            onClick = { resetSearch(); navController.navigate("settings/performance") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.image),
+            title = stringResource(R.string.cover_resolution),
+            keywords = listOf("cover", "resolution", "quality", "performance"),
+            onClick = { resetSearch(); navController.navigate("settings/performance") }
+        ),
         SettingsItem(
             icon = painterResource(R.drawable.graphic_eq),
             title = stringResource(R.string.audio_quality),
@@ -1130,12 +1164,6 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
 
         // Performance
         SettingsItem(
-            icon = painterResource(R.drawable.play),
-            title = stringResource(R.string.minimal_player_design),
-            keywords = listOf("minimal", "player", "design", "performance"),
-            onClick = { resetSearch(); navController.navigate("settings/performance") }
-        ),
-        SettingsItem(
             icon = painterResource(R.drawable.image),
             title = stringResource(R.string.disable_blur_effects),
             keywords = listOf("disable", "blur", "effects", "performance"),
@@ -1186,7 +1214,7 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
             onClick = { resetSearch(); navController.navigate("settings/content") }
         ),
         SettingsItem(
-            icon = painterResource(R.drawable.info), // Fallback icon
+            icon = painterResource(R.drawable.notification_on), 
             title = stringResource(R.string.notification),
             keywords = listOf("notification", "permission", "alert"),
             onClick = { resetSearch(); navController.navigate("settings/content") }
@@ -1195,6 +1223,18 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
             icon = painterResource(R.drawable.wifi_proxy),
             title = stringResource(R.string.enable_proxy),
             keywords = listOf("proxy", "network", "connection"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.wifi_proxy),
+            title = stringResource(R.string.proxy_type),
+            keywords = listOf("proxy", "type", "network", "connection"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.wifi_proxy),
+            title = stringResource(R.string.proxy_url),
+            keywords = listOf("proxy", "url", "network", "connection"),
             onClick = { resetSearch(); navController.navigate("settings/content") }
         ),
         SettingsItem(
@@ -2376,6 +2416,7 @@ fun SettingsPermissionBanner(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsUpdateBanner(
     latestVersion: String,
@@ -2482,6 +2523,7 @@ fun SettingsUpdateBanner(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsBetaUpdateBanner(
     latestVersion: String,
@@ -3164,6 +3206,7 @@ fun isNewerVersion(remoteVersion: String, currentVersion: String): Boolean {
     return false
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UpdateDownloadDialog(
     latestVersion: String,
@@ -3175,6 +3218,7 @@ fun UpdateDownloadDialog(
     var downloadStatus by remember { mutableStateOf(DownloadStatus.NOT_STARTED) }
     var downloadedApkUri by remember { mutableStateOf<Uri?>(null) }
     val downloadScope = rememberCoroutineScope()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val installPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -3186,41 +3230,58 @@ fun UpdateDownloadDialog(
         }
     }
 
-    Dialog(onDismissRequest = {
-        if (downloadStatus != DownloadStatus.DOWNLOADING) {
-            onDismiss()
-        }
-    }) {
-        Card(
+    ModalBottomSheet(
+        onDismissRequest = {
+            if (downloadStatus != DownloadStatus.DOWNLOADING) {
+                onDismiss()
+            }
+        },
+        sheetState = sheetState,
+        dragHandle = { androidx.compose.material3.BottomSheetDefaults.DragHandle() },
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
+    ) {
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            shape = RoundedCornerShape(28.dp),
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp)
+                .windowInsetsPadding(WindowInsets.navigationBars),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Column(
-                modifier = Modifier
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = if (isBeta) stringResource(R.string.update_beta_version, latestVersion) else stringResource(R.string.update_version, latestVersion),
-                    style = MaterialTheme.typography.headlineSmall
-                )
+            Text(
+                text = if (isBeta) stringResource(R.string.update_beta_version, latestVersion) else stringResource(R.string.update_version, latestVersion),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
 
-                Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-                when (downloadStatus) {
-                    DownloadStatus.NOT_STARTED -> {
-                        Text(if (isBeta) stringResource(R.string.download_beta_update_prompt) else stringResource(R.string.download_update_prompt))
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+            when (downloadStatus) {
+                DownloadStatus.NOT_STARTED -> {
+                    Text(
+                        text = if (isBeta) stringResource(R.string.download_beta_update_prompt) else stringResource(R.string.download_update_prompt),
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        TextButton(
+                            onClick = {
+                                downloadScope.launch {
+                                    sheetState.hide()
+                                }.invokeOnCompletion {
+                                    onDismiss()
+                                }
+                            },
+                            modifier = Modifier.weight(1f)
                         ) {
-                            TextButton(onClick = onDismiss) {
-                                Text(stringResource(android.R.string.cancel))
-                            }
-                            Button(onClick = {
+                            Text(stringResource(android.R.string.cancel))
+                        }
+                        Button(
+                            onClick = {
                                 downloadStatus = DownloadStatus.DOWNLOADING
                                 downloadScope.launch {
                                     downloadedApkUri =
@@ -3234,36 +3295,52 @@ fun UpdateDownloadDialog(
                                         downloadStatus = DownloadStatus.ERROR
                                     }
                                 }
-                            }) {
-                                Text(stringResource(R.string.download))
-                            }
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(stringResource(R.string.download))
                         }
                     }
+                }
 
-                    DownloadStatus.DOWNLOADING -> {
-                        Text(stringResource(R.string.downloading))
-                        Spacer(modifier = Modifier.height(16.dp))
-                        LinearProgressIndicator(
-                            progress = { downloadProgress },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Text(
-                            text = "${(downloadProgress * 100).toInt()}%",
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
-                    }
+                DownloadStatus.DOWNLOADING -> {
+                    Text(stringResource(R.string.downloading))
+                    Spacer(modifier = Modifier.height(16.dp))
+                    LinearProgressIndicator(
+                        progress = { downloadProgress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                    )
+                    Text(
+                        text = "${(downloadProgress * 100).toInt()}%",
+                        modifier = Modifier.padding(top = 8.dp),
+                        fontWeight = FontWeight.Medium
+                    )
+                }
 
-                    DownloadStatus.COMPLETED -> {
-                        Text(stringResource(R.string.download_completed))
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                DownloadStatus.COMPLETED -> {
+                    Text(stringResource(R.string.download_completed))
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        TextButton(
+                            onClick = {
+                                downloadScope.launch {
+                                    sheetState.hide()
+                                }.invokeOnCompletion {
+                                    onDismiss()
+                                }
+                            },
+                            modifier = Modifier.weight(1f)
                         ) {
-                            TextButton(onClick = onDismiss) {
-                                Text(stringResource(R.string.close))
-                            }
-                            Button(onClick = {
+                            Text(stringResource(R.string.close))
+                        }
+                        Button(
+                            onClick = {
                                 if (downloadedApkUri != null) {
                                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                                         if (!context.packageManager.canRequestPackageInstalls()) {
@@ -3279,18 +3356,31 @@ fun UpdateDownloadDialog(
                                         installApk(context, downloadedApkUri!!)
                                     }
                                 }
-                            }) {
-                                Text(stringResource(R.string.install))
-                            }
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(stringResource(R.string.install))
                         }
                     }
+                }
 
-                    DownloadStatus.ERROR -> {
-                        Text(stringResource(R.string.download_error))
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = onDismiss) {
-                            Text(stringResource(R.string.close))
-                        }
+                DownloadStatus.ERROR -> {
+                    Text(
+                        text = stringResource(R.string.download_error),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Button(
+                        onClick = {
+                            downloadScope.launch {
+                                sheetState.hide()
+                            }.invokeOnCompletion {
+                                onDismiss()
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(stringResource(R.string.close))
                     }
                 }
             }
