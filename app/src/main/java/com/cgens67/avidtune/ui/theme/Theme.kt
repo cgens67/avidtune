@@ -20,8 +20,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.isUnspecified
+import androidx.compose.ui.unit.sp
 import androidx.palette.graphics.Palette
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.AppFont
@@ -81,22 +84,40 @@ fun AvidTuneTheme(
         if (customFontFamily == null) {
             default
         } else {
+            // Adds a slightly wider tracking baseline specifically for Google Sans
+            // to stop it from looking so tight/squished.
+            val lsOffset = if (appFont == AppFont.GOOGLE_SANS) 0.35f else 0f
+            
+            fun TextStyle.applyFont(): TextStyle {
+                val currentLs = this.letterSpacing
+                val newSpacing = if (lsOffset > 0f) {
+                    if (!currentLs.isUnspecified) {
+                        (currentLs.value + lsOffset).sp
+                    } else {
+                        lsOffset.sp
+                    }
+                } else {
+                    currentLs
+                }
+                return this.copy(fontFamily = customFontFamily, letterSpacing = newSpacing)
+            }
+
             Typography(
-                displayLarge = default.displayLarge.copy(fontFamily = customFontFamily),
-                displayMedium = default.displayMedium.copy(fontFamily = customFontFamily),
-                displaySmall = default.displaySmall.copy(fontFamily = customFontFamily),
-                headlineLarge = default.headlineLarge.copy(fontFamily = customFontFamily),
-                headlineMedium = default.headlineMedium.copy(fontFamily = customFontFamily),
-                headlineSmall = default.headlineSmall.copy(fontFamily = customFontFamily),
-                titleLarge = default.titleLarge.copy(fontFamily = customFontFamily),
-                titleMedium = default.titleMedium.copy(fontFamily = customFontFamily),
-                titleSmall = default.titleSmall.copy(fontFamily = customFontFamily),
-                bodyLarge = default.bodyLarge.copy(fontFamily = customFontFamily),
-                bodyMedium = default.bodyMedium.copy(fontFamily = customFontFamily),
-                bodySmall = default.bodySmall.copy(fontFamily = customFontFamily),
-                labelLarge = default.labelLarge.copy(fontFamily = customFontFamily),
-                labelMedium = default.labelMedium.copy(fontFamily = customFontFamily),
-                labelSmall = default.labelSmall.copy(fontFamily = customFontFamily)
+                displayLarge = default.displayLarge.applyFont(),
+                displayMedium = default.displayMedium.applyFont(),
+                displaySmall = default.displaySmall.applyFont(),
+                headlineLarge = default.headlineLarge.applyFont(),
+                headlineMedium = default.headlineMedium.applyFont(),
+                headlineSmall = default.headlineSmall.applyFont(),
+                titleLarge = default.titleLarge.applyFont(),
+                titleMedium = default.titleMedium.applyFont(),
+                titleSmall = default.titleSmall.applyFont(),
+                bodyLarge = default.bodyLarge.applyFont(),
+                bodyMedium = default.bodyMedium.applyFont(),
+                bodySmall = default.bodySmall.applyFont(),
+                labelLarge = default.labelLarge.applyFont(),
+                labelMedium = default.labelMedium.applyFont(),
+                labelSmall = default.labelSmall.applyFont()
             )
         }
     }
