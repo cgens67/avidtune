@@ -13,12 +13,18 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -27,6 +33,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -3259,6 +3266,7 @@ fun UpdateDownloadDialog(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 32.dp)
                 .navigationBarsPadding(),
@@ -3269,26 +3277,50 @@ fun UpdateDownloadDialog(
             val iconBg = if (isBeta) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.primaryContainer
             val iconOnBg = if (isBeta) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onPrimaryContainer
             
+            val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+            val pulse by infiniteTransition.animateFloat(
+                initialValue = 0.8f,
+                targetValue = 1.2f,
+                animationSpec = infiniteRepeatable(tween(1200, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+                label = "pulseAlpha"
+            )
+
             Box(
-                modifier = Modifier
-                    .size(72.dp)
-                    .clip(CircleShape)
-                    .background(iconBg),
+                modifier = Modifier.size(96.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    painter = painterResource(
-                        when (downloadStatus) {
-                            DownloadStatus.NOT_STARTED -> R.drawable.update
-                            DownloadStatus.DOWNLOADING -> R.drawable.download
-                            DownloadStatus.COMPLETED -> R.drawable.check
-                            DownloadStatus.ERROR -> R.drawable.error
-                        }
-                    ),
-                    contentDescription = null,
-                    tint = iconOnBg,
-                    modifier = Modifier.size(32.dp)
-                )
+                // Outer glow
+                if (downloadStatus == DownloadStatus.DOWNLOADING) {
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .scale(pulse)
+                            .clip(CircleShape)
+                            .background(iconBg.copy(alpha = 0.5f))
+                    )
+                }
+                
+                Box(
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(CircleShape)
+                        .background(iconBg),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(
+                            when (downloadStatus) {
+                                DownloadStatus.NOT_STARTED -> R.drawable.update
+                                DownloadStatus.DOWNLOADING -> R.drawable.download
+                                DownloadStatus.COMPLETED -> R.drawable.check
+                                DownloadStatus.ERROR -> R.drawable.error
+                            }
+                        ),
+                        contentDescription = null,
+                        tint = iconOnBg,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -3303,186 +3335,196 @@ fun UpdateDownloadDialog(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            when (downloadStatus) {
-                DownloadStatus.NOT_STARTED -> {
-                    Text(
-                        text = if (isBeta) stringResource(R.string.download_beta_update_prompt) else stringResource(R.string.download_update_prompt),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-                    Spacer(modifier = Modifier.height(32.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = {
-                                downloadScope.launch {
-                                    sheetState.hide()
-                                }.invokeOnCompletion {
-                                    onDismiss()
-                                }
-                            },
-                            modifier = Modifier.weight(1f).height(50.dp),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Text(stringResource(android.R.string.cancel))
-                        }
-                        Button(
-                            onClick = {
-                                downloadStatus = DownloadStatus.DOWNLOADING
-                                downloadScope.launch {
-                                    downloadedApkUri =
-                                        downloadApk(context, latestVersion) { progress ->
-                                            downloadProgress = progress
+            AnimatedContent(
+                targetState = downloadStatus,
+                transitionSpec = {
+                    fadeIn(tween(300)) togetherWith fadeOut(tween(300))
+                },
+                label = "downloadState"
+            ) { status ->
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    when (status) {
+                        DownloadStatus.NOT_STARTED -> {
+                            Text(
+                                text = if (isBeta) stringResource(R.string.download_beta_update_prompt) else stringResource(R.string.download_update_prompt),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(horizontal = 16.dp)
+                            )
+                            Spacer(modifier = Modifier.height(32.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = {
+                                        downloadScope.launch {
+                                            sheetState.hide()
+                                        }.invokeOnCompletion {
+                                            onDismiss()
                                         }
-                                    if (downloadedApkUri != null) {
-                                        downloadStatus = DownloadStatus.COMPLETED
-                                        downloadProgress = 1f
-                                    } else {
-                                        downloadStatus = DownloadStatus.ERROR
-                                    }
+                                    },
+                                    modifier = Modifier.weight(1f).height(50.dp),
+                                    shape = RoundedCornerShape(16.dp)
+                                ) {
+                                    Text(stringResource(android.R.string.cancel))
                                 }
-                            },
-                            modifier = Modifier.weight(1f).height(50.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = iconTint
-                            )
-                        ) {
-                            Text(stringResource(R.string.download))
+                                Button(
+                                    onClick = {
+                                        downloadStatus = DownloadStatus.DOWNLOADING
+                                        downloadScope.launch {
+                                            downloadedApkUri =
+                                                downloadApk(context, latestVersion) { progress ->
+                                                    downloadProgress = progress
+                                                }
+                                            if (downloadedApkUri != null) {
+                                                downloadStatus = DownloadStatus.COMPLETED
+                                                downloadProgress = 1f
+                                            } else {
+                                                downloadStatus = DownloadStatus.ERROR
+                                            }
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f).height(50.dp),
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = iconTint
+                                    )
+                                ) {
+                                    Text(stringResource(R.string.download))
+                                }
+                            }
                         }
-                    }
-                }
 
-                DownloadStatus.DOWNLOADING -> {
-                    Text(
-                        text = stringResource(R.string.downloading),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
-                    Spacer(modifier = Modifier.height(24.dp))
-                    
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            CircularProgressIndicator(
-                                progress = { downloadProgress },
-                                modifier = Modifier.size(48.dp),
-                                color = iconTint,
-                                strokeWidth = 4.dp,
-                                trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                        DownloadStatus.DOWNLOADING -> {
+                            Text(
+                                text = stringResource(R.string.downloading),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
                             )
+                            Spacer(modifier = Modifier.height(24.dp))
                             
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "${(downloadProgress * 100).toInt()}%",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                LinearProgressIndicator(
-                                    progress = { downloadProgress },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(top = 8.dp)
-                                        .height(6.dp)
-                                        .clip(RoundedCornerShape(3.dp)),
-                                    color = iconTint,
-                                    trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
-                                )
-                            }
-                        }
-                    }
-                }
-
-                DownloadStatus.COMPLETED -> {
-                    Text(
-                        text = stringResource(R.string.download_completed),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
-                    Spacer(modifier = Modifier.height(32.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = {
-                                downloadScope.launch {
-                                    sheetState.hide()
-                                }.invokeOnCompletion {
-                                    onDismiss()
-                                }
-                            },
-                            modifier = Modifier.weight(1f).height(50.dp),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Text(stringResource(R.string.close))
-                        }
-                        Button(
-                            onClick = {
-                                if (downloadedApkUri != null) {
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                        if (!context.packageManager.canRequestPackageInstalls()) {
-                                            val intent =
-                                                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
-                                                    .setData("package:${context.packageName}".toUri())
-
-                                            installPermissionLauncher.launch(intent)
-                                        } else {
-                                            installApk(context, downloadedApkUri!!)
-                                        }
-                                    } else {
-                                        installApk(context, downloadedApkUri!!)
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    CircularProgressIndicator(
+                                        progress = { downloadProgress },
+                                        modifier = Modifier.size(48.dp),
+                                        color = iconTint,
+                                        strokeWidth = 4.dp,
+                                        trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                                    )
+                                    
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "${(downloadProgress * 100).toInt()}%",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        LinearProgressIndicator(
+                                            progress = { downloadProgress },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(top = 8.dp)
+                                                .height(6.dp)
+                                                .clip(RoundedCornerShape(3.dp)),
+                                            color = iconTint,
+                                            trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                                        )
                                     }
                                 }
-                            },
-                            modifier = Modifier.weight(1f).height(50.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = iconTint
-                            )
-                        ) {
-                            Text(stringResource(R.string.install))
-                        }
-                    }
-                }
-
-                DownloadStatus.ERROR -> {
-                    Text(
-                        text = stringResource(R.string.download_error),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
-                        textAlign = TextAlign.Center
-                    )
-                    Spacer(modifier = Modifier.height(32.dp))
-                    Button(
-                        onClick = {
-                            downloadScope.launch {
-                                sheetState.hide()
-                            }.invokeOnCompletion {
-                                onDismiss()
                             }
-                        },
-                        modifier = Modifier.fillMaxWidth().height(50.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error
-                        )
-                    ) {
-                        Text(stringResource(R.string.close))
+                        }
+
+                        DownloadStatus.COMPLETED -> {
+                            Text(
+                                text = stringResource(R.string.download_completed),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(32.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = {
+                                        downloadScope.launch {
+                                            sheetState.hide()
+                                        }.invokeOnCompletion {
+                                            onDismiss()
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f).height(50.dp),
+                                    shape = RoundedCornerShape(16.dp)
+                                ) {
+                                    Text(stringResource(R.string.close))
+                                }
+                                Button(
+                                    onClick = {
+                                        if (downloadedApkUri != null) {
+                                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                                if (!context.packageManager.canRequestPackageInstalls()) {
+                                                    val intent =
+                                                        Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
+                                                            .setData("package:${context.packageName}".toUri())
+
+                                                    installPermissionLauncher.launch(intent)
+                                                } else {
+                                                    installApk(context, downloadedApkUri!!)
+                                                }
+                                            } else {
+                                                installApk(context, downloadedApkUri!!)
+                                            }
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f).height(50.dp),
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = iconTint
+                                    )
+                                ) {
+                                    Text(stringResource(R.string.install))
+                                }
+                            }
+                        }
+
+                        DownloadStatus.ERROR -> {
+                            Text(
+                                text = stringResource(R.string.download_error),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.error,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(32.dp))
+                            Button(
+                                onClick = {
+                                    downloadScope.launch {
+                                        sheetState.hide()
+                                    }.invokeOnCompletion {
+                                        onDismiss()
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().height(50.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error
+                                )
+                            ) {
+                                Text(stringResource(R.string.close))
+                            }
+                        }
                     }
                 }
             }
