@@ -1,5 +1,8 @@
+@file:OptIn(ExperimentalCoilApi::class, ExperimentalMaterial3Api::class)
+
 package com.cgens67.avidtune.ui.screens.settings
 
+import android.os.Environment
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.CubicBezierEasing
@@ -138,6 +141,7 @@ fun StorageSettings(
     var imageCacheSize by remember { mutableLongStateOf(imageDiskCache.size) }
     var playerCacheSize by remember { mutableLongStateOf(tryOrNull { playerCache.cacheSpace } ?: 0L) }
     var downloadCacheSize by remember { mutableLongStateOf(tryOrNull { downloadCache.cacheSpace } ?: 0L) }
+    var apkCacheSize by remember { mutableLongStateOf(0L) }
 
     var showCachedSongsSheet by remember { mutableStateOf(false) }
 
@@ -159,8 +163,15 @@ fun StorageSettings(
             downloadCacheSize = tryOrNull { downloadCache.cacheSpace } ?: 0L
         }
     }
+    LaunchedEffect(Unit) {
+        while (isActive) {
+            delay(500)
+            val downloadDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+            apkCacheSize = downloadDir?.listFiles { file -> file.extension == "apk" }?.sumOf { it.length() } ?: 0L
+        }
+    }
 
-    val totalUsedBytes = downloadCacheSize + playerCacheSize + imageCacheSize
+    val totalUsedBytes = downloadCacheSize + playerCacheSize + imageCacheSize + apkCacheSize
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -175,7 +186,8 @@ fun StorageSettings(
                 totalUsedBytes = totalUsedBytes,
                 downloadCacheSize = downloadCacheSize,
                 playerCacheSize = playerCacheSize,
-                imageCacheSize = imageCacheSize
+                imageCacheSize = imageCacheSize,
+                apkCacheSize = apkCacheSize
             )
 
             Text(
@@ -270,6 +282,26 @@ fun StorageSettings(
                     )
                 }
             )
+
+            // Downloaded Updates / APKs Category Card
+            ModernStorageCard(
+                title = "Update Files",
+                icon = R.drawable.update,
+                usedSize = apkCacheSize,
+                maxSize = null,
+                indicatorColor = MaterialTheme.colorScheme.error,
+                onClearClick = {
+                    coroutineScope.launch(Dispatchers.IO) {
+                        try {
+                            val downloadDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+                            downloadDir?.listFiles { file -> file.extension == "apk" }?.forEach { it.delete() }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+                },
+                onManageClick = null
+            )
         }
 
         TopAppBar(
@@ -302,7 +334,8 @@ private fun StorageDashboardCard(
     totalUsedBytes: Long,
     downloadCacheSize: Long,
     playerCacheSize: Long,
-    imageCacheSize: Long
+    imageCacheSize: Long,
+    apkCacheSize: Long
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -329,7 +362,8 @@ private fun StorageDashboardCard(
                     AnimatedDonutChart(
                         downloadSize = downloadCacheSize,
                         songCacheSize = playerCacheSize,
-                        imageCacheSize = imageCacheSize
+                        imageCacheSize = imageCacheSize,
+                        apkCacheSize = apkCacheSize
                     )
                 }
 
@@ -375,6 +409,11 @@ private fun StorageDashboardCard(
                     size = imageCacheSize,
                     color = MaterialTheme.colorScheme.tertiary
                 )
+                LegendRow(
+                    label = "Update Files",
+                    size = apkCacheSize,
+                    color = MaterialTheme.colorScheme.error
+                )
             }
         }
     }
@@ -385,14 +424,16 @@ private fun AnimatedDonutChart(
     downloadSize: Long,
     songCacheSize: Long,
     imageCacheSize: Long,
+    apkCacheSize: Long,
     modifier: Modifier = Modifier
 ) {
     var selectedSegmentIndex by remember { mutableStateOf(-1) }
 
-    val total = downloadSize + songCacheSize + imageCacheSize
+    val total = downloadSize + songCacheSize + imageCacheSize + apkCacheSize
     val dTarget = if (total > 0L) downloadSize.toFloat() / total else 0f
     val sTarget = if (total > 0L) songCacheSize.toFloat() / total else 0f
     val iTarget = if (total > 0L) imageCacheSize.toFloat() / total else 0f
+    val aTarget = if (total > 0L) apkCacheSize.toFloat() / total else 0f
 
     // Morph sizes smoothly without bounce on updates
     val dWeight by animateFloatAsState(
@@ -410,6 +451,11 @@ private fun AnimatedDonutChart(
         animationSpec = tween(1200, easing = CubicBezierEasing(0.2f, 0.8f, 0.2f, 1.0f)),
         label = "iWeight"
     )
+    val aWeight by animateFloatAsState(
+        targetValue = aTarget,
+        animationSpec = tween(1200, easing = CubicBezierEasing(0.2f, 0.8f, 0.2f, 1.0f)),
+        label = "aWeight"
+    )
 
     // Highlight segments by animating their widths on selection
     val dStroke by animateFloatAsState(
@@ -426,6 +472,11 @@ private fun AnimatedDonutChart(
         targetValue = if (selectedSegmentIndex == 2) 22f else 14f,
         animationSpec = tween(350, easing = CubicBezierEasing(0.2f, 0.8f, 0.2f, 1.0f)),
         label = "iStroke"
+    )
+    val aStroke by animateFloatAsState(
+        targetValue = if (selectedSegmentIndex == 3) 22f else 14f,
+        animationSpec = tween(350, easing = CubicBezierEasing(0.2f, 0.8f, 0.2f, 1.0f)),
+        label = "aStroke"
     )
 
     // Entry transition states
@@ -463,6 +514,7 @@ private fun AnimatedDonutChart(
     val primaryColor = MaterialTheme.colorScheme.primary
     val secondaryColor = MaterialTheme.colorScheme.secondary
     val tertiaryColor = MaterialTheme.colorScheme.tertiary
+    val quaternaryColor = MaterialTheme.colorScheme.error
     val outlineVariantColor = MaterialTheme.colorScheme.outlineVariant
     val onSurfaceColor = MaterialTheme.colorScheme.onSurface
 
@@ -470,12 +522,14 @@ private fun AnimatedDonutChart(
         0 -> stringResource(R.string.downloaded_songs)
         1 -> stringResource(R.string.song_cache)
         2 -> stringResource(R.string.image_cache)
+        3 -> "Update Files"
         else -> "Used"
     }
     val centerValue = when (selectedSegmentIndex) {
         0 -> formatStorageSize(downloadSize)
         1 -> formatStorageSize(songCacheSize)
         2 -> formatStorageSize(imageCacheSize)
+        3 -> formatStorageSize(apkCacheSize)
         else -> formatStorageSize(total)
     }
 
@@ -486,7 +540,7 @@ private fun AnimatedDonutChart(
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(rotationAngle, dWeight, sWeight, iWeight) {
+                .pointerInput(rotationAngle, dWeight, sWeight, iWeight, aWeight) {
                     detectTapGestures { offset ->
                         val centerX = size.width / 2f
                         val centerY = size.height / 2f
@@ -502,12 +556,13 @@ private fun AnimatedDonutChart(
                             val angle = (rawAngle + 360f) % 360f
                             val adjustedAngle = (angle - rotationAngle % 360f + 360f) % 360f
 
-                            val totalW = dWeight + sWeight + iWeight
+                            val totalW = dWeight + sWeight + iWeight + aWeight
                             if (totalW > 0f) {
                                 val activeSegments = listOf(
                                     Triple(0, dWeight, dStroke),
                                     Triple(1, sWeight, sStroke),
-                                    Triple(2, iWeight, iStroke)
+                                    Triple(2, iWeight, iStroke),
+                                    Triple(3, aWeight, aStroke)
                                 ).filter { it.second > 0f }
 
                                 val numSegments = activeSegments.size
@@ -536,7 +591,7 @@ private fun AnimatedDonutChart(
                     }
                 }
         ) {
-            val totalW = dWeight + sWeight + iWeight
+            val totalW = dWeight + sWeight + iWeight + aWeight
 
             if (totalW == 0f) {
                 drawArc(
@@ -550,7 +605,8 @@ private fun AnimatedDonutChart(
                 val activeSegments = listOf(
                     Triple(primaryColor, dWeight, dStroke),
                     Triple(secondaryColor, sWeight, sStroke),
-                    Triple(tertiaryColor, iWeight, iStroke)
+                    Triple(tertiaryColor, iWeight, iStroke),
+                    Triple(quaternaryColor, aWeight, aStroke)
                 ).filter { it.second > 0f }
 
                 val numSegments = activeSegments.size
@@ -598,6 +654,7 @@ private fun AnimatedDonutChart(
                     0 -> primaryColor
                     1 -> secondaryColor
                     2 -> tertiaryColor
+                    3 -> quaternaryColor
                     else -> onSurfaceColor
                 },
                 maxLines = 1,
@@ -612,16 +669,19 @@ private fun SegmentedStorageBar(
     downloadSize: Long,
     songCacheSize: Long,
     imageCacheSize: Long,
+    apkCacheSize: Long,
     modifier: Modifier = Modifier
 ) {
-    val total = downloadSize + songCacheSize + imageCacheSize
+    val total = downloadSize + songCacheSize + imageCacheSize + apkCacheSize
     val dWeight = if (total > 0L) downloadSize.toFloat() / total else 0f
     val sWeight = if (total > 0L) songCacheSize.toFloat() / total else 0f
     val iWeight = if (total > 0L) imageCacheSize.toFloat() / total else 0f
+    val aWeight = if (total > 0L) apkCacheSize.toFloat() / total else 0f
 
     val dWeightAnimated by animateFloatAsState(targetValue = dWeight, label = "dWeight")
     val sWeightAnimated by animateFloatAsState(targetValue = sWeight, label = "sWeight")
     val iWeightAnimated by animateFloatAsState(targetValue = iWeight, label = "iWeight")
+    val aWeightAnimated by animateFloatAsState(targetValue = aWeight, label = "aWeight")
 
     Row(
         modifier = modifier
@@ -659,6 +719,14 @@ private fun SegmentedStorageBar(
                         .fillMaxHeight()
                         .weight(iWeightAnimated)
                         .background(MaterialTheme.colorScheme.tertiary)
+                )
+            }
+            if (aWeightAnimated > 0f) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .weight(aWeightAnimated)
+                        .background(MaterialTheme.colorScheme.error)
                 )
             }
         }
