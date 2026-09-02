@@ -492,6 +492,13 @@ fun BottomSheetPlayer(
                         gradientColors = gradientColors,
                         disableBlur = disableBlur
                     )
+                    if (playerBackground != PlayerBackgroundStyle.APPLE_MUSIC) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = if (useDarkTheme) 0.3f else 0.45f))
+                        )
+                    }
                 }
             }
         },
@@ -1093,15 +1100,6 @@ fun PlayerBackground(
             else -> {
                 // DEFAULT
             }
-        }
-        
-        val useDarkTheme = isSystemInDarkTheme()
-        if (playerBackground != PlayerBackgroundStyle.DEFAULT) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = if (useDarkTheme) 0.3f else 0.45f))
-            )
         }
     }
 }
