@@ -1013,12 +1013,6 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
             onClick = { resetSearch(); navController.navigate("settings/appearance") }
         ),
         SettingsItem(
-            icon = painterResource(R.drawable.album),
-            title = "Mini-Player Shape",
-            keywords = listOf("mini", "player", "shape", "artwork", "corner", "radius"),
-            onClick = { resetSearch(); navController.navigate("settings/appearance") }
-        ),
-        SettingsItem(
             icon = painterResource(R.drawable.palette),
             title = stringResource(R.string.player_buttons_style),
             keywords = listOf("player", "buttons", "style", "primary", "tertiary"),
