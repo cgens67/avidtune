@@ -10,6 +10,7 @@ import android.content.res.Configuration
 import android.graphics.drawable.BitmapDrawable
 import android.text.format.Formatter
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -74,7 +75,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
@@ -252,20 +252,18 @@ fun BottomSheetPlayer(
         mutableStateOf<Long?>(null)
     }
 
-    var gradientColors by remember {
-        mutableStateOf<List<Color>>(emptyList())
+    val currentThumbUrl = mediaMetadata?.thumbnailUrl
+    var gradientColors by remember(currentThumbUrl) {
+        mutableStateOf(
+            if (currentThumbUrl != null) PlayerColorExtractor.gradientCache.get(currentThumbUrl) ?: emptyList()
+            else emptyList()
+        )
     }
 
     val blurRadius by animateDpAsState(
         targetValue = if (state.isExpanded && playerBackground == PlayerBackgroundStyle.BLUR) 150.dp else 0.dp,
         animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing),
         label = "blurRadius"
-    )
-
-    val backgroundAlpha by animateFloatAsState(
-        targetValue = if (state.isExpanded && playerBackground != PlayerBackgroundStyle.DEFAULT) 1f else 0f,
-        animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing),
-        label = "backgroundAlpha"
     )
 
     val playerButtonsStyle by rememberEnumPreference(
@@ -279,17 +277,26 @@ fun BottomSheetPlayer(
     LaunchedEffect(mediaMetadata, playerBackground, fallbackColorArgb) {
         if (useBlackBackground && playerBackground != PlayerBackgroundStyle.BLUR) {
             gradientColors = listOf(Color.Black, Color.Black)
+            return@LaunchedEffect
         }
         if (useBlackBackground && playerBackground != PlayerBackgroundStyle.GRADIENT && playerBackground != PlayerBackgroundStyle.APPLE_MUSIC) {
             gradientColors = listOf(Color.Black, Color.Black)
+            return@LaunchedEffect
         } else if (playerBackground == PlayerBackgroundStyle.GRADIENT || playerBackground == PlayerBackgroundStyle.APPLE_MUSIC || playerBackground == PlayerBackgroundStyle.LIVE_MESH) {
+            val thumbUrl = mediaMetadata?.thumbnailUrl ?: return@LaunchedEffect
+            val cached = PlayerColorExtractor.gradientCache.get(thumbUrl)
+            if (cached != null && cached.isNotEmpty()) {
+                gradientColors = cached
+                return@LaunchedEffect
+            }
+
             withContext(Dispatchers.IO) {
                 val result = runCatching {
                     ImageLoader(context)
                         .execute(
                             ImageRequest
                                 .Builder(context)
-                                .data(mediaMetadata?.thumbnailUrl)
+                                .data(thumbUrl)
                                 .allowHardware(false)
                                 .build(),
                         ).drawable as? BitmapDrawable
@@ -305,6 +312,8 @@ fun BottomSheetPlayer(
                         palette = palette,
                         fallbackColor = fallbackColorArgb
                     )
+
+                    PlayerColorExtractor.gradientCache.put(thumbUrl, extractedColors)
 
                     withContext(Dispatchers.Main) {
                         gradientColors = extractedColors
@@ -327,6 +336,8 @@ fun BottomSheetPlayer(
             }
         }
     }
+
+    val isCustomBackground = playerBackground != PlayerBackgroundStyle.DEFAULT
 
     val queueOnBgColor = when (playerBackground) {
         PlayerBackgroundStyle.DEFAULT -> MaterialTheme.colorScheme.secondary
@@ -474,13 +485,14 @@ fun BottomSheetPlayer(
                     .fillMaxSize()
                     .background(bottomSheetBackgroundColor)
             ) {
-                PlayerBackground(
-                    playerBackground = playerBackground,
-                    mediaMetadata = mediaMetadata,
-                    gradientColors = gradientColors,
-                    backgroundAlpha = backgroundAlpha,
-                    disableBlur = disableBlur
-                )
+                if (isCustomBackground) {
+                    PlayerBackground(
+                        playerBackground = playerBackground,
+                        mediaMetadata = mediaMetadata,
+                        gradientColors = gradientColors,
+                        disableBlur = disableBlur
+                    )
+                }
             }
         },
         onDismiss = {
@@ -832,7 +844,6 @@ fun PlayerBackground(
     playerBackground: PlayerBackgroundStyle,
     mediaMetadata: MediaMetadata?,
     gradientColors: List<Color>,
-    backgroundAlpha: Float,
     disableBlur: Boolean
 ) {
     val context = LocalContext.current
@@ -842,17 +853,17 @@ fun PlayerBackground(
                 AnimatedContent(
                     targetState = mediaMetadata?.thumbnailUrl,
                     transitionSpec = {
-                        fadeIn(tween(800)) togetherWith fadeOut(tween(800))
+                        fadeIn(tween(300)) togetherWith fadeOut(tween(300))
                     },
                     label = "blurBackground"
                 ) { thumbnailUrl ->
                     if (thumbnailUrl != null) {
                         val useDarkTheme = isSystemInDarkTheme()
-                        Box(modifier = Modifier.alpha(backgroundAlpha)) {
+                        Box(modifier = Modifier.fillMaxSize()) {
                             AsyncImage(
                                 model = ImageRequest.Builder(context)
-                                    .data(thumbnailUrl.resize(800, 800))
-                                    .allowHardware(false)
+                                    .data(thumbnailUrl)
+                                    .allowHardware(true)
                                     .build(),
                                 contentDescription = "Blurred background",
                                 contentScale = ContentScale.Crop,
@@ -874,95 +885,97 @@ fun PlayerBackground(
                 AnimatedContent(
                     targetState = gradientColors,
                     transitionSpec = {
-                        fadeIn(tween(800)) togetherWith fadeOut(tween(800))
+                        fadeIn(tween(300)) togetherWith fadeOut(tween(300))
                     },
                     label = "gradientBackground"
                 ) { colors ->
-                    if (colors.isNotEmpty()) {
-                        val gradientColorStops = if (colors.size >= 3) {
-                            arrayOf(
-                                0.0f to colors[0],
-                                0.5f to colors[1],
-                                1.0f to colors[2]
-                            )
-                        } else {
-                            arrayOf(
-                                0.0f to colors[0],
-                                0.6f to colors[0].copy(alpha = 0.7f),
-                                1.0f to Color.Black
-                            )
-                        }
-                        Box(
-                            Modifier
-                                .fillMaxSize()
-                                .alpha(backgroundAlpha)
-                                .background(Brush.verticalGradient(colorStops = gradientColorStops))
-                                .background(Color.Black.copy(alpha = 0.2f))
+                    val displayColors = if (colors.isNotEmpty()) colors else listOf(
+                        MaterialTheme.colorScheme.primary,
+                        MaterialTheme.colorScheme.surfaceContainer
+                    )
+                    val gradientColorStops = if (displayColors.size >= 3) {
+                        arrayOf(
+                            0.0f to displayColors[0],
+                            0.5f to displayColors[1],
+                            1.0f to displayColors[2]
+                        )
+                    } else {
+                        arrayOf(
+                            0.0f to displayColors[0],
+                            0.6f to displayColors[0].copy(alpha = 0.7f),
+                            1.0f to Color.Black
                         )
                     }
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .background(Brush.verticalGradient(colorStops = gradientColorStops))
+                            .background(Color.Black.copy(alpha = 0.2f))
+                    )
                 }
             }
             PlayerBackgroundStyle.APPLE_MUSIC -> {
                 AnimatedContent(
                     targetState = mediaMetadata?.thumbnailUrl,
                     transitionSpec = {
-                        fadeIn(tween(800)) togetherWith fadeOut(tween(800))
+                        fadeIn(tween(300)) togetherWith fadeOut(tween(300))
                     },
-                    label = "appleMusicBackground",
-                    modifier = Modifier.graphicsLayer(alpha = backgroundAlpha)
+                    label = "appleMusicBackground"
                 ) { thumbnailUrl ->
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data(thumbnailUrl?.resize(800, 800))
-                                .allowHardware(false)
-                                .build(),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data(thumbnailUrl?.resize(800, 800))
-                                .allowHardware(false)
-                                .build(),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .let { if (!disableBlur) it.blur(48.dp) else it }
-                                .graphicsLayer(
-                                    alpha = 1f, 
-                                    clip = true,
-                                    compositingStrategy = CompositingStrategy.Offscreen
-                                )
-                                .drawWithContent {
-                                    drawContent()
-                                    drawRect(
-                                        brush = Brush.verticalGradient(
-                                            0.4f to Color.Transparent,
-                                            0.6f to Color.Black
-                                        ),
-                                        blendMode = BlendMode.DstIn
+                    if (thumbnailUrl != null) {
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data(thumbnailUrl)
+                                    .allowHardware(true)
+                                    .build(),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data(thumbnailUrl)
+                                    .allowHardware(true)
+                                    .build(),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .let { if (!disableBlur) it.blur(48.dp) else it }
+                                    .graphicsLayer(
+                                        alpha = 1f, 
+                                        clip = true,
+                                        compositingStrategy = CompositingStrategy.Offscreen
                                     )
-                                }
-                        )
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(
-                                    Brush.verticalGradient(
-                                        listOf(
-                                            Color.Transparent,
-                                            Color.Black.copy(alpha = 0.3f),
-                                            Color.Black.copy(alpha = 0.7f)
-                                        ),
-                                        startY = 0.4f
+                                    .drawWithContent {
+                                        drawContent()
+                                        drawRect(
+                                            brush = Brush.verticalGradient(
+                                                0.4f to Color.Transparent,
+                                                0.6f to Color.Black
+                                            ),
+                                            blendMode = BlendMode.DstIn
+                                        )
+                                    }
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        Brush.verticalGradient(
+                                            listOf(
+                                                Color.Transparent,
+                                                Color.Black.copy(alpha = 0.3f),
+                                                Color.Black.copy(alpha = 0.7f)
+                                            ),
+                                            startY = 0.4f
+                                        )
                                     )
-                                )
-                        )
+                            )
+                        }
                     }
                 }
             }
@@ -970,26 +983,23 @@ fun PlayerBackground(
                 AnimatedContent(
                     targetState = mediaMetadata?.thumbnailUrl,
                     transitionSpec = {
-                        fadeIn(tween(800)) togetherWith fadeOut(tween(800))
+                        fadeIn(tween(300)) togetherWith fadeOut(tween(300))
                     },
                     label = "liveMeshBackground"
                 ) { thumbnailUrl ->
                     if (thumbnailUrl != null) {
                         val infiniteTransition = rememberInfiniteTransition(label = "mesh")
                         
-                        // 1. Anchor Layer Rotation
                         val anchorRotation by infiniteTransition.animateFloat(
                             initialValue = 0f, targetValue = -360f,
                             animationSpec = infiniteRepeatable(tween(80000, easing = LinearEasing), RepeatMode.Restart),
                             label = "anchor"
                         )
-                        // 2. Fast Layer Rotation
                         val fastRotation by infiniteTransition.animateFloat(
                             initialValue = 0f, targetValue = 360f,
                             animationSpec = infiniteRepeatable(tween(40000, easing = LinearEasing), RepeatMode.Restart),
                             label = "fast"
                         )
-                        // 3. Slow Layer Rotation
                         val slowRotation by infiniteTransition.animateFloat(
                             initialValue = 0f, targetValue = 360f,
                             animationSpec = infiniteRepeatable(tween(60000, easing = LinearEasing), RepeatMode.Restart),
@@ -997,14 +1007,13 @@ fun PlayerBackground(
                         )
                         
                         Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .alpha(backgroundAlpha),
+                            modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
                             val imageRequest = remember(thumbnailUrl) {
                                 ImageRequest.Builder(context)
-                                    .data(thumbnailUrl.resize(800, 800))
+                                    .data(thumbnailUrl)
+                                    .size(128, 128)
                                     .allowHardware(true)
                                     .build()
                             }
@@ -1084,6 +1093,15 @@ fun PlayerBackground(
             else -> {
                 // DEFAULT
             }
+        }
+        
+        val useDarkTheme = isSystemInDarkTheme()
+        if (playerBackground != PlayerBackgroundStyle.DEFAULT) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = if (useDarkTheme) 0.3f else 0.45f))
+            )
         }
     }
 }
