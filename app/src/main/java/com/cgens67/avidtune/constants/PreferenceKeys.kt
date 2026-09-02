@@ -173,6 +173,13 @@ const val DefaultMiniPlayerThumbnailShape = "Circle"
 
 val SeekIncrementKey = intPreferencesKey("seekIncrement")
 
+val MiniPlayerStyleKey = stringPreferencesKey("miniPlayerStyle")
+
+enum class MiniPlayerStyle {
+    DEFAULT,
+    APPLE
+}
+
 enum class LibraryViewType {
     LIST,
     GRID,
