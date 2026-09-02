@@ -349,7 +349,7 @@ fun AppleMiniPlayerContent(
 
                     AnimatedVisibility(visible = error != null, enter = fadeIn(), exit = fadeOut()) {
                         Text(
-                            text = stringResource(R.string.error_playing),
+                            text = stringResource(R.string.error_unknown),
                             color = errorColor,
                             fontSize = 10.sp,
                             maxLines = 1,
