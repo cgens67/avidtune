@@ -154,6 +154,8 @@ fun Bitmap.extractGradientColors(): List<Color> {
 }
 
 object PlayerColorExtractor {
+    val gradientCache = android.util.LruCache<String, List<Color>>(50)
+
     fun extractGradientColors(
         palette: Palette,
         fallbackColor: Int = Color(0xFF595959).toArgb()
