@@ -1281,4 +1281,7 @@
     <string name="update_files">Fichiers de mise à jour</string>
     <string name="storage_used">Utilisé</string>
 
+    <string name="mini_player_style">Style du mini-lecteur</string>
+
+
 </resources>

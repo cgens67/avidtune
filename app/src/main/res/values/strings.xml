@@ -1306,4 +1306,7 @@
     <string name="update_files">Update Files</string>
     <string name="storage_used">Used</string>
 
+    <string name="mini_player_style">Mini-player style</string>
+
+
 </resources>

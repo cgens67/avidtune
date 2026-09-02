@@ -1298,4 +1298,7 @@
     <string name="update_files">Update-Dateien</string>
     <string name="storage_used">Verwendet</string>
 
+    <string name="mini_player_style">Mini-Player-Stil</string>
+
+
 </resources>

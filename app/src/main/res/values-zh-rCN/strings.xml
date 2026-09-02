@@ -1281,4 +1281,7 @@
 
     <string name="update_files">更新文件</string>
     <string name="storage_used">已用</string>
+
+    <string name="mini_player_style">迷你播放器样式</string>
+
 </resources>

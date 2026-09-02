@@ -226,11 +226,10 @@ fun AppleMiniPlayerContent(
     }
 
     val backgroundColor = if (pureBlack && useDarkTheme) Color.Black else MaterialTheme.colorScheme.surfaceContainer
-    val isDynamicBackground = playerBackground != PlayerBackgroundStyle.DEFAULT
     
-    val primaryColor = if (isDynamicBackground) Color.White else MaterialTheme.colorScheme.primary
-    val outlineColor = if (isDynamicBackground) Color.White.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outline
-    val onSurfaceColor = if (isDynamicBackground) Color.White else MaterialTheme.colorScheme.onSurface
+    val primaryColor = if (isLiveMesh) Color.White else MaterialTheme.colorScheme.primary
+    val outlineColor = if (isLiveMesh) Color.White.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outline
+    val onSurfaceColor = if (isLiveMesh) Color.White else MaterialTheme.colorScheme.onSurface
     val errorColor = MaterialTheme.colorScheme.error
 
     Box(
@@ -404,7 +403,7 @@ fun AppleMiniPlayerContent(
             ) {
                 Icon(
                     painter = painterResource(R.drawable.skip_next),
-                    contentDescription = "Next",
+                    contentDescription = null,
                     tint = if (canSkipNext) onSurfaceColor else onSurfaceColor.copy(alpha = 0.3f),
                     modifier = Modifier.size(28.dp)
                 )

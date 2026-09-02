@@ -130,6 +130,8 @@ import com.cgens67.avidtune.constants.GridItemsSizeKey
 import com.cgens67.avidtune.constants.LibraryFilter
 import com.cgens67.avidtune.constants.LyricsClickKey
 import com.cgens67.avidtune.constants.LyricsTextPositionKey
+import com.cgens67.avidtune.constants.MiniPlayerStyle
+import com.cgens67.avidtune.constants.MiniPlayerStyleKey
 import com.cgens67.avidtune.constants.PlayerBackgroundStyle
 import com.cgens67.avidtune.constants.PlayerBackgroundStyleKey
 import com.cgens67.avidtune.constants.PlayerButtonsStyle
@@ -141,8 +143,6 @@ import com.cgens67.avidtune.constants.SliderStyleKey
 import com.cgens67.avidtune.constants.SlimNavBarKey
 import com.cgens67.avidtune.constants.SwipeThumbnailKey
 import com.cgens67.avidtune.constants.UseSystemFontKey
-import com.cgens67.avidtune.constants.MiniPlayerStyle
-import com.cgens67.avidtune.constants.MiniPlayerStyleKey
 import com.cgens67.avidtune.ui.component.AvatarSelector
 import com.cgens67.avidtune.ui.component.DefaultDialog
 import com.cgens67.avidtune.ui.component.EnumListPreference
@@ -154,6 +154,7 @@ import com.cgens67.avidtune.ui.component.PreferenceEntry
 import com.cgens67.avidtune.ui.component.SettingsGeneralCategory
 import com.cgens67.avidtune.ui.component.SettingsPage
 import com.cgens67.avidtune.ui.component.SwitchPreference
+import com.cgens67.avidtune.ui.component.ThumbnailCornerRadiusSelectorButton
 import com.cgens67.avidtune.ui.theme.DefaultThemeColor
 import com.cgens67.avidtune.ui.theme.ThemeSeedPalette
 import com.cgens67.avidtune.ui.theme.ThemeSeedPaletteCodec
@@ -570,17 +571,23 @@ fun AppearanceSettings(
                     values = availableBackgroundStyles
                 )},
                 {EnumListPreference(
-                    title = { Text("Mini-Player Style") },
+                    title = { Text(stringResource(R.string.mini_player_style)) },
                     icon = { Icon(painterResource(R.drawable.play), null) },
                     selectedValue = miniPlayerStyle,
                     onValueSelected = onMiniPlayerStyleChange,
                     valueText = {
                         when (it) {
-                            MiniPlayerStyle.DEFAULT -> "Default"
-                            MiniPlayerStyle.APPLE -> "Apple Music"
+                            MiniPlayerStyle.DEFAULT -> stringResource(R.string.default_style)
+                            MiniPlayerStyle.APPLE -> stringResource(R.string.apple_music)
                         }
                     },
                 )},
+                {ThumbnailCornerRadiusSelectorButton(
+                    onRadiusSelected = { selectedRadius ->
+                        Timber.tag("Thumbnail").d("Selected radio: $selectedRadius")
+                    }
+                )},
+
                 {EnumListPreference(
                     title = { Text(stringResource(R.string.player_buttons_style)) },
                     icon = { Icon(painterResource(R.drawable.palette), null) },
