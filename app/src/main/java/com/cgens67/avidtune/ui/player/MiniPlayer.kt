@@ -93,6 +93,7 @@ fun MiniPlayer(
     val useDarkTheme = remember(darkTheme, isSystemInDarkTheme) {
         if (darkTheme == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON
     }
+    val style by rememberEnumPreference(MiniPlayerStyleKey, defaultValue = MiniPlayerStyle.DEFAULT)
     
     val playerBackground by rememberEnumPreference(PlayerBackgroundStyleKey, defaultValue = PlayerBackgroundStyle.DEFAULT)
     val disableBlur by rememberPreference(DisableBlurKey, false)
@@ -256,8 +257,14 @@ fun MiniPlayer(
                 .then(if (isTabletLandscape) Modifier.width(500.dp).align(Alignment.Center) else Modifier.fillMaxWidth())
                 .height(64.dp)
                 .offset { IntOffset(offsetXAnimatable.value.roundToInt(), 0) }
-                .clip(RoundedCornerShape(8.dp)) // Apple rectangular shape with slightly rounded corners
-                .background(color = backgroundColor)
+                .clip(RoundedCornerShape(8.dp)) // slightly rounded corners
+                .let {
+                    if (style == MiniPlayerStyle.DEFAULT) {
+                        it.background(color = if (playerBackground == PlayerBackgroundStyle.LIVE_MESH) Color.Black else MaterialTheme.colorScheme.surfaceContainer)
+                    } else {
+                        it.background(color = backgroundColor)
+                    }
+                }
         ) {
             // Background Layers
             if (isDynamicBackground) {
@@ -312,158 +319,170 @@ fun MiniPlayer(
                 }
             }
 
-            // Bottom Progress Bar
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(3.dp)
-                    .align(Alignment.BottomCenter)
-                    .drawWithContent {
-                        val progress = if (duration > 0) position.toFloat() / duration else 0f
-                        val trackColor = outlineColor.copy(alpha = 0.2f)
-                        drawRect(trackColor)
-                        drawRect(primaryColor, size = Size(size.width * progress.coerceIn(0f, 1f), size.height))
-                    }
-            )
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 5.dp),
-            ) {
-                // Cookie 4-Sided Thumbnail
+            if (style == MiniPlayerStyle.DEFAULT) {
+                // Default Mini Player Style
+                NewMiniPlayerContent(
+                    pureBlack = pureBlack,
+                    position = position,
+                    duration = duration,
+                    playerConnection = playerConnection,
+                    isLiveMesh = playerBackground == PlayerBackgroundStyle.LIVE_MESH
+                )
+            } else {
+                // Apple Music Mini Player Style
+                // Bottom Progress Bar
                 Box(
-                    contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .size(54.dp)
-                        .clip(MaterialShapes.Cookie4Sided.toShape())
-                        .background(color = outlineColor.copy(alpha = 0.2f))
-                ) {
-                    mediaMetadata?.let { metadata ->
-                        AsyncImage(
-                            model = metadata.thumbnailUrl,
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } ?: Icon(
-                        painter = painterResource(R.drawable.music_note),
-                        contentDescription = null,
-                        tint = onSurfaceColor,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                // Song info - title and artist
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    val error by playerConnection.error.collectAsState()
-                    
-                    mediaMetadata?.let { metadata ->
-                        Text(
-                            text = metadata.title,
-                            color = onSurfaceColor,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.basicMarquee(iterations = 1, initialDelayMillis = 3000, velocity = 30.dp),
-                        )
-                        Row(
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            if (metadata.explicit) {
-                                Icon(
-                                    painter = painterResource(R.drawable.explicit),
-                                    contentDescription = null,
-                                    tint = onSurfaceColor.copy(alpha = 0.7f),
-                                    modifier = Modifier.size(14.dp).padding(end = 2.dp)
-                                )
-                            }
-                            if (metadata.artists.any { it.name.isNotBlank() }) {
-                                Text(
-                                    text = metadata.artists.joinToString { it.name },
-                                    color = onSurfaceColor.copy(alpha = 0.7f),
-                                    fontSize = 12.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.basicMarquee(iterations = 1, initialDelayMillis = 3000, velocity = 30.dp),
-                                )
-                            }
+                        .fillMaxWidth()
+                        .height(3.dp)
+                        .align(Alignment.BottomCenter)
+                        .drawWithContent {
+                            val progress = if (duration > 0) position.toFloat() / duration else 0f
+                            val trackColor = outlineColor.copy(alpha = 0.2f)
+                            drawRect(trackColor)
+                            drawRect(primaryColor, size = Size(size.width * progress.coerceIn(0f, 1f), size.height))
                         }
+                )
 
-                        AnimatedVisibility(visible = error != null, enter = fadeIn(), exit = fadeOut()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 5.dp),
+                ) {
+                    // Cookie 4-Sided Thumbnail
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(54.dp)
+                            .clip(MaterialShapes.Cookie4Sided.toShape())
+                            .background(color = outlineColor.copy(alpha = 0.2f))
+                    ) {
+                        mediaMetadata?.let { metadata ->
+                            AsyncImage(
+                                model = metadata.thumbnailUrl,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } ?: Icon(
+                            painter = painterResource(R.drawable.music_note),
+                            contentDescription = null,
+                            tint = onSurfaceColor,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    // Song info - title and artist
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        val error by playerConnection.error.collectAsState()
+                        
+                        mediaMetadata?.let { metadata ->
                             Text(
-                                text = stringResource(R.string.error_playing),
-                                color = errorColor,
-                                fontSize = 10.sp,
+                                text = metadata.title,
+                                color = onSurfaceColor,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.basicMarquee(iterations = 1, initialDelayMillis = 3000, velocity = 30.dp),
                             )
+                            Row(
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                if (metadata.explicit) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.explicit),
+                                        contentDescription = null,
+                                        tint = onSurfaceColor.copy(alpha = 0.7f),
+                                        modifier = Modifier.size(14.dp).padding(end = 2.dp)
+                                    )
+                                }
+                                if (metadata.artists.any { it.name.isNotBlank() }) {
+                                    Text(
+                                        text = metadata.artists.joinToString { it.name },
+                                        color = onSurfaceColor.copy(alpha = 0.7f),
+                                        fontSize = 12.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.basicMarquee(iterations = 1, initialDelayMillis = 3000, velocity = 30.dp),
+                                    )
+                                }
+                            }
+
+                            AnimatedVisibility(visible = error != null, enter = fadeIn(), exit = fadeOut()) {
+                                Text(
+                                    text = stringResource(R.string.error_playing),
+                                    color = errorColor,
+                                    fontSize = 10.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
                         }
                     }
-                }
 
-                Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
 
-                // Play/Pause Button
-                val isPlaying by playerConnection.isPlaying.collectAsState()
-                val isMuted by playerConnection.isMuted.collectAsState()
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .clickable {
-                            if (isListenTogetherGuest) {
-                                playerConnection.toggleMute()
-                                return@clickable
+                    // Play/Pause Button
+                    val isPlaying by playerConnection.isPlaying.collectAsState()
+                    val isMuted by playerConnection.isMuted.collectAsState()
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .clickable {
+                                if (isListenTogetherGuest) {
+                                    playerConnection.toggleMute()
+                                    return@clickable
+                                }
+                                if (playbackState == Player.STATE_ENDED) {
+                                    playerConnection.player.seekTo(0, 0)
+                                    playerConnection.player.playWhenReady = true
+                                } else {
+                                    playerConnection.togglePlayPause()
+                                }
                             }
-                            if (playbackState == Player.STATE_ENDED) {
-                                playerConnection.player.seekTo(0, 0)
-                                playerConnection.player.playWhenReady = true
-                            } else {
-                                playerConnection.togglePlayPause()
-                            }
-                        }
-                ) {
-                    Icon(
-                        painter = painterResource(
-                            when {
-                                isListenTogetherGuest -> if (isMuted) R.drawable.volume_off else R.drawable.volume_up
-                                playbackState == Player.STATE_ENDED -> R.drawable.replay
-                                isPlaying -> R.drawable.pause 
-                                else -> R.drawable.play
-                            }
-                        ),
-                        contentDescription = null,
-                        tint = onSurfaceColor,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
+                    ) {
+                        Icon(
+                            painter = painterResource(
+                                when {
+                                    isListenTogetherGuest -> if (isMuted) R.drawable.volume_off else R.drawable.volume_up
+                                    playbackState == Player.STATE_ENDED -> R.drawable.replay
+                                    isPlaying -> R.drawable.pause 
+                                    else -> R.drawable.play
+                                }
+                            ),
+                            contentDescription = null,
+                            tint = onSurfaceColor,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
 
-                Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
 
-                // Next Button
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .clickable(enabled = canSkipNext && !isListenTogetherGuest) {
-                            playerConnection.seekToNext()
-                        }
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.skip_next),
-                        contentDescription = "Next",
-                        tint = if (canSkipNext && !isListenTogetherGuest) onSurfaceColor else onSurfaceColor.copy(alpha = 0.3f),
-                        modifier = Modifier.size(28.dp)
-                    )
+                    // Next Button
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .clickable(enabled = canSkipNext && !isListenTogetherGuest) {
+                                playerConnection.seekToNext()
+                            }
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.skip_next),
+                            contentDescription = "Next",
+                            tint = if (canSkipNext && !isListenTogetherGuest) onSurfaceColor else onSurfaceColor.copy(alpha = 0.3f),
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
                 }
             }
         }
@@ -485,6 +504,346 @@ fun MiniPlayer(
                     ),
                     modifier = Modifier.size(24.dp)
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun RowScope.MiniPlayerInfo(
+    mediaMetadata: MediaMetadata,
+    primaryTextColor: Color = MaterialTheme.colorScheme.onSurface,
+    secondaryTextColor: Color = MaterialTheme.colorScheme.onSurfaceVariant
+) {
+    Column(
+        modifier = Modifier
+            .weight(1f)
+            .padding(horizontal = 12.dp),
+        verticalArrangement = Arrangement.Center
+    ) {
+        androidx.compose.animation.AnimatedContent(
+            targetState = mediaMetadata.title,
+            transitionSpec = { fadeIn() togetherWith fadeOut() },
+            label = "title"
+        ) { title ->
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = primaryTextColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.basicMarquee()
+            )
+        }
+
+        androidx.compose.animation.AnimatedContent(
+            targetState = mediaMetadata.artists,
+            transitionSpec = { fadeIn() togetherWith fadeOut() },
+            label = "artist"
+        ) { artists ->
+            Text(
+                text = artists.joinToString { it.name },
+                style = MaterialTheme.typography.bodySmall,
+                color = secondaryTextColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.basicMarquee()
+            )
+        }
+    }
+}
+
+@Composable
+private fun MiniPlayerArtwork(
+    mediaMetadata: MediaMetadata?,
+    position: Long,
+    duration: Long,
+    isLoading: Boolean,
+    modifier: Modifier = Modifier,
+    isLiveMesh: Boolean = false
+) {
+    val progressColor = if (isLiveMesh) Color.White else MaterialTheme.colorScheme.primary
+    val progressTrackColor = if (isLiveMesh) Color.White.copy(alpha = 0.2f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)
+    val imageBorderColor = if (isLiveMesh) Color.White.copy(alpha = 0.2f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+    
+    val context = LocalContext.current
+    val (miniPlayerShape) = rememberPreference(
+        MiniPlayerThumbnailShapeKey,
+        DefaultMiniPlayerThumbnailShape
+    )
+
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier.size(47.dp)
+    ) {
+        if (isLoading) {
+            androidx.compose.material3.CircularWavyProgressIndicator(
+                modifier = Modifier.fillMaxSize(),
+                color = progressColor,
+                trackColor = progressTrackColor
+            )
+        } else {
+            androidx.compose.material3.CircularWavyProgressIndicator(
+                progress = { if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f },
+                modifier = Modifier.fillMaxSize(),
+                color = progressColor,
+                trackColor = progressTrackColor
+            )
+        }
+
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(37.dp)
+                .clip(com.cgens67.avidtune.utils.getMiniPlayerThumbnailShape(miniPlayerShape).toShape())
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .border(
+                    width = 1.dp,
+                    color = imageBorderColor,
+                    shape = com.cgens67.avidtune.utils.getMiniPlayerThumbnailShape(miniPlayerShape).toShape()
+                )
+        ) {
+            val thumbnailUrl = mediaMetadata?.thumbnailUrl
+            if (thumbnailUrl != null) {
+                AsyncImage(
+                    model = thumbnailUrl,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                androidx.compose.foundation.Image(
+                    painter = painterResource(R.drawable.music_note),
+                    contentDescription = null,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MiniPlayerTransportButton(
+    iconResId: Int,
+    contentDescription: String?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    isPrimary: Boolean = false,
+    iconColor: Color = MaterialTheme.colorScheme.onSurface,
+    disabledIconColor: Color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+    containerColorPrimary: Color = MaterialTheme.colorScheme.surface,
+    borderColorEnabled: Color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+    borderColorDisabled: Color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
+) {
+    val containerColor =
+        if (isPrimary) containerColorPrimary else Color.Transparent
+    val borderColor =
+        if (enabled) borderColorEnabled
+        else borderColorDisabled
+    val iconTint =
+        if (enabled) iconColor
+        else disabledIconColor
+
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .then(modifier)
+            .size(if (isPrimary) 40.dp else 36.dp)
+            .clip(CircleShape)
+            .background(containerColor)
+            .border(width = 1.dp, color = borderColor, shape = CircleShape)
+            .clickable(enabled = enabled, onClick = onClick)
+    ) {
+        Icon(
+            painter = painterResource(iconResId),
+            contentDescription = contentDescription,
+            tint = iconTint,
+            modifier = Modifier.size(if (isPrimary) 22.dp else 18.dp)
+        )
+    }
+}
+
+@Composable
+private fun MiniPlayerTransportControls(
+    isPlaying: Boolean,
+    playbackState: Int,
+    isLoading: Boolean,
+    canSkipPrevious: Boolean,
+    canSkipNext: Boolean,
+    playerConnection: PlayerConnection,
+    iconColor: Color = MaterialTheme.colorScheme.onSurface,
+    disabledIconColor: Color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+    containerColorPrimary: Color = MaterialTheme.colorScheme.surface,
+    borderColorEnabled: Color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+    borderColorDisabled: Color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        MiniPlayerTransportButton(
+            iconResId = R.drawable.skip_previous,
+            contentDescription = null,
+            onClick = { playerConnection.seekToPrevious() },
+            enabled = canSkipPrevious,
+            iconColor = iconColor,
+            disabledIconColor = disabledIconColor,
+            containerColorPrimary = containerColorPrimary,
+            borderColorEnabled = borderColorEnabled,
+            borderColorDisabled = borderColorDisabled
+        )
+
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.size(40.dp)
+        ) {
+            MiniPlayerTransportButton(
+                iconResId = when {
+                    playbackState == Player.STATE_ENDED -> R.drawable.replay
+                    isPlaying -> R.drawable.pause
+                    else -> R.drawable.play
+                },
+                contentDescription = stringResource(
+                    if (playbackState == Player.STATE_ENDED || !isPlaying) R.string.play else R.string.play
+                ).let {
+                    if (isPlaying && playbackState != Player.STATE_ENDED) "Pause" else it
+                },
+                onClick = {
+                    if (playbackState == Player.STATE_ENDED) {
+                        playerConnection.player.seekTo(0, 0)
+                        playerConnection.player.playWhenReady = true
+                    } else {
+                        playerConnection.togglePlayPause()
+                    }
+                },
+                isPrimary = true,
+                iconColor = iconColor,
+                disabledIconColor = disabledIconColor,
+                containerColorPrimary = containerColorPrimary,
+                borderColorEnabled = borderColorEnabled,
+                borderColorDisabled = borderColorDisabled
+            )
+        }
+
+        MiniPlayerTransportButton(
+            iconResId = R.drawable.skip_next,
+            contentDescription = null,
+            onClick = { playerConnection.seekToNext() },
+            enabled = canSkipNext,
+            iconColor = iconColor,
+            disabledIconColor = disabledIconColor,
+            containerColorPrimary = containerColorPrimary,
+            borderColorEnabled = borderColorEnabled,
+            borderColorDisabled = borderColorDisabled
+        )
+    }
+}
+
+@Composable
+fun NewMiniPlayerContent(
+    pureBlack: Boolean,
+    position: Long,
+    duration: Long,
+    playerConnection: PlayerConnection,
+    isLiveMesh: Boolean = false
+) {
+    val isPlaying by playerConnection.isPlaying.collectAsState()
+    val playbackState by playerConnection.playbackState.collectAsState()
+    val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
+    val canSkipPrevious by playerConnection.canSkipPrevious.collectAsState()
+    val canSkipNext by playerConnection.canSkipNext.collectAsState()
+
+    val isLoading = playbackState == Player.STATE_BUFFERING
+
+    val primaryTextColor = if (isLiveMesh) Color.White else MaterialTheme.colorScheme.onSurface
+    val secondaryTextColor = if (isLiveMesh) Color.White.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant
+    val iconColor = if (isLiveMesh) Color.White else MaterialTheme.colorScheme.onSurface
+    val disabledIconColor = if (isLiveMesh) Color.White.copy(alpha = 0.38f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+    val containerColorPrimary = if (isLiveMesh) Color.White.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surface
+    val borderColorEnabled = if (isLiveMesh) Color.White.copy(alpha = 0.3f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+    val borderColorDisabled = if (isLiveMesh) Color.White.copy(alpha = 0.12f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+    ) {
+        MiniPlayerArtwork(
+            mediaMetadata = mediaMetadata,
+            position = position,
+            duration = duration,
+            isLoading = isLoading,
+            isLiveMesh = isLiveMesh
+        )
+
+        Spacer(modifier = Modifier.width(5.dp))
+
+        mediaMetadata?.let {
+            MiniPlayerInfo(
+                mediaMetadata = it,
+                primaryTextColor = primaryTextColor,
+                secondaryTextColor = secondaryTextColor
+            )
+        } ?: Spacer(Modifier.weight(1f))
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        MiniPlayerTransportControls(
+            isPlaying = isPlaying,
+            playbackState = playbackState,
+            isLoading = isLoading,
+            canSkipPrevious = canSkipPrevious,
+            canSkipNext = canSkipNext,
+            playerConnection = playerConnection,
+            iconColor = iconColor,
+            disabledIconColor = disabledIconColor,
+            containerColorPrimary = containerColorPrimary,
+            borderColorEnabled = borderColorEnabled,
+            borderColorDisabled = borderColorDisabled
+        )
+    }
+}
+
+@Composable
+fun MiniMediaInfo(
+    mediaMetadata: MediaMetadata,
+    error: androidx.media3.common.PlaybackException?,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier,
+    ) {
+        Box(modifier = Modifier.padding(6.dp)) {
+            AsyncImage(
+                model = mediaMetadata.thumbnailUrl,
+                contentDescription = null,
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(ThumbnailCornerRadius)),
+            )
+            androidx.compose.animation.AnimatedVisibility(
+                visible = error != null,
+                enter = fadeIn(),
+                exit = fadeOut(),
+            ) {
+                Box(
+                    Modifier
+                        .size(48.dp)
+                        .background(
+                            color = Color.Black.copy(alpha = 0.6f),
+                            shape = RoundedCornerShape(ThumbnailCornerRadius),
+                        ),
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.info),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.align(Alignment.Center),
+                    )
+                }
             }
         }
     }
