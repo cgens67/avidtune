@@ -1303,4 +1303,7 @@
     
     <string name="last_updated_version">Last updated: %1$s</string>
 
+    <string name="update_files">Update Files</string>
+    <string name="storage_used">Used</string>
+
 </resources>

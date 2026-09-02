@@ -285,7 +285,7 @@ fun StorageSettings(
 
             // Downloaded Updates / APKs Category Card
             ModernStorageCard(
-                title = "Update Files",
+                title = stringResource(R.string.update_files),
                 icon = R.drawable.update,
                 usedSize = apkCacheSize,
                 maxSize = null,
@@ -410,7 +410,7 @@ private fun StorageDashboardCard(
                     color = MaterialTheme.colorScheme.tertiary
                 )
                 LegendRow(
-                    label = "Update Files",
+                    label = stringResource(R.string.update_files),
                     size = apkCacheSize,
                     color = MaterialTheme.colorScheme.error
                 )
@@ -522,8 +522,8 @@ private fun AnimatedDonutChart(
         0 -> stringResource(R.string.downloaded_songs)
         1 -> stringResource(R.string.song_cache)
         2 -> stringResource(R.string.image_cache)
-        3 -> "Update Files"
-        else -> "Used"
+        3 -> stringResource(R.string.update_files)
+        else -> stringResource(R.string.storage_used)
     }
     val centerValue = when (selectedSegmentIndex) {
         0 -> formatStorageSize(downloadSize)

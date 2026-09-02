@@ -1295,4 +1295,7 @@
     
     <string name="last_updated_version">Zuletzt aktualisiert: %1$s</string>
 
+    <string name="update_files">Update-Dateien</string>
+    <string name="storage_used">Verwendet</string>
+
 </resources>
