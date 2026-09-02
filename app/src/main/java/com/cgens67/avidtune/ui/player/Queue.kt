@@ -243,7 +243,6 @@ fun Queue(
                         playerBackground = playerBackground,
                         mediaMetadata = mediaMetadata,
                         gradientColors = gradientColors,
-                        backgroundAlpha = 1f,
                         disableBlur = disableBlur
                     )
                     Box(
