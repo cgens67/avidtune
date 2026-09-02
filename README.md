@@ -178,7 +178,7 @@ For detailed information about configuration, advanced features, and usage guide
 
 #### Option 2: Official Website
 
-1. Visit the [official AvidTune website](https://avidtune.netlify.app/)
+1. Visit the [official AvidTune website](https://avidtune.vercel.app/)
 2. Select the download option for Android
 3. Follow the provided installation instructions
 
