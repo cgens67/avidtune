@@ -71,6 +71,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -138,6 +139,7 @@ import com.cgens67.avidtune.constants.PureBlackKey
 import com.cgens67.avidtune.constants.QueuePeekHeight
 import com.cgens67.avidtune.constants.SliderStyle
 import com.cgens67.avidtune.constants.SliderStyleKey
+import com.cgens67.avidtune.constants.SwipeThumbnailKey
 import com.cgens67.avidtune.extensions.toggleRepeatMode
 import com.cgens67.avidtune.models.MediaMetadata
 import com.cgens67.avidtune.playback.ExoDownloadService
@@ -185,6 +187,7 @@ fun BottomSheetPlayer(
     val database = LocalDatabase.current
     val menuState = LocalMenuState.current
     val view = LocalView.current
+    val coroutineScope = rememberCoroutineScope()
 
     val clipboardManager = LocalClipboardManager.current
     val playerConnection = LocalPlayerConnection.current ?: return
@@ -503,8 +506,20 @@ fun BottomSheetPlayer(
             }
         },
         onDismiss = {
-            playerConnection.player.stop()
-            playerConnection.player.clearMediaItems()
+            coroutineScope.launch {
+                val player = playerConnection.player
+                val currentVol = player.volume
+                val steps = 10
+                val delayMs = 25L // 250ms smooth fade out
+                for (i in steps downTo 1) {
+                    player.volume = currentVol * (i / steps.toFloat())
+                    delay(delayMs)
+                }
+                player.pause()
+                player.stop()
+                player.clearMediaItems()
+                player.volume = currentVol
+            }
         },
         collapsedContent = {
             MiniPlayer(
@@ -1379,7 +1394,7 @@ fun PlayerTopActionsV4(
             }
         }
 
-        // More menu button - cinematic glass card
+        // More menu button
         Surface(
             onClick = onMoreOptions,
             shape = RoundedCornerShape(14.dp),
