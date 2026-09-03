@@ -20,7 +20,6 @@
 - [Installation](#installation)
 - [Build from Source](#build-from-source)
 - [Contributions](#contributions)
-- [Support the Project](#support-the-project)
 - [Acknowledgements](#acknowledgements)
 - [License](#license)
 
@@ -307,25 +306,6 @@ Help translate AvidTune into your language or improve existing translations:
 8. **Pull Request**: Open a PR detailing the changes and referencing the corresponding issue
 
 > **Development Guidelines**: Review our [contribution guidelines](https://github.com/cgens67/AvidTune/blob/master/CONTRIBUTING.md) for detailed information on the development process, code standards, and workflow.
-
----
-
-## Support the Project
-
-If you find value in **AvidTune** and want to contribute to its ongoing development, please consider making a donation. Your financial support allows us to:
-
-- Implement new features and improvements
-- Fix bugs and optimize performance
-- Maintain project infrastructure
-- Dedicate more time to development and maintenance
-
-<div align="center">
-  
-[![GitHub Sponsors](https://img.shields.io/badge/GitHub_Sponsors-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/sponsors/cgens67)
-
-</div>
-
-> **Note**: Donations are completely optional. AvidTune will always be free and open source, regardless of any financial support received.
 
 ---
 
