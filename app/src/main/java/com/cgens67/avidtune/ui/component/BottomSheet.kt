@@ -4,8 +4,6 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.AnimationVector1D
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.clickable
@@ -66,7 +64,7 @@ fun BottomSheet(
     Box(
         modifier = modifier
             .graphicsLayer {
-                // background fades during about 10%-61% progress
+                // Background fades during about 10%-61% progress
                 alpha = (1.4f * (state.progress.coerceAtLeast(0.1f) - 0.1f).pow(0.5f)).coerceIn(0f, 1f)
             }
             .fillMaxSize(),
@@ -91,7 +89,7 @@ fun BottomSheet(
                     },
                     onDragCancel = {
                         velocityTracker.resetTracking()
-                        state.snapTo(state.collapsedBound)
+                        state.collapseSoft()
                     },
                     onDragEnd = {
                         val velocity = -velocityTracker.calculateVelocity().y
@@ -112,7 +110,7 @@ fun BottomSheet(
             BackHandler(onBack = state::collapseSoft)
         }
 
-        if (!state.isCollapsed) {
+        if (state.value > state.collapsedBound) {
             BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxSize()
@@ -127,7 +125,16 @@ fun BottomSheet(
             Box(
                 modifier = Modifier
                     .graphicsLayer {
-                        alpha = 1f - (state.progress * 4).coerceAtMost(1f)
+                        val dp = state.dismissProgress
+                        if (dp > 0f) {
+                            alpha = (1f - dp * 0.85f).coerceIn(0f, 1f)
+                            val scale = (1f - dp * 0.1f).coerceIn(0.85f, 1f)
+                            scaleX = scale
+                            scaleY = scale
+                        } else {
+                            val ep = state.progress.coerceIn(0f, 1f)
+                            alpha = 1f - (ep * 4f).coerceAtMost(1f)
+                        }
                     }
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
@@ -177,26 +184,29 @@ class BottomSheetState(
         1f - (animatable.upperBound!! - animatable.value) / (animatable.upperBound!! - collapsedBound)
     }
 
-    fun collapse(animationSpec: AnimationSpec<Dp>) {
+    val dismissProgress by derivedStateOf {
+        if (value < collapsedBound) {
+            val total = collapsedBound - dismissedBound
+            if (total > 0.dp) {
+                ((collapsedBound - value) / total).coerceIn(0f, 1f)
+            } else 0f
+        } else {
+            0f
+        }
+    }
+
+    fun collapse(animationSpec: AnimationSpec<Dp> = BottomSheetAnimationSpec) {
         onAnchorChanged(collapsedAnchor)
         coroutineScope.launch {
             animatable.animateTo(collapsedBound, animationSpec)
         }
     }
 
-    fun expand(animationSpec: AnimationSpec<Dp>) {
+    fun expand(animationSpec: AnimationSpec<Dp> = BottomSheetAnimationSpec) {
         onAnchorChanged(expandedAnchor)
         coroutineScope.launch {
             animatable.animateTo(animatable.upperBound!!, animationSpec)
         }
-    }
-
-    private fun collapse() {
-        collapse(BottomSheetAnimationSpec)
-    }
-
-    private fun expand() {
-        expand(BottomSheetAnimationSpec)
     }
 
     fun collapseSoft() {
@@ -207,10 +217,14 @@ class BottomSheetState(
         expand(BottomSheetSoftAnimationSpec)
     }
 
-    fun dismiss() {
+    fun dismiss(onDismissed: (() -> Unit)? = null) {
         onAnchorChanged(dismissedAnchor)
         coroutineScope.launch {
-            animatable.animateTo(animatable.lowerBound!!)
+            animatable.animateTo(
+                animatable.lowerBound!!,
+                BottomSheetAnimationSpec
+            )
+            onDismissed?.invoke()
         }
     }
 
@@ -225,30 +239,26 @@ class BottomSheetState(
             expand()
         } else if (velocity < -250) {
             if (value < collapsedBound && onDismiss != null) {
-                dismiss()
-                onDismiss.invoke()
+                dismiss(onDismiss)
             } else {
                 collapse()
             }
         } else {
-            val l0 = dismissedBound
-            val l1 = (collapsedBound - dismissedBound) / 2
-            val l2 = (expandedBound - collapsedBound) / 2
-            val l3 = expandedBound
+            val dismissThreshold = dismissedBound + (collapsedBound - dismissedBound) * 0.5f
+            val expandThreshold = collapsedBound + (expandedBound - collapsedBound) * 0.5f
 
-            when (value) {
-                in l0..l1 -> {
-                    if (onDismiss != null) {
-                        dismiss()
-                        onDismiss.invoke()
-                    } else {
-                        collapse()
-                    }
+            if (value < collapsedBound) {
+                if (value <= dismissThreshold && onDismiss != null) {
+                    dismiss(onDismiss)
+                } else {
+                    collapse()
                 }
-
-                in l1..l2 -> collapse()
-                in l2..l3 -> expand()
-                else -> Unit
+            } else {
+                if (value >= expandThreshold) {
+                    expand()
+                } else {
+                    collapse()
+                }
             }
         }
     }
@@ -342,7 +352,8 @@ fun rememberBottomSheetState(
         BottomSheetState(
             draggableState = DraggableState { delta ->
                 coroutineScope.launch {
-                    animatable.snapTo(animatable.value - with(density) { delta.toDp() })
+                    val target = animatable.value - with(density) { delta.toDp() }
+                    animatable.snapTo(target.coerceIn(animatable.lowerBound!!, animatable.upperBound!!))
                 }
             },
             onAnchorChanged = { previousAnchor = it },
