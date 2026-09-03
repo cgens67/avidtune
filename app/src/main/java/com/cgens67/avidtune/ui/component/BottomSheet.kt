@@ -25,6 +25,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -61,6 +62,8 @@ fun BottomSheet(
     collapsedContent: @Composable BoxScope.() -> Unit,
     content: @Composable BoxScope.() -> Unit,
 ) {
+    val currentOnDismiss by rememberUpdatedState(onDismiss)
+
     Box(
         modifier = modifier
             .graphicsLayer {
@@ -94,7 +97,7 @@ fun BottomSheet(
                     onDragEnd = {
                         val velocity = -velocityTracker.calculateVelocity().y
                         velocityTracker.resetTracking()
-                        state.performFling(velocity, onDismiss)
+                        state.performFling(velocity, currentOnDismiss)
                     }
                 )
             }
@@ -219,12 +222,12 @@ class BottomSheetState(
 
     fun dismiss(onDismissed: (() -> Unit)? = null) {
         onAnchorChanged(dismissedAnchor)
+        onDismissed?.invoke()
         coroutineScope.launch {
             animatable.animateTo(
                 animatable.lowerBound!!,
                 BottomSheetAnimationSpec
             )
-            onDismissed?.invoke()
         }
     }
 
@@ -238,16 +241,16 @@ class BottomSheetState(
         if (velocity > 250) {
             expand()
         } else if (velocity < -250) {
-            if (value < collapsedBound && onDismiss != null) {
+            if (value <= collapsedBound && onDismiss != null) {
                 dismiss(onDismiss)
             } else {
                 collapse()
             }
         } else {
-            val dismissThreshold = dismissedBound + (collapsedBound - dismissedBound) * 0.5f
+            val dismissThreshold = dismissedBound + (collapsedBound - dismissedBound) * 0.75f
             val expandThreshold = collapsedBound + (expandedBound - collapsedBound) * 0.5f
 
-            if (value < collapsedBound) {
+            if (value <= collapsedBound) {
                 if (value <= dismissThreshold && onDismiss != null) {
                     dismiss(onDismiss)
                 } else {
