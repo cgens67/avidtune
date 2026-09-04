@@ -1283,5 +1283,11 @@
 
     <string name="mini_player_style">Style du mini-lecteur</string>
 
+    <string name="ai_content_filter">Filtre de contenu IA</string>
+    <string name="enable_ai_content_filter">Activer le filtre de contenu IA</string>
+    <string name="ai_content_filter_desc">Filtre le contenu généré par l\'IA (reprises, chansons originales) à l\'aide d\'AiSList.</string>
+    <string name="include_moderate_confidence">Inclure une confiance modérée</string>
+    <string name="include_moderate_confidence_desc">Filtrer également les chaînes fortement suspectées mais pas confirmées à 100 % comme étant de l\'IA.</string>
+
 
 </resources>

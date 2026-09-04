@@ -263,11 +263,11 @@ fun ContentSettings(
         
         // AI Content Filter settings
         SettingsGeneralCategory(
-            title = "AI Content Filter",
+            title = stringResource(R.string.ai_content_filter),
             items = listOf(
                 {SwitchPreference(
-                    title = { Text("Enable AI Content Filter") },
-                    description = "Filters out AI-generated content (covers, original songs) using AiSList.",
+                    title = { Text(stringResource(R.string.enable_ai_content_filter)) },
+                    description = stringResource(R.string.ai_content_filter_desc),
                     icon = { Icon(painterResource(R.drawable.security), null) },
                     checked = aiContentFilterEnabled,
                     onCheckedChange = onAiContentFilterEnabledChange,
@@ -280,8 +280,8 @@ fun ContentSettings(
                             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                         )
                         SwitchPreference(
-                            title = { Text("Include Moderate Confidence") },
-                            description = "Also filter out channels that are highly suspected but not 100% confirmed as AI.",
+                            title = { Text(stringResource(R.string.include_moderate_confidence)) },
+                            description = stringResource(R.string.include_moderate_confidence_desc),
                             icon = { Icon(painterResource(R.drawable.info), null) },
                             checked = aiContentFilterIncludeModerate,
                             onCheckedChange = onAiContentFilterIncludeModerateChange,

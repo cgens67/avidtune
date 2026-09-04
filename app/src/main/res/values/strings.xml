@@ -1308,5 +1308,10 @@
 
     <string name="mini_player_style">Mini-player style</string>
 
+    <string name="ai_content_filter">AI content filter</string>
+    <string name="enable_ai_content_filter">Enable AI content filter</string>
+    <string name="ai_content_filter_desc">Filters out AI-generated content (covers, original songs) using AiSList.</string>
+    <string name="include_moderate_confidence">Include moderate confidence</string>
+    <string name="include_moderate_confidence_desc">Also filter out channels that are highly suspected but not 100% confirmed as AI.</string>
 
 </resources>
