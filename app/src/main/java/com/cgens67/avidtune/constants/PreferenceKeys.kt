@@ -179,7 +179,7 @@ val SeekIncrementKey = intPreferencesKey("seekIncrement")
 
 val MiniPlayerStyleKey = stringPreferencesKey("miniPlayerStyle")
 enum class MiniPlayerStyle {
-    DEFAULT, APPLE
+    DEFAULT, APPLE, MODERN
 }
 
 enum class LibraryViewType {

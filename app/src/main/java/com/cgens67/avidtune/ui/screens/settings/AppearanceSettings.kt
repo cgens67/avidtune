@@ -579,6 +579,7 @@ fun AppearanceSettings(
                         when (it) {
                             MiniPlayerStyle.DEFAULT -> stringResource(R.string.default_style)
                             MiniPlayerStyle.APPLE -> stringResource(R.string.apple_music)
+                            MiniPlayerStyle.MODERN -> "Modern"
                         }
                     },
                 )},

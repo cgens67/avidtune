@@ -140,64 +140,266 @@ fun MiniPlayer(
         pureBlack = pureBlack,
         useLegacyBackground = false
     ) { offsetX ->
-        if (miniPlayerStyle == MiniPlayerStyle.APPLE) {
-            AppleMiniPlayerContent(
-                offsetX = offsetX,
-                position = position,
-                duration = duration,
-                playerConnection = playerConnection,
-                pureBlack = pureBlack,
-                playerBackground = playerBackground,
-                isLiveMesh = playerBackground == PlayerBackgroundStyle.LIVE_MESH
-            )
-        } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(64.dp)
-                    .offset { IntOffset(offsetX.roundToInt(), 0) }
-                    .clip(RoundedCornerShape(32.dp))
-                    .background(
-                        color = if (playerBackground == PlayerBackgroundStyle.LIVE_MESH) Color.Black else MaterialTheme.colorScheme.surfaceContainer
-                    )
-            ) {
-                if (playerBackground == PlayerBackgroundStyle.LIVE_MESH && mediaMetadata?.thumbnailUrl != null) {
-                    val infiniteTransition = rememberInfiniteTransition(label = "mini_mesh")
-                    val rotation by infiniteTransition.animateFloat(
-                        initialValue = 0f,
-                        targetValue = 360f,
-                        animationSpec = infiniteRepeatable(tween(60000, easing = LinearEasing)),
-                        label = "mini_mesh_rot"
-                    )
-                    val saturationMatrix = remember { ColorMatrix().apply { setToSaturation(1.6f) } }
-                    
-                    Box(modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = 1.5f; scaleY = 1.5f }) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(LocalContext.current)
-                                .data(mediaMetadata?.thumbnailUrl)
-                                .size(128, 128)
-                                .allowHardware(false)
-                                .build(),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            colorFilter = ColorFilter.colorMatrix(saturationMatrix),
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .blur(40.dp)
-                                .graphicsLayer { rotationZ = rotation }
-                        )
-                        Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f)))
-                    }
-                }
-
-                NewMiniPlayerContent(
-                    pureBlack = pureBlack,
+        when (miniPlayerStyle) {
+            MiniPlayerStyle.APPLE -> {
+                AppleMiniPlayerContent(
+                    offsetX = offsetX,
                     position = position,
                     duration = duration,
                     playerConnection = playerConnection,
+                    pureBlack = pureBlack,
+                    playerBackground = playerBackground,
                     isLiveMesh = playerBackground == PlayerBackgroundStyle.LIVE_MESH
                 )
             }
+            MiniPlayerStyle.MODERN -> {
+                ModernMiniPlayerContent(
+                    offsetX = offsetX,
+                    position = position,
+                    duration = duration,
+                    playerConnection = playerConnection,
+                    pureBlack = pureBlack,
+                    playerBackground = playerBackground,
+                    isLiveMesh = playerBackground == PlayerBackgroundStyle.LIVE_MESH
+                )
+            }
+            else -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(64.dp)
+                        .offset { IntOffset(offsetX.roundToInt(), 0) }
+                        .clip(RoundedCornerShape(32.dp))
+                        .background(
+                            color = if (playerBackground == PlayerBackgroundStyle.LIVE_MESH) Color.Black else MaterialTheme.colorScheme.surfaceContainer
+                        )
+                ) {
+                    if (playerBackground == PlayerBackgroundStyle.LIVE_MESH && mediaMetadata?.thumbnailUrl != null) {
+                        val infiniteTransition = rememberInfiniteTransition(label = "mini_mesh")
+                        val rotation by infiniteTransition.animateFloat(
+                            initialValue = 0f,
+                            targetValue = 360f,
+                            animationSpec = infiniteRepeatable(tween(60000, easing = LinearEasing)),
+                            label = "mini_mesh_rot"
+                        )
+                        val saturationMatrix = remember { ColorMatrix().apply { setToSaturation(1.6f) } }
+                        
+                        Box(modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = 1.5f; scaleY = 1.5f }) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(LocalContext.current)
+                                    .data(mediaMetadata?.thumbnailUrl)
+                                    .size(128, 128)
+                                    .allowHardware(false)
+                                    .build(),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                colorFilter = ColorFilter.colorMatrix(saturationMatrix),
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .blur(40.dp)
+                                    .graphicsLayer { rotationZ = rotation }
+                            )
+                            Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f)))
+                        }
+                    }
+
+                    NewMiniPlayerContent(
+                        pureBlack = pureBlack,
+                        position = position,
+                        duration = duration,
+                        playerConnection = playerConnection,
+                        isLiveMesh = playerBackground == PlayerBackgroundStyle.LIVE_MESH
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun ModernMiniPlayerContent(
+    offsetX: Float,
+    position: Long,
+    duration: Long,
+    playerConnection: PlayerConnection,
+    pureBlack: Boolean,
+    playerBackground: PlayerBackgroundStyle,
+    isLiveMesh: Boolean
+) {
+    val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
+    val isPlaying by playerConnection.isPlaying.collectAsState()
+    val playbackState by playerConnection.playbackState.collectAsState()
+    val canSkipPrevious by playerConnection.canSkipPrevious.collectAsState()
+    val canSkipNext by playerConnection.canSkipNext.collectAsState()
+    val error by playerConnection.error.collectAsState()
+    
+    val isSystemInDarkTheme = isSystemInDarkTheme()
+    val darkTheme by rememberEnumPreference(DarkModeKey, defaultValue = DarkMode.AUTO)
+    val useDarkTheme = remember(darkTheme, isSystemInDarkTheme) {
+        if (darkTheme == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON
+    }
+
+    val backgroundColor = if (pureBlack && useDarkTheme) Color.Black else MaterialTheme.colorScheme.surfaceContainerHigh
+    
+    val primaryColor = if (isLiveMesh) Color.White else MaterialTheme.colorScheme.primary
+    val outlineColor = if (isLiveMesh) Color.White.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outline
+    val onSurfaceColor = if (isLiveMesh) Color.White else MaterialTheme.colorScheme.onSurface
+    val errorColor = MaterialTheme.colorScheme.error
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp)
+            .height(64.dp)
+            .offset { IntOffset(offsetX.roundToInt(), 0) }
+            .clip(RoundedCornerShape(32.dp))
+            .background(color = backgroundColor)
+    ) {
+        if (isLiveMesh && mediaMetadata?.thumbnailUrl != null) {
+            val infiniteTransition = rememberInfiniteTransition(label = "mini_mesh")
+            val rotation by infiniteTransition.animateFloat(
+                initialValue = 0f,
+                targetValue = 360f,
+                animationSpec = infiniteRepeatable(tween(60000, easing = LinearEasing)),
+                label = "mini_mesh_rot"
+            )
+            val saturationMatrix = remember { ColorMatrix().apply { setToSaturation(1.6f) } }
+            
+            Box(modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = 1.5f; scaleY = 1.5f }) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(mediaMetadata?.thumbnailUrl)
+                        .size(128, 128)
+                        .allowHardware(false)
+                        .build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    colorFilter = ColorFilter.colorMatrix(saturationMatrix),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .blur(40.dp)
+                        .graphicsLayer { rotationZ = rotation }
+                )
+                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f)))
+            }
+        }
+        
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxSize().padding(horizontal = 6.dp, vertical = 6.dp),
+        ) {
+            // Artwork
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(CircleShape)
+                    .background(color = outlineColor.copy(alpha = 0.2f))
+            ) {
+                mediaMetadata?.let { metadata ->
+                    AsyncImage(
+                        model = metadata.thumbnailUrl,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // Info
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.Center
+            ) {
+                mediaMetadata?.let { metadata ->
+                    Text(
+                        text = metadata.title,
+                        color = onSurfaceColor,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.basicMarquee(iterations = 1, initialDelayMillis = 3000, velocity = 30.dp),
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.Start,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (metadata.explicit) {
+                            Icon(
+                                painter = painterResource(R.drawable.explicit),
+                                contentDescription = null,
+                                tint = onSurfaceColor.copy(alpha = 0.7f),
+                                modifier = Modifier.size(14.dp).padding(end = 4.dp)
+                            )
+                        }
+                        if (metadata.artists.any { it.name.isNotBlank() }) {
+                            Text(
+                                text = metadata.artists.joinToString { it.name },
+                                color = onSurfaceColor.copy(alpha = 0.7f),
+                                fontSize = 13.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.basicMarquee(iterations = 1, initialDelayMillis = 3000, velocity = 30.dp),
+                            )
+                        }
+                    }
+
+                    AnimatedVisibility(visible = error != null, enter = fadeIn(), exit = fadeOut()) {
+                        Text(
+                            text = stringResource(R.string.error_unknown),
+                            color = errorColor,
+                            fontSize = 11.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Play/Pause Button
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(if (isLiveMesh) Color.White.copy(0.2f) else MaterialTheme.colorScheme.primaryContainer)
+                    .clickable {
+                        if (playbackState == Player.STATE_ENDED) {
+                            playerConnection.player.seekTo(0, 0)
+                            playerConnection.player.playWhenReady = true
+                        } else {
+                            playerConnection.togglePlayPause()
+                        }
+                    }
+            ) {
+                androidx.compose.material3.CircularProgressIndicator(
+                    progress = { if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f },
+                    modifier = Modifier.fillMaxSize(),
+                    color = primaryColor,
+                    trackColor = outlineColor.copy(alpha = 0.2f),
+                    strokeWidth = 2.dp
+                )
+                Icon(
+                    painter = painterResource(
+                        when {
+                            playbackState == Player.STATE_ENDED -> R.drawable.replay
+                            isPlaying -> R.drawable.pause
+                            else -> R.drawable.play
+                        }
+                    ),
+                    contentDescription = null,
+                    tint = if (isLiveMesh) Color.White else MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(6.dp))
         }
     }
 }
