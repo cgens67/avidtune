@@ -189,14 +189,15 @@ class AiContentFilterRepository
                 warnlist = readAtomic(warnlistFile)?.let(::parseChannelList).orEmpty(),
             )
 
-        private fun readAtomic(file: AtomicFile): String? =
-            try {
-                if (!file.baseFile.exists()) return null
+        private fun readAtomic(file: AtomicFile): String? {
+            if (!file.baseFile.exists()) return null
+            return try {
                 file.readFully().toString(Charsets.UTF_8)
             } catch (exception: IOException) {
                 Timber.w(exception, "Failed to read AI content filter cache")
                 null
             }
+        }
 
         private fun writeAtomic(
             file: AtomicFile,
