@@ -164,6 +164,10 @@ val LyricFontSizeKey = intPreferencesKey("lyricFontSize")
 val fullScreenLyricsKey = booleanPreferencesKey("fullScreenLyrics")
 val AnimateLyricsKey = booleanPreferencesKey("animate_lyrics")
 
+val AiContentFilterEnabledKey = booleanPreferencesKey("aiContentFilterEnabled")
+val AiContentFilterIncludeModerateKey = booleanPreferencesKey("aiContentFilterIncludeModerate")
+val AiContentFilterLastUpdatedKey = longPreferencesKey("aiContentFilterLastUpdated")
+
 
 val PlayPauseButtonShapeKey = stringPreferencesKey("playPauseButtonShape")
 const val DefaultPlayPauseButtonShape = "Cookie9Sided"

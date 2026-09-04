@@ -13,6 +13,8 @@ import com.cgens67.avidtune.db.MusicDatabase
 import com.cgens67.avidtune.db.entities.SearchHistory
 import com.cgens67.avidtune.utils.dataStore
 import com.cgens67.avidtune.utils.get
+import com.cgens67.avidtune.aicontentfilter.FilterAiContentUseCase
+import com.cgens67.avidtune.aicontentfilter.LoadAiContentFilterPolicyUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -30,6 +32,8 @@ class OnlineSearchSuggestionViewModel
 constructor(
     @ApplicationContext val context: Context,
     database: MusicDatabase,
+    private val loadAiContentFilterPolicy: LoadAiContentFilterPolicyUseCase,
+    private val filterAiContent: FilterAiContentUseCase
 ) : ViewModel() {
     val query = MutableStateFlow("")
     private val _viewState = MutableStateFlow(SearchSuggestionViewState())
@@ -37,6 +41,7 @@ constructor(
 
     init {
         viewModelScope.launch {
+            val policy = loadAiContentFilterPolicy()
             query
                 .flatMapLatest { query ->
                     if (query.isEmpty()) {
@@ -62,6 +67,7 @@ constructor(
                                     items =
                                         result
                                             ?.recommendedItems
+                                            ?.let { filterAiContent(it, policy) }
                                             ?.filterExplicit(
                                                 context.dataStore.get(
                                                     HideExplicitKey,

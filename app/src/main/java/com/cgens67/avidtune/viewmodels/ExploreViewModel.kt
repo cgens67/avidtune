@@ -13,6 +13,8 @@ import com.cgens67.avidtune.db.MusicDatabase
 import com.cgens67.avidtune.utils.dataStore
 import com.cgens67.avidtune.utils.get
 import com.cgens67.avidtune.utils.reportException
+import com.cgens67.avidtune.aicontentfilter.FilterAiContentUseCase
+import com.cgens67.avidtune.aicontentfilter.LoadAiContentFilterPolicyUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -27,10 +29,13 @@ class ExploreViewModel
 constructor(
     @ApplicationContext val context: Context,
     val database: MusicDatabase,
+    private val loadAiContentFilterPolicy: LoadAiContentFilterPolicyUseCase,
+    private val filterAiContent: FilterAiContentUseCase
 ) : ViewModel() {
     val explorePage = MutableStateFlow<ExplorePage?>(null)
 
     private suspend fun load() {
+        val policy = loadAiContentFilterPolicy()
         YouTube
             .explore()
             .onSuccess { page ->
@@ -46,10 +51,13 @@ constructor(
                         }
                     }
                 }
+                
+                val filteredAlbums = filterAiContent(page.newReleaseAlbums, policy)
+                
                 explorePage.value =
                     page.copy(
                         newReleaseAlbums =
-                            page.newReleaseAlbums
+                            filteredAlbums
                                 .sortedBy { album ->
                                     val artistIds = album.artists.orEmpty().mapNotNull { it.id }
                                     val firstArtistKey =

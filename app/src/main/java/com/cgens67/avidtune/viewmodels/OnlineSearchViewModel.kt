@@ -18,6 +18,8 @@ import com.cgens67.avidtune.models.ItemsPage
 import com.cgens67.avidtune.utils.dataStore
 import com.cgens67.avidtune.utils.get
 import com.cgens67.avidtune.utils.reportException
+import com.cgens67.avidtune.aicontentfilter.FilterAiContentUseCase
+import com.cgens67.avidtune.aicontentfilter.LoadAiContentFilterPolicyUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +32,8 @@ class OnlineSearchViewModel
 constructor(
     @ApplicationContext val context: Context,
     savedStateHandle: SavedStateHandle,
+    private val loadAiContentFilterPolicy: LoadAiContentFilterPolicyUseCase,
+    private val filterAiContent: FilterAiContentUseCase
 ) : ViewModel() {
     val query = savedStateHandle.get<String>("query")!!
     val filter = MutableStateFlow<YouTube.SearchFilter?>(null)
@@ -38,24 +42,21 @@ constructor(
 
     init {
         viewModelScope.launch {
+            val policy = loadAiContentFilterPolicy()
             filter.collect { filter ->
                 if (filter == null) {
                     if (summaryPage == null) {
                         YouTube
                             .searchSummary(query)
-                            .onSuccess {
-                                summaryPage =
-                                    it.filterExplicit(
-                                        context.dataStore.get(
-                                            HideExplicitKey,
-                                            false,
-                                        ),
-                                    ).filterMusicVideos(
-                                        context.dataStore.get(
-                                            HideMusicVideosKey,
-                                            false,
-                                        ),
-                                    )
+                            .onSuccess { result ->
+                                val filteredSummaries = result.summaries.mapNotNull { summary ->
+                                    val filteredItems = filterAiContent(summary.items, policy)
+                                    if (filteredItems.isEmpty()) null
+                                    else summary.copy(items = filteredItems)
+                                }
+                                summaryPage = SearchSummaryPage(filteredSummaries)
+                                    .filterExplicit(context.dataStore.get(HideExplicitKey, false))
+                                    .filterMusicVideos(context.dataStore.get(HideMusicVideosKey, false))
                             }.onFailure {
                                 reportException(it)
                             }
@@ -65,22 +66,13 @@ constructor(
                         YouTube
                             .search(query, filter)
                             .onSuccess { result ->
+                                val filteredItems = filterAiContent(result.items, policy)
                                 viewStateMap[filter.value] =
                                     ItemsPage(
-                                        result.items
+                                        filteredItems
                                             .distinctBy { it.id }
-                                            .filterExplicit(
-                                                context.dataStore.get(
-                                                    HideExplicitKey,
-                                                    false
-                                                )
-                                            )
-                                            .filterVideoSongs(
-                                                context.dataStore.get(
-                                                    HideMusicVideosKey,
-                                                    false
-                                                )
-                                            ),
+                                            .filterExplicit(context.dataStore.get(HideExplicitKey, false))
+                                            .filterVideoSongs(context.dataStore.get(HideMusicVideosKey, false)),
                                         result.continuation,
                                     )
                             }.onFailure {
@@ -95,14 +87,18 @@ constructor(
     fun loadMore() {
         val filter = filter.value?.value
         viewModelScope.launch {
+            val policy = loadAiContentFilterPolicy()
             if (filter == null) return@launch
             val viewState = viewStateMap[filter] ?: return@launch
             val continuation = viewState.continuation
             if (continuation != null) {
                 val searchResult =
                     YouTube.searchContinuation(continuation).getOrNull() ?: return@launch
+                val filteredItems = filterAiContent(searchResult.items, policy)
                 viewStateMap[filter] = ItemsPage(
-                    (viewState.items + searchResult.items).distinctBy { it.id }.filterExplicit(context.dataStore.get(HideExplicitKey, false)).filterVideoSongs(context.dataStore.get(HideMusicVideosKey, false)),
+                    (viewState.items + filteredItems).distinctBy { it.id }
+                        .filterExplicit(context.dataStore.get(HideExplicitKey, false))
+                        .filterVideoSongs(context.dataStore.get(HideMusicVideosKey, false)),
                     searchResult.continuation
                 )
             }
