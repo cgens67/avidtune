@@ -1282,6 +1282,7 @@
     <string name="storage_used">Utilisé</string>
 
     <string name="mini_player_style">Style du mini-lecteur</string>
+    <string name="mini_player_modern">Moderne</string>
 
     <string name="ai_content_filter">Filtre de contenu IA</string>
     <string name="enable_ai_content_filter">Activer le filtre de contenu IA</string>
