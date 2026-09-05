@@ -1307,6 +1307,7 @@
     <string name="storage_used">Used</string>
 
     <string name="mini_player_style">Mini-player style</string>
+    <string name="mini_player_modern">Modern</string>
 
     <string name="ai_content_filter">AI content filter</string>
     <string name="enable_ai_content_filter">Enable AI content filter</string>
