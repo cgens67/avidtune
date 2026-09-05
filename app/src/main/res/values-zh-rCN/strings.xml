@@ -1283,6 +1283,7 @@
     <string name="storage_used">已用</string>
 
     <string name="mini_player_style">迷你播放器样式</string>
+    <string name="mini_player_modern">现代</string>
 
     <string name="ai_content_filter">AI内容过滤器</string>
     <string name="enable_ai_content_filter">启用AI内容过滤器</string>
