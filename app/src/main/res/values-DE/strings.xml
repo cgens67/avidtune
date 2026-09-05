@@ -1299,6 +1299,7 @@
     <string name="storage_used">Verwendet</string>
 
     <string name="mini_player_style">Mini-Player-Stil</string>
+    <string name="mini_player_modern">Modern</string>
 
     <string name="ai_content_filter">KI-Inhaltsfilter</string>
     <string name="enable_ai_content_filter">KI-Inhaltsfilter aktivieren</string>
