@@ -22,6 +22,7 @@ import androidx.compose.foundation.text.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -56,9 +57,7 @@ import coil.request.ImageRequest
 import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.NewsLastReadTimestampKey
-import com.cgens67.avidtune.ui.component.ChipsRow
 import com.cgens67.avidtune.ui.component.IconButton as AppIconButton
-import com.cgens67.avidtune.ui.component.TopSearch
 import com.cgens67.avidtune.ui.utils.backToMain
 import com.cgens67.avidtune.utils.dataStore
 import io.ktor.client.HttpClient
@@ -131,6 +130,12 @@ object NewsImageUrlsSerializer : KSerializer<List<String>> {
     }
 }
 
+enum class NewsSortOption(val displayName: String) {
+    LATEST("Latest"),
+    OLDEST("Oldest"),
+    IMPORTANT_FIRST("Important First")
+}
+
 @Singleton
 class NewsRepository @Inject constructor() {
     private val client = HttpClient(CIO) {
@@ -180,8 +185,6 @@ sealed interface NewsUiState {
     data class Error(val message: String) : NewsUiState
 }
 
-enum class NewsSortOption { DATE_DESC, DATE_ASC, IMPORTANT_FIRST }
-
 @dagger.hilt.android.lifecycle.HiltViewModel
 class NewsViewModel @Inject constructor(
     private val repository: NewsRepository,
@@ -189,33 +192,36 @@ class NewsViewModel @Inject constructor(
 ) : ViewModel() {
     private val _rawItems = MutableStateFlow<List<NewsItem>>(emptyList())
     private val _loadState = MutableStateFlow<NewsUiState>(NewsUiState.Loading)
-    
     val searchQuery = MutableStateFlow("")
-    val sortOption = MutableStateFlow(NewsSortOption.DATE_DESC)
+    val sortOption = MutableStateFlow(NewsSortOption.LATEST)
+    val filterImportant = MutableStateFlow(false)
 
     val uiState: StateFlow<NewsUiState> = combine(
-        _loadState, searchQuery, _rawItems, sortOption
-    ) { loadState, query, items, sort ->
+        _loadState, 
+        searchQuery, 
+        _rawItems,
+        sortOption,
+        filterImportant
+    ) { loadState, query, items, sort, importantOnly ->
         when (loadState) {
             is NewsUiState.Loading -> NewsUiState.Loading
             is NewsUiState.Error -> loadState
             is NewsUiState.Empty -> NewsUiState.Empty
             is NewsUiState.Success -> {
-                val filtered = if (query.isBlank()) items else {
+                var filtered = items
+                if (query.isNotBlank()) {
                     val q = query.trim().lowercase()
-                    items.filter { it.title.lowercase().contains(q) || it.author.lowercase().contains(q) }
+                    filtered = filtered.filter { it.title.lowercase().contains(q) || it.author.lowercase().contains(q) }
                 }
-                
-                if (filtered.isEmpty()) NewsUiState.Empty else {
-                    val sorted = when (sort) {
-                        NewsSortOption.DATE_DESC -> filtered.sortedByDescending { it.timestamp }
-                        NewsSortOption.DATE_ASC -> filtered.sortedBy { it.timestamp }
-                        NewsSortOption.IMPORTANT_FIRST -> filtered.sortedWith(
-                            compareByDescending<NewsItem> { it.important }.thenByDescending { it.timestamp }
-                        )
-                    }
-                    NewsUiState.Success(sorted)
+                if (importantOnly) {
+                    filtered = filtered.filter { it.important }
                 }
+                filtered = when (sort) {
+                    NewsSortOption.LATEST -> filtered.sortedByDescending { it.timestamp }
+                    NewsSortOption.OLDEST -> filtered.sortedBy { it.timestamp }
+                    NewsSortOption.IMPORTANT_FIRST -> filtered.sortedWith(compareByDescending<NewsItem> { it.important }.thenByDescending { it.timestamp })
+                }
+                if (filtered.isEmpty()) NewsUiState.Empty else NewsUiState.Success(filtered)
             }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), NewsUiState.Loading)
@@ -333,10 +339,11 @@ fun NewsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val sortOption by viewModel.sortOption.collectAsState()
+    val filterImportant by viewModel.filterImportant.collectAsState()
     var isSearchActive by rememberSaveable { mutableStateOf(false) }
 
     val listState = rememberLazyStaggeredGridState()
-    val searchListState = rememberLazyStaggeredGridState()
+    val isScrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 20 } }
     
     val haptic = LocalHapticFeedback.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -357,55 +364,8 @@ fun NewsScreen(
         }
     }
 
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    val queryText = searchQuery.trim()
-    val showSearchBar = isSearchActive || queryText.isNotBlank()
-
     Scaffold(
-        modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            AnimatedVisibility(
-                visible = !showSearchBar,
-                enter = fadeIn(tween(220)),
-                exit = fadeOut(tween(160)),
-            ) {
-                LargeTopAppBar(
-                    title = {
-                        Text(
-                            text = stringResource(R.string.news),
-                            fontWeight = FontWeight.Bold,
-                        )
-                    },
-                    navigationIcon = {
-                        AppIconButton(
-                            onClick = navController::navigateUp,
-                            onLongClick = { navController.backToMain() }
-                        ) {
-                            Icon(painterResource(R.drawable.arrow_back), null)
-                        }
-                    },
-                    actions = {
-                        AppIconButton(
-                            onClick = { isSearchActive = true },
-                            onLongClick = {}
-                        ) {
-                            Icon(Icons.Default.Search, null)
-                        }
-                        AppIconButton(
-                            onClick = { viewModel.fetchNews(); haptic.performHapticFeedback(HapticFeedbackType.LongPress) },
-                            onLongClick = {}
-                        ) {
-                            Icon(painterResource(R.drawable.sync), null)
-                        }
-                    },
-                    scrollBehavior = scrollBehavior,
-                    colors = TopAppBarDefaults.largeTopAppBarColors(
-                        containerColor = Color.Transparent,
-                        scrolledContainerColor = MaterialTheme.colorScheme.background.copy(alpha = 0.85f),
-                    ),
-                )
-            }
-        },
+        modifier = Modifier.fillMaxSize(),
         containerColor = Color.Transparent,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { innerPadding ->
@@ -413,176 +373,188 @@ fun NewsScreen(
             AnimatedNewsBackground()
 
             // List Content
-            AnimatedVisibility(
-                visible = !showSearchBar,
-                enter = fadeIn(tween(220)),
-                exit = fadeOut(tween(160)),
-            ) {
-                NewsListContent(
-                    uiState = uiState,
-                    searchQuery = "",
-                    sortOption = sortOption,
-                    onSortOptionChange = { viewModel.sortOption.value = it },
-                    listState = listState,
-                    innerPadding = innerPadding,
-                    navController = navController,
-                    viewModel = viewModel
-                )
-            }
-
-            AnimatedVisibility(
-                visible = showSearchBar,
-                enter = fadeIn(tween(220)),
-                exit = fadeOut(tween(160)),
-            ) {
-                TopSearch(
-                    query = androidx.compose.ui.text.input.TextFieldValue(searchQuery, TextRange(searchQuery.length)),
-                    onQueryChange = { viewModel.searchQuery.value = it.text },
-                    onSearch = { focusManager.clearFocus(); keyboardController?.hide() },
-                    active = showSearchBar,
-                    onActiveChange = { active ->
-                        if (active) {
-                            isSearchActive = true
-                        } else {
-                            isSearchActive = false
-                            viewModel.searchQuery.value = ""
-                            focusManager.clearFocus()
-                        }
-                    },
-                    placeholder = { Text(text = stringResource(R.string.search)) },
-                    leadingIcon = {
-                        AppIconButton(
-                            onClick = { isSearchActive = false; viewModel.searchQuery.value = "" },
-                            onLongClick = { navController.backToMain() }
+            AnimatedContent(
+                targetState = uiState,
+                transitionSpec = { fadeIn(tween(400)) togetherWith fadeOut(tween(400)) },
+                modifier = Modifier.fillMaxSize(),
+                label = "content"
+            ) { state ->
+                when (state) {
+                    is NewsUiState.Loading -> NewsLoadingState(Modifier.fillMaxSize())
+                    is NewsUiState.Error -> NewsErrorState(state.message, viewModel::fetchNews, Modifier.fillMaxSize())
+                    is NewsUiState.Empty -> NewsEmptyState(searchQuery.isNotBlank() || filterImportant, Modifier.fillMaxSize())
+                    is NewsUiState.Success -> {
+                        val sysTop = WindowInsets.systemBars.asPaddingValues().calculateTopPadding()
+                        val sysBot = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                        
+                        LazyVerticalStaggeredGrid(
+                            columns = StaggeredGridCells.Adaptive(320.dp),
+                            state = listState,
+                            contentPadding = PaddingValues(
+                                top = sysTop + 90.dp, // Enough space to clear the floating header
+                                bottom = sysBot + 120.dp,
+                                start = 16.dp, 
+                                end = 16.dp
+                            ),
+                            verticalItemSpacing = 24.dp,
+                            horizontalArrangement = Arrangement.spacedBy(24.dp),
+                            modifier = Modifier.fillMaxSize()
                         ) {
-                            Icon(painterResource(R.drawable.arrow_back), null)
-                        }
-                    },
-                    trailingIcon = {
-                        Row {
-                            if (searchQuery.isNotEmpty()) {
-                                AppIconButton(
-                                    onClick = { viewModel.searchQuery.value = "" },
-                                    onLongClick = {}
+                            item(span = StaggeredGridItemSpan.FullLine) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(painterResource(R.drawable.close), null)
+                                    FilterChip(
+                                        selected = filterImportant,
+                                        onClick = { viewModel.filterImportant.value = !filterImportant },
+                                        label = { Text(stringResource(R.string.important)) },
+                                        leadingIcon = if (filterImportant) { { Icon(Icons.Default.Check, null) } } else null
+                                    )
+                                    
+                                    var expanded by remember { mutableStateOf(false) }
+                                    Box {
+                                        FilterChip(
+                                            selected = false,
+                                            onClick = { expanded = true },
+                                            label = { Text("Sort: ${sortOption.displayName}") },
+                                            trailingIcon = { Icon(Icons.Default.KeyboardArrowDown, null) }
+                                        )
+                                        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                                            NewsSortOption.entries.forEach { option ->
+                                                DropdownMenuItem(
+                                                    text = { Text(option.displayName) },
+                                                    onClick = { 
+                                                        viewModel.sortOption.value = option
+                                                        expanded = false 
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            itemsIndexed(
+                                items = state.items,
+                                key = { _, i -> i.stableKey },
+                                span = { index, _ ->
+                                    if (index == 0 && searchQuery.isBlank() && !filterImportant) StaggeredGridItemSpan.FullLine
+                                    else StaggeredGridItemSpan.SingleLane
+                                }
+                            ) { index, item ->
+                                val cardModifier = Modifier.animateItem()
+
+                                if (index == 0 && searchQuery.isBlank() && !filterImportant) {
+                                    FeaturedNewsCard(item, onNavigate = { navController.navigate("view_news/${Uri.encode(item.id)}") }, modifier = cardModifier)
+                                } else {
+                                    EnhancedNewsCard(item, onNavigate = { navController.navigate("view_news/${Uri.encode(item.id)}") }, modifier = cardModifier)
                                 }
                             }
                         }
-                    },
-                    focusRequester = focusRequester,
-                ) {
-                    NewsListContent(
-                        uiState = uiState,
-                        searchQuery = searchQuery,
-                        sortOption = sortOption,
-                        onSortOptionChange = { viewModel.sortOption.value = it },
-                        listState = searchListState,
-                        innerPadding = PaddingValues(0.dp), // TopSearch handles top padding
-                        navController = navController,
-                        viewModel = viewModel
-                    )
+                    }
                 }
             }
-        }
-    }
-}
 
-@Composable
-fun NewsListContent(
-    uiState: NewsUiState,
-    searchQuery: String,
-    sortOption: NewsSortOption,
-    onSortOptionChange: (NewsSortOption) -> Unit,
-    listState: LazyStaggeredGridState,
-    innerPadding: PaddingValues,
-    navController: NavController,
-    viewModel: NewsViewModel
-) {
-    AnimatedContent(
-        targetState = uiState,
-        transitionSpec = { fadeIn(tween(400)) togetherWith fadeOut(tween(400)) },
-        modifier = Modifier.fillMaxSize(),
-        label = "content"
-    ) { state ->
-        when (state) {
-            is NewsUiState.Loading -> NewsLoadingState(Modifier.fillMaxSize().padding(innerPadding))
-            is NewsUiState.Error -> NewsErrorState(state.message, viewModel::fetchNews, Modifier.fillMaxSize().padding(innerPadding))
-            is NewsUiState.Empty -> NewsEmptyState(searchQuery.isNotBlank(), Modifier.fillMaxSize().padding(innerPadding))
-            is NewsUiState.Success -> {
-                val sysBot = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-
-                LazyVerticalStaggeredGrid(
-                    columns = StaggeredGridCells.Adaptive(320.dp),
-                    state = listState,
-                    contentPadding = PaddingValues(
-                        top = innerPadding.calculateTopPadding() + 8.dp,
-                        bottom = sysBot + 120.dp,
-                        start = 16.dp, 
-                        end = 16.dp
-                    ),
-                    verticalItemSpacing = 24.dp,
-                    horizontalArrangement = Arrangement.spacedBy(24.dp),
-                    modifier = Modifier.fillMaxSize()
+            // Floating Header / Search
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = WindowInsets.systemBars.asPaddingValues().calculateTopPadding() + 8.dp)
+                    .padding(horizontal = 16.dp)
+                    .align(Alignment.TopCenter)
+            ) {
+                val headerAlpha by animateFloatAsState(targetValue = if (isScrolled && !isSearchActive) 0.95f else 1f, label = "bg_alpha")
+                val headerElevation by animateDpAsState(targetValue = if (isScrolled) 8.dp else 0.dp, label = "elevation")
+                
+                Surface(
+                    shape = RoundedCornerShape(28.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = headerAlpha),
+                    shadowElevation = headerElevation,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    item(span = StaggeredGridItemSpan.FullLine) {
-                        ChipsRow(
-                            chips = listOf(
-                                NewsSortOption.DATE_DESC to "Latest", 
-                                NewsSortOption.DATE_ASC to "Oldest",
-                                NewsSortOption.IMPORTANT_FIRST to "Important"
-                            ),
-                            currentValue = sortOption,
-                            onValueUpdate = onSortOptionChange,
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                    }
-                    
-                    itemsIndexed(
-                        items = state.items,
-                        key = { _, i -> i.stableKey },
-                        span = { index, _ ->
-                            val isFeatured = index == 0 && searchQuery.isBlank() && sortOption == NewsSortOption.DATE_DESC
-                            if (isFeatured) StaggeredGridItemSpan.FullLine
-                            else StaggeredGridItemSpan.SingleLane
-                        }
-                    ) { index, item ->
-                        val isInitial = remember { index < 8 }
-                        var visible by remember { mutableStateOf(!isInitial) }
-                        
-                        LaunchedEffect(Unit) { 
-                            if (isInitial) {
-                                delay(index * 50L) 
-                                visible = true
+                    AnimatedContent(
+                        targetState = isSearchActive,
+                        transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(300)) },
+                        label = "searchBarAnim"
+                    ) { active ->
+                        if (active) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 8.dp)
+                            ) {
+                                AppIconButton(
+                                    onClick = { isSearchActive = false; viewModel.searchQuery.value = "" },
+                                    onLongClick = {}
+                                ) {
+                                    Icon(painterResource(R.drawable.arrow_back), null)
+                                }
+                                Spacer(Modifier.width(8.dp))
+                                BasicTextField(
+                                    value = searchQuery,
+                                    onValueChange = { viewModel.searchQuery.value = it },
+                                    textStyle = MaterialTheme.typography.titleMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                    keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus(); keyboardController?.hide() }),
+                                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                    modifier = Modifier.weight(1f).focusRequester(focusRequester),
+                                    decorationBox = { inner ->
+                                        Box(contentAlignment = Alignment.CenterStart, modifier = Modifier.fillMaxHeight()) {
+                                            if (searchQuery.isEmpty()) {
+                                                Text(
+                                                    text = stringResource(R.string.search_news_placeholder), 
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant, 
+                                                    style = MaterialTheme.typography.titleMedium
+                                                )
+                                            }
+                                            inner()
+                                        }
+                                    }
+                                )
+                                if (searchQuery.isNotEmpty()) {
+                                    AppIconButton(
+                                        onClick = { viewModel.searchQuery.value = "" },
+                                        onLongClick = {}
+                                    ) {
+                                        Icon(painterResource(R.drawable.close), null)
+                                    }
+                                }
                             }
-                        }
-                        
-                        val alpha by animateFloatAsState(
-                            targetValue = if (visible) 1f else 0f, 
-                            animationSpec = tween(400), 
-                            label = "alpha"
-                        )
-                        val translationY by animateFloatAsState(
-                            targetValue = if (visible) 0f else 50f, 
-                            animationSpec = spring(stiffness = Spring.StiffnessMediumLow), 
-                            label = "translationY"
-                        )
-
-                        val cardModifier = Modifier
-                            .graphicsLayer {
-                                this.alpha = alpha
-                                this.translationY = translationY
-                                this.clip = false
-                                this.compositingStrategy = CompositingStrategy.ModulateAlpha
-                            }
-                            .animateItem()
-
-                        val isFeatured = index == 0 && searchQuery.isBlank() && sortOption == NewsSortOption.DATE_DESC
-                        if (isFeatured) {
-                            FeaturedNewsCard(item, onNavigate = { navController.navigate("view_news/${Uri.encode(item.id)}") }, modifier = cardModifier)
                         } else {
-                            EnhancedNewsCard(item, onNavigate = { navController.navigate("view_news/${Uri.encode(item.id)}") }, modifier = cardModifier)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                modifier = Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 8.dp)
+                            ) {
+                                AppIconButton(
+                                    onClick = { navController.navigateUp() },
+                                    onLongClick = { navController.backToMain() }
+                                ) {
+                                    Icon(painterResource(R.drawable.arrow_back), null)
+                                }
+                                Text(
+                                    text = stringResource(R.string.news),
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Row {
+                                    AppIconButton(
+                                        onClick = { isSearchActive = true },
+                                        onLongClick = {}
+                                    ) {
+                                        Icon(Icons.Default.Search, null)
+                                    }
+                                    AppIconButton(
+                                        onClick = { viewModel.fetchNews(); haptic.performHapticFeedback(HapticFeedbackType.LongPress) },
+                                        onLongClick = {}
+                                    ) {
+                                        Icon(painterResource(R.drawable.sync), null)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -615,11 +587,7 @@ fun FeaturedNewsCard(item: NewsItem, onNavigate: () -> Unit, modifier: Modifier 
         modifier = modifier
             .fillMaxWidth()
             .aspectRatio(if (isLandscape) 2.5f else 0.8f) // Adapt height if landscape
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-                clip = false
-            }
+            .scale(scale)
             .clickable(interactionSource = interactionSource, indication = null, onClick = onNavigate),
         shape = RoundedCornerShape(32.dp),
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 8.dp),
@@ -700,11 +668,7 @@ fun EnhancedNewsCard(item: NewsItem, onNavigate: () -> Unit, modifier: Modifier 
     ElevatedCard(
         modifier = modifier
             .fillMaxWidth()
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-                clip = false
-            }
+            .scale(scale)
             .clickable(interactionSource = interactionSource, indication = null, onClick = onNavigate),
         shape = RoundedCornerShape(24.dp),
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 8.dp),
