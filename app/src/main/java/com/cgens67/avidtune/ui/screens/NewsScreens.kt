@@ -6,6 +6,7 @@
 
 package com.cgens67.avidtune.ui.screens
 
+import android.content.res.Configuration
 import android.net.Uri
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -22,21 +23,14 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -55,15 +49,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
+import androidx.compose.foundation.lazy.staggeredgrid.itemsIndexed
+import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -78,7 +75,6 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.CircularWavyProgressIndicator
@@ -89,18 +85,13 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SearchBar
-import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.carousel.HorizontalMultiBrowseCarousel
 import androidx.compose.material3.carousel.rememberCarouselState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -115,26 +106,20 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -192,7 +177,6 @@ import kotlinx.serialization.json.JsonDecoder
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
-import timber.log.Timber
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -205,7 +189,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 // ==========================================
-// MODELS & REPOSITORIES (Untouched logic)
+// MODELS & REPOSITORIES
 // ==========================================
 
 @Serializable
@@ -431,7 +415,7 @@ fun NewsScreen(
     val searchQuery by viewModel.searchQuery.collectAsState()
     var isSearchActive by rememberSaveable { mutableStateOf(false) }
 
-    val listState = rememberLazyListState()
+    val listState = rememberLazyStaggeredGridState()
     val isScrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 20 } }
     
     val haptic = LocalHapticFeedback.current
@@ -473,17 +457,30 @@ fun NewsScreen(
                     is NewsUiState.Error -> NewsErrorState(state.message, viewModel::fetchNews, Modifier.fillMaxSize())
                     is NewsUiState.Empty -> NewsEmptyState(searchQuery.isNotBlank(), Modifier.fillMaxSize())
                     is NewsUiState.Success -> {
-                        LazyColumn(
+                        val sysTop = WindowInsets.systemBars.asPaddingValues().calculateTopPadding()
+                        val sysBot = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                        
+                        LazyVerticalStaggeredGrid(
+                            columns = StaggeredGridCells.Adaptive(320.dp),
                             state = listState,
                             contentPadding = PaddingValues(
-                                top = innerPadding.calculateTopPadding() + 100.dp, // Space for floating header
-                                bottom = innerPadding.calculateBottomPadding() + 120.dp,
-                                start = 16.dp, end = 16.dp
+                                top = sysTop + 90.dp, // Enough space to clear the floating header
+                                bottom = sysBot + 120.dp,
+                                start = 16.dp, 
+                                end = 16.dp
                             ),
-                            verticalArrangement = Arrangement.spacedBy(24.dp),
+                            verticalItemSpacing = 24.dp,
+                            horizontalArrangement = Arrangement.spacedBy(24.dp),
                             modifier = Modifier.fillMaxSize()
                         ) {
-                            itemsIndexed(state.items, key = { _, i -> i.stableKey }) { index, item ->
+                            itemsIndexed(
+                                items = state.items,
+                                key = { _, i -> i.stableKey },
+                                span = { index, _ ->
+                                    if (index == 0 && searchQuery.isBlank()) StaggeredGridItemSpan.FullLine
+                                    else StaggeredGridItemSpan.SingleLane
+                                }
+                            ) { index, item ->
                                 var visible by remember { mutableStateOf(false) }
                                 LaunchedEffect(Unit) { delay(index * 80L); visible = true }
                                 
@@ -507,7 +504,7 @@ fun NewsScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = WindowInsets.systemBars.asPaddingValues().calculateTopPadding() + 16.dp)
+                    .padding(top = WindowInsets.systemBars.asPaddingValues().calculateTopPadding() + 8.dp)
                     .padding(horizontal = 16.dp)
                     .align(Alignment.TopCenter)
             ) {
@@ -518,7 +515,7 @@ fun NewsScreen(
                     shape = RoundedCornerShape(32.dp),
                     color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = headerAlpha),
                     shadowElevation = headerElevation,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().animateContentSize(spring(stiffness = Spring.StiffnessMediumLow))
                 ) {
                     if (isSearchActive) {
                         Row(
@@ -612,15 +609,15 @@ fun FeaturedNewsCard(item: NewsItem, onNavigate: () -> Unit) {
         label = "img_scale"
     )
 
-    Card(
+    ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(0.8f) // Tall elegant card
             .scale(scale)
-            .shadow(16.dp, RoundedCornerShape(32.dp), spotColor = MaterialTheme.colorScheme.primary.copy(0.5f))
             .clickable(interactionSource = interactionSource, indication = null, onClick = onNavigate),
         shape = RoundedCornerShape(32.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 8.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             if (item.imageUrls.isNotEmpty()) {
@@ -694,14 +691,14 @@ fun EnhancedNewsCard(item: NewsItem, onNavigate: () -> Unit) {
         label = "img_scale2"
     )
 
-    Card(
+    ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
             .scale(scale)
-            .shadow(8.dp, RoundedCornerShape(24.dp))
             .clickable(interactionSource = interactionSource, indication = null, onClick = onNavigate),
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 8.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
     ) {
         Column {
             if (item.imageUrls.isNotEmpty()) {
@@ -767,6 +764,11 @@ fun ViewNewsScreen(
     val newsItem = viewModel.newsItem
     val scrollState = rememberScrollState()
 
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val headerHeight = if (isLandscape) 200.dp else 350.dp
+    val horizontalContentPadding = if (isLandscape) 64.dp else 24.dp
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
@@ -785,11 +787,15 @@ fun ViewNewsScreen(
                     is ViewNewsUiState.Error -> NewsErrorState(state.message, viewModel::loadContent, Modifier.fillMaxSize())
                     is ViewNewsUiState.Success -> {
                         Column(
-                            modifier = Modifier.fillMaxSize().verticalScroll(scrollState).padding(bottom = innerPadding.calculateBottomPadding() + 32.dp)
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(scrollState)
+                                .windowInsetsPadding(WindowInsets.navigationBars)
+                                .padding(bottom = 32.dp)
                         ) {
                             // Parallax Header
                             if (newsItem != null && newsItem.imageUrls.isNotEmpty()) {
-                                Box(modifier = Modifier.fillMaxWidth().height(350.dp).clip(RoundedCornerShape(bottomStart = 40.dp, bottomEnd = 40.dp))) {
+                                Box(modifier = Modifier.fillMaxWidth().height(headerHeight).clip(RoundedCornerShape(bottomStart = 40.dp, bottomEnd = 40.dp))) {
                                     val parallaxOffset = scrollState.value * 0.5f
                                     AsyncImage(
                                         model = ImageRequest.Builder(LocalContext.current).data(newsItem.imageUrls.first()).crossfade(true).build(),
@@ -837,7 +843,7 @@ fun ViewNewsScreen(
                                 markdown = state.content,
                                 style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 28.sp),
                                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.85f),
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = horizontalContentPadding)
                             )
                         }
                     }
@@ -929,7 +935,7 @@ fun AdvancedMarkdownText(
     style: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.bodyMedium,
     color: Color = MaterialTheme.colorScheme.onSurface
 ) {
-    val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
+    val surfaceVariantColor = MaterialTheme.colorScheme.surfaceVariant
     val cleanedMarkdown = cleanMarkdown(markdown)
     val lines = cleanedMarkdown.lines()
     var inList by remember { mutableStateOf(false) }
@@ -940,7 +946,7 @@ fun AdvancedMarkdownText(
             val trimmedLine = line.trim()
             when {
                 trimmedLine.matches(Regex("^#{1,6}\\s+.*")) -> {
-                    if (inList) { ListContainer(listItems.toList()); listItems.clear(); inList = false }
+                    if (inList) { ListContainer(listItems.toList(), surfaceVariantColor); listItems.clear(); inList = false }
                     val level = trimmedLine.takeWhile { it == '#' }.length
                     val text = trimmedLine.substring(level).trim()
                     HeaderText(text = text, level = level)
@@ -951,20 +957,20 @@ fun AdvancedMarkdownText(
                     listItems.add(content)
                 }
                 trimmedLine.startsWith("> ") -> {
-                    if (inList) { ListContainer(listItems.toList()); listItems.clear(); inList = false }
-                    BlockQuote(trimmedLine.substring(2))
+                    if (inList) { ListContainer(listItems.toList(), surfaceVariantColor); listItems.clear(); inList = false }
+                    BlockQuote(trimmedLine.substring(2), surfaceVariantColor)
                 }
                 trimmedLine.isEmpty() -> {
-                    if (inList) { ListContainer(listItems.toList()); listItems.clear(); inList = false }
+                    if (inList) { ListContainer(listItems.toList(), surfaceVariantColor); listItems.clear(); inList = false }
                     Spacer(modifier = Modifier.height(8.dp))
                 }
                 else -> {
-                    if (inList) { ListContainer(listItems.toList()); listItems.clear(); inList = false }
-                    FormattedText(trimmedLine, style = style, color = color, surfaceVariantColor = surfaceVariant)
+                    if (inList) { ListContainer(listItems.toList(), surfaceVariantColor); listItems.clear(); inList = false }
+                    FormattedText(trimmedLine, style = style, color = color, surfaceVariantColor = surfaceVariantColor)
                 }
             }
         }
-        if (inList && listItems.isNotEmpty()) ListContainer(listItems.toList())
+        if (inList && listItems.isNotEmpty()) ListContainer(listItems.toList(), surfaceVariantColor)
     }
 }
 
@@ -986,22 +992,20 @@ private fun HeaderText(text: String, level: Int) {
 }
 
 @Composable
-private fun ListContainer(items: List<String>) {
-    val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
+private fun ListContainer(items: List<String>, surfaceVariantColor: Color) {
     Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items.forEach { Row(verticalAlignment = Alignment.Top) { Surface(modifier = Modifier.padding(top = 8.dp).size(6.dp), shape = CircleShape, color = MaterialTheme.colorScheme.primary) {}; Spacer(Modifier.width(12.dp)); FormattedText(text = it, modifier = Modifier.weight(1f), surfaceVariantColor = surfaceVariant) } }
+            items.forEach { Row(verticalAlignment = Alignment.Top) { Surface(modifier = Modifier.padding(top = 8.dp).size(6.dp), shape = CircleShape, color = MaterialTheme.colorScheme.primary) {}; Spacer(Modifier.width(12.dp)); FormattedText(text = it, modifier = Modifier.weight(1f), surfaceVariantColor = surfaceVariantColor) } }
         }
     }
 }
 
 @Composable
-private fun BlockQuote(content: String) {
-    val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
+private fun BlockQuote(content: String, surfaceVariantColor: Color) {
     Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Row {
             Box(modifier = Modifier.width(4.dp).height(40.dp).background(MaterialTheme.colorScheme.primary))
-            FormattedText(text = content, modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic), color = MaterialTheme.colorScheme.onSurfaceVariant, surfaceVariantColor = surfaceVariant)
+            FormattedText(text = content, modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic), color = MaterialTheme.colorScheme.onSurfaceVariant, surfaceVariantColor = surfaceVariantColor)
         }
     }
 }
