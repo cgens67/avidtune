@@ -518,17 +518,14 @@ fun NewsScreen(
                     shape = RoundedCornerShape(32.dp),
                     color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = headerAlpha),
                     shadowElevation = headerElevation,
-                    modifier = Modifier.fillMaxWidth().animateContentSize(spring(stiffness = Spring.StiffnessMediumLow))
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     if (isSearchActive) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
                         ) {
-                            AppIconButton(
-                                onClick = { isSearchActive = false; viewModel.searchQuery.value = "" },
-                                onLongClick = {}
-                            ) {
+                            AppIconButton(onClick = { isSearchActive = false; viewModel.searchQuery.value = "" }) {
                                 Icon(painterResource(R.drawable.arrow_back), null)
                             }
                             Spacer(Modifier.width(8.dp))
@@ -546,10 +543,7 @@ fun NewsScreen(
                                 }
                             )
                             if (searchQuery.isNotEmpty()) {
-                                AppIconButton(
-                                    onClick = { viewModel.searchQuery.value = "" },
-                                    onLongClick = {}
-                                ) {
+                                AppIconButton(onClick = { viewModel.searchQuery.value = "" }) {
                                     Icon(painterResource(R.drawable.close), null)
                                 }
                             }
@@ -560,10 +554,7 @@ fun NewsScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
                         ) {
-                            AppIconButton(
-                                onClick = { navController.navigateUp() },
-                                onLongClick = {}
-                            ) {
+                            AppIconButton(onClick = { navController.navigateUp() }) {
                                 Icon(painterResource(R.drawable.arrow_back), null)
                             }
                             Text(
@@ -573,16 +564,10 @@ fun NewsScreen(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Row {
-                                AppIconButton(
-                                    onClick = { isSearchActive = true },
-                                    onLongClick = {}
-                                ) {
+                                AppIconButton(onClick = { isSearchActive = true }) {
                                     Icon(Icons.Default.Search, null)
                                 }
-                                AppIconButton(
-                                    onClick = { viewModel.fetchNews(); haptic.performHapticFeedback(HapticFeedbackType.LongPress) },
-                                    onLongClick = {}
-                                ) {
+                                AppIconButton(onClick = { viewModel.fetchNews(); haptic.performHapticFeedback(HapticFeedbackType.LongPress) }) {
                                     Icon(painterResource(R.drawable.sync), null)
                                 }
                             }
@@ -853,11 +838,7 @@ fun ViewNewsScreen(
                     .padding(top = WindowInsets.systemBars.asPaddingValues().calculateTopPadding() + 16.dp, start = 16.dp)
                     .size(48.dp)
             ) {
-                AppIconButton(
-                    onClick = navController::navigateUp,
-                    modifier = Modifier.fillMaxSize(),
-                    onLongClick = {}
-                ) {
+                AppIconButton(onClick = navController::navigateUp, modifier = Modifier.fillMaxSize()) {
                     Icon(painterResource(R.drawable.arrow_back), null, tint = MaterialTheme.colorScheme.onSurface)
                 }
             }
@@ -929,6 +910,7 @@ fun AdvancedMarkdownText(
     style: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.bodyMedium,
     color: Color = MaterialTheme.colorScheme.onSurface
 ) {
+    val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
     val cleanedMarkdown = cleanMarkdown(markdown)
     val lines = cleanedMarkdown.lines()
     var inList by remember { mutableStateOf(false) }
@@ -959,7 +941,7 @@ fun AdvancedMarkdownText(
                 }
                 else -> {
                     if (inList) { ListContainer(listItems.toList()); listItems.clear(); inList = false }
-                    FormattedText(trimmedLine, style = style, color = color)
+                    FormattedText(trimmedLine, style = style, color = color, surfaceVariantColor = surfaceVariant)
                 }
             }
         }
@@ -986,31 +968,39 @@ private fun HeaderText(text: String, level: Int) {
 
 @Composable
 private fun ListContainer(items: List<String>) {
+    val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
     Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items.forEach { Row(verticalAlignment = Alignment.Top) { Surface(modifier = Modifier.padding(top = 8.dp).size(6.dp), shape = CircleShape, color = MaterialTheme.colorScheme.primary) {}; Spacer(Modifier.width(12.dp)); FormattedText(text = it, modifier = Modifier.weight(1f)) } }
+            items.forEach { Row(verticalAlignment = Alignment.Top) { Surface(modifier = Modifier.padding(top = 8.dp).size(6.dp), shape = CircleShape, color = MaterialTheme.colorScheme.primary) {}; Spacer(Modifier.width(12.dp)); FormattedText(text = it, modifier = Modifier.weight(1f), surfaceVariantColor = surfaceVariant) } }
         }
     }
 }
 
 @Composable
 private fun BlockQuote(content: String) {
+    val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
     Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Row {
             Box(modifier = Modifier.width(4.dp).height(40.dp).background(MaterialTheme.colorScheme.primary))
-            FormattedText(text = content, modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            FormattedText(text = content, modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic), color = MaterialTheme.colorScheme.onSurfaceVariant, surfaceVariantColor = surfaceVariant)
         }
     }
 }
 
 @Composable
-private fun FormattedText(text: String, modifier: Modifier = Modifier, style: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.bodyMedium, color: Color = MaterialTheme.colorScheme.onSurface) {
+private fun FormattedText(
+    text: String, 
+    modifier: Modifier = Modifier, 
+    style: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.bodyMedium, 
+    color: Color = MaterialTheme.colorScheme.onSurface,
+    surfaceVariantColor: Color
+) {
     val annotatedString = buildAnnotatedString {
         var currentIndex = 0
         val patterns = listOf(
             Regex("\\*\\*([^*]+)\\*\\*") to { m: MatchResult -> withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(m.groupValues[1]) } },
             Regex("(?<!\\*)\\*([^*]+)\\*(?!\\*)") to { m: MatchResult -> withStyle(SpanStyle(fontStyle = FontStyle.Italic)) { append(m.groupValues[1]) } },
-            Regex("`([^`]+)`") to { m: MatchResult -> withStyle(SpanStyle(fontFamily = FontFamily.Monospace, background = MaterialTheme.colorScheme.surfaceVariant)) { append(" ${m.groupValues[1]} ") } }
+            Regex("`([^`]+)`") to { m: MatchResult -> withStyle(SpanStyle(fontFamily = FontFamily.Monospace, background = surfaceVariantColor)) { append(" ${m.groupValues[1]} ") } }
         )
         val allMatches = patterns.flatMap { (p, h) -> p.findAll(text).map { Triple(it, h, 0) } }.sortedBy { it.first.range.first }
         for ((match, handler) in allMatches) {
