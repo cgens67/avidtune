@@ -525,7 +525,10 @@ fun NewsScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
                         ) {
-                            AppIconButton(onClick = { isSearchActive = false; viewModel.searchQuery.value = "" }) {
+                            AppIconButton(
+                                onClick = { isSearchActive = false; viewModel.searchQuery.value = "" },
+                                onLongClick = {}
+                            ) {
                                 Icon(painterResource(R.drawable.arrow_back), null)
                             }
                             Spacer(Modifier.width(8.dp))
@@ -543,7 +546,10 @@ fun NewsScreen(
                                 }
                             )
                             if (searchQuery.isNotEmpty()) {
-                                AppIconButton(onClick = { viewModel.searchQuery.value = "" }) {
+                                AppIconButton(
+                                    onClick = { viewModel.searchQuery.value = "" },
+                                    onLongClick = {}
+                                ) {
                                     Icon(painterResource(R.drawable.close), null)
                                 }
                             }
@@ -554,7 +560,10 @@ fun NewsScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
                         ) {
-                            AppIconButton(onClick = { navController.navigateUp() }) {
+                            AppIconButton(
+                                onClick = { navController.navigateUp() },
+                                onLongClick = { navController.backToMain() }
+                            ) {
                                 Icon(painterResource(R.drawable.arrow_back), null)
                             }
                             Text(
@@ -564,10 +573,16 @@ fun NewsScreen(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Row {
-                                AppIconButton(onClick = { isSearchActive = true }) {
+                                AppIconButton(
+                                    onClick = { isSearchActive = true },
+                                    onLongClick = {}
+                                ) {
                                     Icon(Icons.Default.Search, null)
                                 }
-                                AppIconButton(onClick = { viewModel.fetchNews(); haptic.performHapticFeedback(HapticFeedbackType.LongPress) }) {
+                                AppIconButton(
+                                    onClick = { viewModel.fetchNews(); haptic.performHapticFeedback(HapticFeedbackType.LongPress) },
+                                    onLongClick = {}
+                                ) {
                                     Icon(painterResource(R.drawable.sync), null)
                                 }
                             }
@@ -838,7 +853,11 @@ fun ViewNewsScreen(
                     .padding(top = WindowInsets.systemBars.asPaddingValues().calculateTopPadding() + 16.dp, start = 16.dp)
                     .size(48.dp)
             ) {
-                AppIconButton(onClick = navController::navigateUp, modifier = Modifier.fillMaxSize()) {
+                AppIconButton(
+                    onClick = navController::navigateUp,
+                    onLongClick = { navController.backToMain() },
+                    modifier = Modifier.fillMaxSize()
+                ) {
                     Icon(painterResource(R.drawable.arrow_back), null, tint = MaterialTheme.colorScheme.onSurface)
                 }
             }
