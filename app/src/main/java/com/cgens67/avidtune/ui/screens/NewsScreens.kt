@@ -10,6 +10,7 @@ import android.net.Uri
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -57,23 +58,30 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -81,10 +89,14 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SearchBar
+import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.carousel.HorizontalMultiBrowseCarousel
 import androidx.compose.material3.carousel.rememberCarouselState
 import androidx.compose.runtime.Composable
@@ -137,6 +149,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.datastore.preferences.core.edit
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -148,6 +161,7 @@ import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.NewsLastReadTimestampKey
 import com.cgens67.avidtune.ui.component.IconButton as AppIconButton
 import com.cgens67.avidtune.ui.utils.backToMain
+import com.cgens67.avidtune.utils.dataStore
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.engine.cio.endpoint
@@ -305,8 +319,7 @@ class NewsViewModel @Inject constructor(
 
     val hasUnreadNews: StateFlow<Boolean> = combine(
         _rawItems,
-        androidx.datastore.preferences.core.PreferenceDataStoreFactory.create(produceFile = { java.io.File(context.filesDir, "datastore/settings.preferences_pb") }) // Simplified for compile, uses extension locally usually
-            .data.map { prefs -> prefs[com.cgens67.avidtune.constants.NewsLastReadTimestampKey] ?: 0L }
+        context.dataStore.data.map { prefs -> prefs[NewsLastReadTimestampKey] ?: 0L }
     ) { items, lastRead ->
         items.isNotEmpty() && items.maxOf { it.timestamp } > lastRead
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
@@ -328,8 +341,8 @@ class NewsViewModel @Inject constructor(
     fun markAllRead() {
         val latest = _rawItems.value.maxOfOrNull { it.timestamp } ?: return
         viewModelScope.launch {
-            com.cgens67.avidtune.utils.dataStore(context).updateData { prefs ->
-                prefs.toMutablePreferences().apply { set(com.cgens67.avidtune.constants.NewsLastReadTimestampKey, latest) }
+            context.dataStore.edit { prefs ->
+                prefs[NewsLastReadTimestampKey] = latest
             }
         }
     }
@@ -512,7 +525,10 @@ fun NewsScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
                         ) {
-                            AppIconButton(onClick = { isSearchActive = false; viewModel.searchQuery.value = "" }) {
+                            AppIconButton(
+                                onClick = { isSearchActive = false; viewModel.searchQuery.value = "" },
+                                onLongClick = {}
+                            ) {
                                 Icon(painterResource(R.drawable.arrow_back), null)
                             }
                             Spacer(Modifier.width(8.dp))
@@ -530,7 +546,10 @@ fun NewsScreen(
                                 }
                             )
                             if (searchQuery.isNotEmpty()) {
-                                AppIconButton(onClick = { viewModel.searchQuery.value = "" }) {
+                                AppIconButton(
+                                    onClick = { viewModel.searchQuery.value = "" },
+                                    onLongClick = {}
+                                ) {
                                     Icon(painterResource(R.drawable.close), null)
                                 }
                             }
@@ -541,7 +560,10 @@ fun NewsScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
                         ) {
-                            AppIconButton(onClick = { navController.navigateUp() }) {
+                            AppIconButton(
+                                onClick = { navController.navigateUp() },
+                                onLongClick = {}
+                            ) {
                                 Icon(painterResource(R.drawable.arrow_back), null)
                             }
                             Text(
@@ -551,10 +573,16 @@ fun NewsScreen(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Row {
-                                AppIconButton(onClick = { isSearchActive = true }) {
+                                AppIconButton(
+                                    onClick = { isSearchActive = true },
+                                    onLongClick = {}
+                                ) {
                                     Icon(Icons.Default.Search, null)
                                 }
-                                AppIconButton(onClick = { viewModel.fetchNews(); haptic.performHapticFeedback(HapticFeedbackType.LongPress) }) {
+                                AppIconButton(
+                                    onClick = { viewModel.fetchNews(); haptic.performHapticFeedback(HapticFeedbackType.LongPress) },
+                                    onLongClick = {}
+                                ) {
                                     Icon(painterResource(R.drawable.sync), null)
                                 }
                             }
@@ -637,14 +665,14 @@ fun FeaturedNewsCard(item: NewsItem, onNavigate: () -> Unit) {
                     Text(
                         text = item.description,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(0.7f),
+                        color = Color.White.copy(alpha = 0.7f),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
                     Spacer(Modifier.height(16.dp))
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(color = Color.White.copy(0.2f), shape = CircleShape) {
+                    Surface(color = Color.White.copy(alpha = 0.2f), shape = CircleShape) {
                         Text(item.author, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
                     }
                 }
@@ -769,7 +797,7 @@ fun ViewNewsScreen(
                                         contentScale = ContentScale.Crop,
                                         modifier = Modifier.fillMaxSize().graphicsLayer { translationY = parallaxOffset }
                                     )
-                                    Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(colors = listOf(Color.Transparent, Color.Black.copy(0.8f)), startY = 100f)))
+                                    Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f)), startY = 100f)))
                                     
                                     Column(modifier = Modifier.align(Alignment.BottomStart).padding(24.dp)) {
                                         if (newsItem.important) {
@@ -780,12 +808,12 @@ fun ViewNewsScreen(
                                         Text(newsItem.title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black, color = Color.White)
                                         Spacer(Modifier.height(12.dp))
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Surface(color = Color.White.copy(0.2f), shape = CircleShape) {
+                                            Surface(color = Color.White.copy(alpha = 0.2f), shape = CircleShape) {
                                                 Text(newsItem.author, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
                                             }
                                             Spacer(Modifier.width(8.dp))
                                             val date = remember(newsItem.timestamp) { if (newsItem.timestamp == 0L) "" else DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).format(LocalDateTime.ofInstant(Instant.ofEpochSecond(newsItem.timestamp), ZoneId.systemDefault())) }
-                                            Text(date, color = Color.White.copy(0.7f), fontSize = 12.sp)
+                                            Text(date, color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
                                         }
                                     }
                                 }
@@ -825,7 +853,11 @@ fun ViewNewsScreen(
                     .padding(top = WindowInsets.systemBars.asPaddingValues().calculateTopPadding() + 16.dp, start = 16.dp)
                     .size(48.dp)
             ) {
-                AppIconButton(onClick = navController::navigateUp, modifier = Modifier.fillMaxSize()) {
+                AppIconButton(
+                    onClick = navController::navigateUp,
+                    modifier = Modifier.fillMaxSize(),
+                    onLongClick = {}
+                ) {
                     Icon(painterResource(R.drawable.arrow_back), null, tint = MaterialTheme.colorScheme.onSurface)
                 }
             }
@@ -863,7 +895,7 @@ private fun NewsEmptyState(isSearching: Boolean, modifier: Modifier = Modifier) 
         Spacer(Modifier.height(24.dp))
         Text(stringResource(if (isSearching) R.string.no_results_found else R.string.no_news_available), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
         Spacer(Modifier.height(8.dp))
-        Text(stringResource(if (isSearching) R.string.try_different_keywords else R.string.check_back_later), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onBackground.copy(0.7f))
+        Text(stringResource(if (isSearching) R.string.try_different_keywords else R.string.check_back_later), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f))
     }
 }
 
