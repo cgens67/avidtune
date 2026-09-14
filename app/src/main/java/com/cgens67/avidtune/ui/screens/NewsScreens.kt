@@ -383,18 +383,39 @@ fun NewsScreen(
                                     else StaggeredGridItemSpan.SingleLane
                                 }
                             ) { index, item ->
-                                var visible by remember { mutableStateOf(false) }
-                                LaunchedEffect(Unit) { delay(index * 80L); visible = true }
+                                val isInitial = remember { index < 8 }
+                                var visible by remember { mutableStateOf(!isInitial) }
                                 
-                                AnimatedVisibility(
-                                    visible = visible,
-                                    enter = slideInVertically(spring(stiffness = Spring.StiffnessMediumLow)) { it / 3 } + fadeIn(tween(400))
-                                ) {
-                                    if (index == 0 && searchQuery.isBlank()) {
-                                        FeaturedNewsCard(item, onNavigate = { navController.navigate("view_news/${Uri.encode(item.id)}") })
-                                    } else {
-                                        EnhancedNewsCard(item, onNavigate = { navController.navigate("view_news/${Uri.encode(item.id)}") })
+                                LaunchedEffect(Unit) { 
+                                    if (isInitial) {
+                                        delay(index * 50L) 
+                                        visible = true
                                     }
+                                }
+                                
+                                val alpha by animateFloatAsState(
+                                    targetValue = if (visible) 1f else 0f, 
+                                    animationSpec = tween(400), 
+                                    label = "alpha"
+                                )
+                                val translationY by animateFloatAsState(
+                                    targetValue = if (visible) 0f else 50f, 
+                                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow), 
+                                    label = "translationY"
+                                )
+
+                                val cardModifier = Modifier
+                                    .graphicsLayer {
+                                        this.alpha = alpha
+                                        this.translationY = translationY
+                                        this.clip = false
+                                    }
+                                    .animateItem()
+
+                                if (index == 0 && searchQuery.isBlank()) {
+                                    FeaturedNewsCard(item, onNavigate = { navController.navigate("view_news/${Uri.encode(item.id)}") }, modifier = cardModifier)
+                                } else {
+                                    EnhancedNewsCard(item, onNavigate = { navController.navigate("view_news/${Uri.encode(item.id)}") }, modifier = cardModifier)
                                 }
                             }
                         }
@@ -414,7 +435,7 @@ fun NewsScreen(
                 val headerElevation by animateDpAsState(targetValue = if (isScrolled) 8.dp else 0.dp, label = "elevation")
                 
                 Surface(
-                    shape = RoundedCornerShape(32.dp),
+                    shape = RoundedCornerShape(28.dp),
                     color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = headerAlpha),
                     shadowElevation = headerElevation,
                     modifier = Modifier.fillMaxWidth().animateContentSize(spring(stiffness = Spring.StiffnessMediumLow))
@@ -422,7 +443,7 @@ fun NewsScreen(
                     if (isSearchActive) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+                            modifier = Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 8.dp)
                         ) {
                             AppIconButton(
                                 onClick = { isSearchActive = false; viewModel.searchQuery.value = "" },
@@ -438,10 +459,19 @@ fun NewsScreen(
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                                 keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus(); keyboardController?.hide() }),
+                                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                                 modifier = Modifier.weight(1f).focusRequester(focusRequester),
                                 decorationBox = { inner ->
-                                    if (searchQuery.isEmpty()) Text(stringResource(R.string.search_news_placeholder), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    inner()
+                                    Box(contentAlignment = Alignment.CenterStart, modifier = Modifier.fillMaxHeight()) {
+                                        if (searchQuery.isEmpty()) {
+                                            Text(
+                                                text = stringResource(R.string.search_news_placeholder), 
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant, 
+                                                style = MaterialTheme.typography.titleMedium
+                                            )
+                                        }
+                                        inner()
+                                    }
                                 }
                             )
                             if (searchQuery.isNotEmpty()) {
@@ -457,7 +487,7 @@ fun NewsScreen(
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+                            modifier = Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 8.dp)
                         ) {
                             AppIconButton(
                                 onClick = { navController.navigateUp() },
@@ -498,7 +528,7 @@ fun NewsScreen(
 // ==========================================
 
 @Composable
-fun FeaturedNewsCard(item: NewsItem, onNavigate: () -> Unit) {
+fun FeaturedNewsCard(item: NewsItem, onNavigate: () -> Unit, modifier: Modifier = Modifier) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(if (isPressed) 0.95f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "scale")
@@ -514,7 +544,7 @@ fun FeaturedNewsCard(item: NewsItem, onNavigate: () -> Unit) {
     )
 
     ElevatedCard(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .aspectRatio(if (isLandscape) 2.5f else 0.8f) // Adapt height if landscape
             .scale(scale)
@@ -583,7 +613,7 @@ fun FeaturedNewsCard(item: NewsItem, onNavigate: () -> Unit) {
 }
 
 @Composable
-fun EnhancedNewsCard(item: NewsItem, onNavigate: () -> Unit) {
+fun EnhancedNewsCard(item: NewsItem, onNavigate: () -> Unit, modifier: Modifier = Modifier) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(if (isPressed) 0.95f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "scale")
@@ -596,7 +626,7 @@ fun EnhancedNewsCard(item: NewsItem, onNavigate: () -> Unit) {
     )
 
     ElevatedCard(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .scale(scale)
             .clickable(interactionSource = interactionSource, indication = null, onClick = onNavigate),
