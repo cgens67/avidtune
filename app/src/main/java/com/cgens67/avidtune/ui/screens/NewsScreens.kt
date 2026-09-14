@@ -402,35 +402,114 @@ fun NewsScreen(
                         ) {
                             item(span = StaggeredGridItemSpan.FullLine) {
                                 Row(
-                                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp, top = 4.dp),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    FilterChip(
-                                        selected = filterImportant,
-                                        onClick = { viewModel.filterImportant.value = !filterImportant },
-                                        label = { Text(stringResource(R.string.important)) },
-                                        leadingIcon = if (filterImportant) { { Icon(Icons.Default.Check, null) } } else null
-                                    )
-                                    
-                                    var expanded by remember { mutableStateOf(false) }
+                                    // Sort Dropdown
+                                    var sortExpanded by remember { mutableStateOf(false) }
                                     Box {
-                                        FilterChip(
-                                            selected = false,
-                                            onClick = { expanded = true },
-                                            label = { Text("Sort: ${sortOption.displayName}") },
-                                            trailingIcon = { Icon(Icons.Default.KeyboardArrowDown, null) }
-                                        )
-                                        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                                            NewsSortOption.entries.forEach { option ->
-                                                DropdownMenuItem(
-                                                    text = { Text(option.displayName) },
-                                                    onClick = { 
-                                                        viewModel.sortOption.value = option
-                                                        expanded = false 
-                                                    }
+                                        Surface(
+                                            onClick = { sortExpanded = true },
+                                            shape = RoundedCornerShape(16.dp),
+                                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                            ) {
+                                                Icon(
+                                                    painter = painterResource(R.drawable.list), 
+                                                    contentDescription = null, 
+                                                    modifier = Modifier.size(16.dp),
+                                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                                )
+                                                Spacer(Modifier.width(8.dp))
+                                                Text(
+                                                    text = sortOption.displayName,
+                                                    style = MaterialTheme.typography.labelLarge,
+                                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                                Spacer(Modifier.width(4.dp))
+                                                Icon(
+                                                    imageVector = Icons.Default.KeyboardArrowDown, 
+                                                    contentDescription = null, 
+                                                    modifier = Modifier.size(16.dp),
+                                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
                                                 )
                                             }
+                                        }
+
+                                        MaterialTheme(shapes = MaterialTheme.shapes.copy(extraSmall = RoundedCornerShape(16.dp))) {
+                                            DropdownMenu(
+                                                expanded = sortExpanded, 
+                                                onDismissRequest = { sortExpanded = false },
+                                                modifier = Modifier.widthIn(min = 172.dp)
+                                            ) {
+                                                NewsSortOption.entries.forEach { option ->
+                                                    val isSelected = sortOption == option
+                                                    DropdownMenuItem(
+                                                        text = { 
+                                                            Text(
+                                                                text = option.displayName,
+                                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                                color = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface
+                                                            ) 
+                                                        },
+                                                        trailingIcon = {
+                                                            Icon(
+                                                                painter = painterResource(if (isSelected) R.drawable.radio_button_checked else R.drawable.radio_button_unchecked),
+                                                                contentDescription = null,
+                                                                tint = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                                            )
+                                                        },
+                                                        onClick = { 
+                                                            viewModel.sortOption.value = option
+                                                            sortExpanded = false 
+                                                        },
+                                                        modifier = Modifier
+                                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                                            .clip(CircleShape)
+                                                            .background(if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Important Filter Toggle
+                                    Surface(
+                                        onClick = { viewModel.filterImportant.value = !filterImportant },
+                                        shape = RoundedCornerShape(16.dp),
+                                        color = if (filterImportant) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                        ) {
+                                            if (filterImportant) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Check,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            } else {
+                                                Icon(
+                                                    painter = painterResource(R.drawable.info),
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+                                            Spacer(Modifier.width(6.dp))
+                                            Text(
+                                                text = stringResource(R.string.important),
+                                                style = MaterialTheme.typography.labelLarge,
+                                                color = if (filterImportant) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                fontWeight = FontWeight.Medium
+                                            )
                                         }
                                     }
                                 }
@@ -444,7 +523,34 @@ fun NewsScreen(
                                     else StaggeredGridItemSpan.SingleLane
                                 }
                             ) { index, item ->
-                                val cardModifier = Modifier.animateItem()
+                                val isInitial = remember { index < 8 }
+                                var visible by remember { mutableStateOf(!isInitial) }
+                                
+                                LaunchedEffect(Unit) { 
+                                    if (isInitial) {
+                                        delay(index * 50L) 
+                                        visible = true
+                                    }
+                                }
+                                
+                                val alpha by animateFloatAsState(
+                                    targetValue = if (visible) 1f else 0f, 
+                                    animationSpec = tween(400), 
+                                    label = "alpha"
+                                )
+                                val translationY by animateFloatAsState(
+                                    targetValue = if (visible) 0f else 50f, 
+                                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow), 
+                                    label = "translationY"
+                                )
+
+                                val cardModifier = Modifier
+                                    .graphicsLayer {
+                                        this.alpha = alpha
+                                        this.translationY = translationY
+                                        this.clip = false
+                                    }
+                                    .animateItem()
 
                                 if (index == 0 && searchQuery.isBlank() && !filterImportant) {
                                     FeaturedNewsCard(item, onNavigate = { navController.navigate("view_news/${Uri.encode(item.id)}") }, modifier = cardModifier)
@@ -472,17 +578,17 @@ fun NewsScreen(
                     shape = RoundedCornerShape(28.dp),
                     color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = headerAlpha),
                     shadowElevation = headerElevation,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().height(56.dp)
                 ) {
                     AnimatedContent(
                         targetState = isSearchActive,
-                        transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(300)) },
+                        transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(200)) },
                         label = "searchBarAnim"
                     ) { active ->
                         if (active) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 8.dp)
+                                modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp)
                             ) {
                                 AppIconButton(
                                     onClick = { isSearchActive = false; viewModel.searchQuery.value = "" },
@@ -501,7 +607,7 @@ fun NewsScreen(
                                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                                     modifier = Modifier.weight(1f).focusRequester(focusRequester),
                                     decorationBox = { inner ->
-                                        Box(contentAlignment = Alignment.CenterStart, modifier = Modifier.fillMaxHeight()) {
+                                        Box(contentAlignment = Alignment.CenterStart, modifier = Modifier.fillMaxSize()) {
                                             if (searchQuery.isEmpty()) {
                                                 Text(
                                                     text = stringResource(R.string.search_news_placeholder), 
@@ -526,7 +632,7 @@ fun NewsScreen(
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween,
-                                modifier = Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 8.dp)
+                                modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp)
                             ) {
                                 AppIconButton(
                                     onClick = { navController.navigateUp() },
@@ -538,7 +644,8 @@ fun NewsScreen(
                                     text = stringResource(R.string.news),
                                     style = MaterialTheme.typography.titleLarge,
                                     fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
                                 )
                                 Row {
                                     AppIconButton(
