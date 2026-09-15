@@ -41,21 +41,18 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -80,22 +77,23 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
 import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.CustomThemeColorKey
-import com.cgens67.avidtune.ui.component.IconButton
+import com.cgens67.avidtune.ui.theme.DefaultThemeColor
 import com.cgens67.avidtune.ui.theme.ThemeSeedPalette
 import com.cgens67.avidtune.ui.theme.ThemeSeedPaletteCodec
 import com.cgens67.avidtune.ui.utils.backToMain
 import com.cgens67.avidtune.utils.rememberPreference
+import com.google.material.color.hct.Hct
+import com.google.material.color.scheme.SchemeTonalSpot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -627,24 +625,6 @@ object ThemePalettes {
         neutral = Color(0xFFFF5F1F)
     )
 
-    val Cyberpunk = ThemePalette(
-        id = "cyberpunk",
-        name = "Cyberpunk",
-        primary = Color(0xFFFF00FF),
-        secondary = Color(0xFFFF00FF),
-        tertiary = Color(0xFFFF00FF),
-        neutral = Color(0xFFFF00FF)
-    )
-
-    val Synthwave = ThemePalette(
-        id = "synthwave",
-        name = "Synthwave",
-        primary = Color(0xFFFF6EC7),
-        secondary = Color(0xFFFF6EC7),
-        tertiary = Color(0xFFFF6EC7),
-        neutral = Color(0xFFFF6EC7)
-    )
-
     // ===== Special & Themed =====
     val Ocean = ThemePalette(
         id = "ocean",
@@ -746,7 +726,7 @@ object ThemePalettes {
         Charcoal, Silver, Slate, Graphite,
         Terracotta, Coffee, Mocha, Sand, Clay,
         PastelPink, PastelBlue, PastelGreen, PastelYellow, PastelPurple,
-        NeonGreen, NeonPink, NeonBlue, NeonOrange, Cyberpunk, Synthwave,
+        NeonGreen, NeonPink, NeonBlue, NeonOrange,
         Ocean, Forest, Autumn, Winter, Spring, Summer, Twilight, Aurora, Candy, Rainbow
     )
 
@@ -757,10 +737,6 @@ object ThemePalettes {
     fun findById(id: String): ThemePalette? {
         return allPalettes.find { it.id == id }
     }
-
-    fun getRandomPalette(): ThemePalette {
-        return allPalettes.random()
-    }
 }
 
 private fun Color.toHexString(): String {
@@ -768,145 +744,6 @@ private fun Color.toHexString(): String {
     val green = (this.green * 255).toInt()
     val blue = (this.blue * 255).toInt()
     return String.format("#%02X%02X%02X", red, green, blue)
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun CustomThemeBottomSheet(
-    initialColor: Color,
-    onDismiss: () -> Unit,
-    onSave: (ThemeSeedPalette) -> Unit,
-    onExport: (ThemeSeedPalette) -> Unit
-) {
-    var red by remember { mutableFloatStateOf(initialColor.red * 255f) }
-    var green by remember { mutableFloatStateOf(initialColor.green * 255f) }
-    var blue by remember { mutableFloatStateOf(initialColor.blue * 255f) }
-
-    val currentColor = Color(red / 255f, green / 255f, blue / 255f)
-    val hexString = String.format("#%06X", (0xFFFFFF and currentColor.toArgb()))
-
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val coroutineScope = rememberCoroutineScope()
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-        contentWindowInsets = { androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0) }
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Header
-            Text(
-                text = stringResource(R.string.custom_theme),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-
-            // Color Preview
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(100.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(currentColor)
-                    .border(2.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = hexString,
-                    style = MaterialTheme.typography.titleLarge,
-                    color = if (currentColor.luminance() > 0.5f) Color.Black else Color.White,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            // Sliders
-            ColorSlider(label = stringResource(R.string.red_colon, red.toInt()), value = red, onValueChange = { red = it }, trackColor = Color.Red)
-            ColorSlider(label = stringResource(R.string.green_colon, green.toInt()), value = green, onValueChange = { green = it }, trackColor = Color.Green)
-            ColorSlider(label = stringResource(R.string.blue_colon, blue.toInt()), value = blue, onValueChange = { blue = it }, trackColor = Color.Blue)
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Actions: Reset, Random, Export
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                TextButton(onClick = {
-                    red = initialColor.red * 255f
-                    green = initialColor.green * 255f
-                    blue = initialColor.blue * 255f
-                }) {
-                    Text(stringResource(R.string.reset))
-                }
-                TextButton(onClick = {
-                    red = (0..255).random().toFloat()
-                    green = (0..255).random().toFloat()
-                    blue = (0..255).random().toFloat()
-                }) {
-                    Text(stringResource(R.string.random))
-                }
-                TextButton(onClick = {
-                    val palette = ThemeSeedPalette(currentColor, currentColor, currentColor, currentColor)
-                    onExport(palette)
-                }) {
-                    Text(stringResource(R.string.export))
-                }
-            }
-
-            // Save & Cancel
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                OutlinedButton(
-                    onClick = {
-                        coroutineScope.launch {
-                            sheetState.hide()
-                        }.invokeOnCompletion {
-                            onDismiss()
-                        }
-                    },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(stringResource(android.R.string.cancel))
-                }
-                Button(
-                    onClick = {
-                        coroutineScope.launch {
-                            sheetState.hide()
-                        }.invokeOnCompletion {
-                            val palette = ThemeSeedPalette(currentColor, currentColor, currentColor, currentColor)
-                            onSave(palette)
-                        }
-                    },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(stringResource(android.R.string.ok))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ColorSlider(label: String, value: Float, onValueChange: (Float) -> Unit, trackColor: Color) {
-    Column {
-        Text(text = label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-        Slider(
-            value = value,
-            onValueChange = onValueChange,
-            valueRange = 0f..255f,
-            colors = SliderDefaults.colors(activeTrackColor = trackColor, thumbColor = trackColor)
-        )
-    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -920,164 +757,154 @@ fun PalettePickerScreen(
         CustomThemeColorKey,
         defaultValue = ThemePalettes.Default.id
     )
+
     val customThemeName = stringResource(R.string.custom_theme)
-
-    val selectedPalette = remember(customThemeColor, customThemeName) {
-        val custom = ThemeSeedPaletteCodec.decodeFromPreference(customThemeColor)
-            ?.toThemePalette(customThemeName)
-        custom
-            ?: ThemePalettes.findById(customThemeColor)
-            ?: ThemePalettes.findByPrimaryColor(customThemeColor)
-            ?: ThemePalettes.Default
-    }
-
     val isDarkTheme = isSystemInDarkTheme()
 
-    var showCustomThemeSheet by rememberSaveable { mutableStateOf(false) }
-    var paletteToExport by remember { mutableStateOf<ThemeSeedPalette?>(null) }
+    // Retrieve the saved seed color based on current preferences.
+    val savedPrimaryColor = remember(customThemeColor) {
+        val custom = ThemeSeedPaletteCodec.decodeFromPreference(customThemeColor)
+        custom?.primary
+            ?: ThemePalettes.findById(customThemeColor)?.primary
+            ?: ThemePalettes.findByPrimaryColor(customThemeColor)?.primary
+            ?: DefaultThemeColor
+    }
+
+    // The color currently being actively edited by the sliders.
+    // Syncs back to savedPrimaryColor when customThemeColor changes externally.
+    var editorColor by remember(savedPrimaryColor) { mutableStateOf(savedPrimaryColor) }
+
+    // Derive active palette for the live preview card.
+    val activePalette = remember(editorColor, customThemeColor, isDarkTheme) {
+        if (editorColor == savedPrimaryColor) {
+            val custom = ThemeSeedPaletteCodec.decodeFromPreference(customThemeColor)
+            if (custom != null) {
+                val scheme = SchemeTonalSpot(Hct.fromInt(custom.primary.toArgb()), isDarkTheme, 0.0)
+                ThemePalette(
+                    id = "custom_seed",
+                    name = customThemeName,
+                    primary = Color(scheme.primary),
+                    secondary = Color(scheme.secondary),
+                    tertiary = Color(scheme.tertiary),
+                    neutral = Color(scheme.surfaceVariant),
+                    onPrimary = Color(scheme.onPrimary)
+                )
+            } else {
+                ThemePalettes.findById(customThemeColor)
+                    ?: ThemePalettes.findByPrimaryColor(customThemeColor)
+                    ?: ThemePalettes.Default
+            }
+        } else {
+            // Live preview while dragging sliders
+            val scheme = SchemeTonalSpot(Hct.fromInt(editorColor.toArgb()), isDarkTheme, 0.0)
+            ThemePalette(
+                id = "custom_seed_preview",
+                name = context.getString(R.string.preview),
+                primary = Color(scheme.primary),
+                secondary = Color(scheme.secondary),
+                tertiary = Color(scheme.tertiary),
+                neutral = Color(scheme.surfaceVariant),
+                onPrimary = Color(scheme.onPrimary)
+            )
+        }
+    }
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-        if (uri == null || paletteToExport == null) return@rememberLauncherForActivityResult
+        if (uri == null) return@rememberLauncherForActivityResult
         scope.launch(Dispatchers.IO) {
             try {
                 context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-                    val json = ThemeSeedPaletteCodec.encodeForPreference(paletteToExport!!, customThemeName)
+                    val scheme = SchemeTonalSpot(Hct.fromInt(activePalette.primary.toArgb()), isDarkTheme, 0.0)
+                    val p = ThemeSeedPalette(
+                        primary = activePalette.primary,
+                        secondary = Color(scheme.secondary),
+                        tertiary = Color(scheme.tertiary),
+                        neutral = Color(scheme.surfaceVariant)
+                    )
+                    val json = ThemeSeedPaletteCodec.encodeForPreference(p, customThemeName)
                     outputStream.write(json.toByteArray())
                 }
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Theme exported successfully", Toast.LENGTH_SHORT).show()
-                }
+                withContext(Dispatchers.Main) { Toast.makeText(context, "Theme exported successfully", Toast.LENGTH_SHORT).show() }
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Theme export failed", Toast.LENGTH_SHORT).show()
-                }
+                withContext(Dispatchers.Main) { Toast.makeText(context, "Theme export failed", Toast.LENGTH_SHORT).show() }
             }
         }
     }
 
-    if (showCustomThemeSheet) {
-        CustomThemeBottomSheet(
-            initialColor = selectedPalette.primary,
-            onDismiss = { showCustomThemeSheet = false },
-            onSave = { palette ->
-                onCustomThemeColorChange(ThemeSeedPaletteCodec.encodeForPreference(palette, customThemeName))
-                showCustomThemeSheet = false
-            },
-            onExport = { palette ->
-                paletteToExport = palette
-                exportLauncher.launch("custom_theme_${System.currentTimeMillis()}.json")
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val text = withContext(Dispatchers.IO) {
+                runCatching { context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }.orEmpty() }.getOrNull().orEmpty()
             }
-        )
-    }
-
-    val importLauncher =
-        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-            if (uri == null) return@rememberLauncherForActivityResult
-            scope.launch {
-                val text =
-                    withContext(Dispatchers.IO) {
-                        runCatching {
-                            context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }.orEmpty()
-                        }.getOrNull().orEmpty()
-                    }
-                val imported = ThemeSeedPaletteCodec.decodeFromJson(text)
-                if (imported != null) {
-                    val extractedName = ThemeSeedPaletteCodec.extractNameFromJsonOrNull(text) ?: customThemeName
-                    onCustomThemeColorChange(ThemeSeedPaletteCodec.encodeForPreference(imported, extractedName))
-                    Toast.makeText(context, context.getString(R.string.theme_imported_successfully), Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(context, context.getString(R.string.theme_import_failed), Toast.LENGTH_SHORT).show()
-                }
+            val imported = ThemeSeedPaletteCodec.decodeFromJson(text)
+            if (imported != null) {
+                val extractedName = ThemeSeedPaletteCodec.extractNameFromJsonOrNull(text) ?: customThemeName
+                onCustomThemeColorChange(ThemeSeedPaletteCodec.encodeForPreference(imported, extractedName))
+                Toast.makeText(context, context.getString(R.string.theme_imported_successfully), Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, context.getString(R.string.theme_import_failed), Toast.LENGTH_SHORT).show()
             }
         }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.color_palette)) },
+                title = { Text(stringResource(R.string.color_palette), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(
                         onClick = navController::navigateUp,
                         onLongClick = navController::backToMain
                     ) {
-                        Icon(
-                            painterResource(R.drawable.arrow_back),
-                            contentDescription = null
-                        )
+                        Icon(painterResource(R.drawable.arrow_back), contentDescription = null)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
+                actions = {
+                    IconButton(onClick = { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) }) {
+                        Icon(painterResource(R.drawable.restore), contentDescription = stringResource(R.string.import_theme))
+                    }
+                    IconButton(onClick = { exportLauncher.launch("custom_theme_${System.currentTimeMillis()}.json") }) {
+                        Icon(painterResource(R.drawable.share), contentDescription = stringResource(R.string.export))
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         },
-        floatingActionButton = {
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.windowInsetsPadding(
-                    LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)
-                )
-            ) {
-                ExtendedFloatingActionButton(
-                    text = { Text(stringResource(R.string.custom_theme)) },
-                    icon = {
-                        Icon(
-                            painter = painterResource(R.drawable.palette),
-                            contentDescription = null
-                        )
-                    },
-                    onClick = { showCustomThemeSheet = true },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                )
-                ExtendedFloatingActionButton(
-                    text = { Text("Theme Creator") },
-                    icon = {
-                        Icon(
-                            painter = painterResource(R.drawable.edit),
-                            contentDescription = null
-                        )
-                    },
-                    onClick = { navController.navigate("settings/appearance/theme_creator") },
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                )
-                ExtendedFloatingActionButton(
-                    text = { Text(stringResource(R.string.import_theme)) },
-                    icon = {
-                        Icon(
-                            painter = painterResource(R.drawable.restore),
-                            contentDescription = null
-                        )
-                    },
-                    onClick = { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) },
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                )
-            }
-        }
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom))
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(16.dp))
 
             ThemePreviewCard(
-                palette = selectedPalette,
+                palette = activePalette,
                 isDarkTheme = isDarkTheme,
                 modifier = Modifier.padding(horizontal = 24.dp)
             )
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // PRESETS SECTION
+            Text(
+                text = stringResource(R.string.presets),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 8.dp)
+            )
+
             ColorPaletteSelector(
                 palettes = ThemePalettes.allPalettes,
-                selectedPalette = selectedPalette,
+                selectedPalette = activePalette,
                 onPaletteSelected = { palette ->
                     onCustomThemeColorChange(palette.id)
                 },
@@ -1085,19 +912,63 @@ fun PalettePickerScreen(
             )
 
             Spacer(modifier = Modifier.height(32.dp))
+
+            // CUSTOM THEME SECTION
+            Text(
+                text = stringResource(R.string.custom_theme),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 8.dp)
+            )
+
+            Text(
+                text = stringResource(R.string.theme_creator_description),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            val isCustomMode = customThemeColor.startsWith("{")
+            val isApplyEnabled = editorColor != savedPrimaryColor || !isCustomMode
+
+            ColorEditor(
+                color = editorColor,
+                onColorChange = { newSeed ->
+                    editorColor = newSeed
+                },
+                onRandomize = {
+                    val newSeed = Color(
+                        red = (0..255).random() / 255f,
+                        green = (0..255).random() / 255f,
+                        blue = (0..255).random() / 255f
+                    )
+                    editorColor = newSeed
+                },
+                onApply = {
+                    val scheme = SchemeTonalSpot(Hct.fromInt(editorColor.toArgb()), isDarkTheme, 0.0)
+                    val palette = ThemeSeedPalette(
+                        primary = editorColor,
+                        secondary = Color(scheme.secondary),
+                        tertiary = Color(scheme.tertiary),
+                        neutral = Color(scheme.surfaceVariant)
+                    )
+                    onCustomThemeColorChange(ThemeSeedPaletteCodec.encodeForPreference(palette, customThemeName))
+                    Toast.makeText(context, context.getString(R.string.theme_saved), Toast.LENGTH_SHORT).show()
+                },
+                isApplyEnabled = isApplyEnabled
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
-
-private fun ThemeSeedPalette.toThemePalette(customName: String): ThemePalette =
-    ThemePalette(
-        id = "custom_seed",
-        name = customName,
-        primary = primary,
-        secondary = secondary,
-        tertiary = tertiary,
-        neutral = neutral,
-    )
 
 @Composable
 private fun ThemePreviewCard(
@@ -1499,185 +1370,108 @@ private fun PaletteCard(
 }
 
 @Composable
-private fun SelectedPaletteDetails(
-    palette: ThemePalette,
-    modifier: Modifier = Modifier
+private fun ColorEditor(
+    color: Color,
+    onColorChange: (Color) -> Unit,
+    onRandomize: () -> Unit,
+    onApply: () -> Unit,
+    isApplyEnabled: Boolean
 ) {
-    val animatedPrimary by animateColorAsState(
-        targetValue = palette.primary,
-        animationSpec = tween(durationMillis = 400),
-        label = "detailPrimary"
-    )
-    val animatedSecondary by animateColorAsState(
-        targetValue = palette.secondary,
-        animationSpec = tween(durationMillis = 400),
-        label = "detailSecondary"
-    )
-    val animatedTertiary by animateColorAsState(
-        targetValue = palette.tertiary,
-        animationSpec = tween(durationMillis = 400),
-        label = "detailTertiary"
-    )
-    val animatedNeutral by animateColorAsState(
-        targetValue = palette.neutral,
-        animationSpec = tween(durationMillis = 400),
-        label = "detailNeutral"
-    )
+    var red by remember(color) { mutableFloatStateOf(color.red * 255f) }
+    var green by remember(color) { mutableFloatStateOf(color.green * 255f) }
+    var blue by remember(color) { mutableFloatStateOf(color.blue * 255f) }
+
+    val hexString = String.format("#%06X", (0xFFFFFF and color.toArgb()))
 
     Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        )
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp)
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = stringResource(R.string.selected_theme_color),
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                ColorSwatch(
-                    color = animatedPrimary,
-                    label = "Primary",
-                    hexCode = palette.primary.toHexString()
-                )
-                ColorSwatch(
-                    color = animatedSecondary,
-                    label = "Secondary",
-                    hexCode = palette.secondary.toHexString()
-                )
-                ColorSwatch(
-                    color = animatedTertiary,
-                    label = "Tertiary",
-                    hexCode = palette.tertiary.toHexString()
-                )
-                ColorSwatch(
-                    color = animatedNeutral,
-                    label = "Neutral",
-                    hexCode = palette.neutral.toHexString()
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(CircleShape)
+                            .background(color)
+                            .border(2.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                    )
+                    Column {
+                        Text(stringResource(R.string.hex_color), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(hexString, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                    }
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    IconButton(
+                        onClick = onRandomize,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape)
+                    ) {
+                        Icon(painterResource(R.drawable.shuffle), contentDescription = stringResource(R.string.randomize), tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                    }
+                }
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+            ColorSliderRow(label = "R", value = red, activeColor = Color.Red, onValueChange = {
+                red = it
+                onColorChange(Color(red/255f, green/255f, blue/255f))
+            })
+            ColorSliderRow(label = "G", value = green, activeColor = Color.Green, onValueChange = {
+                green = it
+                onColorChange(Color(red/255f, green/255f, blue/255f))
+            })
+            ColorSliderRow(label = "B", value = blue, activeColor = Color.Blue, onValueChange = {
+                blue = it
+                onColorChange(Color(red/255f, green/255f, blue/255f))
+            })
+
+            Button(
+                onClick = onApply,
+                enabled = isApplyEnabled,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Text(stringResource(R.string.apply))
             }
         }
     }
 }
 
 @Composable
-private fun ColorSwatch(
-    color: Color,
-    label: String,
-    hexCode: String
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally
+private fun ColorSliderRow(label: String, value: Float, activeColor: Color, onValueChange: (Float) -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .shadow(4.dp, CircleShape)
-                .clip(CircleShape)
-                .background(color)
-                .border(2.dp, Color.White.copy(alpha = 0.3f), CircleShape)
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Text(
-            text = hexCode,
-            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-        )
-    }
-}
-
-@Composable
-fun ColorPalettePicker(
-    palettes: List<ThemePalette>,
-    selectedPalette: ThemePalette,
-    onPaletteSelected: (ThemePalette) -> Unit,
-    modifier: Modifier = Modifier,
-    showPreview: Boolean = true
-) {
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        if (showPreview) {
-            ThemePreviewCard(
-                palette = selectedPalette,
-                isDarkTheme = isSystemInDarkTheme(),
-                modifier = Modifier.padding(horizontal = 24.dp)
+        Text(label, fontWeight = FontWeight.Bold, modifier = Modifier.width(20.dp), textAlign = TextAlign.Center)
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = 0f..255f,
+            modifier = Modifier.weight(1f),
+            colors = SliderDefaults.colors(
+                activeTrackColor = activeColor,
+                thumbColor = activeColor
             )
-
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-
-        ColorPaletteSelector(
-            palettes = palettes,
-            selectedPalette = selectedPalette,
-            onPaletteSelected = onPaletteSelected
         )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun PalettePickerScreenPreview() {
-    MaterialTheme {
-        PalettePickerScreen(
-            navController = rememberNavController()
-        )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun PaletteCardPreview() {
-    MaterialTheme {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier.padding(16.dp)
-        ) {
-            PaletteCard(
-                palette = ThemePalettes.Default,
-                isSelected = true,
-                onClick = {}
-            )
-            PaletteCard(
-                palette = ThemePalettes.OceanBlue,
-                isSelected = false,
-                onClick = {}
-            )
-        }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun ThemePreviewCardPreview() {
-    MaterialTheme {
-        ThemePreviewCard(
-            palette = ThemePalettes.EmeraldGreen,
-            isDarkTheme = false,
-            modifier = Modifier.padding(24.dp)
-        )
+        Text(value.toInt().toString(), modifier = Modifier.width(36.dp), textAlign = TextAlign.End)
     }
 }
