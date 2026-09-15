@@ -1,3 +1,4 @@
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 package com.cgens67.avidtune.ui.screens.settings
 
 import android.widget.Toast
@@ -21,12 +22,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -42,17 +44,23 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -87,6 +95,7 @@ import androidx.navigation.NavController
 import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.CustomThemeColorKey
+import com.cgens67.avidtune.ui.component.IconButton as AppIconButton
 import com.cgens67.avidtune.ui.theme.DefaultThemeColor
 import com.cgens67.avidtune.ui.theme.ThemeSeedPalette
 import com.cgens67.avidtune.ui.theme.ThemeSeedPaletteCodec
@@ -746,7 +755,144 @@ private fun Color.toHexString(): String {
     return String.format("#%02X%02X%02X", red, green, blue)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CustomThemeBottomSheet(
+    initialColor: Color,
+    onDismiss: () -> Unit,
+    onSave: (ThemeSeedPalette) -> Unit,
+    onExport: (ThemeSeedPalette) -> Unit
+) {
+    var red by remember { mutableFloatStateOf(initialColor.red * 255f) }
+    var green by remember { mutableFloatStateOf(initialColor.green * 255f) }
+    var blue by remember { mutableFloatStateOf(initialColor.blue * 255f) }
+
+    val currentColor = Color(red / 255f, green / 255f, blue / 255f)
+    val hexString = String.format("#%06X", (0xFFFFFF and currentColor.toArgb()))
+
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val coroutineScope = rememberCoroutineScope()
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Header
+            Text(
+                text = stringResource(R.string.custom_theme),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            // Color Preview
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(100.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(currentColor)
+                    .border(2.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = hexString,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = if (currentColor.luminance() > 0.5f) Color.Black else Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            // Sliders
+            ColorSlider(label = stringResource(R.string.red_colon, red.toInt()), value = red, onValueChange = { red = it }, trackColor = Color.Red)
+            ColorSlider(label = stringResource(R.string.green_colon, green.toInt()), value = green, onValueChange = { green = it }, trackColor = Color.Green)
+            ColorSlider(label = stringResource(R.string.blue_colon, blue.toInt()), value = blue, onValueChange = { blue = it }, trackColor = Color.Blue)
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Actions: Reset, Random, Export
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                TextButton(onClick = {
+                    red = initialColor.red * 255f
+                    green = initialColor.green * 255f
+                    blue = initialColor.blue * 255f
+                }) {
+                    Text(stringResource(R.string.reset))
+                }
+                TextButton(onClick = {
+                    red = (0..255).random().toFloat()
+                    green = (0..255).random().toFloat()
+                    blue = (0..255).random().toFloat()
+                }) {
+                    Text(stringResource(R.string.random))
+                }
+                TextButton(onClick = {
+                    val palette = ThemeSeedPalette(currentColor, currentColor, currentColor, currentColor)
+                    onExport(palette)
+                }) {
+                    Text(stringResource(R.string.export))
+                }
+            }
+
+            // Save & Cancel
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            sheetState.hide()
+                        }.invokeOnCompletion {
+                            onDismiss()
+                        }
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+                Button(
+                    onClick = {
+                        coroutineScope.launch {
+                            sheetState.hide()
+                        }.invokeOnCompletion {
+                            val palette = ThemeSeedPalette(currentColor, currentColor, currentColor, currentColor)
+                            onSave(palette)
+                        }
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(stringResource(android.R.string.ok))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ColorSlider(label: String, value: Float, onValueChange: (Float) -> Unit, trackColor: Color) {
+    Column {
+        Text(text = label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = 0f..255f,
+            colors = SliderDefaults.colors(activeTrackColor = trackColor, thumbColor = trackColor)
+        )
+    }
+}
+
 @Composable
 fun PalettePickerScreen(
     navController: NavController
@@ -848,12 +994,30 @@ fun PalettePickerScreen(
         }
     }
 
+    var showCustomThemeSheet by rememberSaveable { mutableStateOf(false) }
+    var paletteToExport by remember { mutableStateOf<ThemeSeedPalette?>(null) }
+
+    if (showCustomThemeSheet) {
+        CustomThemeBottomSheet(
+            initialColor = activePalette.primary,
+            onDismiss = { showCustomThemeSheet = false },
+            onSave = { palette ->
+                onCustomThemeColorChange(ThemeSeedPaletteCodec.encodeForPreference(palette, customThemeName))
+                showCustomThemeSheet = false
+            },
+            onExport = { palette ->
+                paletteToExport = palette
+                exportLauncher.launch("custom_theme_${System.currentTimeMillis()}.json")
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.color_palette), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(
+                    AppIconButton(
                         onClick = navController::navigateUp,
                         onLongClick = navController::backToMain
                     ) {
@@ -868,7 +1032,9 @@ fun PalettePickerScreen(
                         Icon(painterResource(R.drawable.share), contentDescription = stringResource(R.string.export))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent
+                )
             )
         },
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
@@ -1416,15 +1582,13 @@ private fun ColorEditor(
                     }
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    IconButton(
-                        onClick = onRandomize,
-                        modifier = Modifier
-                            .size(48.dp)
-                            .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape)
-                    ) {
-                        Icon(painterResource(R.drawable.shuffle), contentDescription = stringResource(R.string.randomize), tint = MaterialTheme.colorScheme.onSecondaryContainer)
-                    }
+                IconButton(
+                    onClick = onRandomize,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape)
+                ) {
+                    Icon(painterResource(R.drawable.shuffle), contentDescription = stringResource(R.string.randomize), tint = MaterialTheme.colorScheme.onSecondaryContainer)
                 }
             }
 
