@@ -1290,5 +1290,10 @@
     <string name="ai_content_filter_desc">使用AiSList过滤掉AI生成的内容（翻唱、原创歌曲）。</string>
     <string name="include_moderate_confidence">包含中等置信度</string>
     <string name="include_moderate_confidence_desc">同时过滤掉被高度怀疑但并非100%确认为AI的频道。</string>
+    
+    <string name="sort_latest">最新</string>
+    <string name="sort_oldest">最旧</string>
+    <string name="sort_important_first">重要优先</string>
+    <string name="sort_prefix">排序：%1$s</string>
 
 </resources>
