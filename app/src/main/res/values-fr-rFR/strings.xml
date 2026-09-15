@@ -1289,6 +1289,10 @@
     <string name="ai_content_filter_desc">Filtre le contenu généré par l\'IA (reprises, chansons originales) à l\'aide d\'AiSList.</string>
     <string name="include_moderate_confidence">Inclure une confiance modérée</string>
     <string name="include_moderate_confidence_desc">Filtrer également les chaînes fortement suspectées mais pas confirmées à 100 % comme étant de l\'IA.</string>
-
+    
+    <string name="sort_latest">Plus récent</string>
+    <string name="sort_oldest">Plus ancien</string>
+    <string name="sort_important_first">Important d\'abord</string>
+    <string name="sort_prefix">Trier : %1$s</string>
 
 </resources>
