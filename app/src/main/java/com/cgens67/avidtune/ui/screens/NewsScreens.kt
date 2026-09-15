@@ -379,20 +379,21 @@ fun NewsScreen(
                 is NewsUiState.Empty -> NewsEmptyState(searchQuery.isNotBlank() || filterImportant, Modifier.fillMaxSize())
                 is NewsUiState.Success -> {
                     val sysTop = WindowInsets.systemBars.asPaddingValues().calculateTopPadding()
-                    val playerBottom = LocalPlayerAwareWindowInsets.current.asPaddingValues().calculateBottomPadding()
                     
                     LazyVerticalStaggeredGrid(
                         columns = StaggeredGridCells.Adaptive(320.dp),
                         state = listState,
                         contentPadding = PaddingValues(
                             top = sysTop + 90.dp, // Enough space to clear the floating header
-                            bottom = playerBottom + 32.dp, // Adapted so it doesn't get covered by the mini-player
+                            bottom = 32.dp, // Adapted so it doesn't get covered by the mini-player via windowInsetsPadding below
                             start = 16.dp, 
                             end = 16.dp
                         ),
                         verticalItemSpacing = 24.dp,
                         horizontalArrangement = Arrangement.spacedBy(24.dp),
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom))
                     ) {
                         item(span = StaggeredGridItemSpan.FullLine) {
                             Row(
@@ -537,18 +538,12 @@ fun NewsScreen(
                                 animationSpec = spring(stiffness = Spring.StiffnessMediumLow), 
                                 label = "translationY"
                             )
-                            val elevation by animateDpAsState(
-                                targetValue = if (visible) 8.dp else 0.dp,
-                                animationSpec = tween(400),
-                                label = "elevation"
-                            )
 
                             val cardModifier = Modifier
                                 .animateItem()
                                 .graphicsLayer {
                                     this.alpha = alpha
                                     this.translationY = translationY
-                                    this.shadowElevation = elevation.toPx()
                                     this.clip = false
                                 }
 
@@ -596,28 +591,27 @@ fun NewsScreen(
                                     Icon(painterResource(R.drawable.arrow_back), null)
                                 }
                                 Spacer(Modifier.width(8.dp))
-                                TextField(
+                                BasicTextField(
                                     value = searchQuery,
                                     onValueChange = { viewModel.searchQuery.value = it },
                                     textStyle = MaterialTheme.typography.titleMedium.copy(color = MaterialTheme.colorScheme.onSurface),
                                     singleLine = true,
                                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                                     keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus(); keyboardController?.hide() }),
-                                    colors = TextFieldDefaults.colors(
-                                        focusedContainerColor = Color.Transparent,
-                                        unfocusedContainerColor = Color.Transparent,
-                                        focusedIndicatorColor = Color.Transparent,
-                                        unfocusedIndicatorColor = Color.Transparent,
-                                        disabledIndicatorColor = Color.Transparent,
-                                        cursorColor = MaterialTheme.colorScheme.primary,
-                                    ),
-                                    placeholder = {
-                                        Text(
-                                            text = stringResource(R.string.search_news_placeholder), 
-                                            style = MaterialTheme.typography.titleMedium
-                                        )
-                                    },
-                                    modifier = Modifier.weight(1f).focusRequester(focusRequester)
+                                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                    modifier = Modifier.weight(1f).focusRequester(focusRequester),
+                                    decorationBox = { inner ->
+                                        Box(contentAlignment = Alignment.CenterStart, modifier = Modifier.fillMaxSize()) {
+                                            if (searchQuery.isEmpty()) {
+                                                Text(
+                                                    text = stringResource(R.string.search_news_placeholder), 
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant, 
+                                                    style = MaterialTheme.typography.titleMedium
+                                                )
+                                            }
+                                            inner()
+                                        }
+                                    }
                                 )
                                 if (searchQuery.isNotEmpty()) {
                                     AppIconButton(
@@ -678,8 +672,7 @@ fun NewsScreen(
 fun FeaturedNewsCard(item: NewsItem, onNavigate: () -> Unit, modifier: Modifier = Modifier) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
-    val pressScale by animateFloatAsState(if (isPressed) 0.95f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "pressScale")
-    
+    val scale by animateFloatAsState(if (isPressed) 0.95f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "scale")
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     
@@ -691,15 +684,15 @@ fun FeaturedNewsCard(item: NewsItem, onNavigate: () -> Unit, modifier: Modifier 
         label = "img_scale"
     )
 
-    Card(
+    ElevatedCard(
         modifier = modifier
             .fillMaxWidth()
             .aspectRatio(if (isLandscape) 2.5f else 0.8f) // Adapt height if landscape
-            .scale(pressScale)
+            .scale(scale)
             .clickable(interactionSource = interactionSource, indication = null, onClick = onNavigate),
         shape = RoundedCornerShape(32.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 8.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             if (item.imageUrls.isNotEmpty()) {
@@ -764,7 +757,7 @@ fun FeaturedNewsCard(item: NewsItem, onNavigate: () -> Unit, modifier: Modifier 
 fun EnhancedNewsCard(item: NewsItem, onNavigate: () -> Unit, modifier: Modifier = Modifier) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
-    val pressScale by animateFloatAsState(if (isPressed) 0.95f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "pressScale")
+    val scale by animateFloatAsState(if (isPressed) 0.95f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "scale")
     
     val infiniteTransition = rememberInfiniteTransition(label = "ken_burns_small")
     val imgScale by infiniteTransition.animateFloat(
@@ -773,14 +766,14 @@ fun EnhancedNewsCard(item: NewsItem, onNavigate: () -> Unit, modifier: Modifier 
         label = "img_scale2"
     )
 
-    Card(
+    ElevatedCard(
         modifier = modifier
             .fillMaxWidth()
-            .scale(pressScale)
+            .scale(scale)
             .clickable(interactionSource = interactionSource, indication = null, onClick = onNavigate),
         shape = RoundedCornerShape(24.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 8.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
     ) {
         Column {
             if (item.imageUrls.isNotEmpty()) {
@@ -868,12 +861,12 @@ fun ViewNewsScreen(
                     is ViewNewsUiState.Loading -> NewsLoadingState(Modifier.fillMaxSize())
                     is ViewNewsUiState.Error -> NewsErrorState(state.message, viewModel::loadContent, Modifier.fillMaxSize())
                     is ViewNewsUiState.Success -> {
-                        val playerBottom = LocalPlayerAwareWindowInsets.current.asPaddingValues().calculateBottomPadding()
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
+                                .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom))
                                 .verticalScroll(scrollState)
-                                .padding(bottom = playerBottom + 32.dp)
+                                .padding(bottom = 32.dp)
                         ) {
                             // Parallax Header
                             if (newsItem != null && newsItem.imageUrls.isNotEmpty()) {
