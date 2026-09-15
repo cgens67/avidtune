@@ -124,6 +124,9 @@ object ThemePalettes {
     private var lightPalettes: List<ThemePalette>? = null
     private var darkPalettes: List<ThemePalette>? = null
 
+    val Default: ThemePalette
+        get() = getPalettes(false).first()
+
     private fun generatePalette(id: String, name: String, primaryHex: Long, isDark: Boolean): ThemePalette {
         val primaryColor = Color(primaryHex)
         val scheme = SchemeTonalSpot(Hct.fromInt(primaryColor.toArgb()), isDark, 0.0)
@@ -138,7 +141,7 @@ object ThemePalettes {
         )
     }
 
-    fun getPalettes(isDark: Boolean): List<ThemePalette> {
+    fun getPalettes(isDark: Boolean = false): List<ThemePalette> {
         if (isDark && darkPalettes != null) return darkPalettes!!
         if (!isDark && lightPalettes != null) return lightPalettes!!
 
@@ -215,11 +218,11 @@ object ThemePalettes {
         return palettes
     }
 
-    fun findByPrimaryColor(colorHex: String, isDark: Boolean): ThemePalette? {
+    fun findByPrimaryColor(colorHex: String, isDark: Boolean = false): ThemePalette? {
         return getPalettes(isDark).find { it.primary.toHexString() == colorHex }
     }
 
-    fun findById(id: String, isDark: Boolean): ThemePalette? {
+    fun findById(id: String, isDark: Boolean = false): ThemePalette? {
         return getPalettes(isDark).find { it.id == id }
     }
 }
