@@ -372,191 +372,157 @@ fun NewsScreen(
         Box(modifier = Modifier.fillMaxSize()) {
             AnimatedNewsBackground()
 
-            // List Content
-            AnimatedContent(
-                targetState = uiState,
-                transitionSpec = { fadeIn(tween(400)) togetherWith fadeOut(tween(400)) },
-                modifier = Modifier.fillMaxSize(),
-                label = "content"
-            ) { state ->
-                when (state) {
-                    is NewsUiState.Loading -> NewsLoadingState(Modifier.fillMaxSize())
-                    is NewsUiState.Error -> NewsErrorState(state.message, viewModel::fetchNews, Modifier.fillMaxSize())
-                    is NewsUiState.Empty -> NewsEmptyState(searchQuery.isNotBlank() || filterImportant, Modifier.fillMaxSize())
-                    is NewsUiState.Success -> {
-                        val sysTop = WindowInsets.systemBars.asPaddingValues().calculateTopPadding()
-                        val sysBot = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-                        
-                        LazyVerticalStaggeredGrid(
-                            columns = StaggeredGridCells.Adaptive(320.dp),
-                            state = listState,
-                            contentPadding = PaddingValues(
-                                top = sysTop + 90.dp, // Enough space to clear the floating header
-                                bottom = sysBot + 120.dp,
-                                start = 16.dp, 
-                                end = 16.dp
-                            ),
-                            verticalItemSpacing = 24.dp,
-                            horizontalArrangement = Arrangement.spacedBy(24.dp),
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            item(span = StaggeredGridItemSpan.FullLine) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp, top = 4.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    // Sort Dropdown
-                                    var sortExpanded by remember { mutableStateOf(false) }
-                                    Box {
-                                        Surface(
-                                            onClick = { sortExpanded = true },
-                                            shape = RoundedCornerShape(16.dp),
-                                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
-                                        ) {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                                            ) {
-                                                Icon(
-                                                    painter = painterResource(R.drawable.list), 
-                                                    contentDescription = null, 
-                                                    modifier = Modifier.size(16.dp),
-                                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
-                                                )
-                                                Spacer(Modifier.width(8.dp))
-                                                Text(
-                                                    text = sortOption.displayName,
-                                                    style = MaterialTheme.typography.labelLarge,
-                                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                                    fontWeight = FontWeight.Medium
-                                                )
-                                                Spacer(Modifier.width(4.dp))
-                                                Icon(
-                                                    imageVector = Icons.Default.KeyboardArrowDown, 
-                                                    contentDescription = null, 
-                                                    modifier = Modifier.size(16.dp),
-                                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
-                                                )
-                                            }
-                                        }
-
-                                        MaterialTheme(shapes = MaterialTheme.shapes.copy(extraSmall = RoundedCornerShape(16.dp))) {
-                                            DropdownMenu(
-                                                expanded = sortExpanded, 
-                                                onDismissRequest = { sortExpanded = false },
-                                                modifier = Modifier.widthIn(min = 172.dp)
-                                            ) {
-                                                NewsSortOption.entries.forEach { option ->
-                                                    val isSelected = sortOption == option
-                                                    DropdownMenuItem(
-                                                        text = { 
-                                                            Text(
-                                                                text = option.displayName,
-                                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                                                color = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface
-                                                            ) 
-                                                        },
-                                                        trailingIcon = {
-                                                            Icon(
-                                                                painter = painterResource(if (isSelected) R.drawable.radio_button_checked else R.drawable.radio_button_unchecked),
-                                                                contentDescription = null,
-                                                                tint = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-                                                            )
-                                                        },
-                                                        onClick = { 
-                                                            viewModel.sortOption.value = option
-                                                            sortExpanded = false 
-                                                        },
-                                                        modifier = Modifier
-                                                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                                                            .clip(CircleShape)
-                                                            .background(if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    // Important Filter Toggle
+            // List Content (Without AnimatedContent wrapper to prevent grid destruction, resolving shadow cutoffs)
+            when (val state = uiState) {
+                is NewsUiState.Loading -> NewsLoadingState(Modifier.fillMaxSize())
+                is NewsUiState.Error -> NewsErrorState(state.message, viewModel::fetchNews, Modifier.fillMaxSize())
+                is NewsUiState.Empty -> NewsEmptyState(searchQuery.isNotBlank() || filterImportant, Modifier.fillMaxSize())
+                is NewsUiState.Success -> {
+                    val sysTop = WindowInsets.systemBars.asPaddingValues().calculateTopPadding()
+                    val playerBottom = LocalPlayerAwareWindowInsets.current.asPaddingValues().calculateBottomPadding()
+                    
+                    LazyVerticalStaggeredGrid(
+                        columns = StaggeredGridCells.Adaptive(320.dp),
+                        state = listState,
+                        contentPadding = PaddingValues(
+                            top = sysTop + 90.dp, // Enough space to clear the floating header
+                            bottom = playerBottom + 32.dp, // Adapted so it doesn't get covered by the mini-player
+                            start = 16.dp, 
+                            end = 16.dp
+                        ),
+                        verticalItemSpacing = 24.dp,
+                        horizontalArrangement = Arrangement.spacedBy(24.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        item(span = StaggeredGridItemSpan.FullLine) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp, top = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Sort Dropdown
+                                var sortExpanded by remember { mutableStateOf(false) }
+                                Box {
                                     Surface(
-                                        onClick = { viewModel.filterImportant.value = !filterImportant },
+                                        onClick = { sortExpanded = true },
                                         shape = RoundedCornerShape(16.dp),
-                                        color = if (filterImportant) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
                                     ) {
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
                                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                                         ) {
-                                            if (filterImportant) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Check,
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.onErrorContainer,
-                                                    modifier = Modifier.size(16.dp)
-                                                )
-                                            } else {
-                                                Icon(
-                                                    painter = painterResource(R.drawable.info),
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    modifier = Modifier.size(16.dp)
-                                                )
-                                            }
-                                            Spacer(Modifier.width(6.dp))
+                                            Icon(
+                                                painter = painterResource(R.drawable.list), 
+                                                contentDescription = null, 
+                                                modifier = Modifier.size(16.dp),
+                                                tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                            )
+                                            Spacer(Modifier.width(8.dp))
                                             Text(
-                                                text = stringResource(R.string.important),
+                                                text = sortOption.displayName,
                                                 style = MaterialTheme.typography.labelLarge,
-                                                color = if (filterImportant) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                color = MaterialTheme.colorScheme.onSecondaryContainer,
                                                 fontWeight = FontWeight.Medium
+                                            )
+                                            Spacer(Modifier.width(4.dp))
+                                            Icon(
+                                                imageVector = Icons.Default.KeyboardArrowDown, 
+                                                contentDescription = null, 
+                                                modifier = Modifier.size(16.dp),
+                                                tint = MaterialTheme.colorScheme.onSecondaryContainer
                                             )
                                         }
                                     }
+
+                                    MaterialTheme(shapes = MaterialTheme.shapes.copy(extraSmall = RoundedCornerShape(16.dp))) {
+                                        DropdownMenu(
+                                            expanded = sortExpanded, 
+                                            onDismissRequest = { sortExpanded = false },
+                                            modifier = Modifier.widthIn(min = 172.dp)
+                                        ) {
+                                            NewsSortOption.entries.forEach { option ->
+                                                val isSelected = sortOption == option
+                                                DropdownMenuItem(
+                                                    text = { 
+                                                        Text(
+                                                            text = option.displayName,
+                                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                            color = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface
+                                                        ) 
+                                                    },
+                                                    trailingIcon = {
+                                                        Icon(
+                                                            painter = painterResource(if (isSelected) R.drawable.radio_button_checked else R.drawable.radio_button_unchecked),
+                                                            contentDescription = null,
+                                                            tint = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                                        )
+                                                    },
+                                                    onClick = { 
+                                                        viewModel.sortOption.value = option
+                                                        sortExpanded = false 
+                                                    },
+                                                    modifier = Modifier
+                                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                                        .clip(CircleShape)
+                                                        .background(if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Important Filter Toggle
+                                Surface(
+                                    onClick = { viewModel.filterImportant.value = !filterImportant },
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = if (filterImportant) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                    ) {
+                                        if (filterImportant) {
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onErrorContainer,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        } else {
+                                            Icon(
+                                                painter = painterResource(R.drawable.info),
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            text = stringResource(R.string.important),
+                                            style = MaterialTheme.typography.labelLarge,
+                                            color = if (filterImportant) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
                                 }
                             }
+                        }
 
-                            itemsIndexed(
-                                items = state.items,
-                                key = { _, i -> i.stableKey },
-                                span = { index, _ ->
-                                    if (index == 0 && searchQuery.isBlank() && !filterImportant) StaggeredGridItemSpan.FullLine
-                                    else StaggeredGridItemSpan.SingleLane
-                                }
-                            ) { index, item ->
-                                val isInitial = remember { index < 8 }
-                                var visible by remember { mutableStateOf(!isInitial) }
-                                
-                                LaunchedEffect(Unit) { 
-                                    if (isInitial) {
-                                        delay(index * 50L) 
-                                        visible = true
-                                    }
-                                }
-                                
-                                val alpha by animateFloatAsState(
-                                    targetValue = if (visible) 1f else 0f, 
-                                    animationSpec = tween(400), 
-                                    label = "alpha"
-                                )
-                                val translationY by animateFloatAsState(
-                                    targetValue = if (visible) 0f else 50f, 
-                                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow), 
-                                    label = "translationY"
-                                )
+                        itemsIndexed(
+                            items = state.items,
+                            key = { _, i -> i.stableKey },
+                            span = { index, _ ->
+                                if (index == 0 && searchQuery.isBlank() && !filterImportant && sortOption == NewsSortOption.LATEST) StaggeredGridItemSpan.FullLine
+                                else StaggeredGridItemSpan.SingleLane
+                            }
+                        ) { index, item ->
+                            val cardModifier = Modifier.animateItem()
 
-                                val cardModifier = Modifier
-                                    .graphicsLayer {
-                                        this.alpha = alpha
-                                        this.translationY = translationY
-                                        this.clip = false
-                                    }
-                                    .animateItem()
-
-                                if (index == 0 && searchQuery.isBlank() && !filterImportant) {
-                                    FeaturedNewsCard(item, onNavigate = { navController.navigate("view_news/${Uri.encode(item.id)}") }, modifier = cardModifier)
-                                } else {
-                                    EnhancedNewsCard(item, onNavigate = { navController.navigate("view_news/${Uri.encode(item.id)}") }, modifier = cardModifier)
-                                }
+                            if (index == 0 && searchQuery.isBlank() && !filterImportant && sortOption == NewsSortOption.LATEST) {
+                                FeaturedNewsCard(item, onNavigate = { navController.navigate("view_news/${Uri.encode(item.id)}") }, modifier = cardModifier)
+                            } else {
+                                EnhancedNewsCard(item, onNavigate = { navController.navigate("view_news/${Uri.encode(item.id)}") }, modifier = cardModifier)
                             }
                         }
                     }
