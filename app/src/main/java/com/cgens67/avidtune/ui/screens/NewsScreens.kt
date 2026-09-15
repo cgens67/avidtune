@@ -393,7 +393,11 @@ fun NewsScreen(
                         horizontalArrangement = Arrangement.spacedBy(24.dp),
                         modifier = Modifier
                             .fillMaxSize()
-                            .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom))
+                            .windowInsetsPadding(
+                                LocalPlayerAwareWindowInsets.current
+                                    .only(WindowInsetsSides.Bottom)
+                                    .union(WindowInsets.ime)
+                            )
                     ) {
                         item(span = StaggeredGridItemSpan.FullLine) {
                             Row(
@@ -530,27 +534,36 @@ fun NewsScreen(
                             
                             val alpha by animateFloatAsState(
                                 targetValue = if (visible) 1f else 0f, 
-                                animationSpec = tween(400), 
+                                animationSpec = tween(350), 
                                 label = "alpha"
-                            )
-                            val translationY by animateFloatAsState(
-                                targetValue = if (visible) 0f else 50f, 
-                                animationSpec = spring(stiffness = Spring.StiffnessMediumLow), 
-                                label = "translationY"
                             )
 
                             val cardModifier = Modifier
-                                .animateItem()
+                                .animateItem(
+                                    fadeInSpec = null,
+                                    fadeOutSpec = null,
+                                )
                                 .graphicsLayer {
                                     this.alpha = alpha
-                                    this.translationY = translationY
                                     this.clip = false
                                 }
 
+                            val isFullyLoaded = visible && alpha >= 0.99f
+
                             if (index == 0 && searchQuery.isBlank() && !filterImportant && sortOption == NewsSortOption.LATEST) {
-                                FeaturedNewsCard(item, onNavigate = { navController.navigate("view_news/${Uri.encode(item.id)}") }, modifier = cardModifier)
+                                FeaturedNewsCard(
+                                    item = item, 
+                                    onNavigate = { navController.navigate("view_news/${Uri.encode(item.id)}") }, 
+                                    modifier = cardModifier,
+                                    isFullyVisible = isFullyLoaded
+                                )
                             } else {
-                                EnhancedNewsCard(item, onNavigate = { navController.navigate("view_news/${Uri.encode(item.id)}") }, modifier = cardModifier)
+                                EnhancedNewsCard(
+                                    item = item, 
+                                    onNavigate = { navController.navigate("view_news/${Uri.encode(item.id)}") }, 
+                                    modifier = cardModifier,
+                                    isFullyVisible = isFullyLoaded
+                                )
                             }
                         }
                     }
@@ -669,7 +682,12 @@ fun NewsScreen(
 // ==========================================
 
 @Composable
-fun FeaturedNewsCard(item: NewsItem, onNavigate: () -> Unit, modifier: Modifier = Modifier) {
+fun FeaturedNewsCard(
+    item: NewsItem, 
+    onNavigate: () -> Unit, 
+    modifier: Modifier = Modifier,
+    isFullyVisible: Boolean = true
+) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(if (isPressed) 0.95f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "scale")
@@ -684,6 +702,12 @@ fun FeaturedNewsCard(item: NewsItem, onNavigate: () -> Unit, modifier: Modifier 
         label = "img_scale"
     )
 
+    val cardElevation by animateDpAsState(
+        targetValue = if (isFullyVisible) 8.dp else 0.dp,
+        animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+        label = "featuredElevation"
+    )
+
     ElevatedCard(
         modifier = modifier
             .fillMaxWidth()
@@ -691,7 +715,7 @@ fun FeaturedNewsCard(item: NewsItem, onNavigate: () -> Unit, modifier: Modifier 
             .scale(scale)
             .clickable(interactionSource = interactionSource, indication = null, onClick = onNavigate),
         shape = RoundedCornerShape(32.dp),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 8.dp),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = cardElevation),
         colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -754,7 +778,12 @@ fun FeaturedNewsCard(item: NewsItem, onNavigate: () -> Unit, modifier: Modifier 
 }
 
 @Composable
-fun EnhancedNewsCard(item: NewsItem, onNavigate: () -> Unit, modifier: Modifier = Modifier) {
+fun EnhancedNewsCard(
+    item: NewsItem, 
+    onNavigate: () -> Unit, 
+    modifier: Modifier = Modifier,
+    isFullyVisible: Boolean = true
+) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(if (isPressed) 0.95f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "scale")
@@ -766,14 +795,20 @@ fun EnhancedNewsCard(item: NewsItem, onNavigate: () -> Unit, modifier: Modifier 
         label = "img_scale2"
     )
 
+    val cardElevation by animateDpAsState(
+        targetValue = if (isFullyVisible) 8.dp else 0.dp,
+        animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+        label = "enhancedElevation"
+    )
+
     ElevatedCard(
         modifier = modifier
             .fillMaxWidth()
             .scale(scale)
             .clickable(interactionSource = interactionSource, indication = null, onClick = onNavigate),
         shape = RoundedCornerShape(24.dp),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 8.dp),
-        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = cardElevation),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
     ) {
         Column {
             if (item.imageUrls.isNotEmpty()) {
