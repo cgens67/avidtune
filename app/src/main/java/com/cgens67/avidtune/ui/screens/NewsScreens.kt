@@ -130,10 +130,10 @@ object NewsImageUrlsSerializer : KSerializer<List<String>> {
     }
 }
 
-enum class NewsSortOption(val displayName: String) {
-    LATEST("Latest"),
-    OLDEST("Oldest"),
-    IMPORTANT_FIRST("Important First")
+enum class NewsSortOption(@androidx.annotation.StringRes val displayNameRes: Int) {
+    LATEST(R.string.sort_latest),
+    OLDEST(R.string.sort_oldest),
+    IMPORTANT_FIRST(R.string.sort_important_first)
 }
 
 @Singleton
@@ -372,7 +372,7 @@ fun NewsScreen(
         Box(modifier = Modifier.fillMaxSize()) {
             AnimatedNewsBackground()
 
-            // List Content (Without AnimatedContent wrapper to prevent grid destruction, resolving shadow cutoffs)
+            // List Content
             when (val state = uiState) {
                 is NewsUiState.Loading -> NewsLoadingState(Modifier.fillMaxSize())
                 is NewsUiState.Error -> NewsErrorState(state.message, viewModel::fetchNews, Modifier.fillMaxSize())
@@ -386,7 +386,7 @@ fun NewsScreen(
                         state = listState,
                         contentPadding = PaddingValues(
                             top = sysTop + 90.dp, // Enough space to clear the floating header
-                            bottom = playerBottom + 32.dp, // Adapted so it doesn't get covered by the mini-player
+                            bottom = playerBottom + 32.dp,
                             start = 16.dp, 
                             end = 16.dp
                         ),
@@ -420,7 +420,7 @@ fun NewsScreen(
                                             )
                                             Spacer(Modifier.width(8.dp))
                                             Text(
-                                                text = sortOption.displayName,
+                                                text = stringResource(R.string.sort_prefix, stringResource(sortOption.displayNameRes)),
                                                 style = MaterialTheme.typography.labelLarge,
                                                 color = MaterialTheme.colorScheme.onSecondaryContainer,
                                                 fontWeight = FontWeight.Medium
@@ -446,7 +446,7 @@ fun NewsScreen(
                                                 DropdownMenuItem(
                                                     text = { 
                                                         Text(
-                                                            text = option.displayName,
+                                                            text = stringResource(option.displayNameRes),
                                                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                                             color = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface
                                                         ) 
@@ -517,7 +517,34 @@ fun NewsScreen(
                                 else StaggeredGridItemSpan.SingleLane
                             }
                         ) { index, item ->
-                            val cardModifier = Modifier.animateItem()
+                            val isInitial = remember { index < 8 }
+                            var visible by remember { mutableStateOf(!isInitial) }
+                            
+                            LaunchedEffect(Unit) { 
+                                if (isInitial) {
+                                    delay(index * 50L) 
+                                    visible = true
+                                }
+                            }
+                            
+                            val alpha by animateFloatAsState(
+                                targetValue = if (visible) 1f else 0f, 
+                                animationSpec = tween(400), 
+                                label = "alpha"
+                            )
+                            val translationY by animateFloatAsState(
+                                targetValue = if (visible) 0f else 50f, 
+                                animationSpec = spring(stiffness = Spring.StiffnessMediumLow), 
+                                label = "translationY"
+                            )
+
+                            val cardModifier = Modifier
+                                .graphicsLayer {
+                                    this.alpha = alpha
+                                    this.translationY = translationY
+                                    this.clip = false
+                                }
+                                .animateItem()
 
                             if (index == 0 && searchQuery.isBlank() && !filterImportant && sortOption == NewsSortOption.LATEST) {
                                 FeaturedNewsCard(item, onNavigate = { navController.navigate("view_news/${Uri.encode(item.id)}") }, modifier = cardModifier)
@@ -837,7 +864,7 @@ fun ViewNewsScreen(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .verticalScroll(scrollState)
-                                .windowInsetsPadding(WindowInsets.navigationBars)
+                                .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom))
                                 .padding(bottom = 32.dp)
                         ) {
                             // Parallax Header
