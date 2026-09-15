@@ -372,7 +372,7 @@ fun NewsScreen(
         Box(modifier = Modifier.fillMaxSize()) {
             AnimatedNewsBackground()
 
-            // List Content
+            // List Content (Without AnimatedContent wrapper to prevent grid destruction, resolving shadow cutoffs)
             when (val state = uiState) {
                 is NewsUiState.Loading -> NewsLoadingState(Modifier.fillMaxSize())
                 is NewsUiState.Error -> NewsErrorState(state.message, viewModel::fetchNews, Modifier.fillMaxSize())
@@ -386,7 +386,7 @@ fun NewsScreen(
                         state = listState,
                         contentPadding = PaddingValues(
                             top = sysTop + 90.dp, // Enough space to clear the floating header
-                            bottom = playerBottom + 32.dp,
+                            bottom = playerBottom + 32.dp, // Adapted so it doesn't get covered by the mini-player
                             start = 16.dp, 
                             end = 16.dp
                         ),
@@ -539,12 +539,13 @@ fun NewsScreen(
                             )
 
                             val cardModifier = Modifier
+                                .animateItem()
                                 .graphicsLayer {
                                     this.alpha = alpha
                                     this.translationY = translationY
                                     this.clip = false
+                                    this.compositingStrategy = CompositingStrategy.ModulateAlpha
                                 }
-                                .animateItem()
 
                             if (index == 0 && searchQuery.isBlank() && !filterImportant && sortOption == NewsSortOption.LATEST) {
                                 FeaturedNewsCard(item, onNavigate = { navController.navigate("view_news/${Uri.encode(item.id)}") }, modifier = cardModifier)
@@ -860,12 +861,12 @@ fun ViewNewsScreen(
                     is ViewNewsUiState.Loading -> NewsLoadingState(Modifier.fillMaxSize())
                     is ViewNewsUiState.Error -> NewsErrorState(state.message, viewModel::loadContent, Modifier.fillMaxSize())
                     is ViewNewsUiState.Success -> {
+                        val playerBottom = LocalPlayerAwareWindowInsets.current.asPaddingValues().calculateBottomPadding()
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .verticalScroll(scrollState)
-                                .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom))
-                                .padding(bottom = 32.dp)
+                                .padding(bottom = playerBottom + 32.dp)
                         ) {
                             // Parallax Header
                             if (newsItem != null && newsItem.imageUrls.isNotEmpty()) {
