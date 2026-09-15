@@ -1,6 +1,8 @@
 @file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 package com.cgens67.avidtune.ui.screens.settings
 
+import android.content.Context
+import android.content.res.Configuration
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -24,6 +26,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -45,7 +48,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -82,6 +84,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -93,7 +96,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
 import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.CustomThemeColorKey
@@ -384,15 +386,15 @@ fun PalettePickerScreen(
         defaultValue = "default"
     )
 
-    val customThemeName = stringResource(R.string.custom_theme)
+    val customThemeDefaultName = stringResource(R.string.custom_theme)
     val isDarkTheme = isSystemInDarkTheme()
 
     // Retrieve the saved seed color based on current preferences.
-    val selectedPalette = remember(customThemeColor, customThemeName, isDarkTheme) {
+    val selectedPalette = remember(customThemeColor, customThemeDefaultName, isDarkTheme) {
         val custom = ThemeSeedPaletteCodec.decodeFromPreference(customThemeColor)
             ?.let { ThemePalette(
                 id = "custom_seed",
-                name = customThemeName,
+                name = customThemeDefaultName,
                 primary = it.primary,
                 secondary = it.secondary,
                 tertiary = it.tertiary,
@@ -442,7 +444,7 @@ fun PalettePickerScreen(
                         tertiary = Color(scheme.tertiary),
                         neutral = Color(scheme.surfaceVariant)
                     )
-                    val json = ThemeSeedPaletteCodec.encodeForPreference(p, customThemeName)
+                    val json = ThemeSeedPaletteCodec.encodeForPreference(p, customThemeDefaultName)
                     outputStream.write(json.toByteArray())
                 }
                 withContext(Dispatchers.Main) { Toast.makeText(context, "Theme exported successfully", Toast.LENGTH_SHORT).show() }
@@ -460,7 +462,7 @@ fun PalettePickerScreen(
             }
             val imported = ThemeSeedPaletteCodec.decodeFromJson(text)
             if (imported != null) {
-                val extractedName = ThemeSeedPaletteCodec.extractNameFromJsonOrNull(text) ?: customThemeName
+                val extractedName = ThemeSeedPaletteCodec.extractNameFromJsonOrNull(text) ?: customThemeDefaultName
                 onCustomThemeColorChange(ThemeSeedPaletteCodec.encodeForPreference(imported, extractedName))
                 Toast.makeText(context, context.getString(R.string.theme_imported_successfully), Toast.LENGTH_SHORT).show()
             } else {
@@ -477,7 +479,7 @@ fun PalettePickerScreen(
             initialColor = activePalette.primary,
             onDismiss = { showCustomThemeSheet = false },
             onSave = { palette ->
-                onCustomThemeColorChange(ThemeSeedPaletteCodec.encodeForPreference(palette, customThemeName))
+                onCustomThemeColorChange(ThemeSeedPaletteCodec.encodeForPreference(palette, customThemeDefaultName))
                 showCustomThemeSheet = false
             },
             onExport = { palette ->
@@ -514,101 +516,174 @@ fun PalettePickerScreen(
         },
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom))
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Spacer(modifier = Modifier.height(16.dp))
 
-            ThemePreviewCard(
-                palette = activePalette,
-                isDarkTheme = isDarkTheme,
-                modifier = Modifier.padding(horizontal = 24.dp)
-            )
+        val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // PRESETS SECTION
-            Text(
-                text = stringResource(R.string.presets),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
+        if (isLandscape) {
+            Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 8.dp)
-            )
-
-            ColorPaletteSelector(
-                palettes = ThemePalettes.getPalettes(isDarkTheme),
-                selectedPalette = activePalette,
-                onPaletteSelected = { palette ->
-                    onCustomThemeColorChange(palette.id)
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // CUSTOM THEME SECTION
-            Text(
-                text = stringResource(R.string.custom_theme),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 8.dp)
-            )
-
-            Text(
-                text = stringResource(R.string.theme_creator_description),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            val isCustomMode = customThemeColor.startsWith("{")
-            val isApplyEnabled = editorColor != savedPrimaryColor || !isCustomMode
-
-            ColorEditor(
-                color = editorColor,
-                onColorChange = { newSeed ->
-                    editorColor = newSeed
-                },
-                onRandomize = {
-                    val newSeed = Color(
-                        red = (0..255).random() / 255f,
-                        green = (0..255).random() / 255f,
-                        blue = (0..255).random() / 255f
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom)),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Left Side: Theme Preview
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 24.dp, end = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    ThemePreviewCard(
+                        palette = activePalette,
+                        isDarkTheme = isDarkTheme,
+                        modifier = Modifier.fillMaxWidth()
                     )
-                    editorColor = newSeed
-                },
-                onApply = {
-                    val scheme = SchemeTonalSpot(Hct.fromInt(editorColor.toArgb()), isDarkTheme, 0.0)
-                    val palette = ThemeSeedPalette(
-                        primary = editorColor,
-                        secondary = Color(scheme.secondary),
-                        tertiary = Color(scheme.tertiary),
-                        neutral = Color(scheme.surfaceVariant)
-                    )
-                    onCustomThemeColorChange(ThemeSeedPaletteCodec.encodeForPreference(palette, customThemeName))
-                    Toast.makeText(context, context.getString(R.string.theme_saved), Toast.LENGTH_SHORT).show()
-                },
-                isApplyEnabled = isApplyEnabled
-            )
+                }
 
-            Spacer(modifier = Modifier.height(32.dp))
+                // Right Side: Controls
+                Column(
+                    modifier = Modifier
+                        .weight(1.2f)
+                        .fillMaxHeight()
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    PickerControls(
+                        isDarkTheme = isDarkTheme,
+                        activePalette = activePalette,
+                        onCustomThemeColorChange = onCustomThemeColorChange,
+                        customThemeColor = customThemeColor,
+                        editorColor = editorColor,
+                        savedPrimaryColor = savedPrimaryColor,
+                        onEditorColorChange = { editorColor = it },
+                        customThemeName = customThemeDefaultName,
+                        context = context
+                    )
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom))
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Spacer(modifier = Modifier.height(16.dp))
+
+                ThemePreviewCard(
+                    palette = activePalette,
+                    isDarkTheme = isDarkTheme,
+                    modifier = Modifier.padding(horizontal = 24.dp)
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                PickerControls(
+                    isDarkTheme = isDarkTheme,
+                    activePalette = activePalette,
+                    onCustomThemeColorChange = onCustomThemeColorChange,
+                    customThemeColor = customThemeColor,
+                    editorColor = editorColor,
+                    savedPrimaryColor = savedPrimaryColor,
+                    onEditorColorChange = { editorColor = it },
+                    customThemeName = customThemeDefaultName,
+                    context = context
+                )
+            }
         }
     }
+}
+
+@Composable
+private fun PickerControls(
+    isDarkTheme: Boolean,
+    activePalette: ThemePalette,
+    onCustomThemeColorChange: (String) -> Unit,
+    customThemeColor: String,
+    editorColor: Color,
+    savedPrimaryColor: Color,
+    onEditorColorChange: (Color) -> Unit,
+    customThemeName: String,
+    context: Context
+) {
+    // PRESETS SECTION
+    Text(
+        text = stringResource(R.string.presets),
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 8.dp)
+    )
+
+    ColorPaletteSelector(
+        palettes = ThemePalettes.getPalettes(isDarkTheme),
+        selectedPalette = activePalette,
+        onPaletteSelected = { palette ->
+            onCustomThemeColorChange(palette.id)
+        },
+        modifier = Modifier.fillMaxWidth()
+    )
+
+    Spacer(modifier = Modifier.height(32.dp))
+
+    // CUSTOM THEME SECTION
+    Text(
+        text = stringResource(R.string.custom_theme),
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 8.dp)
+    )
+
+    Text(
+        text = stringResource(R.string.theme_creator_description),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
+    )
+
+    Spacer(modifier = Modifier.height(16.dp))
+
+    val isCustomMode = customThemeColor.startsWith("{")
+    val isApplyEnabled = editorColor != savedPrimaryColor || !isCustomMode
+
+    ColorEditor(
+        color = editorColor,
+        onColorChange = onEditorColorChange,
+        onRandomize = {
+            val newSeed = Color(
+                red = (0..255).random() / 255f,
+                green = (0..255).random() / 255f,
+                blue = (0..255).random() / 255f
+            )
+            onEditorColorChange(newSeed)
+        },
+        onApply = {
+            val scheme = SchemeTonalSpot(Hct.fromInt(editorColor.toArgb()), isDarkTheme, 0.0)
+            val palette = ThemeSeedPalette(
+                primary = editorColor,
+                secondary = Color(scheme.secondary),
+                tertiary = Color(scheme.tertiary),
+                neutral = Color(scheme.surfaceVariant)
+            )
+            onCustomThemeColorChange(ThemeSeedPaletteCodec.encodeForPreference(palette, customThemeName))
+            Toast.makeText(context, context.getString(R.string.theme_saved), Toast.LENGTH_SHORT).show()
+        },
+        isApplyEnabled = isApplyEnabled
+    )
+
+    Spacer(modifier = Modifier.height(32.dp))
 }
 
 @Composable
@@ -617,6 +692,9 @@ private fun ThemePreviewCard(
     isDarkTheme: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val cardHeight = if (isLandscape) 240.dp else 280.dp
+
     val animatedPrimary by animateColorAsState(
         targetValue = palette.primary,
         animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing),
@@ -647,7 +725,7 @@ private fun ThemePreviewCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .height(280.dp)
+            .height(cardHeight)
             .shadow(16.dp, RoundedCornerShape(24.dp)),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
@@ -683,8 +761,8 @@ private fun ThemePreviewCard(
                 ) {
                     Card(
                         modifier = Modifier
-                            .width(140.dp)
-                            .height(100.dp),
+                            .width(if (isLandscape) 120.dp else 140.dp)
+                            .height(if (isLandscape) 80.dp else 100.dp),
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = animatedPrimary.copy(alpha = 0.15f)
@@ -698,7 +776,7 @@ private fun ThemePreviewCard(
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(40.dp)
+                                    .size(if (isLandscape) 32.dp else 40.dp)
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(
                                         Brush.linearGradient(
@@ -726,7 +804,7 @@ private fun ThemePreviewCard(
                     }
                     Box(
                         modifier = Modifier
-                            .size(56.dp)
+                            .size(if (isLandscape) 48.dp else 56.dp)
                             .shadow(8.dp, CircleShape)
                             .clip(CircleShape)
                             .background(animatedPrimary),
@@ -736,7 +814,7 @@ private fun ThemePreviewCard(
                             painter = painterResource(R.drawable.play),
                             contentDescription = null,
                             tint = palette.onPrimary,
-                            modifier = Modifier.size(28.dp)
+                            modifier = Modifier.size(if (isLandscape) 24.dp else 28.dp)
                         )
                     }
                 }
@@ -744,10 +822,11 @@ private fun ThemePreviewCard(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center
                 ) {
+                    val dotsSizes = if (isLandscape) listOf(40.dp, 30.dp, 22.dp) else listOf(48.dp, 36.dp, 28.dp)
                     listOf(
-                        animatedPrimary to 48.dp,
-                        animatedSecondary to 36.dp,
-                        animatedTertiary to 28.dp
+                        animatedPrimary to dotsSizes[0],
+                        animatedSecondary to dotsSizes[1],
+                        animatedTertiary to dotsSizes[2]
                     ).forEachIndexed { index, (color, size) ->
                         Box(
                             modifier = Modifier
@@ -767,8 +846,8 @@ private fun ThemePreviewCard(
                     listOf(animatedPrimary, animatedSecondary, animatedNeutral).forEach { color ->
                         Box(
                             modifier = Modifier
-                                .height(32.dp)
-                                .width(72.dp)
+                                .height(if (isLandscape) 28.dp else 32.dp)
+                                .width(if (isLandscape) 64.dp else 72.dp)
                                 .clip(RoundedCornerShape(16.dp))
                                 .background(color.copy(alpha = 0.2f))
                                 .border(1.dp, color.copy(alpha = 0.5f), RoundedCornerShape(16.dp)),
