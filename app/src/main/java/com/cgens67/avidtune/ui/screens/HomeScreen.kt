@@ -127,6 +127,9 @@ import com.cgens67.avidtune.constants.GridThumbnailHeight
 import com.cgens67.avidtune.constants.InnerTubeCookieKey
 import com.cgens67.avidtune.constants.ListItemHeight
 import com.cgens67.avidtune.constants.ListThumbnailSize
+import com.cgens67.avidtune.constants.PlayerBackgroundStyleKey
+import com.cgens67.avidtune.constants.PureBlackKey
+import com.cgens67.avidtune.constants.SwipeThumbnailKey
 import com.cgens67.avidtune.constants.ThumbnailCornerRadius
 import com.cgens67.avidtune.db.entities.Album
 import com.cgens67.avidtune.db.entities.Artist

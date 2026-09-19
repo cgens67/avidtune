@@ -1,5 +1,8 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.cgens67.avidtune.ui.screens.settings
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -78,6 +81,8 @@ import com.cgens67.avidtune.constants.QuickPicks
 import com.cgens67.avidtune.constants.QuickPicksKey
 import com.cgens67.avidtune.constants.SYSTEM_DEFAULT
 import com.cgens67.avidtune.constants.TopSize
+import com.cgens67.avidtune.constants.AiContentFilterEnabledKey
+import com.cgens67.avidtune.constants.AiContentFilterIncludeModerateKey
 import com.cgens67.avidtune.ui.component.EditTextPreference
 import com.cgens67.avidtune.ui.component.ListPreference
 import com.cgens67.avidtune.ui.component.PreferenceEntry
@@ -176,6 +181,15 @@ fun ContentSettings(
         defaultValue = true
     )
 
+    val (aiContentFilterEnabled, onAiContentFilterEnabledChange) = rememberPreference(
+        key = AiContentFilterEnabledKey,
+        defaultValue = false
+    )
+    val (aiContentFilterIncludeModerate, onAiContentFilterIncludeModerateChange) = rememberPreference(
+        key = AiContentFilterIncludeModerateKey,
+        defaultValue = false
+    )
+
     val defaultOrder = listOf("AvidLyrics", "LyricsPlus", "Paxsenix", "BetterLyrics", "SimpMusic", "LrcLib", "Kugou", "NetEase", "Genius", "YouTube Subtitle", "YouTube Music")
     val (providerOrderStr, onProviderOrderChange) = rememberPreference(LyricsProviderOrderKey, defaultOrder.joinToString(","))
     val currentOrder = remember(providerOrderStr) {
@@ -244,6 +258,36 @@ fun ContentSettings(
                 )},
 
                 {NotificationPermissionPreference()},
+            )
+        )
+        
+        // AI Content Filter settings
+        SettingsGeneralCategory(
+            title = stringResource(R.string.ai_content_filter),
+            items = listOf(
+                {SwitchPreference(
+                    title = { Text(stringResource(R.string.enable_ai_content_filter)) },
+                    description = stringResource(R.string.ai_content_filter_desc),
+                    icon = { Icon(painterResource(R.drawable.security), null) },
+                    checked = aiContentFilterEnabled,
+                    onCheckedChange = onAiContentFilterEnabledChange,
+                )},
+                {AnimatedVisibility(visible = aiContentFilterEnabled) {
+                    Column {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 76.dp, end = 20.dp),
+                            thickness = 0.5.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        )
+                        SwitchPreference(
+                            title = { Text(stringResource(R.string.include_moderate_confidence)) },
+                            description = stringResource(R.string.include_moderate_confidence_desc),
+                            icon = { Icon(painterResource(R.drawable.info), null) },
+                            checked = aiContentFilterIncludeModerate,
+                            onCheckedChange = onAiContentFilterIncludeModerateChange,
+                        )
+                    }
+                }}
             )
         )
 

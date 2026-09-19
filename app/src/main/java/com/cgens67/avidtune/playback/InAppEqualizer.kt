@@ -91,17 +91,72 @@ class BiquadFilter(sr:Int,fq:Double,g:Double,q:Double=1.41,type:FilterType=Filte
 
 @UnstableApi class CustomEqualizerAudioProcessor:AudioProcessor{
     private var sr=0;private var ch=0;private var enc=C.ENCODING_INVALID;private var act=false;private var en=false;private var end=false
-    private var oB=ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder());private var f=emptyList<BiquadFilter>();private var pA=1.0;private var pEq:ParametricEQ?=null
+    private var buffer=AudioProcessor.EMPTY_BUFFER
+    private var outputBuffer=AudioProcessor.EMPTY_BUFFER
+    private var f=emptyList<BiquadFilter>();private var pA=1.0;private var pEq:ParametricEQ?=null
     @Synchronized fun apply(p:ParametricEQ){if(sr==0){pEq=p;return};pA=10.0.pow(p.preamp/20.0);f=p.bands.filter{it.enabled&&it.frequency<sr/2.0}.map{BiquadFilter(sr,it.frequency,it.gain,it.q,it.filterType)};en=true;f.forEach{it.rst()}}
     @Synchronized fun disable(){en=false;f=emptyList();pA=1.0;pEq=null};fun isEnabled()=en
-    override fun configure(a:AudioProcessor.AudioFormat):AudioProcessor.AudioFormat{sr=a.sampleRate;ch=a.channelCount;enc=a.encoding;pEq?.let{apply(it);pEq=null};if(enc!=C.ENCODING_PCM_16BIT||ch>2)throw AudioProcessor.UnhandledAudioFormatException(a);act=true;return a}
-    override fun isActive()=act;override fun getOutput()=oB.also{oB=ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder())}
-    override fun queueInput(i:ByteBuffer){val rm=i.remaining();if(rm==0)return;if(oB.capacity()<rm)oB=ByteBuffer.allocateDirect(rm).order(ByteOrder.nativeOrder())else oB.clear();if(!en||f.isEmpty()){oB.put(i).flip();return}
-        repeat(rm/2/ch){if(ch==1){var s=i.short.toDouble()/32768.0;f.forEach{s=it.p(s)};oB.putShort(((s*pA)*32768.0).coerceIn(-32768.0,32767.0).toInt().toShort())}else{var l=i.short.toDouble()/32768.0;var r=i.short.toDouble()/32768.0;f.forEach{val(pl,pr)=it.pS(l,r);l=pl;r=pr}
-            oB.putShort(((l*pA)*32768.0).coerceIn(-32768.0,32767.0).toInt().toShort());oB.putShort(((r*pA)*32768.0).coerceIn(-32768.0,32767.0).toInt().toShort())}};oB.flip()}
-    override fun isEnded()=end&&oB.remaining()==0;override fun queueEndOfStream(){end=true}
-    override fun flush(){oB=ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder());end=false;f.forEach{it.rst()}}
-    override fun reset(){flush();sr=0;ch=0;enc=C.ENCODING_INVALID;act=false}
+    override fun configure(a:AudioProcessor.AudioFormat):AudioProcessor.AudioFormat{sr=a.sampleRate;ch=a.channelCount;enc=a.encoding;pEq?.let{apply(it);pEq=null};if(enc!=C.ENCODING_PCM_16BIT||ch==0||ch>2)throw AudioProcessor.UnhandledAudioFormatException(a);act=true;return a}
+    override fun isActive()=act
+    override fun getOutput(): ByteBuffer {
+        val result = outputBuffer
+        outputBuffer = AudioProcessor.EMPTY_BUFFER
+        return result
+    }
+    override fun queueInput(i:ByteBuffer){
+        val originalRemaining = i.remaining()
+        var rm = originalRemaining
+        if(rm==0)return
+        val frameSize = ch * 2
+        rm -= rm % frameSize
+        
+        if(buffer.capacity()<rm){
+            buffer=ByteBuffer.allocateDirect(rm).order(ByteOrder.nativeOrder())
+        }else {
+            buffer.clear()
+        }
+        
+        if(!en||f.isEmpty()){
+            val oldLimit = i.limit()
+            i.limit(i.position() + rm)
+            buffer.put(i)
+            i.limit(oldLimit)
+            i.position(i.limit()) // discard any incomplete frame remainder
+            buffer.flip()
+            outputBuffer = buffer
+            return
+        }
+        
+        val frames = rm / frameSize
+        repeat(frames){
+            if(ch==1){
+                var s=i.short.toDouble()/32768.0
+                f.forEach{s=it.p(s)}
+                buffer.putShort(((s*pA)*32768.0).coerceIn(-32768.0,32767.0).toInt().toShort())
+            }else{
+                var l=i.short.toDouble()/32768.0
+                var r=i.short.toDouble()/32768.0
+                f.forEach{val(pl,pr)=it.pS(l,r);l=pl;r=pr}
+                buffer.putShort(((l*pA)*32768.0).coerceIn(-32768.0,32767.0).toInt().toShort())
+                buffer.putShort(((r*pA)*32768.0).coerceIn(-32768.0,32767.0).toInt().toShort())
+            }
+        }
+        i.position(i.limit()) // discard any incomplete frame remainder
+        buffer.flip()
+        outputBuffer = buffer
+    }
+    override fun isEnded()=end&&outputBuffer===AudioProcessor.EMPTY_BUFFER
+    override fun queueEndOfStream(){end=true}
+    override fun flush(){
+        outputBuffer=AudioProcessor.EMPTY_BUFFER
+        end=false
+        f.forEach{it.rst()}
+    }
+    override fun reset(){
+        flush()
+        buffer=AudioProcessor.EMPTY_BUFFER
+        sr=0;ch=0;enc=C.ENCODING_INVALID;act=false
+    }
 }
 
 @Singleton class EqualizerService @Inject constructor(){

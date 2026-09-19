@@ -324,13 +324,14 @@ fun LyricsMenu(
 
                 TextButton(
                     onClick = {
+                        showSearchDialog = false
+                        showSearchResultDialog = true
                         viewModel.search(
                             searchMediaMetadata.id,
                             titleField.text,
                             artistField.text,
                             searchMediaMetadata.duration
                         )
-                        showSearchResultDialog = true
                     },
                 ) {
                     Text(stringResource(android.R.string.ok))
@@ -364,9 +365,15 @@ fun LyricsMenu(
         }
 
         ListDialog(
-            onDismiss = { showSearchResultDialog = false },
+            onDismiss = { 
+                viewModel.cancelSearch()
+                showSearchResultDialog = false 
+            },
         ) {
-            itemsIndexed(results) { index, result ->
+            itemsIndexed(
+                items = results,
+                key = { index, result -> "${result.providerName}_${index}_${result.lyrics.hashCode()}" }
+            ) { index, result ->
                 Row(
                     modifier =
                         Modifier
@@ -437,7 +444,7 @@ fun LyricsMenu(
             }
 
             if (isLoading) {
-                item {
+                item(key = "search_loading") {
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier.fillMaxWidth(),
@@ -448,13 +455,13 @@ fun LyricsMenu(
             }
 
             if (!isLoading && results.isEmpty()) {
-                item {
+                item(key = "search_empty") {
                     Text(
                         text = context.getString(R.string.lyrics_not_found),
                         textAlign = TextAlign.Center,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp),
                     )
                 }
             }

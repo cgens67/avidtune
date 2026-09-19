@@ -6,10 +6,10 @@ import com.cgens67.avidtune.constants.LyricsProviderOrderKey
 import com.cgens67.avidtune.db.entities.LyricsEntity.Companion.LYRICS_NOT_FOUND
 import com.cgens67.avidtune.models.MediaMetadata
 import com.cgens67.avidtune.utils.dataStore
-import com.cgens67.avidtune.utils.reportException
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
+import timber.log.Timber
+import java.util.Collections
 import javax.inject.Inject
 
 class LyricsHelper
@@ -55,19 +55,23 @@ constructor(
         
         lyricsProviders.forEach { provider ->
             if (provider.isEnabled(context)) {
-                provider
-                    .getLyrics(
-                        mediaMetadata.id,
-                        mediaMetadata.title,
-                        mediaMetadata.artists.joinToString { it.name },
-                        mediaMetadata.duration,
-                    ).onSuccess { lyrics ->
-                        if (lyrics.isNotBlank() && lyrics != LYRICS_NOT_FOUND) {
-                            return LyricsResult(provider.name, lyrics)
+                try {
+                    provider
+                        .getLyrics(
+                            mediaMetadata.id,
+                            mediaMetadata.title,
+                            mediaMetadata.artists.joinToString { it.name },
+                            mediaMetadata.duration,
+                        ).onSuccess { lyrics ->
+                            if (lyrics.isNotBlank() && lyrics != LYRICS_NOT_FOUND) {
+                                return LyricsResult(provider.name, lyrics)
+                            }
+                        }.onFailure {
+                            // Suppress failure and continue to the next provider
                         }
-                    }.onFailure {
-                        // Suppress failure and continue to the next provider
-                    }
+                } catch (e: Throwable) {
+                    Timber.e(e, "Error fetching lyrics from ${provider.name}")
+                }
             }
         }
         return LyricsResult("Unknown", LYRICS_NOT_FOUND)
@@ -89,18 +93,24 @@ constructor(
         }
         
         val lyricsProviders = getOrderedProviders()
-        val allResult = mutableListOf<LyricsResult>()
+        val allResult = Collections.synchronizedList(mutableListOf<LyricsResult>())
         
         lyricsProviders.forEach { provider ->
             if (provider.isEnabled(context)) {
-                provider.getAllLyrics(mediaId, songTitle, songArtists, duration) { lyrics ->
-                    val result = LyricsResult(provider.name, lyrics)
-                    allResult += result
-                    callback(result)
+                try {
+                    provider.getAllLyrics(mediaId, songTitle, songArtists, duration) { lyrics ->
+                        if (lyrics.isNotBlank() && lyrics != LYRICS_NOT_FOUND) {
+                            val result = LyricsResult(provider.name, lyrics)
+                            allResult += result
+                            callback(result)
+                        }
+                    }
+                } catch (e: Throwable) {
+                    Timber.e(e, "Error fetching all lyrics from ${provider.name}")
                 }
             }
         }
-        cache.put(cacheKey, allResult)
+        cache.put(cacheKey, synchronized(allResult) { allResult.toList() })
     }
 
     companion object {

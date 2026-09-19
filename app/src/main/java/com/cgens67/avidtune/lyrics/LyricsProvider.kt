@@ -1,6 +1,7 @@
 package com.cgens67.avidtune.lyrics
 
 import android.content.Context
+import timber.log.Timber
 
 interface LyricsProvider {
     val name: String
@@ -21,6 +22,14 @@ interface LyricsProvider {
         duration: Int,
         callback: (String) -> Unit,
     ) {
-        getLyrics(id, title, artist, duration).onSuccess(callback)
+        try {
+            getLyrics(id, title, artist, duration).onSuccess { lyrics ->
+                if (lyrics.isNotBlank() && lyrics != com.cgens67.avidtune.db.entities.LyricsEntity.LYRICS_NOT_FOUND) {
+                    callback(lyrics)
+                }
+            }
+        } catch (e: Throwable) {
+            Timber.e(e, "Error in getAllLyrics for $name")
+        }
     }
 }

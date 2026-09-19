@@ -1,5 +1,8 @@
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 package com.cgens67.avidtune.ui.screens.settings
 
+import android.content.Context
+import android.content.res.Configuration
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -21,12 +24,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -41,9 +46,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -73,13 +80,20 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -87,15 +101,19 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
 import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.CustomThemeColorKey
-import com.cgens67.avidtune.ui.component.IconButton
+import com.cgens67.avidtune.constants.DarkModeKey
+import com.cgens67.avidtune.ui.component.IconButton as AppIconButton
+import com.cgens67.avidtune.ui.theme.DefaultThemeColor
 import com.cgens67.avidtune.ui.theme.ThemeSeedPalette
 import com.cgens67.avidtune.ui.theme.ThemeSeedPaletteCodec
 import com.cgens67.avidtune.ui.utils.backToMain
+import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
+import com.google.material.color.hct.Hct
+import com.google.material.color.scheme.SchemeTonalSpot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -112,654 +130,109 @@ data class ThemePalette(
 
 object ThemePalettes {
 
-    // ===== Classic & Default =====
-    val Default = ThemePalette(
-        id = "default",
-        name = "Default",
-        primary = Color(0xFFED5564),
-        secondary = Color(0xFFED5564),
-        tertiary = Color(0xFFED5564),
-        neutral = Color(0xFFED5564)
-    )
-
-    // ===== Blues =====
-    val OceanBlue = ThemePalette(
-        id = "ocean_blue",
-        name = "Ocean Blue",
-        primary = Color(0xFF4A90D9),
-        secondary = Color(0xFF4A90D9),
-        tertiary = Color(0xFF4A90D9),
-        neutral = Color(0xFF4A90D9)
-    )
-
-    val ArcticBlue = ThemePalette(
-        id = "arctic_blue",
-        name = "Arctic Blue",
-        primary = Color(0xFF00BFFF),
-        secondary = Color(0xFF00BFFF),
-        tertiary = Color(0xFF00BFFF),
-        neutral = Color(0xFF00BFFF)
-    )
-
-    val MidnightNavy = ThemePalette(
-        id = "midnight_navy",
-        name = "Midnight Navy",
-        primary = Color(0xFF2C3E50),
-        secondary = Color(0xFF2C3E50),
-        tertiary = Color(0xFF2C3E50),
-        neutral = Color(0xFF2C3E50)
-    )
-
-    val SkyBlue = ThemePalette(
-        id = "sky_blue",
-        name = "Sky Blue",
-        primary = Color(0xFF87CEEB),
-        secondary = Color(0xFF87CEEB),
-        tertiary = Color(0xFF87CEEB),
-        neutral = Color(0xFF87CEEB)
-    )
-
-    val CobaltBlue = ThemePalette(
-        id = "cobalt_blue",
-        name = "Cobalt Blue",
-        primary = Color(0xFF0047AB),
-        secondary = Color(0xFF0047AB),
-        tertiary = Color(0xFF0047AB),
-        neutral = Color(0xFF0047AB)
-    )
-
-    val ElectricBlue = ThemePalette(
-        id = "electric_blue",
-        name = "Electric Blue",
-        primary = Color(0xFF7DF9FF),
-        secondary = Color(0xFF7DF9FF),
-        tertiary = Color(0xFF7DF9FF),
-        neutral = Color(0xFF7DF9FF)
-    )
-
-    // ===== Greens =====
-    val EmeraldGreen = ThemePalette(
-        id = "emerald_green",
-        name = "Emerald Green",
-        primary = Color(0xFF2ECC71),
-        secondary = Color(0xFF2ECC71),
-        tertiary = Color(0xFF2ECC71),
-        neutral = Color(0xFF2ECC71)
-    )
-
-    val TealWave = ThemePalette(
-        id = "teal_wave",
-        name = "Teal Wave",
-        primary = Color(0xFF1ABC9C),
-        secondary = Color(0xFF1ABC9C),
-        tertiary = Color(0xFF1ABC9C),
-        neutral = Color(0xFF1ABC9C)
-    )
-
-    val ForestGreen = ThemePalette(
-        id = "forest_green",
-        name = "Forest Green",
-        primary = Color(0xFF228B22),
-        secondary = Color(0xFF228B22),
-        tertiary = Color(0xFF228B22),
-        neutral = Color(0xFF228B22)
-    )
-
-    val SpotifyGreen = ThemePalette(
-        id = "spotify_green",
-        name = "Spotify Green",
-        primary = Color(0xFF1DB954),
-        secondary = Color(0xFF1DB954),
-        tertiary = Color(0xFF1DB954),
-        neutral = Color(0xFF1DB954)
-    )
-
-    val MintFresh = ThemePalette(
-        id = "mint_fresh",
-        name = "Mint Fresh",
-        primary = Color(0xFF98FF98),
-        secondary = Color(0xFF98FF98),
-        tertiary = Color(0xFF98FF98),
-        neutral = Color(0xFF98FF98)
-    )
-
-    val OliveGarden = ThemePalette(
-        id = "olive_garden",
-        name = "Olive Garden",
-        primary = Color(0xFF808000),
-        secondary = Color(0xFF808000),
-        tertiary = Color(0xFF808000),
-        neutral = Color(0xFF808000)
-    )
-
-    val SageGreen = ThemePalette(
-        id = "sage_green",
-        name = "Sage Green",
-        primary = Color(0xFF9CAF88),
-        secondary = Color(0xFF9CAF88),
-        tertiary = Color(0xFF9CAF88),
-        neutral = Color(0xFF9CAF88)
-    )
-
-    // ===== Oranges & Yellows =====
-    val SunsetOrange = ThemePalette(
-        id = "sunset_orange",
-        name = "Sunset Orange",
-        primary = Color(0xFFE67E22),
-        secondary = Color(0xFFE67E22),
-        tertiary = Color(0xFFE67E22),
-        neutral = Color(0xFFE67E22)
-    )
-
-    val GoldenHour = ThemePalette(
-        id = "golden_hour",
-        name = "Golden Hour",
-        primary = Color(0xFFF39C12),
-        secondary = Color(0xFFF39C12),
-        tertiary = Color(0xFFF39C12),
-        neutral = Color(0xFFF39C12)
-    )
-
-    val WarmAmber = ThemePalette(
-        id = "warm_amber",
-        name = "Warm Amber",
-        primary = Color(0xFFFFBF00),
-        secondary = Color(0xFFFFBF00),
-        tertiary = Color(0xFFFFBF00),
-        neutral = Color(0xFFFFBF00)
-    )
-
-    val TangerineBlast = ThemePalette(
-        id = "tangerine_blast",
-        name = "Tangerine Blast",
-        primary = Color(0xFFFF9800),
-        secondary = Color(0xFFFF9800),
-        tertiary = Color(0xFFFF9800),
-        neutral = Color(0xFFFF9800)
-    )
-
-    val Peach = ThemePalette(
-        id = "peach",
-        name = "Peach",
-        primary = Color(0xFFFFDAB9),
-        secondary = Color(0xFFFFDAB9),
-        tertiary = Color(0xFFFFDAB9),
-        neutral = Color(0xFFFFDAB9)
-    )
-
-    val Mango = ThemePalette(
-        id = "mango",
-        name = "Mango",
-        primary = Color(0xFFFF8243),
-        secondary = Color(0xFFFF8243),
-        tertiary = Color(0xFFFF8243),
-        neutral = Color(0xFFFF8243)
-    )
-
-    // ===== Purples & Violets =====
-    val RoyalPurple = ThemePalette(
-        id = "royal_purple",
-        name = "Royal Purple",
-        primary = Color(0xFF9B59B6),
-        secondary = Color(0xFF9B59B6),
-        tertiary = Color(0xFF9B59B6),
-        neutral = Color(0xFF9B59B6)
-    )
-
-    val LavenderDream = ThemePalette(
-        id = "lavender_dream",
-        name = "Lavender Dream",
-        primary = Color(0xFFB39DDB),
-        secondary = Color(0xFFB39DDB),
-        tertiary = Color(0xFFB39DDB),
-        neutral = Color(0xFFB39DDB)
-    )
-
-    val GrapePurple = ThemePalette(
-        id = "grape_purple",
-        name = "Grape Purple",
-        primary = Color(0xFF6B5B95),
-        secondary = Color(0xFF6B5B95),
-        tertiary = Color(0xFF6B5B95),
-        neutral = Color(0xFF6B5B95)
-    )
-
-    val Violet = ThemePalette(
-        id = "violet",
-        name = "Violet",
-        primary = Color(0xFFEE82EE),
-        secondary = Color(0xFFEE82EE),
-        tertiary = Color(0xFFEE82EE),
-        neutral = Color(0xFFEE82EE)
-    )
-
-    val Amethyst = ThemePalette(
-        id = "amethyst",
-        name = "Amethyst",
-        primary = Color(0xFF9966CC),
-        secondary = Color(0xFF9966CC),
-        tertiary = Color(0xFF9966CC),
-        neutral = Color(0xFF9966CC)
-    )
-
-    val UltraViolet = ThemePalette(
-        id = "ultra_violet",
-        name = "Ultra Violet",
-        primary = Color(0xFF645394),
-        secondary = Color(0xFF645394),
-        tertiary = Color(0xFF645394),
-        neutral = Color(0xFF645394)
-    )
-
-    // ===== Pinks & Roses =====
-    val CherryBlossom = ThemePalette(
-        id = "cherry_blossom",
-        name = "Cherry Blossom",
-        primary = Color(0xFFFFB7C5),
-        secondary = Color(0xFFFFB7C5),
-        tertiary = Color(0xFFFFB7C5),
-        neutral = Color(0xFFFFB7C5)
-    )
-
-    val RoseQuartz = ThemePalette(
-        id = "rose_quartz",
-        name = "Rose Quartz",
-        primary = Color(0xFFF7CAC9),
-        secondary = Color(0xFFF7CAC9),
-        tertiary = Color(0xFFF7CAC9),
-        neutral = Color(0xFFF7CAC9)
-    )
-
-    val MagentaPop = ThemePalette(
-        id = "magenta_pop",
-        name = "Magenta Pop",
-        primary = Color(0xFFFF00FF),
-        secondary = Color(0xFFFF00FF),
-        tertiary = Color(0xFFFF00FF),
-        neutral = Color(0xFFFF00FF)
-    )
-
-    val HotPink = ThemePalette(
-        id = "hot_pink",
-        name = "Hot Pink",
-        primary = Color(0xFFFF69B4),
-        secondary = Color(0xFFFF69B4),
-        tertiary = Color(0xFFFF69B4),
-        neutral = Color(0xFFFF69B4)
-    )
-
-    val Blush = ThemePalette(
-        id = "blush",
-        name = "Blush",
-        primary = Color(0xFFDE5D83),
-        secondary = Color(0xFFDE5D83),
-        tertiary = Color(0xFFDE5D83),
-        neutral = Color(0xFFDE5D83)
-    )
-
-    val Coral = ThemePalette(
-        id = "coral",
-        name = "Coral",
-        primary = Color(0xFFFF7F50),
-        secondary = Color(0xFFFF7F50),
-        tertiary = Color(0xFFFF7F50),
-        neutral = Color(0xFFFF7F50)
-    )
-
-    val Bubblegum = ThemePalette(
-        id = "bubblegum",
-        name = "Bubblegum",
-        primary = Color(0xFFFFC1CC),
-        secondary = Color(0xFFFFC1CC),
-        tertiary = Color(0xFFFFC1CC),
-        neutral = Color(0xFFFFC1CC)
-    )
-
-    // ===== Reds =====
-    val CrimsonRed = ThemePalette(
-        id = "crimson_red",
-        name = "Crimson Red",
-        primary = Color(0xFFDC143C),
-        secondary = Color(0xFFDC143C),
-        tertiary = Color(0xFFDC143C),
-        neutral = Color(0xFFDC143C)
-    )
-
-    val YouTubeRed = ThemePalette(
-        id = "youtube_red",
-        name = "YouTube Red",
-        primary = Color(0xFFFF0000),
-        secondary = Color(0xFFFF0000),
-        tertiary = Color(0xFFFF0000),
-        neutral = Color(0xFFFF0000)
-    )
-
-    val WineRed = ThemePalette(
-        id = "wine_red",
-        name = "Wine Red",
-        primary = Color(0xFF722F37),
-        secondary = Color(0xFF722F37),
-        tertiary = Color(0xFF722F37),
-        neutral = Color(0xFF722F37)
-    )
-
-    val RubyRed = ThemePalette(
-        id = "ruby_red",
-        name = "Ruby Red",
-        primary = Color(0xFFE0115F),
-        secondary = Color(0xFFE0115F),
-        tertiary = Color(0xFFE0115F),
-        neutral = Color(0xFFE0115F)
-    )
-
-    val Scarlet = ThemePalette(
-        id = "scarlet",
-        name = "Scarlet",
-        primary = Color(0xFFFF2400),
-        secondary = Color(0xFFFF2400),
-        tertiary = Color(0xFFFF2400),
-        neutral = Color(0xFFFF2400)
-    )
-
-    // ===== Neutrals & Monochrome =====
-    val Charcoal = ThemePalette(
-        id = "charcoal",
-        name = "Charcoal",
-        primary = Color(0xFF36454F),
-        secondary = Color(0xFF36454F),
-        tertiary = Color(0xFF36454F),
-        neutral = Color(0xFF36454F)
-    )
-
-    val Silver = ThemePalette(
-        id = "silver",
-        name = "Silver",
-        primary = Color(0xFFC0C0C0),
-        secondary = Color(0xFFC0C0C0),
-        tertiary = Color(0xFFC0C0C0),
-        neutral = Color(0xFFC0C0C0)
-    )
-
-    val Slate = ThemePalette(
-        id = "slate",
-        name = "Slate",
-        primary = Color(0xFF708090),
-        secondary = Color(0xFF708090),
-        tertiary = Color(0xFF708090),
-        neutral = Color(0xFF708090)
-    )
-
-    val Graphite = ThemePalette(
-        id = "graphite",
-        name = "Graphite",
-        primary = Color(0xFF474747),
-        secondary = Color(0xFF474747),
-        tertiary = Color(0xFF474747),
-        neutral = Color(0xFF474747)
-    )
-
-    // ===== Earth Tones =====
-    val Terracotta = ThemePalette(
-        id = "terracotta",
-        name = "Terracotta",
-        primary = Color(0xFFE2725B),
-        secondary = Color(0xFFE2725B),
-        tertiary = Color(0xFFE2725B),
-        neutral = Color(0xFFE2725B)
-    )
-
-    val Coffee = ThemePalette(
-        id = "coffee",
-        name = "Coffee",
-        primary = Color(0xFF6F4E37),
-        secondary = Color(0xFF6F4E37),
-        tertiary = Color(0xFF6F4E37),
-        neutral = Color(0xFF6F4E37)
-    )
-
-    val Mocha = ThemePalette(
-        id = "mocha",
-        name = "Mocha",
-        primary = Color(0xFF967969),
-        secondary = Color(0xFF967969),
-        tertiary = Color(0xFF967969),
-        neutral = Color(0xFF967969)
-    )
-
-    val Sand = ThemePalette(
-        id = "sand",
-        name = "Sand",
-        primary = Color(0xFFC2B280),
-        secondary = Color(0xFFC2B280),
-        tertiary = Color(0xFFC2B280),
-        neutral = Color(0xFFC2B280)
-    )
-
-    val Clay = ThemePalette(
-        id = "clay",
-        name = "Clay",
-        primary = Color(0xFFB66A50),
-        secondary = Color(0xFFB66A50),
-        tertiary = Color(0xFFB66A50),
-        neutral = Color(0xFFB66A50)
-    )
-
-    // ===== Pastels =====
-    val PastelPink = ThemePalette(
-        id = "pastel_pink",
-        name = "Pastel Pink",
-        primary = Color(0xFFFFD1DC),
-        secondary = Color(0xFFFFD1DC),
-        tertiary = Color(0xFFFFD1DC),
-        neutral = Color(0xFFFFD1DC)
-    )
-
-    val PastelBlue = ThemePalette(
-        id = "pastel_blue",
-        name = "Pastel Blue",
-        primary = Color(0xFFAEC6CF),
-        secondary = Color(0xFFAEC6CF),
-        tertiary = Color(0xFFAEC6CF),
-        neutral = Color(0xFFAEC6CF)
-    )
-
-    val PastelGreen = ThemePalette(
-        id = "pastel_green",
-        name = "Pastel Green",
-        primary = Color(0xFF77DD77),
-        secondary = Color(0xFF77DD77),
-        tertiary = Color(0xFF77DD77),
-        neutral = Color(0xFF77DD77)
-    )
-
-    val PastelYellow = ThemePalette(
-        id = "pastel_yellow",
-        name = "Pastel Yellow",
-        primary = Color(0xFFFDFD96),
-        secondary = Color(0xFFFDFD96),
-        tertiary = Color(0xFFFDFD96),
-        neutral = Color(0xFFFDFD96)
-    )
-
-    val PastelPurple = ThemePalette(
-        id = "pastel_purple",
-        name = "Pastel Purple",
-        primary = Color(0xFFB19CD9),
-        secondary = Color(0xFFB19CD9),
-        tertiary = Color(0xFFB19CD9),
-        neutral = Color(0xFFB19CD9)
-    )
-
-    // ===== Neon & Vibrant =====
-    val NeonGreen = ThemePalette(
-        id = "neon_green",
-        name = "Neon Green",
-        primary = Color(0xFF39FF14),
-        secondary = Color(0xFF39FF14),
-        tertiary = Color(0xFF39FF14),
-        neutral = Color(0xFF39FF14)
-    )
-
-    val NeonPink = ThemePalette(
-        id = "neon_pink",
-        name = "Neon Pink",
-        primary = Color(0xFFFF10F0),
-        secondary = Color(0xFFFF10F0),
-        tertiary = Color(0xFFFF10F0),
-        neutral = Color(0xFFFF10F0)
-    )
-
-    val NeonBlue = ThemePalette(
-        id = "neon_blue",
-        name = "Neon Blue",
-        primary = Color(0xFF00F5FF),
-        secondary = Color(0xFF00F5FF),
-        tertiary = Color(0xFF00F5FF),
-        neutral = Color(0xFF00F5FF)
-    )
-
-    val NeonOrange = ThemePalette(
-        id = "neon_orange",
-        name = "Neon Orange",
-        primary = Color(0xFFFF5F1F),
-        secondary = Color(0xFFFF5F1F),
-        tertiary = Color(0xFFFF5F1F),
-        neutral = Color(0xFFFF5F1F)
-    )
-
-    val Cyberpunk = ThemePalette(
-        id = "cyberpunk",
-        name = "Cyberpunk",
-        primary = Color(0xFFFF00FF),
-        secondary = Color(0xFFFF00FF),
-        tertiary = Color(0xFFFF00FF),
-        neutral = Color(0xFFFF00FF)
-    )
-
-    val Synthwave = ThemePalette(
-        id = "synthwave",
-        name = "Synthwave",
-        primary = Color(0xFFFF6EC7),
-        secondary = Color(0xFFFF6EC7),
-        tertiary = Color(0xFFFF6EC7),
-        neutral = Color(0xFFFF6EC7)
-    )
-
-    // ===== Special & Themed =====
-    val Ocean = ThemePalette(
-        id = "ocean",
-        name = "Ocean",
-        primary = Color(0xFF006994),
-        secondary = Color(0xFF006994),
-        tertiary = Color(0xFF006994),
-        neutral = Color(0xFF006994)
-    )
-
-    val Forest = ThemePalette(
-        id = "forest",
-        name = "Forest",
-        primary = Color(0xFF0B3D0B),
-        secondary = Color(0xFF0B3D0B),
-        tertiary = Color(0xFF0B3D0B),
-        neutral = Color(0xFF0B3D0B)
-    )
-
-    val Autumn = ThemePalette(
-        id = "autumn",
-        name = "Autumn",
-        primary = Color(0xFFD2691E),
-        secondary = Color(0xFFD2691E),
-        tertiary = Color(0xFFD2691E),
-        neutral = Color(0xFFD2691E)
-    )
-
-    val Winter = ThemePalette(
-        id = "winter",
-        name = "Winter",
-        primary = Color(0xFFADD8E6),
-        secondary = Color(0xFFADD8E6),
-        tertiary = Color(0xFFADD8E6),
-        neutral = Color(0xFFADD8E6)
-    )
-
-    val Spring = ThemePalette(
-        id = "spring",
-        name = "Spring",
-        primary = Color(0xFF98FB98),
-        secondary = Color(0xFF98FB98),
-        tertiary = Color(0xFF98FB98),
-        neutral = Color(0xFF98FB98)
-    )
-
-    val Summer = ThemePalette(
-        id = "summer",
-        name = "Summer",
-        primary = Color(0xFFFFD700),
-        secondary = Color(0xFFFFD700),
-        tertiary = Color(0xFFFFD700),
-        neutral = Color(0xFFFFD700)
-    )
-
-    val Twilight = ThemePalette(
-        id = "twilight",
-        name = "Twilight",
-        primary = Color(0xFF4B0082),
-        secondary = Color(0xFF4B0082),
-        tertiary = Color(0xFF4B0082),
-        neutral = Color(0xFF4B0082)
-    )
-
-    val Aurora = ThemePalette(
-        id = "aurora",
-        name = "Aurora",
-        primary = Color(0xFF00FF7F),
-        secondary = Color(0xFF00FF7F),
-        tertiary = Color(0xFF00FF7F),
-        neutral = Color(0xFF00FF7F)
-    )
-
-    val Candy = ThemePalette(
-        id = "candy",
-        name = "Candy",
-        primary = Color(0xFFFF69B4),
-        secondary = Color(0xFFFF69B4),
-        tertiary = Color(0xFFFF69B4),
-        neutral = Color(0xFFFF69B4)
-    )
-
-    val Rainbow = ThemePalette(
-        id = "rainbow",
-        name = "Rainbow",
-        primary = Color(0xFFFF0000),
-        secondary = Color(0xFFFF0000),
-        tertiary = Color(0xFFFF0000),
-        neutral = Color(0xFFFF0000)
-    )
-
-    val allPalettes: List<ThemePalette> = listOf(
-        Default, OceanBlue, ArcticBlue, MidnightNavy, SkyBlue, CobaltBlue, ElectricBlue,
-        EmeraldGreen, TealWave, ForestGreen, SpotifyGreen, MintFresh, OliveGarden, SageGreen,
-        SunsetOrange, GoldenHour, WarmAmber, TangerineBlast, Peach, Mango,
-        RoyalPurple, LavenderDream, GrapePurple, Violet, Amethyst, UltraViolet,
-        CherryBlossom, RoseQuartz, MagentaPop, HotPink, Blush, Coral, Bubblegum,
-        CrimsonRed, YouTubeRed, WineRed, RubyRed, Scarlet,
-        Charcoal, Silver, Slate, Graphite,
-        Terracotta, Coffee, Mocha, Sand, Clay,
-        PastelPink, PastelBlue, PastelGreen, PastelYellow, PastelPurple,
-        NeonGreen, NeonPink, NeonBlue, NeonOrange, Cyberpunk, Synthwave,
-        Ocean, Forest, Autumn, Winter, Spring, Summer, Twilight, Aurora, Candy, Rainbow
-    )
-
-    fun findByPrimaryColor(colorHex: String): ThemePalette? {
-        return allPalettes.find { it.primary.toHexString() == colorHex }
+    private var lightPalettes: List<ThemePalette>? = null
+    private var darkPalettes: List<ThemePalette>? = null
+
+    val Default: ThemePalette
+        get() = getPalettes(false).first()
+
+    private fun generatePalette(id: String, name: String, primaryHex: Long, isDark: Boolean): ThemePalette {
+        val primaryColor = Color(primaryHex)
+        val scheme = SchemeTonalSpot(Hct.fromInt(primaryColor.toArgb()), isDark, 0.0)
+        return ThemePalette(
+            id = id,
+            name = name,
+            primary = primaryColor,
+            secondary = Color(scheme.secondary),
+            tertiary = Color(scheme.tertiary),
+            neutral = Color(scheme.surfaceVariant),
+            onPrimary = Color(scheme.onPrimary)
+        )
     }
 
-    fun findById(id: String): ThemePalette? {
-        return allPalettes.find { it.id == id }
+    fun getPalettes(isDark: Boolean = false): List<ThemePalette> {
+        if (isDark && darkPalettes != null) return darkPalettes!!
+        if (!isDark && lightPalettes != null) return lightPalettes!!
+
+        val palettes = listOf(
+            generatePalette("default", "Default", 0xFFED5564, isDark),
+            generatePalette("ocean_blue", "Ocean Blue", 0xFF4A90D9, isDark),
+            generatePalette("arctic_blue", "Arctic Blue", 0xFF00BFFF, isDark),
+            generatePalette("midnight_navy", "Midnight Navy", 0xFF2C3E50, isDark),
+            generatePalette("sky_blue", "Sky Blue", 0xFF87CEEB, isDark),
+            generatePalette("cobalt_blue", "Cobalt Blue", 0xFF0047AB, isDark),
+            generatePalette("electric_blue", "Electric Blue", 0xFF7DF9FF, isDark),
+            generatePalette("emerald_green", "Emerald Green", 0xFF2ECC71, isDark),
+            generatePalette("teal_wave", "Teal Wave", 0xFF1ABC9C, isDark),
+            generatePalette("forest_green", "Forest Green", 0xFF228B22, isDark),
+            generatePalette("spotify_green", "Spotify Green", 0xFF1DB954, isDark),
+            generatePalette("mint_fresh", "Mint Fresh", 0xFF98FF98, isDark),
+            generatePalette("olive_garden", "Olive Garden", 0xFF808000, isDark),
+            generatePalette("sage_green", "Sage Green", 0xFF9CAF88, isDark),
+            generatePalette("sunset_orange", "Sunset Orange", 0xFFE67E22, isDark),
+            generatePalette("golden_hour", "Golden Hour", 0xFFF39C12, isDark),
+            generatePalette("warm_amber", "Warm Amber", 0xFFFFBF00, isDark),
+            generatePalette("tangerine_blast", "Tangerine Blast", 0xFFFF9800, isDark),
+            generatePalette("peach", "Peach", 0xFFFFDAB9, isDark),
+            generatePalette("mango", "Mango", 0xFFFF8243, isDark),
+            generatePalette("royal_purple", "Royal Purple", 0xFF9B59B6, isDark),
+            generatePalette("lavender_dream", "Lavender Dream", 0xFFB39DDB, isDark),
+            generatePalette("grape_purple", "Grape Purple", 0xFF6B5B95, isDark),
+            generatePalette("violet", "Violet", 0xFFEE82EE, isDark),
+            generatePalette("amethyst", "Amethyst", 0xFF9966CC, isDark),
+            generatePalette("ultra_violet", "Ultra Violet", 0xFF645394, isDark),
+            generatePalette("cherry_blossom", "Cherry Blossom", 0xFFFFB7C5, isDark),
+            generatePalette("rose_quartz", "Rose Quartz", 0xFFF7CAC9, isDark),
+            generatePalette("magenta_pop", "Magenta Pop", 0xFFFF00FF, isDark),
+            generatePalette("hot_pink", "Hot Pink", 0xFFFF69B4, isDark),
+            generatePalette("blush", "Blush", 0xFFDE5D83, isDark),
+            generatePalette("coral", "Coral", 0xFFFF7F50, isDark),
+            generatePalette("bubblegum", "Bubblegum", 0xFFFFC1CC, isDark),
+            generatePalette("crimson_red", "Crimson Red", 0xFFDC143C, isDark),
+            generatePalette("youtube_red", "YouTube Red", 0xFFFF0000, isDark),
+            generatePalette("wine_red", "Wine Red", 0xFF722F37, isDark),
+            generatePalette("ruby_red", "Ruby Red", 0xFFE0115F, isDark),
+            generatePalette("scarlet", "Scarlet", 0xFFFF2400, isDark),
+            generatePalette("charcoal", "Charcoal", 0xFF36454F, isDark),
+            generatePalette("silver", "Silver", 0xFFC0C0C0, isDark),
+            generatePalette("slate", "Slate", 0xFF708090, isDark),
+            generatePalette("graphite", "Graphite", 0xFF474747, isDark),
+            generatePalette("terracotta", "Terracotta", 0xFFE2725B, isDark),
+            generatePalette("coffee", "Coffee", 0xFF6F4E37, isDark),
+            generatePalette("mocha", "Mocha", 0xFF967969, isDark),
+            generatePalette("sand", "Sand", 0xFFC2B280, isDark),
+            generatePalette("clay", "Clay", 0xFFB66A50, isDark),
+            generatePalette("pastel_pink", "Pastel Pink", 0xFFFFD1DC, isDark),
+            generatePalette("pastel_blue", "Pastel Blue", 0xFFAEC6CF, isDark),
+            generatePalette("pastel_green", "Pastel Green", 0xFF77DD77, isDark),
+            generatePalette("pastel_yellow", "Pastel Yellow", 0xFFFDFD96, isDark),
+            generatePalette("pastel_purple", "Pastel Purple", 0xFFB19CD9, isDark),
+            generatePalette("neon_green", "Neon Green", 0xFF39FF14, isDark),
+            generatePalette("neon_pink", "Neon Pink", 0xFFFF10F0, isDark),
+            generatePalette("neon_blue", "Neon Blue", 0xFF00F5FF, isDark),
+            generatePalette("neon_orange", "Neon Orange", 0xFFFF5F1F, isDark),
+            generatePalette("ocean", "Ocean", 0xFF006994, isDark),
+            generatePalette("forest", "Forest", 0xFF0B3D0B, isDark),
+            generatePalette("autumn", "Autumn", 0xFFD2691E, isDark),
+            generatePalette("winter", "Winter", 0xFFADD8E6, isDark),
+            generatePalette("spring", "Spring", 0xFF98FB98, isDark),
+            generatePalette("summer", "Summer", 0xFFFFD700, isDark),
+            generatePalette("twilight", "Twilight", 0xFF4B0082, isDark),
+            generatePalette("aurora", "Aurora", 0xFF00FF7F, isDark),
+            generatePalette("candy", "Candy", 0xFFFF69B4, isDark),
+            generatePalette("rainbow", "Rainbow", 0xFFFF0000, isDark)
+        )
+
+        if (isDark) darkPalettes = palettes else lightPalettes = palettes
+        return palettes
     }
 
-    fun getRandomPalette(): ThemePalette {
-        return allPalettes.random()
+    fun findByPrimaryColor(colorHex: String, isDark: Boolean = false): ThemePalette? {
+        return getPalettes(isDark).find { it.primary.toHexString() == colorHex }
+    }
+
+    fun findById(id: String, isDark: Boolean = false): ThemePalette? {
+        return getPalettes(isDark).find { it.id == id }
     }
 }
 
@@ -770,7 +243,6 @@ private fun Color.toHexString(): String {
     return String.format("#%02X%02X%02X", red, green, blue)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomThemeBottomSheet(
     initialColor: Color,
@@ -792,7 +264,7 @@ fun CustomThemeBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-        contentWindowInsets = { androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0) }
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
     ) {
         Column(
             modifier = Modifier
@@ -801,7 +273,6 @@ fun CustomThemeBottomSheet(
                 .padding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Header
             Text(
                 text = stringResource(R.string.custom_theme),
                 style = MaterialTheme.typography.headlineSmall,
@@ -809,7 +280,6 @@ fun CustomThemeBottomSheet(
                 color = MaterialTheme.colorScheme.onSurface
             )
 
-            // Color Preview
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -827,14 +297,12 @@ fun CustomThemeBottomSheet(
                 )
             }
 
-            // Sliders
             ColorSlider(label = stringResource(R.string.red_colon, red.toInt()), value = red, onValueChange = { red = it }, trackColor = Color.Red)
             ColorSlider(label = stringResource(R.string.green_colon, green.toInt()), value = green, onValueChange = { green = it }, trackColor = Color.Green)
             ColorSlider(label = stringResource(R.string.blue_colon, blue.toInt()), value = blue, onValueChange = { blue = it }, trackColor = Color.Blue)
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Actions: Reset, Random, Export
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -861,7 +329,6 @@ fun CustomThemeBottomSheet(
                 }
             }
 
-            // Save & Cancel
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -918,49 +385,107 @@ fun PalettePickerScreen(
     val scope = rememberCoroutineScope()
     val (customThemeColor, onCustomThemeColorChange) = rememberPreference(
         CustomThemeColorKey,
-        defaultValue = ThemePalettes.Default.id
+        defaultValue = "default"
     )
-    val customThemeName = stringResource(R.string.custom_theme)
 
-    val selectedPalette = remember(customThemeColor, customThemeName) {
-        val custom = ThemeSeedPaletteCodec.decodeFromPreference(customThemeColor)
-            ?.toThemePalette(customThemeName)
-        custom
-            ?: ThemePalettes.findById(customThemeColor)
-            ?: ThemePalettes.findByPrimaryColor(customThemeColor)
-            ?: ThemePalettes.Default
+    // Accurate theme detection respecting app-level DarkMode setting
+    val (darkMode) = rememberEnumPreference(DarkModeKey, defaultValue = DarkMode.AUTO)
+    val isSystemDark = isSystemInDarkTheme()
+    val isDarkTheme = remember(darkMode, isSystemDark) {
+        when (darkMode) {
+            DarkMode.ON -> true
+            DarkMode.OFF -> false
+            DarkMode.AUTO -> isSystemDark
+        }
     }
 
-    val isDarkTheme = isSystemInDarkTheme()
+    val customThemeDefaultName = stringResource(R.string.custom_theme)
 
-    var showCustomThemeSheet by rememberSaveable { mutableStateOf(false) }
-    var paletteToExport by remember { mutableStateOf<ThemeSeedPalette?>(null) }
+    val selectedPalette = remember(customThemeColor, customThemeDefaultName, isDarkTheme) {
+        val custom = ThemeSeedPaletteCodec.decodeFromPreference(customThemeColor)
+            ?.let { ThemePalette(
+                id = "custom_seed",
+                name = customThemeDefaultName,
+                primary = it.primary,
+                secondary = it.secondary,
+                tertiary = it.tertiary,
+                neutral = it.neutral
+            ) }
+
+        custom
+            ?: ThemePalettes.findById(customThemeColor, isDarkTheme)
+            ?: ThemePalettes.findByPrimaryColor(customThemeColor, isDarkTheme)
+            ?: ThemePalettes.getPalettes(isDarkTheme).first()
+    }
+
+    val savedPrimaryColor = selectedPalette.primary
+    var editorColor by remember(savedPrimaryColor) { mutableStateOf(savedPrimaryColor) }
+
+    val activePalette = remember(editorColor, customThemeColor, isDarkTheme) {
+        if (editorColor == savedPrimaryColor) {
+            selectedPalette
+        } else {
+            val scheme = SchemeTonalSpot(Hct.fromInt(editorColor.toArgb()), isDarkTheme, 0.0)
+            ThemePalette(
+                id = "custom_seed_preview",
+                name = context.getString(R.string.preview),
+                primary = Color(scheme.primary),
+                secondary = Color(scheme.secondary),
+                tertiary = Color(scheme.tertiary),
+                neutral = Color(scheme.surfaceVariant),
+                onPrimary = Color(scheme.onPrimary)
+            )
+        }
+    }
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-        if (uri == null || paletteToExport == null) return@rememberLauncherForActivityResult
+        if (uri == null) return@rememberLauncherForActivityResult
         scope.launch(Dispatchers.IO) {
             try {
                 context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-                    val json = ThemeSeedPaletteCodec.encodeForPreference(paletteToExport!!, customThemeName)
+                    val scheme = SchemeTonalSpot(Hct.fromInt(activePalette.primary.toArgb()), isDarkTheme, 0.0)
+                    val p = ThemeSeedPalette(
+                        primary = activePalette.primary,
+                        secondary = Color(scheme.secondary),
+                        tertiary = Color(scheme.tertiary),
+                        neutral = Color(scheme.surfaceVariant)
+                    )
+                    val json = ThemeSeedPaletteCodec.encodeForPreference(p, customThemeDefaultName)
                     outputStream.write(json.toByteArray())
                 }
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Theme exported successfully", Toast.LENGTH_SHORT).show()
-                }
+                withContext(Dispatchers.Main) { Toast.makeText(context, "Theme exported successfully", Toast.LENGTH_SHORT).show() }
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Theme export failed", Toast.LENGTH_SHORT).show()
-                }
+                withContext(Dispatchers.Main) { Toast.makeText(context, "Theme export failed", Toast.LENGTH_SHORT).show() }
             }
         }
     }
 
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val text = withContext(Dispatchers.IO) {
+                runCatching { context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }.orEmpty() }.getOrNull().orEmpty()
+            }
+            val imported = ThemeSeedPaletteCodec.decodeFromJson(text)
+            if (imported != null) {
+                val extractedName = ThemeSeedPaletteCodec.extractNameFromJsonOrNull(text) ?: customThemeDefaultName
+                onCustomThemeColorChange(ThemeSeedPaletteCodec.encodeForPreference(imported, extractedName))
+                Toast.makeText(context, context.getString(R.string.theme_imported_successfully), Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, context.getString(R.string.theme_import_failed), Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    var showCustomThemeSheet by rememberSaveable { mutableStateOf(false) }
+    var paletteToExport by remember { mutableStateOf<ThemeSeedPalette?>(null) }
+
     if (showCustomThemeSheet) {
         CustomThemeBottomSheet(
-            initialColor = selectedPalette.primary,
+            initialColor = activePalette.primary,
             onDismiss = { showCustomThemeSheet = false },
             onSave = { palette ->
-                onCustomThemeColorChange(ThemeSeedPaletteCodec.encodeForPreference(palette, customThemeName))
+                onCustomThemeColorChange(ThemeSeedPaletteCodec.encodeForPreference(palette, customThemeDefaultName))
                 showCustomThemeSheet = false
             },
             onExport = { palette ->
@@ -970,40 +495,24 @@ fun PalettePickerScreen(
         )
     }
 
-    val importLauncher =
-        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-            if (uri == null) return@rememberLauncherForActivityResult
-            scope.launch {
-                val text =
-                    withContext(Dispatchers.IO) {
-                        runCatching {
-                            context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }.orEmpty()
-                        }.getOrNull().orEmpty()
-                    }
-                val imported = ThemeSeedPaletteCodec.decodeFromJson(text)
-                if (imported != null) {
-                    val extractedName = ThemeSeedPaletteCodec.extractNameFromJsonOrNull(text) ?: customThemeName
-                    onCustomThemeColorChange(ThemeSeedPaletteCodec.encodeForPreference(imported, extractedName))
-                    Toast.makeText(context, context.getString(R.string.theme_imported_successfully), Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(context, context.getString(R.string.theme_import_failed), Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.color_palette)) },
+                title = { Text(stringResource(R.string.color_palette), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(
+                    AppIconButton(
                         onClick = navController::navigateUp,
                         onLongClick = navController::backToMain
                     ) {
-                        Icon(
-                            painterResource(R.drawable.arrow_back),
-                            contentDescription = null
-                        )
+                        Icon(painterResource(R.drawable.arrow_back), contentDescription = null)
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) }) {
+                        Icon(painterResource(R.drawable.restore), contentDescription = stringResource(R.string.import_theme))
+                    }
+                    IconButton(onClick = { exportLauncher.launch("custom_theme_${System.currentTimeMillis()}.json") }) {
+                        Icon(painterResource(R.drawable.share), contentDescription = stringResource(R.string.export))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -1011,93 +520,173 @@ fun PalettePickerScreen(
                 )
             )
         },
-        floatingActionButton = {
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.windowInsetsPadding(
-                    LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)
-                )
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
+    ) { paddingValues ->
+
+        val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+        if (isLandscape) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom)),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                ExtendedFloatingActionButton(
-                    text = { Text(stringResource(R.string.custom_theme)) },
-                    icon = {
-                        Icon(
-                            painter = painterResource(R.drawable.palette),
-                            contentDescription = null
-                        )
-                    },
-                    onClick = { showCustomThemeSheet = true },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 24.dp, end = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    ThemePreviewCard(
+                        palette = activePalette,
+                        isDarkTheme = isDarkTheme,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                Column(
+                    modifier = Modifier
+                        .weight(1.2f)
+                        .fillMaxHeight()
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    PickerControls(
+                        isDarkTheme = isDarkTheme,
+                        activePalette = activePalette,
+                        onCustomThemeColorChange = onCustomThemeColorChange,
+                        customThemeColor = customThemeColor,
+                        editorColor = editorColor,
+                        savedPrimaryColor = savedPrimaryColor,
+                        onEditorColorChange = { editorColor = it },
+                        customThemeName = customThemeDefaultName,
+                        context = context
+                    )
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom))
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Spacer(modifier = Modifier.height(16.dp))
+
+                ThemePreviewCard(
+                    palette = activePalette,
+                    isDarkTheme = isDarkTheme,
+                    modifier = Modifier.padding(horizontal = 24.dp)
                 )
-                ExtendedFloatingActionButton(
-                    text = { Text("Theme Creator") },
-                    icon = {
-                        Icon(
-                            painter = painterResource(R.drawable.edit),
-                            contentDescription = null
-                        )
-                    },
-                    onClick = { navController.navigate("settings/appearance/theme_creator") },
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                )
-                ExtendedFloatingActionButton(
-                    text = { Text(stringResource(R.string.import_theme)) },
-                    icon = {
-                        Icon(
-                            painter = painterResource(R.drawable.restore),
-                            contentDescription = null
-                        )
-                    },
-                    onClick = { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) },
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    contentColor = MaterialTheme.colorScheme.onSurface,
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                PickerControls(
+                    isDarkTheme = isDarkTheme,
+                    activePalette = activePalette,
+                    onCustomThemeColorChange = onCustomThemeColorChange,
+                    customThemeColor = customThemeColor,
+                    editorColor = editorColor,
+                    savedPrimaryColor = savedPrimaryColor,
+                    onEditorColorChange = { editorColor = it },
+                    customThemeName = customThemeDefaultName,
+                    context = context
                 )
             }
-        }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Spacer(modifier = Modifier.height(16.dp))
-
-            ThemePreviewCard(
-                palette = selectedPalette,
-                isDarkTheme = isDarkTheme,
-                modifier = Modifier.padding(horizontal = 24.dp)
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            ColorPaletteSelector(
-                palettes = ThemePalettes.allPalettes,
-                selectedPalette = selectedPalette,
-                onPaletteSelected = { palette ->
-                    onCustomThemeColorChange(palette.id)
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
 
-private fun ThemeSeedPalette.toThemePalette(customName: String): ThemePalette =
-    ThemePalette(
-        id = "custom_seed",
-        name = customName,
-        primary = primary,
-        secondary = secondary,
-        tertiary = tertiary,
-        neutral = neutral,
+@Composable
+private fun PickerControls(
+    isDarkTheme: Boolean,
+    activePalette: ThemePalette,
+    onCustomThemeColorChange: (String) -> Unit,
+    customThemeColor: String,
+    editorColor: Color,
+    savedPrimaryColor: Color,
+    onEditorColorChange: (Color) -> Unit,
+    customThemeName: String,
+    context: Context
+) {
+    Text(
+        text = stringResource(R.string.presets),
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 8.dp)
     )
+
+    ColorPaletteSelector(
+        palettes = ThemePalettes.getPalettes(isDarkTheme),
+        selectedPalette = activePalette,
+        onPaletteSelected = { palette ->
+            onCustomThemeColorChange(palette.id)
+        },
+        modifier = Modifier.fillMaxWidth()
+    )
+
+    Spacer(modifier = Modifier.height(32.dp))
+
+    Text(
+        text = stringResource(R.string.custom_theme),
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 8.dp)
+    )
+
+    Text(
+        text = stringResource(R.string.theme_creator_description),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
+    )
+
+    Spacer(modifier = Modifier.height(16.dp))
+
+    val isCustomMode = customThemeColor.startsWith("{")
+    val isApplyEnabled = editorColor != savedPrimaryColor || !isCustomMode
+
+    ColorEditor(
+        color = editorColor,
+        onColorChange = onEditorColorChange,
+        onRandomize = {
+            val newSeed = Color(
+                red = (0..255).random() / 255f,
+                green = (0..255).random() / 255f,
+                blue = (0..255).random() / 255f
+            )
+            onEditorColorChange(newSeed)
+        },
+        onApply = {
+            val scheme = SchemeTonalSpot(Hct.fromInt(editorColor.toArgb()), isDarkTheme, 0.0)
+            val palette = ThemeSeedPalette(
+                primary = editorColor,
+                secondary = Color(scheme.secondary),
+                tertiary = Color(scheme.tertiary),
+                neutral = Color(scheme.surfaceVariant)
+            )
+            onCustomThemeColorChange(ThemeSeedPaletteCodec.encodeForPreference(palette, customThemeName))
+            Toast.makeText(context, context.getString(R.string.theme_saved), Toast.LENGTH_SHORT).show()
+        },
+        isApplyEnabled = isApplyEnabled
+    )
+
+    Spacer(modifier = Modifier.height(32.dp))
+}
 
 @Composable
 private fun ThemePreviewCard(
@@ -1105,6 +694,9 @@ private fun ThemePreviewCard(
     isDarkTheme: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val cardHeight = if (isLandscape) 240.dp else 280.dp
+
     val animatedPrimary by animateColorAsState(
         targetValue = palette.primary,
         animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing),
@@ -1126,166 +718,457 @@ private fun ThemePreviewCard(
         label = "neutralColor"
     )
 
-    val backgroundColor = if (isDarkTheme) {
-        Color(0xFF1C1C1E)
-    } else {
-        animatedTertiary.copy(alpha = 0.3f)
-    }
+    // Accurate theme detection: if screen surface is light, force Light Mode aesthetic
+    val surfaceIsDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val effectiveIsDark = isDarkTheme && surfaceIsDark
+
+    val cardBgColor = if (effectiveIsDark) Color(0xFF0F1318) else Color(0xFFF3F7FA)
 
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .height(280.dp)
-            .shadow(16.dp, RoundedCornerShape(24.dp)),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = backgroundColor
-        ),
+            .height(cardHeight)
+            .shadow(16.dp, RoundedCornerShape(28.dp)),
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = cardBgColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
-        Box(
-            modifier = Modifier.fillMaxSize()
-        ) {
+        Box(modifier = Modifier.fillMaxSize()) {
             Canvas(modifier = Modifier.fillMaxSize()) {
-                val gradientBrush = Brush.radialGradient(
-                    colors = listOf(
-                        animatedPrimary.copy(alpha = 0.3f),
-                        Color.Transparent
-                    ),
-                    center = Offset(size.width * 0.7f, size.height * 0.3f),
-                    radius = size.width * 0.8f
-                )
-                drawRect(brush = gradientBrush)
+                val w = size.width
+                val h = size.height
+
+                if (effectiveIsDark) {
+                    // ==========================================
+                    // DARK MODE: Night Ride (Stars, Moon, Headlight)
+                    // ==========================================
+                    drawRect(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0xFF090D14),
+                                Color(0xFF121924)
+                            )
+                        )
+                    )
+
+                    // Distant Mountain Silhouette
+                    val mountainPath = Path().apply {
+                        moveTo(0f, h * 0.72f)
+                        lineTo(w * 0.22f, h * 0.52f)
+                        lineTo(w * 0.44f, h * 0.68f)
+                        lineTo(w * 0.7f, h * 0.46f)
+                        lineTo(w * 0.9f, h * 0.62f)
+                        lineTo(w, h * 0.56f)
+                        lineTo(w, h)
+                        lineTo(0f, h)
+                        close()
+                    }
+                    drawPath(mountainPath, color = animatedSecondary.copy(alpha = 0.12f))
+
+                    // Luminous Moon in Sky
+                    val moonCenter = Offset(w * 0.76f, h * 0.26f)
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                animatedTertiary.copy(alpha = 0.35f),
+                                animatedTertiary.copy(alpha = 0.08f),
+                                Color.Transparent
+                            ),
+                            center = moonCenter,
+                            radius = h * 0.42f
+                        ),
+                        radius = h * 0.42f,
+                        center = moonCenter
+                    )
+                    drawCircle(
+                        color = animatedTertiary.copy(alpha = 0.9f),
+                        radius = h * 0.085f,
+                        center = moonCenter
+                    )
+
+                    // Subtle Stars
+                    val stars = listOf(
+                        Offset(w * 0.12f, h * 0.18f),
+                        Offset(w * 0.28f, h * 0.12f),
+                        Offset(w * 0.46f, h * 0.2f),
+                        Offset(w * 0.6f, h * 0.14f),
+                        Offset(w * 0.92f, h * 0.24f)
+                    )
+                    stars.forEach { pos ->
+                        drawCircle(color = animatedTertiary.copy(alpha = 0.6f), radius = 2.5f, center = pos)
+                    }
+
+                    // Road
+                    val groundY = h * 0.81f
+                    drawLine(
+                        color = animatedNeutral.copy(alpha = 0.45f),
+                        start = Offset(w * 0.06f, groundY),
+                        end = Offset(w * 0.94f, groundY),
+                        strokeWidth = h * 0.012f,
+                        cap = StrokeCap.Round
+                    )
+
+                    // Bike & Rider Geometry
+                    val wheelRadius = h * 0.12f
+                    val rearHub = Offset(w * 0.35f, groundY - wheelRadius)
+                    val frontHub = Offset(w * 0.65f, groundY - wheelRadius)
+                    val bb = Offset(w * 0.48f, groundY - wheelRadius * 0.8f)
+                    val seatCluster = Offset(w * 0.42f, groundY - wheelRadius * 2.15f)
+                    val headTube = Offset(w * 0.58f, groundY - wheelRadius * 2.3f)
+                    val handlebar = Offset(w * 0.62f, groundY - wheelRadius * 2.45f)
+                    val saddle = Offset(w * 0.40f, groundY - wheelRadius * 2.32f)
+
+                    // Headlight Cone Beam
+                    val beamStart = Offset(handlebar.x + h * 0.02f, handlebar.y)
+                    val beamPath = Path().apply {
+                        moveTo(beamStart.x, beamStart.y)
+                        lineTo(w * 0.96f, groundY - h * 0.10f)
+                        lineTo(w * 0.92f, groundY)
+                        lineTo(frontHub.x + wheelRadius * 0.7f, groundY)
+                        close()
+                    }
+                    drawPath(
+                        path = beamPath,
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(
+                                animatedPrimary.copy(alpha = 0.32f),
+                                animatedPrimary.copy(alpha = 0.08f),
+                                Color.Transparent
+                            ),
+                            startX = beamStart.x,
+                            endX = w * 0.96f
+                        )
+                    )
+
+                    // Bicycle Frame & Wheels
+                    val frameStroke = h * 0.019f
+                    val frameColor = animatedPrimary
+
+                    listOf(rearHub, frontHub).forEach { hub ->
+                        drawCircle(
+                            color = animatedSecondary,
+                            radius = wheelRadius,
+                            center = hub,
+                            style = Stroke(width = frameStroke * 1.1f)
+                        )
+                        // Spoke cross lines
+                        drawLine(animatedSecondary.copy(alpha = 0.35f), Offset(hub.x - wheelRadius * 0.85f, hub.y), Offset(hub.x + wheelRadius * 0.85f, hub.y), frameStroke * 0.4f, StrokeCap.Round)
+                        drawLine(animatedSecondary.copy(alpha = 0.35f), Offset(hub.x, hub.y - wheelRadius * 0.85f), Offset(hub.x, hub.y + wheelRadius * 0.85f), frameStroke * 0.4f, StrokeCap.Round)
+                        drawCircle(
+                            color = animatedPrimary,
+                            radius = wheelRadius * 0.18f,
+                            center = hub
+                        )
+                    }
+
+                    // Diamond Frame tubes
+                    drawLine(frameColor, rearHub, bb, frameStroke, StrokeCap.Round)
+                    drawLine(frameColor, rearHub, seatCluster, frameStroke * 0.85f, StrokeCap.Round)
+                    drawLine(frameColor, bb, seatCluster, frameStroke, StrokeCap.Round)
+                    drawLine(frameColor, bb, headTube, frameStroke, StrokeCap.Round)
+                    drawLine(frameColor, seatCluster, headTube, frameStroke, StrokeCap.Round)
+                    drawLine(frameColor, headTube, frontHub, frameStroke, StrokeCap.Round)
+                    drawLine(frameColor, headTube, handlebar, frameStroke * 0.9f, StrokeCap.Round)
+                    drawLine(frameColor, seatCluster, saddle, frameStroke * 1.2f, StrokeCap.Round)
+                    drawLine(animatedNeutral, Offset(saddle.x - h * 0.035f, saddle.y), Offset(saddle.x + h * 0.035f, saddle.y), frameStroke * 1.3f, StrokeCap.Round)
+
+                    // Red LED taillight
+                    drawCircle(color = Color(0xFFFF334B), radius = h * 0.012f, center = Offset(saddle.x - h * 0.03f, saddle.y + h * 0.012f))
+
+                    // Cyclist Body Geometry
+                    val riderColor = Color(0xFFF1F5F9)
+                    val riderStroke = h * 0.024f
+                    val hip = Offset(saddle.x + h * 0.015f, saddle.y - h * 0.025f)
+                    val shoulder = Offset(w * 0.525f, groundY - wheelRadius * 3.05f)
+                    val neck = Offset(w * 0.545f, groundY - wheelRadius * 3.32f)
+                    val headCenter = Offset(w * 0.565f, groundY - wheelRadius * 3.55f)
+                    val headRadius = h * 0.05f
+
+                    // Torso & Neck
+                    drawLine(riderColor, hip, shoulder, riderStroke * 1.25f, StrokeCap.Round)
+                    drawLine(riderColor, shoulder, neck, riderStroke * 0.8f, StrokeCap.Round)
+
+                    // Head & Seamless Aero Helmet
+                    withTransform({
+                        rotate(degrees = 25f, pivot = headCenter)
+                    }) {
+                        val cx = headCenter.x
+                        val cy = headCenter.y
+
+                        // Visible Face/Jaw Base
+                        drawCircle(color = riderColor, radius = headRadius, center = headCenter)
+
+                        // Wrap-around Visor Sunglasses
+                        drawRoundRect(
+                            color = animatedSecondary,
+                            topLeft = Offset(cx + headRadius * 0.3f, cy - headRadius * 0.15f),
+                            size = Size(headRadius * 0.95f, headRadius * 0.42f),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(headRadius * 0.2f)
+                        )
+
+                        // Snug Aerodynamic Helmet
+                        val helmetPath = Path().apply {
+                            moveTo(cx + headRadius * 1.25f, cy - headRadius * 0.05f)
+                            cubicTo(
+                                cx + headRadius * 1.1f, cy - headRadius * 1.35f,
+                                cx - headRadius * 0.4f, cy - headRadius * 1.35f,
+                                cx - headRadius * 1.45f, cy - headRadius * 0.25f
+                            )
+                            cubicTo(
+                                cx - headRadius * 1.0f, cy + headRadius * 0.15f,
+                                cx - headRadius * 0.3f, cy + headRadius * 0.05f,
+                                cx + headRadius * 0.2f, cy - headRadius * 0.05f
+                            )
+                            lineTo(cx + headRadius * 1.25f, cy - headRadius * 0.05f)
+                            close()
+                        }
+                        drawPath(helmetPath, color = animatedPrimary)
+
+                        // Vent lines
+                        val ventColor = cardBgColor.copy(alpha = 0.6f)
+                        drawLine(
+                            color = ventColor,
+                            start = Offset(cx - headRadius * 0.7f, cy - headRadius * 0.75f),
+                            end = Offset(cx + headRadius * 0.4f, cy - headRadius * 0.70f),
+                            strokeWidth = frameStroke * 0.35f,
+                            cap = StrokeCap.Round
+                        )
+                    }
+
+                    // Arms
+                    val elbow = Offset(w * 0.575f, groundY - wheelRadius * 2.65f)
+                    drawLine(riderColor, shoulder, elbow, riderStroke, StrokeCap.Round)
+                    drawLine(riderColor, elbow, handlebar, riderStroke, StrokeCap.Round)
+
+                    // Legs
+                    val knee = Offset(w * 0.50f, groundY - wheelRadius * 1.55f)
+                    drawLine(riderColor, hip, knee, riderStroke * 1.15f, StrokeCap.Round)
+                    drawLine(riderColor, knee, bb, riderStroke, StrokeCap.Round)
+
+                } else {
+                    // ==========================================
+                    // LIGHT MODE: Scenic Day Ride (No Sun/Moon Orb)
+                    // ==========================================
+                    drawRect(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0xFFF7FAFD),
+                                Color(0xFFE9F0F6)
+                            )
+                        )
+                    )
+
+                    // Distant Layer 1 Hills
+                    val hill1 = Path().apply {
+                        moveTo(0f, h * 0.65f)
+                        cubicTo(w * 0.3f, h * 0.58f, w * 0.55f, h * 0.68f, w, h * 0.62f)
+                        lineTo(w, h)
+                        lineTo(0f, h)
+                        close()
+                    }
+                    drawPath(hill1, color = animatedSecondary.copy(alpha = 0.16f))
+
+                    // Layer 2 Hills
+                    val hill2 = Path().apply {
+                        moveTo(0f, h * 0.74f)
+                        cubicTo(w * 0.25f, h * 0.69f, w * 0.65f, h * 0.78f, w, h * 0.71f)
+                        lineTo(w, h)
+                        lineTo(0f, h)
+                        close()
+                    }
+                    drawPath(hill2, color = animatedSecondary.copy(alpha = 0.26f))
+
+                    // Minimalist Birds in Flight
+                    val bird1 = Path().apply {
+                        moveTo(w * 0.22f, h * 0.22f)
+                        cubicTo(w * 0.24f, h * 0.19f, w * 0.26f, h * 0.21f, w * 0.27f, h * 0.23f)
+                        cubicTo(w * 0.28f, h * 0.21f, w * 0.30f, h * 0.19f, w * 0.32f, h * 0.22f)
+                    }
+                    val bird2 = Path().apply {
+                        moveTo(w * 0.33f, h * 0.28f)
+                        cubicTo(w * 0.345f, h * 0.26f, w * 0.36f, h * 0.27f, w * 0.37f, h * 0.29f)
+                        cubicTo(w * 0.38f, h * 0.27f, w * 0.395f, h * 0.26f, w * 0.41f, h * 0.28f)
+                    }
+                    drawPath(bird1, color = animatedNeutral.copy(alpha = 0.65f), style = Stroke(width = 2.5f, cap = StrokeCap.Round))
+                    drawPath(bird2, color = animatedNeutral.copy(alpha = 0.65f), style = Stroke(width = 2f, cap = StrokeCap.Round))
+
+                    // Road
+                    val groundY = h * 0.81f
+                    drawLine(
+                        color = animatedNeutral.copy(alpha = 0.7f),
+                        start = Offset(w * 0.06f, groundY),
+                        end = Offset(w * 0.94f, groundY),
+                        strokeWidth = h * 0.014f,
+                        cap = StrokeCap.Round
+                    )
+
+                    // Dashed Road Stripes
+                    val stripePaint = Color.White.copy(alpha = 0.85f)
+                    for (xStep in 0..4) {
+                        val startX = w * (0.12f + xStep * 0.16f)
+                        drawLine(stripePaint, Offset(startX, groundY), Offset(startX + w * 0.08f, groundY), h * 0.005f, StrokeCap.Round)
+                    }
+
+                    // Bike Coordinates
+                    val wheelRadius = h * 0.12f
+                    val rearHub = Offset(w * 0.35f, groundY - wheelRadius)
+                    val frontHub = Offset(w * 0.65f, groundY - wheelRadius)
+                    val bb = Offset(w * 0.48f, groundY - wheelRadius * 0.8f)
+                    val seatCluster = Offset(w * 0.42f, groundY - wheelRadius * 2.15f)
+                    val headTube = Offset(w * 0.58f, groundY - wheelRadius * 2.3f)
+                    val handlebar = Offset(w * 0.62f, groundY - wheelRadius * 2.45f)
+                    val saddle = Offset(w * 0.40f, groundY - wheelRadius * 2.32f)
+
+                    val frameStroke = h * 0.02f
+                    val frameColor = animatedPrimary
+
+                    // Ground Shadows
+                    drawOval(
+                        color = Color.Black.copy(alpha = 0.12f),
+                        topLeft = Offset(rearHub.x - wheelRadius * 0.8f, groundY - h * 0.015f),
+                        size = Size(wheelRadius * 1.6f, h * 0.03f)
+                    )
+                    drawOval(
+                        color = Color.Black.copy(alpha = 0.12f),
+                        topLeft = Offset(frontHub.x - wheelRadius * 0.8f, groundY - h * 0.015f),
+                        size = Size(wheelRadius * 1.6f, h * 0.03f)
+                    )
+
+                    // Wheels
+                    listOf(rearHub, frontHub).forEach { hub ->
+                        drawCircle(
+                            color = animatedSecondary,
+                            radius = wheelRadius,
+                            center = hub,
+                            style = Stroke(width = frameStroke * 1.15f)
+                        )
+                        // Spoke cross lines
+                        drawLine(animatedSecondary.copy(alpha = 0.35f), Offset(hub.x - wheelRadius * 0.85f, hub.y), Offset(hub.x + wheelRadius * 0.85f, hub.y), frameStroke * 0.4f, StrokeCap.Round)
+                        drawLine(animatedSecondary.copy(alpha = 0.35f), Offset(hub.x, hub.y - wheelRadius * 0.85f), Offset(hub.x, hub.y + wheelRadius * 0.85f), frameStroke * 0.4f, StrokeCap.Round)
+                        drawCircle(
+                            color = animatedPrimary,
+                            radius = wheelRadius * 0.18f,
+                            center = hub
+                        )
+                    }
+
+                    // Frame Tubes
+                    drawLine(frameColor, rearHub, bb, frameStroke, StrokeCap.Round)
+                    drawLine(frameColor, rearHub, seatCluster, frameStroke * 0.85f, StrokeCap.Round)
+                    drawLine(frameColor, bb, seatCluster, frameStroke, StrokeCap.Round)
+                    drawLine(frameColor, bb, headTube, frameStroke, StrokeCap.Round)
+                    drawLine(frameColor, seatCluster, headTube, frameStroke, StrokeCap.Round)
+                    drawLine(frameColor, headTube, frontHub, frameStroke, StrokeCap.Round)
+                    drawLine(frameColor, headTube, handlebar, frameStroke * 0.9f, StrokeCap.Round)
+                    drawLine(frameColor, seatCluster, saddle, frameStroke * 1.2f, StrokeCap.Round)
+                    drawLine(animatedNeutral, Offset(saddle.x - h * 0.035f, saddle.y), Offset(saddle.x + h * 0.035f, saddle.y), frameStroke * 1.3f, StrokeCap.Round)
+
+                    // Cyclist in Athletic Charcoal Silhouette
+                    val riderColor = Color(0xFF1E2633)
+                    val riderStroke = h * 0.024f
+                    val hip = Offset(saddle.x + h * 0.015f, saddle.y - h * 0.025f)
+                    val shoulder = Offset(w * 0.525f, groundY - wheelRadius * 3.05f)
+                    val neck = Offset(w * 0.545f, groundY - wheelRadius * 3.32f)
+                    val headCenter = Offset(w * 0.565f, groundY - wheelRadius * 3.55f)
+                    val headRadius = h * 0.05f
+
+                    // Torso & Neck
+                    drawLine(riderColor, hip, shoulder, riderStroke * 1.25f, StrokeCap.Round)
+                    drawLine(riderColor, shoulder, neck, riderStroke * 0.8f, StrokeCap.Round)
+
+                    // Head & Snug Aero Helmet
+                    withTransform({
+                        rotate(degrees = 25f, pivot = headCenter)
+                    }) {
+                        val cx = headCenter.x
+                        val cy = headCenter.y
+
+                        // Visible Face/Jaw Base
+                        drawCircle(color = riderColor, radius = headRadius, center = headCenter)
+
+                        // Wrap-around Visor Sunglasses
+                        drawRoundRect(
+                            color = animatedSecondary,
+                            topLeft = Offset(cx + headRadius * 0.3f, cy - headRadius * 0.15f),
+                            size = Size(headRadius * 0.95f, headRadius * 0.42f),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(headRadius * 0.2f)
+                        )
+
+                        // Snug Aerodynamic Road Helmet
+                        val helmetPath = Path().apply {
+                            moveTo(cx + headRadius * 1.25f, cy - headRadius * 0.05f)
+                            cubicTo(
+                                cx + headRadius * 1.1f, cy - headRadius * 1.35f,
+                                cx - headRadius * 0.4f, cy - headRadius * 1.35f,
+                                cx - headRadius * 1.45f, cy - headRadius * 0.25f
+                            )
+                            cubicTo(
+                                cx - headRadius * 1.0f, cy + headRadius * 0.15f,
+                                cx - headRadius * 0.3f, cy + headRadius * 0.05f,
+                                cx + headRadius * 0.2f, cy - headRadius * 0.05f
+                            )
+                            lineTo(cx + headRadius * 1.25f, cy - headRadius * 0.05f)
+                            close()
+                        }
+                        drawPath(helmetPath, color = animatedPrimary)
+
+                        // Vent lines
+                        val ventColor = cardBgColor.copy(alpha = 0.6f)
+                        drawLine(
+                            color = ventColor,
+                            start = Offset(cx - headRadius * 0.7f, cy - headRadius * 0.75f),
+                            end = Offset(cx + headRadius * 0.4f, cy - headRadius * 0.70f),
+                            strokeWidth = frameStroke * 0.35f,
+                            cap = StrokeCap.Round
+                        )
+                    }
+
+                    // Arms
+                    val elbow = Offset(w * 0.575f, groundY - wheelRadius * 2.65f)
+                    drawLine(riderColor, shoulder, elbow, riderStroke, StrokeCap.Round)
+                    drawLine(riderColor, elbow, handlebar, riderStroke, StrokeCap.Round)
+
+                    // Legs
+                    val knee = Offset(w * 0.50f, groundY - wheelRadius * 1.55f)
+                    drawLine(riderColor, hip, knee, riderStroke * 1.15f, StrokeCap.Round)
+                    drawLine(riderColor, knee, bb, riderStroke, StrokeCap.Round)
+                }
             }
 
-            Column(
+            // Top-left color preview dots
+            Row(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.SpaceBetween
+                    .align(Alignment.TopStart)
+                    .padding(20.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Card(
-                        modifier = Modifier
-                            .width(140.dp)
-                            .height(100.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = animatedPrimary.copy(alpha = 0.15f)
-                        )
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(12.dp),
-                            verticalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(
-                                        Brush.linearGradient(
-                                            colors = listOf(animatedPrimary, animatedSecondary)
-                                        )
-                                    )
-                            )
-
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(4.dp)
-                                    .clip(RoundedCornerShape(2.dp))
-                                    .background(animatedNeutral.copy(alpha = 0.3f))
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth(0.6f)
-                                        .height(4.dp)
-                                        .clip(RoundedCornerShape(2.dp))
-                                        .background(animatedPrimary)
-                                )
-                            }
-                        }
-                    }
+                listOf(animatedPrimary, animatedSecondary, animatedTertiary, animatedNeutral).forEach { color ->
                     Box(
                         modifier = Modifier
-                            .size(56.dp)
-                            .shadow(8.dp, CircleShape)
+                            .size(15.dp)
+                            .shadow(3.dp, CircleShape)
                             .clip(CircleShape)
-                            .background(animatedPrimary),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.play),
-                            contentDescription = null,
-                            tint = palette.onPrimary,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    listOf(
-                        animatedPrimary to 48.dp,
-                        animatedSecondary to 36.dp,
-                        animatedTertiary to 28.dp
-                    ).forEachIndexed { index, (color, size) ->
-                        Box(
-                            modifier = Modifier
-                                .offset(x = (-12 * index).dp)
-                                .size(size)
-                                .shadow(4.dp, CircleShape)
-                                .clip(CircleShape)
-                                .background(color)
-                                .border(2.dp, Color.White.copy(alpha = 0.3f), CircleShape)
-                        )
-                    }
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    listOf(animatedPrimary, animatedSecondary, animatedNeutral).forEach { color ->
-                        Box(
-                            modifier = Modifier
-                                .height(32.dp)
-                                .width(72.dp)
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(color.copy(alpha = 0.2f))
-                                .border(1.dp, color.copy(alpha = 0.5f), RoundedCornerShape(16.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .clip(CircleShape)
-                                    .background(color)
-                            )
-                        }
-                    }
+                            .background(color)
+                            .border(1.dp, Color.White.copy(alpha = 0.4f), CircleShape)
+                    )
                 }
             }
+
+            // Bottom-right palette badge
             Surface(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(16.dp),
-                shape = RoundedCornerShape(12.dp),
+                    .padding(18.dp),
+                shape = RoundedCornerShape(14.dp),
                 color = animatedPrimary,
-                shadowElevation = 4.dp
+                shadowElevation = 6.dp
             ) {
                 Text(
                     text = palette.name,
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
                     color = palette.onPrimary,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
                 )
             }
         }
@@ -1300,7 +1183,7 @@ private fun ColorPaletteSelector(
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
-    val selectedIndex = palettes.indexOf(selectedPalette)
+    val selectedIndex = palettes.indexOfFirst { it.id == selectedPalette.id }.takeIf { it >= 0 } ?: 0
 
     val totalDots = (palettes.size + 3) / 4
 
@@ -1334,7 +1217,7 @@ private fun ColorPaletteSelector(
             contentPadding = PaddingValues(horizontal = 24.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(palettes) { palette ->
+            items(palettes, key = { it.id }) { palette ->
                 PaletteCard(
                     palette = palette,
                     isSelected = palette.id == selectedPalette.id,
@@ -1446,9 +1329,6 @@ private fun PaletteCard(
             Canvas(
                 modifier = Modifier.size(56.dp)
             ) {
-                val radius = size.minDimension / 2
-                val center = Offset(size.width / 2, size.height / 2)
-
                 drawArc(
                     color = palette.primary,
                     startAngle = -90f,
@@ -1459,7 +1339,7 @@ private fun PaletteCard(
                 )
 
                 drawArc(
-                    color = palette.primary.copy(alpha = 0.4f),
+                    color = palette.secondary,
                     startAngle = 90f,
                     sweepAngle = 90f,
                     useCenter = true,
@@ -1468,7 +1348,7 @@ private fun PaletteCard(
                 )
 
                 drawArc(
-                    color = palette.primary.copy(alpha = 0.2f),
+                    color = palette.tertiary,
                     startAngle = 180f,
                     sweepAngle = 90f,
                     useCenter = true,
@@ -1499,152 +1379,107 @@ private fun PaletteCard(
 }
 
 @Composable
-private fun SelectedPaletteDetails(
-    palette: ThemePalette,
-    modifier: Modifier = Modifier
+private fun ColorEditor(
+    color: Color,
+    onColorChange: (Color) -> Unit,
+    onRandomize: () -> Unit,
+    onApply: () -> Unit,
+    isApplyEnabled: Boolean
 ) {
-    val animatedPrimary by animateColorAsState(
-        targetValue = palette.primary,
-        animationSpec = tween(durationMillis = 400),
-        label = "detailPrimary"
-    )
-    val animatedSecondary by animateColorAsState(
-        targetValue = palette.secondary,
-        animationSpec = tween(durationMillis = 400),
-        label = "detailSecondary"
-    )
-    val animatedTertiary by animateColorAsState(
-        targetValue = palette.tertiary,
-        animationSpec = tween(durationMillis = 400),
-        label = "detailTertiary"
-    )
-    val animatedNeutral by animateColorAsState(
-        targetValue = palette.neutral,
-        animationSpec = tween(durationMillis = 400),
-        label = "detailNeutral"
-    )
+    var red by remember(color) { mutableFloatStateOf(color.red * 255f) }
+    var green by remember(color) { mutableFloatStateOf(color.green * 255f) }
+    var blue by remember(color) { mutableFloatStateOf(color.blue * 255f) }
+
+    val hexString = String.format("#%06X", (0xFFFFFF and color.toArgb()))
 
     Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        )
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp)
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = stringResource(R.string.selected_theme_color),
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                ColorSwatch(
-                    color = animatedPrimary,
-                    label = "Primary",
-                    hexCode = palette.primary.toHexString()
-                )
-                ColorSwatch(
-                    color = animatedSecondary,
-                    label = "Secondary",
-                    hexCode = palette.secondary.toHexString()
-                )
-                ColorSwatch(
-                    color = animatedTertiary,
-                    label = "Tertiary",
-                    hexCode = palette.tertiary.toHexString()
-                )
-                ColorSwatch(
-                    color = animatedNeutral,
-                    label = "Neutral",
-                    hexCode = palette.neutral.toHexString()
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(CircleShape)
+                            .background(color)
+                            .border(2.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                    )
+                    Column {
+                        Text(stringResource(R.string.hex_color), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(hexString, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                    }
+                }
+
+                IconButton(
+                    onClick = onRandomize,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape)
+                ) {
+                    Icon(painterResource(R.drawable.shuffle), contentDescription = stringResource(R.string.randomize), tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                }
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+            ColorSliderRow(label = "R", value = red, activeColor = Color.Red, onValueChange = {
+                red = it
+                onColorChange(Color(red/255f, green/255f, blue/255f))
+            })
+            ColorSliderRow(label = "G", value = green, activeColor = Color.Green, onValueChange = {
+                green = it
+                onColorChange(Color(red/255f, green/255f, blue/255f))
+            })
+            ColorSliderRow(label = "B", value = blue, activeColor = Color.Blue, onValueChange = {
+                blue = it
+                onColorChange(Color(red/255f, green/255f, blue/255f))
+            })
+
+            Button(
+                onClick = onApply,
+                enabled = isApplyEnabled,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Text(stringResource(R.string.apply))
             }
         }
     }
 }
 
 @Composable
-private fun ColorSwatch(
-    color: Color,
-    label: String,
-    hexCode: String
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally
+private fun ColorSliderRow(label: String, value: Float, activeColor: Color, onValueChange: (Float) -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .shadow(4.dp, CircleShape)
-                .clip(CircleShape)
-                .background(color)
-                .border(2.dp, Color.White.copy(alpha = 0.3f), CircleShape)
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Text(
-            text = hexCode,
-            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-        )
-    }
-}
-
-@Composable
-fun ColorPalettePicker(
-    palettes: List<ThemePalette>,
-    selectedPalette: ThemePalette,
-    onPaletteSelected: (ThemePalette) -> Unit,
-    modifier: Modifier = Modifier,
-    showPreview: Boolean = true
-) {
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        if (showPreview) {
-            ThemePreviewCard(
-                palette = selectedPalette,
-                isDarkTheme = isSystemInDarkTheme(),
-                modifier = Modifier.padding(horizontal = 24.dp)
+        Text(label, fontWeight = FontWeight.Bold, modifier = Modifier.width(20.dp), textAlign = TextAlign.Center)
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = 0f..255f,
+            modifier = Modifier.weight(1f),
+            colors = SliderDefaults.colors(
+                activeTrackColor = activeColor,
+                thumbColor = activeColor
             )
-
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-
-        ColorPaletteSelector(
-            palettes = palettes,
-            selectedPalette = selectedPalette,
-            onPaletteSelected = onPaletteSelected
         )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun PalettePickerScreenPreview() {
-    MaterialTheme {
-        PalettePickerScreen(
-            navController = rememberNavController()
-        )
+        Text(value.toInt().toString(), modifier = Modifier.width(36.dp), textAlign = TextAlign.End)
     }
 }
 
@@ -1656,13 +1491,14 @@ private fun PaletteCardPreview() {
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.padding(16.dp)
         ) {
+            val palettes = ThemePalettes.getPalettes(false)
             PaletteCard(
-                palette = ThemePalettes.Default,
+                palette = palettes.find { it.id == "default" }!!,
                 isSelected = true,
                 onClick = {}
             )
             PaletteCard(
-                palette = ThemePalettes.OceanBlue,
+                palette = palettes.find { it.id == "ocean_blue" }!!,
                 isSelected = false,
                 onClick = {}
             )
@@ -1674,8 +1510,9 @@ private fun PaletteCardPreview() {
 @Composable
 private fun ThemePreviewCardPreview() {
     MaterialTheme {
+        val palettes = ThemePalettes.getPalettes(false)
         ThemePreviewCard(
-            palette = ThemePalettes.EmeraldGreen,
+            palette = palettes.find { it.id == "emerald_green" }!!,
             isDarkTheme = false,
             modifier = Modifier.padding(24.dp)
         )

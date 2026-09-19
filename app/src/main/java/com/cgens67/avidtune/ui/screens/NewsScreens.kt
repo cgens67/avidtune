@@ -1,122 +1,331 @@
 @file:OptIn(
     ExperimentalMaterial3Api::class,
     ExperimentalMaterial3ExpressiveApi::class,
+    ExperimentalFoundationApi::class,
 )
 
 package com.cgens67.avidtune.ui.screens
 
+import android.content.res.Configuration
 import android.net.Uri
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.*
+import androidx.compose.foundation.interaction.*
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularWavyProgressIndicator
-import androidx.compose.material3.ElevatedButton
-import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeFlexibleTopAppBar
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SearchBar
-import androidx.compose.material3.SearchBarDefaults
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.carousel.HorizontalCenteredHeroCarousel
-import androidx.compose.material3.carousel.HorizontalMultiBrowseCarousel
-import androidx.compose.material3.carousel.rememberCarouselState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.foundation.lazy.staggeredgrid.*
+import androidx.compose.foundation.shape.*
+import androidx.compose.foundation.text.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.*
+import androidx.compose.ui.draw.*
+import androidx.compose.ui.focus.*
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.*
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.*
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontStyle
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.*
+import androidx.compose.ui.text.font.*
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.*
+import androidx.compose.ui.unit.*
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.datastore.preferences.core.edit
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
+import com.cgens67.avidtune.R
+import com.cgens67.avidtune.constants.NewsLastReadTimestampKey
+import com.cgens67.avidtune.ui.component.IconButton as AppIconButton
+import com.cgens67.avidtune.ui.utils.backToMain
+import com.cgens67.avidtune.utils.dataStore
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.cio.CIO
+import io.ktor.client.engine.cio.endpoint
+import io.ktor.client.request.get
+import io.ktor.client.request.headers
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpHeaders
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.*
+import timber.log.Timber
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
-import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
-import com.cgens67.avidtune.R
-import com.cgens67.avidtune.ui.utils.backToMain
-import com.cgens67.avidtune.viewmodels.NewsItem
-import com.cgens67.avidtune.viewmodels.NewsUiState
-import com.cgens67.avidtune.viewmodels.NewsViewModel
-import com.cgens67.avidtune.viewmodels.ViewNewsUiState
-import com.cgens67.avidtune.viewmodels.ViewNewsViewModel
-import com.cgens67.avidtune.ui.component.IconButton as AppIconButton
+import javax.inject.Inject
+import javax.inject.Singleton
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
+
+// ==========================================
+// MODELS & REPOSITORIES
+// ==========================================
+
+@Serializable
+data class NewsItem(
+    @SerialName("id") val id: String = "",
+    @SerialName("Title") val title: String,
+    @SerialName("Description") val description: String = "",
+    @SerialName("ImageURL")
+    @Serializable(with = NewsImageUrlsSerializer::class)
+    val imageUrls: List<String> = emptyList(),
+    @SerialName("Important") val important: Boolean = false,
+    @SerialName("Author") val author: String,
+    @SerialName("Date") val timestamp: Long = 0L,
+) {
+    val stableKey: String
+        get() = id.ifEmpty { "$timestamp|$author|$title" }
+}
+
+object NewsImageUrlsSerializer : KSerializer<List<String>> {
+    private val delegate = ListSerializer(String.serializer())
+    override val descriptor: SerialDescriptor = delegate.descriptor
+    override fun deserialize(decoder: Decoder): List<String> {
+        val jsonDecoder = decoder as? JsonDecoder ?: return delegate.deserialize(decoder)
+        return when (val element = jsonDecoder.decodeJsonElement()) {
+            JsonNull -> emptyList()
+            is JsonArray -> element.mapNotNull { item ->
+                (item as? JsonPrimitive)?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }
+            }
+            is JsonPrimitive -> element.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }?.let(::listOf) ?: emptyList()
+            else -> emptyList()
+        }
+    }
+    override fun serialize(encoder: Encoder, value: List<String>) {
+        delegate.serialize(encoder, value)
+    }
+}
+
+enum class NewsSortOption(@androidx.annotation.StringRes val displayNameRes: Int) {
+    LATEST(R.string.sort_latest),
+    OLDEST(R.string.sort_oldest),
+    IMPORTANT_FIRST(R.string.sort_important_first)
+}
+
+@Singleton
+class NewsRepository @Inject constructor() {
+    private val client = HttpClient(CIO) {
+        engine {
+            requestTimeout = 15000
+            endpoint { connectTimeout = 15000 }
+        }
+    }
+    private val json = Json { ignoreUnknownKeys = true; coerceInputValues = true }
+    @Volatile private var metadataCache: List<NewsItem>? = null
+
+    suspend fun fetchNews(): List<NewsItem> {
+        val response = client.get(METADATA_URL) {
+            headers {
+                append(HttpHeaders.CacheControl, "no-cache, no-store, must-revalidate")
+                append(HttpHeaders.Pragma, "no-cache")
+                append(HttpHeaders.Expires, "0")
+            }
+        }
+        val items = json.decodeFromString<List<NewsItem>>(response.bodyAsText())
+        metadataCache = items
+        return items
+    }
+
+    suspend fun fetchNewsContent(id: String): String {
+        return client.get("$CONTENT_BASE_URL$id") {
+            headers {
+                append(HttpHeaders.CacheControl, "no-cache, no-store, must-revalidate")
+                append(HttpHeaders.Pragma, "no-cache")
+                append(HttpHeaders.Expires, "0")
+            }
+        }.bodyAsText()
+    }
+
+    fun getCachedItem(id: String): NewsItem? = metadataCache?.find { it.id == id }
+
+    private companion object {
+        const val METADATA_URL = "https://raw.githubusercontent.com/cgens67/avidtune-news/main/metadata.json"
+        const val CONTENT_BASE_URL = "https://raw.githubusercontent.com/cgens67/avidtune-news/main/content/"
+    }
+}
+
+sealed interface NewsUiState {
+    data object Loading : NewsUiState
+    data class Success(val items: List<NewsItem>) : NewsUiState
+    data object Empty : NewsUiState
+    data class Error(val message: String) : NewsUiState
+}
+
+@dagger.hilt.android.lifecycle.HiltViewModel
+class NewsViewModel @Inject constructor(
+    private val repository: NewsRepository,
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
+) : ViewModel() {
+    private val _rawItems = MutableStateFlow<List<NewsItem>>(emptyList())
+    private val _loadState = MutableStateFlow<NewsUiState>(NewsUiState.Loading)
+    val searchQuery = MutableStateFlow("")
+    val sortOption = MutableStateFlow(NewsSortOption.LATEST)
+    val filterImportant = MutableStateFlow(false)
+
+    val uiState: StateFlow<NewsUiState> = combine(
+        _loadState, 
+        searchQuery, 
+        _rawItems,
+        sortOption,
+        filterImportant
+    ) { loadState, query, items, sort, importantOnly ->
+        when (loadState) {
+            is NewsUiState.Loading -> NewsUiState.Loading
+            is NewsUiState.Error -> loadState
+            is NewsUiState.Empty -> NewsUiState.Empty
+            is NewsUiState.Success -> {
+                var filtered = items
+                if (query.isNotBlank()) {
+                    val q = query.trim().lowercase()
+                    filtered = filtered.filter { it.title.lowercase().contains(q) || it.author.lowercase().contains(q) }
+                }
+                if (importantOnly) {
+                    filtered = filtered.filter { it.important }
+                }
+                filtered = when (sort) {
+                    NewsSortOption.LATEST -> filtered.sortedByDescending { it.timestamp }
+                    NewsSortOption.OLDEST -> filtered.sortedBy { it.timestamp }
+                    NewsSortOption.IMPORTANT_FIRST -> filtered.sortedWith(compareByDescending<NewsItem> { it.important }.thenByDescending { it.timestamp })
+                }
+                if (filtered.isEmpty()) NewsUiState.Empty else NewsUiState.Success(filtered)
+            }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), NewsUiState.Loading)
+
+    val hasUnreadNews: StateFlow<Boolean> = combine(
+        _rawItems,
+        context.dataStore.data.map { prefs -> prefs[NewsLastReadTimestampKey] ?: 0L }
+    ) { items, lastRead ->
+        items.isNotEmpty() && items.maxOf { it.timestamp } > lastRead
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    init { fetchNews() }
+
+    fun fetchNews() {
+        viewModelScope.launch {
+            _loadState.value = NewsUiState.Loading
+            runCatching { repository.fetchNews().sortedByDescending { it.timestamp } }
+                .onSuccess { items ->
+                    _rawItems.value = items
+                    _loadState.value = if (items.isEmpty()) NewsUiState.Empty else NewsUiState.Success(items)
+                }
+                .onFailure { error -> _loadState.value = NewsUiState.Error(error.message ?: "Unknown error") }
+        }
+    }
+
+    fun markAllRead() {
+        val latest = _rawItems.value.maxOfOrNull { it.timestamp } ?: return
+        viewModelScope.launch {
+            context.dataStore.edit { prefs ->
+                prefs[NewsLastReadTimestampKey] = latest
+            }
+        }
+    }
+}
+
+sealed interface ViewNewsUiState {
+    data object Loading : ViewNewsUiState
+    data class Success(val content: String) : ViewNewsUiState
+    data class Error(val message: String) : ViewNewsUiState
+}
+
+@dagger.hilt.android.lifecycle.HiltViewModel
+class ViewNewsViewModel @Inject constructor(
+    private val repository: NewsRepository,
+    savedStateHandle: androidx.lifecycle.SavedStateHandle,
+) : ViewModel() {
+    val newsId: String = savedStateHandle.get<String>("newsId") ?: ""
+    val newsItem: NewsItem? = repository.getCachedItem(newsId)
+    private val _contentState = MutableStateFlow<ViewNewsUiState>(ViewNewsUiState.Loading)
+    val contentState: StateFlow<ViewNewsUiState> = _contentState.asStateFlow()
+
+    init { loadContent() }
+
+    fun loadContent() {
+        viewModelScope.launch {
+            _contentState.value = ViewNewsUiState.Loading
+            runCatching { repository.fetchNewsContent(newsId) }
+                .onSuccess { _contentState.value = ViewNewsUiState.Success(it) }
+                .onFailure { _contentState.value = ViewNewsUiState.Error(it.message ?: "Unknown error") }
+        }
+    }
+}
+
+// ==========================================
+// ANIMATED BACKGROUND & SHARED UI
+// ==========================================
+
+@Composable
+fun AnimatedNewsBackground(modifier: Modifier = Modifier) {
+    val isDark = isSystemInDarkTheme()
+    val infiniteTransition = rememberInfiniteTransition(label = "mesh_bg")
+    
+    val rotation1 by infiniteTransition.animateFloat(
+        initialValue = 0f, targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(40000, easing = LinearEasing), RepeatMode.Restart),
+        label = "rot1"
+    )
+    val rotation2 by infiniteTransition.animateFloat(
+        initialValue = 360f, targetValue = 0f,
+        animationSpec = infiniteRepeatable(tween(55000, easing = LinearEasing), RepeatMode.Restart),
+        label = "rot2"
+    )
+
+    val color1 = MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.15f else 0.25f)
+    val color2 = MaterialTheme.colorScheme.tertiary.copy(alpha = if (isDark) 0.12f else 0.2f)
+
+    Box(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        Canvas(modifier = Modifier.fillMaxSize().blur(80.dp)) {
+            val w = size.width
+            val h = size.height
+            val r1 = w * 0.8f
+            val r2 = w * 0.9f
+            
+            val cx1 = w/2 + cos(rotation1 * PI / 180).toFloat() * (w * 0.2f)
+            val cy1 = h/3 + sin(rotation1 * PI / 180).toFloat() * (h * 0.1f)
+            
+            val cx2 = w/2 + cos(rotation2 * PI / 180).toFloat() * (w * 0.3f)
+            val cy2 = h * 0.7f + sin(rotation2 * PI / 180).toFloat() * (h * 0.15f)
+
+            drawCircle(color = color1, radius = r1, center = Offset(cx1, cy1))
+            drawCircle(color = color2, radius = r2, center = Offset(cx2, cy2))
+        }
+    }
+}
 
 // ==========================================
 // NEWS LIST SCREEN
@@ -129,218 +338,336 @@ fun NewsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
+    val sortOption by viewModel.sortOption.collectAsState()
+    val filterImportant by viewModel.filterImportant.collectAsState()
+    var isSearchActive by rememberSaveable { mutableStateOf(false) }
+
+    val listState = rememberLazyStaggeredGridState()
+    val isScrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 20 } }
+    
+    val haptic = LocalHapticFeedback.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val focusRequester = remember { FocusRequester() }
 
     LaunchedEffect(uiState) {
-        if (uiState is NewsUiState.Success) {
-            viewModel.markAllRead()
+        if (uiState is NewsUiState.Success) viewModel.markAllRead()
+    }
+    
+    LaunchedEffect(isSearchActive) {
+        if (isSearchActive) {
+            delay(100)
+            focusRequester.requestFocus()
+        } else {
+            focusManager.clearFocus()
+            keyboardController?.hide()
         }
     }
 
-    var isSearchActive by rememberSaveable { mutableStateOf(false) }
-
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    val listState = rememberLazyListState()
-
     Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .nestedScroll(scrollBehavior.nestedScrollConnection),
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+        modifier = Modifier.fillMaxSize(),
+        containerColor = Color.Transparent,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        topBar = {
-            AnimatedContent(
-                targetState = isSearchActive,
-                transitionSpec = {
-                    fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) togetherWith
-                            fadeOut(spring(stiffness = Spring.StiffnessMediumLow))
-                },
-                label = "newsTopBar",
-            ) { searching ->
-                if (searching) {
-                    SearchBar(
-                        inputField = {
-                            SearchBarDefaults.InputField(
-                                query = searchQuery,
-                                onQueryChange = { viewModel.searchQuery.value = it },
-                                onSearch = { isSearchActive = false },
-                                expanded = false,
-                                onExpandedChange = {},
-                                placeholder = {
-                                    Text(text = stringResource(R.string.search_news_placeholder))
-                                },
-                                leadingIcon = {
-                                    IconButton(
-                                        onClick = {
-                                            viewModel.searchQuery.value = ""
-                                            isSearchActive = false
-                                        },
-                                    ) {
-                                        Icon(
-                                            painter = painterResource(R.drawable.arrow_back),
-                                            contentDescription = stringResource(R.string.back),
-                                        )
-                                    }
-                                },
-                                trailingIcon = if (searchQuery.isNotEmpty()) {
-                                    {
-                                        IconButton(
-                                            onClick = { viewModel.searchQuery.value = "" },
-                                        ) {
-                                            Icon(
-                                                painter = painterResource(R.drawable.close),
-                                                contentDescription = stringResource(R.string.close),
-                                            )
-                                        }
-                                    }
-                                } else {
-                                    null
-                                },
-                            )
-                        },
-                        expanded = false,
-                        onExpandedChange = {},
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                            .padding(top = 8.dp, bottom = 4.dp),
-                    ) {}
-                } else {
-                    LargeFlexibleTopAppBar(
-                        title = {
-                            Text(
-                                text = stringResource(R.string.news),
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold,
-                            )
-                        },
-                        navigationIcon = {
-                            AppIconButton(
-                                onClick = navController::navigateUp,
-                                onLongClick = navController::backToMain,
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.arrow_back),
-                                    contentDescription = stringResource(R.string.back),
-                                )
-                            }
-                        },
-                        actions = {
-                            IconButton(onClick = { isSearchActive = true }) {
-                                Icon(
-                                    painter = painterResource(R.drawable.search),
-                                    contentDescription = stringResource(R.string.search),
-                                )
-                            }
-                            IconButton(onClick = { viewModel.fetchNews() }) {
-                                Icon(
-                                    painter = painterResource(R.drawable.sync),
-                                    contentDescription = stringResource(R.string.action_retry),
-                                )
-                            }
-                        },
-                        colors = TopAppBarDefaults.largeTopAppBarColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-                            scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        ),
-                        scrollBehavior = scrollBehavior,
-                    )
-                }
-            }
-        },
     ) { innerPadding ->
-        AnimatedContent(
-            targetState = uiState,
-            transitionSpec = {
-                fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) togetherWith
-                        fadeOut(spring(stiffness = Spring.StiffnessMediumLow))
-            },
-            modifier = Modifier.fillMaxSize(),
-            label = "newsContent",
-        ) { state ->
-            when (state) {
-                is NewsUiState.Loading -> {
-                    NewsLoadingState(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding),
-                    )
-                }
+        Box(modifier = Modifier.fillMaxSize()) {
+            AnimatedNewsBackground()
 
-                is NewsUiState.Error -> {
-                    NewsErrorState(
-                        message = state.message,
-                        onRetry = viewModel::fetchNews,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding),
-                    )
-                }
-
-                is NewsUiState.Empty -> {
-                    NewsEmptyState(
-                        isSearching = searchQuery.isNotBlank(),
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding),
-                    )
-                }
-
+            // List Content
+            when (val state = uiState) {
+                is NewsUiState.Loading -> NewsLoadingState(Modifier.fillMaxSize())
+                is NewsUiState.Error -> NewsErrorState(state.message, viewModel::fetchNews, Modifier.fillMaxSize())
+                is NewsUiState.Empty -> NewsEmptyState(searchQuery.isNotBlank() || filterImportant, Modifier.fillMaxSize())
                 is NewsUiState.Success -> {
-                    BoxWithConstraints(
+                    val sysTop = WindowInsets.systemBars.asPaddingValues().calculateTopPadding()
+                    
+                    LazyVerticalStaggeredGrid(
+                        columns = StaggeredGridCells.Adaptive(320.dp),
+                        state = listState,
+                        contentPadding = PaddingValues(
+                            top = sysTop + 90.dp, // Enough space to clear the floating header
+                            bottom = 32.dp, // Adapted so it doesn't get covered by the mini-player via windowInsetsPadding below
+                            start = 16.dp, 
+                            end = 16.dp
+                        ),
+                        verticalItemSpacing = 24.dp,
+                        horizontalArrangement = Arrangement.spacedBy(24.dp),
                         modifier = Modifier
                             .fillMaxSize()
                             .windowInsetsPadding(
-                                LocalPlayerAwareWindowInsets.current.only(
-                                    WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom,
-                                ),
-                            ),
+                                LocalPlayerAwareWindowInsets.current
+                                    .only(WindowInsetsSides.Bottom)
+                                    .union(WindowInsets.ime)
+                            )
                     ) {
-                        val horizontalPadding = if (maxWidth > 840.dp) {
-                            (maxWidth - 760.dp) / 2
-                        } else {
-                            16.dp
+                        item(span = StaggeredGridItemSpan.FullLine) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp, top = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Sort Dropdown
+                                var sortExpanded by remember { mutableStateOf(false) }
+                                Box {
+                                    Surface(
+                                        onClick = { sortExpanded = true },
+                                        shape = RoundedCornerShape(16.dp),
+                                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                        ) {
+                                            Icon(
+                                                painter = painterResource(R.drawable.list), 
+                                                contentDescription = null, 
+                                                modifier = Modifier.size(16.dp),
+                                                tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                            )
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(
+                                                text = stringResource(R.string.sort_prefix, stringResource(sortOption.displayNameRes)),
+                                                style = MaterialTheme.typography.labelLarge,
+                                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                            Spacer(Modifier.width(4.dp))
+                                            Icon(
+                                                imageVector = Icons.Default.KeyboardArrowDown, 
+                                                contentDescription = null, 
+                                                modifier = Modifier.size(16.dp),
+                                                tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                            )
+                                        }
+                                    }
+
+                                    MaterialTheme(shapes = MaterialTheme.shapes.copy(extraSmall = RoundedCornerShape(16.dp))) {
+                                        DropdownMenu(
+                                            expanded = sortExpanded, 
+                                            onDismissRequest = { sortExpanded = false },
+                                            modifier = Modifier.widthIn(min = 172.dp)
+                                        ) {
+                                            NewsSortOption.entries.forEach { option ->
+                                                val isSelected = sortOption == option
+                                                DropdownMenuItem(
+                                                    text = { 
+                                                        Text(
+                                                            text = stringResource(option.displayNameRes),
+                                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                            color = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface
+                                                        ) 
+                                                    },
+                                                    trailingIcon = {
+                                                        Icon(
+                                                            painter = painterResource(if (isSelected) R.drawable.radio_button_checked else R.drawable.radio_button_unchecked),
+                                                            contentDescription = null,
+                                                            tint = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                                        )
+                                                    },
+                                                    onClick = { 
+                                                        viewModel.sortOption.value = option
+                                                        sortExpanded = false 
+                                                    },
+                                                    modifier = Modifier
+                                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                                        .clip(CircleShape)
+                                                        .background(if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Important Filter Toggle
+                                Surface(
+                                    onClick = { viewModel.filterImportant.value = !filterImportant },
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = if (filterImportant) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                    ) {
+                                        if (filterImportant) {
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onErrorContainer,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        } else {
+                                            Icon(
+                                                painter = painterResource(R.drawable.info),
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            text = stringResource(R.string.important),
+                                            style = MaterialTheme.typography.labelLarge,
+                                            color = if (filterImportant) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                }
+                            }
                         }
 
-                        LazyColumn(
-                            state = listState,
-                            verticalArrangement = Arrangement.spacedBy(14.dp),
-                            contentPadding = PaddingValues(
-                                top = innerPadding.calculateTopPadding() + 12.dp,
-                                bottom = innerPadding.calculateBottomPadding() + 24.dp,
-                                start = horizontalPadding,
-                                end = horizontalPadding,
-                            ),
-                            modifier = Modifier.fillMaxSize(),
-                        ) {
-                            item(
-                                key = "news_header",
-                                contentType = "news_header",
-                            ) {
-                                NewsListHeader(
-                                    itemCount = state.items.size,
-                                    isSearching = searchQuery.isNotBlank(),
-                                    modifier = Modifier.fillMaxWidth(),
+                        itemsIndexed(
+                            items = state.items,
+                            key = { _, i -> i.stableKey },
+                            span = { index, _ ->
+                                if (index == 0 && searchQuery.isBlank() && !filterImportant && sortOption == NewsSortOption.LATEST) StaggeredGridItemSpan.FullLine
+                                else StaggeredGridItemSpan.SingleLane
+                            }
+                        ) { index, item ->
+                            val isInitial = remember { index < 8 }
+                            var visible by remember { mutableStateOf(!isInitial) }
+                            
+                            LaunchedEffect(Unit) { 
+                                if (isInitial) {
+                                    delay(index * 50L) 
+                                    visible = true
+                                }
+                            }
+                            
+                            val alpha by animateFloatAsState(
+                                targetValue = if (visible) 1f else 0f, 
+                                animationSpec = tween(350), 
+                                label = "alpha"
+                            )
+
+                            val cardModifier = Modifier
+                                .animateItem(
+                                    fadeInSpec = null,
+                                    fadeOutSpec = null,
+                                )
+                                .graphicsLayer {
+                                    this.alpha = alpha
+                                    this.clip = false
+                                }
+
+                            val isFullyLoaded = visible && alpha >= 0.99f
+
+                            if (index == 0 && searchQuery.isBlank() && !filterImportant && sortOption == NewsSortOption.LATEST) {
+                                FeaturedNewsCard(
+                                    item = item, 
+                                    onNavigate = { navController.navigate("view_news/${Uri.encode(item.id)}") }, 
+                                    modifier = cardModifier,
+                                    isFullyVisible = isFullyLoaded
+                                )
+                            } else {
+                                EnhancedNewsCard(
+                                    item = item, 
+                                    onNavigate = { navController.navigate("view_news/${Uri.encode(item.id)}") }, 
+                                    modifier = cardModifier,
+                                    isFullyVisible = isFullyLoaded
                                 )
                             }
+                        }
+                    }
+                }
+            }
 
-                            itemsIndexed(
-                                items = state.items,
-                                key = { _, item -> item.stableKey },
-                                contentType = { _, item ->
-                                    when {
-                                        item.imageUrls.size > 1 -> "news_image_carousel"
-                                        item.imageUrls.isNotEmpty() -> "news_image"
-                                        else -> "news_text"
+            // Floating Header / Search
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = WindowInsets.systemBars.asPaddingValues().calculateTopPadding() + 8.dp)
+                    .padding(horizontal = 16.dp)
+                    .align(Alignment.TopCenter)
+            ) {
+                val headerAlpha by animateFloatAsState(targetValue = if (isScrolled && !isSearchActive) 0.95f else 1f, label = "bg_alpha")
+                val headerElevation by animateDpAsState(targetValue = if (isScrolled) 8.dp else 0.dp, label = "elevation")
+                
+                Surface(
+                    shape = RoundedCornerShape(28.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = headerAlpha),
+                    shadowElevation = headerElevation,
+                    modifier = Modifier.fillMaxWidth().height(56.dp)
+                ) {
+                    AnimatedContent(
+                        targetState = isSearchActive,
+                        transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(200)) },
+                        label = "searchBarAnim"
+                    ) { active ->
+                        if (active) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp)
+                            ) {
+                                AppIconButton(
+                                    onClick = { isSearchActive = false; viewModel.searchQuery.value = "" },
+                                    onLongClick = {}
+                                ) {
+                                    Icon(painterResource(R.drawable.arrow_back), null)
+                                }
+                                Spacer(Modifier.width(8.dp))
+                                BasicTextField(
+                                    value = searchQuery,
+                                    onValueChange = { viewModel.searchQuery.value = it },
+                                    textStyle = MaterialTheme.typography.titleMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                    keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus(); keyboardController?.hide() }),
+                                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                    modifier = Modifier.weight(1f).focusRequester(focusRequester),
+                                    decorationBox = { inner ->
+                                        Box(contentAlignment = Alignment.CenterStart, modifier = Modifier.fillMaxSize()) {
+                                            if (searchQuery.isEmpty()) {
+                                                Text(
+                                                    text = stringResource(R.string.search_news_placeholder), 
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant, 
+                                                    style = MaterialTheme.typography.titleMedium
+                                                )
+                                            }
+                                            inner()
+                                        }
                                     }
-                                },
-                            ) { _, item ->
-                                NewsCard(
-                                    item = item,
-                                    onNavigateToArticle = {
-                                        navController.navigate("view_news/${Uri.encode(item.id)}")
-                                    },
-                                    modifier = Modifier.fillMaxWidth(),
                                 )
+                                if (searchQuery.isNotEmpty()) {
+                                    AppIconButton(
+                                        onClick = { viewModel.searchQuery.value = "" },
+                                        onLongClick = {}
+                                    ) {
+                                        Icon(painterResource(R.drawable.close), null)
+                                    }
+                                }
+                            }
+                        } else {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp)
+                            ) {
+                                AppIconButton(
+                                    onClick = { navController.navigateUp() },
+                                    onLongClick = { navController.backToMain() }
+                                ) {
+                                    Icon(painterResource(R.drawable.arrow_back), null)
+                                }
+                                Text(
+                                    text = stringResource(R.string.news),
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
+                                )
+                                Row {
+                                    AppIconButton(
+                                        onClick = { isSearchActive = true },
+                                        onLongClick = {}
+                                    ) {
+                                        Icon(Icons.Default.Search, null)
+                                    }
+                                    AppIconButton(
+                                        onClick = { viewModel.fetchNews(); haptic.performHapticFeedback(HapticFeedbackType.LongPress) },
+                                        onLongClick = {}
+                                    ) {
+                                        Icon(painterResource(R.drawable.sync), null)
+                                    }
+                                }
                             }
                         }
                     }
@@ -351,7 +678,191 @@ fun NewsScreen(
 }
 
 // ==========================================
-// VIEW NEWS SCREEN
+// FEATURED & STANDARD CARDS
+// ==========================================
+
+@Composable
+fun FeaturedNewsCard(
+    item: NewsItem, 
+    onNavigate: () -> Unit, 
+    modifier: Modifier = Modifier,
+    isFullyVisible: Boolean = true
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (isPressed) 0.95f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "scale")
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    
+    // Ken Burns Effect
+    val infiniteTransition = rememberInfiniteTransition(label = "ken_burns")
+    val imgScale by infiniteTransition.animateFloat(
+        initialValue = 1f, targetValue = 1.15f,
+        animationSpec = infiniteRepeatable(tween(20000, easing = LinearEasing), RepeatMode.Reverse),
+        label = "img_scale"
+    )
+
+    val cardElevation by animateDpAsState(
+        targetValue = if (isFullyVisible) 8.dp else 0.dp,
+        animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+        label = "featuredElevation"
+    )
+
+    ElevatedCard(
+        modifier = modifier
+            .fillMaxWidth()
+            .aspectRatio(if (isLandscape) 2.5f else 0.8f) // Adapt height if landscape
+            .scale(scale)
+            .clickable(interactionSource = interactionSource, indication = null, onClick = onNavigate),
+        shape = RoundedCornerShape(32.dp),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = cardElevation),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (item.imageUrls.isNotEmpty()) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current).data(item.imageUrls.first()).crossfade(true).build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = imgScale; scaleY = imgScale }
+                )
+            }
+            
+            // Gradient Overlay
+            Box(
+                modifier = Modifier.fillMaxSize().background(
+                    Brush.verticalGradient(
+                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f), Color.Black),
+                        startY = 100f
+                    )
+                )
+            )
+
+            // Content
+            Column(
+                modifier = Modifier.fillMaxSize().padding(24.dp),
+                verticalArrangement = Arrangement.Bottom
+            ) {
+                if (item.important) {
+                    Surface(color = MaterialTheme.colorScheme.error, shape = CircleShape, modifier = Modifier.padding(bottom = 12.dp)) {
+                        Text(stringResource(R.string.important).uppercase(), color = MaterialTheme.colorScheme.onError, fontWeight = FontWeight.Bold, fontSize = 10.sp, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
+                    }
+                }
+                Text(
+                    text = item.title,
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Black,
+                    color = Color.White,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.height(12.dp))
+                if (item.description.isNotBlank()) {
+                    Text(
+                        text = item.description,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.7f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(Modifier.height(16.dp))
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(color = Color.White.copy(alpha = 0.2f), shape = CircleShape) {
+                        Text(item.author, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun EnhancedNewsCard(
+    item: NewsItem, 
+    onNavigate: () -> Unit, 
+    modifier: Modifier = Modifier,
+    isFullyVisible: Boolean = true
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (isPressed) 0.95f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "scale")
+    
+    val infiniteTransition = rememberInfiniteTransition(label = "ken_burns_small")
+    val imgScale by infiniteTransition.animateFloat(
+        initialValue = 1f, targetValue = 1.1f,
+        animationSpec = infiniteRepeatable(tween(15000, easing = LinearEasing), RepeatMode.Reverse),
+        label = "img_scale2"
+    )
+
+    val cardElevation by animateDpAsState(
+        targetValue = if (isFullyVisible) 8.dp else 0.dp,
+        animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+        label = "enhancedElevation"
+    )
+
+    ElevatedCard(
+        modifier = modifier
+            .fillMaxWidth()
+            .scale(scale)
+            .clickable(interactionSource = interactionSource, indication = null, onClick = onNavigate),
+        shape = RoundedCornerShape(24.dp),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = cardElevation),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+    ) {
+        Column {
+            if (item.imageUrls.isNotEmpty()) {
+                Box(modifier = Modifier.fillMaxWidth().aspectRatio(16f/9f).clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current).data(item.imageUrls.first()).crossfade(true).build(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = imgScale; scaleY = imgScale }
+                    )
+                    if (item.important) {
+                        Surface(color = MaterialTheme.colorScheme.error, shape = CircleShape, modifier = Modifier.align(Alignment.TopEnd).padding(12.dp)) {
+                            Text(stringResource(R.string.important).uppercase(), color = MaterialTheme.colorScheme.onError, fontWeight = FontWeight.Bold, fontSize = 10.sp, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
+                        }
+                    }
+                }
+            }
+
+            Column(modifier = Modifier.padding(20.dp)) {
+                Text(
+                    text = item.title,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.height(8.dp))
+                if (item.description.isNotBlank()) {
+                    Text(
+                        text = item.description,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                    Text(item.author, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    
+                    val formattedDate = remember(item.timestamp) {
+                        if (item.timestamp == 0L) ""
+                        else DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).format(LocalDateTime.ofInstant(Instant.ofEpochSecond(item.timestamp), ZoneId.systemDefault()))
+                    }
+                    Text(formattedDate, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    }
+}
+
+// ==========================================
+// VIEW NEWS SCREEN (PARALLAX READER)
 // ==========================================
 
 @Composable
@@ -361,971 +872,171 @@ fun ViewNewsScreen(
 ) {
     val contentState by viewModel.contentState.collectAsState()
     val newsItem = viewModel.newsItem
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val scrollState = rememberScrollState()
+
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val headerHeight = if (isLandscape) 200.dp else 350.dp
+    val horizontalContentPadding = if (isLandscape) 64.dp else 24.dp
 
     Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .nestedScroll(scrollBehavior.nestedScrollConnection),
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        topBar = {
-            LargeFlexibleTopAppBar(
-                title = {
-                    Text(
-                        text = newsItem?.title ?: "",
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                },
-                navigationIcon = {
-                    AppIconButton(
-                        onClick = navController::navigateUp,
-                        onLongClick = navController::backToMain,
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.arrow_back),
-                            contentDescription = stringResource(R.string.back),
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.largeTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface,
-                ),
-                scrollBehavior = scrollBehavior,
-            )
-        },
+        modifier = Modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = WindowInsets(0,0,0,0)
     ) { innerPadding ->
-        AnimatedContent(
-            targetState = contentState,
-            transitionSpec = {
-                fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) togetherWith
-                        fadeOut(spring(stiffness = Spring.StiffnessMediumLow))
-            },
-            modifier = Modifier.fillMaxSize(),
-            label = "viewNewsContent",
-        ) { state ->
-            when (state) {
-                is ViewNewsUiState.Loading -> ViewNewsLoadingState(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                )
-
-                is ViewNewsUiState.Error -> ViewNewsErrorState(
-                    message = state.message,
-                    onRetry = viewModel::loadContent,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                )
-
-                is ViewNewsUiState.Success -> ViewNewsArticleContent(
-                    newsItem = newsItem,
-                    content = state.content,
-                    innerPadding = innerPadding,
-                )
-            }
-        }
-    }
-}
-
-// ==========================================
-// SHARED & HELPER COMPONENTS
-// ==========================================
-
-@Composable
-private fun NewsListHeader(
-    itemCount: Int,
-    isSearching: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.primaryContainer,
-        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        tonalElevation = 3.dp,
-        modifier = modifier,
-    ) {
-        Row(
-            modifier = Modifier.padding(20.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.12f),
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.size(52.dp),
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        painter = painterResource(R.drawable.info), // Fallback to info
-                        contentDescription = null,
-                        modifier = Modifier.size(26.dp),
-                    )
-                }
-            }
-
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                Text(
-                    text = stringResource(if (isSearching) R.string.search_results else R.string.latest_news),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = pluralStringResource(R.plurals.n_articles, itemCount, itemCount),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun NewsCard(
-    item: NewsItem,
-    onNavigateToArticle: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val hasImages = item.imageUrls.isNotEmpty()
-    val hasId = item.id.isNotEmpty()
-    var fullImageUrl by remember { mutableStateOf<String?>(null) }
-
-    ElevatedCard(
-        onClick = { if (hasId) onNavigateToArticle() },
-        enabled = hasId,
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        ),
-        elevation = CardDefaults.elevatedCardElevation(
-            defaultElevation = 2.dp,
-            pressedElevation = 6.dp,
-            focusedElevation = 4.dp,
-            hoveredElevation = 4.dp,
-        ),
-        modifier = modifier,
-    ) {
-        Column {
-            if (hasImages) {
-                NewsImageCarousel(
-                    imageUrls = item.imageUrls,
-                    title = item.title,
-                    onImageClick = { url -> fullImageUrl = url },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp)
-                        .height(if (item.imageUrls.size > 1) 252.dp else 220.dp),
-                )
-            }
-
-            Column(
-                modifier = Modifier.padding(
-                    start = 20.dp,
-                    top = if (hasImages) 6.dp else 20.dp,
-                    end = 20.dp,
-                    bottom = 16.dp,
-                ),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                NewsMetaRow(item = item)
-
-                Text(
-                    text = item.title,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-
-                if (item.description.isNotBlank()) {
-                    Text(
-                        text = item.description,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-
-                if (hasId) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End,
-                    ) {
-                        FilledTonalButton(
-                            onClick = onNavigateToArticle,
-                            shape = MaterialTheme.shapes.extraLarge,
+        Box(modifier = Modifier.fillMaxSize()) {
+            AnimatedNewsBackground() // Consistent background
+            
+            AnimatedContent(
+                targetState = contentState,
+                transitionSpec = { fadeIn(tween(400)) togetherWith fadeOut(tween(400)) },
+                label = "view_content"
+            ) { state ->
+                when (state) {
+                    is ViewNewsUiState.Loading -> NewsLoadingState(Modifier.fillMaxSize())
+                    is ViewNewsUiState.Error -> NewsErrorState(state.message, viewModel::loadContent, Modifier.fillMaxSize())
+                    is ViewNewsUiState.Success -> {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom))
+                                .verticalScroll(scrollState)
+                                .padding(bottom = 32.dp)
                         ) {
-                            Text(text = stringResource(R.string.read_more))
+                            // Parallax Header
+                            if (newsItem != null && newsItem.imageUrls.isNotEmpty()) {
+                                Box(modifier = Modifier.fillMaxWidth().height(headerHeight).clip(RoundedCornerShape(bottomStart = 40.dp, bottomEnd = 40.dp))) {
+                                    val parallaxOffset = scrollState.value * 0.5f
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(LocalContext.current).data(newsItem.imageUrls.first()).crossfade(true).build(),
+                                        contentDescription = null,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize().graphicsLayer { translationY = parallaxOffset }
+                                    )
+                                    Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f)), startY = 100f)))
+                                    
+                                    Column(modifier = Modifier.align(Alignment.BottomStart).padding(24.dp)) {
+                                        if (newsItem.important) {
+                                            Surface(color = MaterialTheme.colorScheme.error, shape = CircleShape, modifier = Modifier.padding(bottom = 12.dp)) {
+                                                Text(stringResource(R.string.important).uppercase(), color = MaterialTheme.colorScheme.onError, fontWeight = FontWeight.Bold, fontSize = 10.sp, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
+                                            }
+                                        }
+                                        Text(newsItem.title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black, color = Color.White)
+                                        Spacer(Modifier.height(12.dp))
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Surface(color = Color.White.copy(alpha = 0.2f), shape = CircleShape) {
+                                                Text(newsItem.author, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+                                            }
+                                            Spacer(Modifier.width(8.dp))
+                                            val date = remember(newsItem.timestamp) { if (newsItem.timestamp == 0L) "" else DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).format(LocalDateTime.ofInstant(Instant.ofEpochSecond(newsItem.timestamp), ZoneId.systemDefault())) }
+                                            Text(date, color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
+                                        }
+                                    }
+                                }
+                            } else {
+                                // Text only header
+                                Column(modifier = Modifier.fillMaxWidth().padding(top = WindowInsets.systemBars.asPaddingValues().calculateTopPadding() + 60.dp, start = 24.dp, end = 24.dp, bottom = 24.dp)) {
+                                    Text(newsItem?.title ?: "", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onBackground)
+                                    Spacer(Modifier.height(16.dp))
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = CircleShape) {
+                                            Text(newsItem?.author ?: "", color = MaterialTheme.colorScheme.onPrimaryContainer, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+                                        }
+                                    }
+                                }
+                            }
+
+                            Spacer(Modifier.height(24.dp))
+                            
+                            // Article Body
+                            AdvancedMarkdownText(
+                                markdown = state.content,
+                                style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 28.sp),
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.85f),
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = horizontalContentPadding)
+                            )
                         }
                     }
                 }
             }
-        }
-    }
 
-    if (fullImageUrl != null) {
-        FullImageViewerDialog(
-            imageUrl = fullImageUrl!!,
-            onDismiss = { fullImageUrl = null },
-        )
-    }
-}
-
-@Composable
-private fun NewsMetaRow(
-    item: NewsItem,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (item.important) {
+            // Glassmorphism Back Button
             Surface(
-                shape = MaterialTheme.shapes.large,
-                color = MaterialTheme.colorScheme.errorContainer,
-                contentColor = MaterialTheme.colorScheme.onErrorContainer,
-            ) {
-                Text(
-                    text = stringResource(R.string.important),
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                )
-            }
-        }
-
-        Surface(
-            shape = MaterialTheme.shapes.large,
-            color = MaterialTheme.colorScheme.surfaceContainerHighest,
-            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f, fill = false),
-        ) {
-            val formattedDate = remember(item.timestamp) {
-                if (item.timestamp == 0L) ""
-                else DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).format(
-                    LocalDateTime.ofInstant(Instant.ofEpochSecond(item.timestamp), ZoneId.systemDefault())
-                )
-            }
-            Text(
-                text = "${item.author} • $formattedDate",
-                style = MaterialTheme.typography.labelLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-            )
-        }
-    }
-}
-
-@Composable
-private fun NewsImageCarousel(
-    imageUrls: List<String>,
-    title: String,
-    onImageClick: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    if (imageUrls.size == 1) {
-        Box(
-            modifier = modifier
-                .clip(MaterialTheme.shapes.extraLarge)
-                .clickable(role = Role.Image) { onImageClick(imageUrls.first()) },
-        ) {
-            NewsAsyncImage(
-                imageUrl = imageUrls.first(),
-                contentDescription = title,
-                modifier = Modifier.fillMaxSize(),
-            )
-            NewsImageScrim()
-        }
-        return
-    }
-
-    val carouselState = rememberCarouselState { imageUrls.size }
-    val currentImageIndex by remember(carouselState, imageUrls.size) {
-        derivedStateOf {
-            carouselState.currentItem.coerceIn(0, imageUrls.lastIndex)
-        }
-    }
-
-    Box(modifier = modifier) {
-        HorizontalCenteredHeroCarousel(
-            state = carouselState,
-            maxItemWidth = 336.dp,
-            itemSpacing = 8.dp,
-            contentPadding = PaddingValues(horizontal = 14.dp),
-            modifier = Modifier.fillMaxSize(),
-        ) { index ->
-            Box(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
                 modifier = Modifier
-                    .fillMaxSize()
-                    .maskClip(MaterialTheme.shapes.extraLarge)
-                    .clickable(role = Role.Image) { onImageClick(imageUrls[index]) },
+                    .align(Alignment.TopStart)
+                    .padding(top = WindowInsets.systemBars.asPaddingValues().calculateTopPadding() + 16.dp, start = 16.dp)
+                    .size(48.dp)
             ) {
-                NewsAsyncImage(
-                    imageUrl = imageUrls[index],
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                )
-                NewsImageScrim()
-            }
-        }
-
-        Row(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            NewsCarouselIndicator(
-                imageCount = imageUrls.size,
-                currentIndex = currentImageIndex,
-            )
-        }
-    }
-}
-
-@Composable
-private fun FullImageViewerDialog(
-    imageUrl: String,
-    onDismiss: () -> Unit,
-) {
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            usePlatformDefaultWidth = false,
-            dismissOnBackPress = true,
-            dismissOnClickOutside = true,
-            decorFitsSystemWindows = false
-        ),
-    ) {
-        val context = LocalContext.current
-        val model = remember(context, imageUrl) {
-            ImageRequest.Builder(context)
-                .data(imageUrl)
-                .crossfade(true)
-                .build()
-        }
-
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.92f))
-                .clickable(onClick = onDismiss),
-            contentAlignment = Alignment.Center,
-        ) {
-            AsyncImage(
-                model = model,
-                contentDescription = null,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-    }
-}
-
-@Composable
-private fun NewsAsyncImage(
-    imageUrl: String,
-    contentDescription: String?,
-    modifier: Modifier = Modifier,
-) {
-    val context = LocalContext.current
-    val model = remember(context, imageUrl) {
-        ImageRequest.Builder(context)
-            .data(imageUrl)
-            .crossfade(true)
-            .build()
-    }
-
-    AsyncImage(
-        model = model,
-        contentDescription = contentDescription,
-        contentScale = ContentScale.Crop,
-        modifier = modifier.background(MaterialTheme.colorScheme.surfaceContainerHighest),
-    )
-}
-
-@Composable
-private fun NewsImageScrim(
-    modifier: Modifier = Modifier,
-) {
-    val surfaceColor = MaterialTheme.colorScheme.surfaceContainerHigh
-    val brush = remember(surfaceColor) {
-        Brush.verticalGradient(
-            colors = listOf(
-                Color.Transparent,
-                surfaceColor.copy(alpha = 0.78f),
-            ),
-            startY = 80f,
-        )
-    }
-
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(brush),
-    )
-}
-
-@Composable
-private fun NewsCarouselIndicator(
-    imageCount: Int,
-    currentIndex: Int,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.9f),
-        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = modifier.heightIn(min = 48.dp),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            repeat(imageCount) { index ->
-                val selected = index == currentIndex
-                val dotWidth by animateDpAsState(
-                    targetValue = if (selected) 18.dp else 7.dp,
-                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-                    label = "newsImageDotWidth",
-                )
-
-                Surface(
-                    shape = CircleShape,
-                    color = if (selected) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
-                    },
-                    modifier = Modifier
-                        .width(dotWidth)
-                        .height(7.dp),
-                ) {}
+                AppIconButton(
+                    onClick = navController::navigateUp,
+                    onLongClick = { navController.backToMain() },
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Icon(painterResource(R.drawable.arrow_back), null, tint = MaterialTheme.colorScheme.onSurface)
+                }
             }
         }
     }
 }
+
+// ==========================================
+// SHARED UI HELPERS (Loading, Empty, Error)
+// ==========================================
 
 @Composable
 private fun NewsLoadingState(modifier: Modifier = Modifier) {
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = modifier.padding(24.dp),
-    ) {
-        ElevatedCard(
-            shape = MaterialTheme.shapes.extraLarge,
-            colors = MaterialTheme.colorScheme.surfaceContainerHigh.let {
-                CardDefaults.elevatedCardColors(containerColor = it)
-            },
-            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 6.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(48.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(24.dp),
-            ) {
-                CircularWavyProgressIndicator(
-                    modifier = Modifier.size(72.dp),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
-                )
-                Text(
-                    text = stringResource(R.string.loading),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-        }
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, strokeWidth = 3.dp, modifier = Modifier.size(48.dp))
     }
 }
 
 @Composable
-private fun NewsEmptyState(
-    isSearching: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    NewsStatePanel(
-        icon = R.drawable.info,
-        title = stringResource(if (isSearching) R.string.no_results_found else R.string.no_news_available),
-        description = stringResource(if (isSearching) R.string.try_different_keywords else R.string.check_back_later),
-        iconColor = MaterialTheme.colorScheme.primary,
-        modifier = modifier,
-    )
-}
+private fun NewsEmptyState(isSearching: Boolean, modifier: Modifier = Modifier) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { visible = true }
+    
+    val scale by animateFloatAsState(if (visible) 1f else 0.8f, spring(stiffness = Spring.StiffnessMediumLow), label = "")
+    val alpha by animateFloatAsState(if (visible) 1f else 0f, tween(400), label = "")
 
-@Composable
-private fun NewsErrorState(
-    message: String,
-    onRetry: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    NewsStatePanel(
-        icon = R.drawable.info,
-        title = stringResource(R.string.something_went_wrong),
-        description = stringResource(R.string.failed_to_fetch_news),
-        iconColor = MaterialTheme.colorScheme.error,
-        modifier = modifier,
-        supportingText = message.takeIf { it.isNotBlank() },
-        action = {
-            ElevatedButton(
-                onClick = onRetry,
-                shape = MaterialTheme.shapes.extraLarge,
-                colors = ButtonDefaults.elevatedButtonColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                ),
-            ) {
-                Text(text = stringResource(R.string.action_retry))
-            }
-        },
-    )
-}
-
-@Composable
-private fun NewsStatePanel(
-    icon: Int,
-    title: String,
-    description: String,
-    iconColor: Color,
-    modifier: Modifier = Modifier,
-    supportingText: String? = null,
-    action: (@Composable () -> Unit)? = null,
-) {
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = modifier.padding(24.dp),
+    Column(
+        modifier = modifier.graphicsLayer { scaleX = scale; scaleY = scale; this.alpha = alpha },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Surface(
-            shape = MaterialTheme.shapes.extraLarge,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            contentColor = MaterialTheme.colorScheme.onSurface,
-            tonalElevation = 2.dp,
-            modifier = Modifier
-                .fillMaxWidth()
-                .widthIn(max = 560.dp),
-        ) {
-            Column(
-                modifier = Modifier.padding(28.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = iconColor.copy(alpha = 0.14f),
-                    contentColor = iconColor,
-                    modifier = Modifier.size(72.dp),
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            painter = painterResource(icon),
-                            contentDescription = null,
-                            modifier = Modifier.size(36.dp),
-                        )
-                    }
-                }
-
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-
-                if (supportingText != null) {
-                    Text(
-                        text = supportingText,
-                        style = MaterialTheme.typography.labelMedium,
-                        textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
-                    )
-                }
-
-                if (action != null) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    action()
-                }
-            }
+        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.size(80.dp)) {
+            Box(contentAlignment = Alignment.Center) { Icon(painterResource(if (isSearching) R.drawable.search else R.drawable.newspaper), null, modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
+        Spacer(Modifier.height(24.dp))
+        Text(stringResource(if (isSearching) R.string.no_results_found else R.string.no_news_available), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
+        Spacer(Modifier.height(8.dp))
+        Text(stringResource(if (isSearching) R.string.try_different_keywords else R.string.check_back_later), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f))
+    }
+}
+
+@Composable
+private fun NewsErrorState(message: String, onRetry: () -> Unit, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.errorContainer, modifier = Modifier.size(80.dp)) {
+            Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.Clear, null, modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.error) }
+        }
+        Spacer(Modifier.height(24.dp))
+        Text(stringResource(R.string.something_went_wrong), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
+        Spacer(Modifier.height(8.dp))
+        Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 32.dp))
+        Spacer(Modifier.height(32.dp))
+        ElevatedButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
     }
 }
 
 // ==========================================
-// VIEW NEWS SCREEN HELPERS (Markdown parsing)
+// MARKDOWN PARSER
 // ==========================================
-
-@Composable
-private fun ViewNewsArticleContent(
-    newsItem: NewsItem?,
-    content: String,
-    innerPadding: PaddingValues,
-) {
-    BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxSize()
-            .windowInsetsPadding(
-                LocalPlayerAwareWindowInsets.current.only(
-                    WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom,
-                ),
-            ),
-    ) {
-        val horizontalPadding = if (maxWidth > 840.dp) (maxWidth - 760.dp) / 2 else 24.dp
-        val imageUrls = newsItem?.imageUrls.orEmpty()
-        var fullImageUrl by remember { mutableStateOf<String?>(null) }
-
-        LazyColumn(
-            contentPadding = PaddingValues(
-                top = innerPadding.calculateTopPadding() + 16.dp,
-                bottom = innerPadding.calculateBottomPadding() + 48.dp,
-            ),
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
-            if (newsItem != null) {
-                item(key = "article_meta", contentType = "meta") {
-                    ViewNewsMetaRow(
-                        item = newsItem,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = horizontalPadding),
-                    )
-                }
-            }
-
-            if (imageUrls.isNotEmpty()) {
-                item(key = "article_carousel", contentType = "carousel") {
-                    ViewNewsCarousel(
-                        imageUrls = imageUrls,
-                        onImageClick = { url -> fullImageUrl = url },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(320.dp),
-                    )
-                }
-            }
-
-            item(key = "article_content", contentType = "markdown") {
-                AdvancedMarkdownText(
-                    markdown = content,
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.2f
-                    ),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = horizontalPadding),
-                )
-            }
-        }
-
-        if (fullImageUrl != null) {
-            ViewNewsFullImageDialog(
-                imageUrl = fullImageUrl!!,
-                onDismiss = { fullImageUrl = null },
-            )
-        }
-    }
-}
-
-@Composable
-private fun ViewNewsCarousel(
-    imageUrls: List<String>,
-    onImageClick: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    if (imageUrls.size == 1) {
-        val context = LocalContext.current
-        val model = remember(context, imageUrls.first()) {
-            ImageRequest.Builder(context)
-                .data(imageUrls.first())
-                .crossfade(true)
-                .build()
-        }
-        AsyncImage(
-            model = model,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = modifier
-                .padding(horizontal = 24.dp)
-                .clip(MaterialTheme.shapes.extraLarge)
-                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                .clickable(role = Role.Image) { onImageClick(imageUrls.first()) },
-        )
-        return
-    }
-
-    val carouselState = rememberCarouselState { imageUrls.size }
-
-    HorizontalMultiBrowseCarousel(
-        state = carouselState,
-        preferredItemWidth = 320.dp,
-        itemSpacing = 12.dp,
-        contentPadding = PaddingValues(horizontal = 24.dp),
-        modifier = modifier,
-    ) { index ->
-        val context = LocalContext.current
-        val imageUrl = imageUrls[index]
-        val model = remember(context, imageUrl) {
-            ImageRequest.Builder(context)
-                .data(imageUrl)
-                .crossfade(true)
-                .build()
-        }
-        AsyncImage(
-            model = model,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .fillMaxSize()
-                .maskClip(MaterialTheme.shapes.extraLarge)
-                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                .clickable(role = Role.Image) { onImageClick(imageUrl) },
-        )
-    }
-}
-
-@Composable
-private fun ViewNewsMetaRow(
-    item: NewsItem,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (item.important) {
-            AssistChip(
-                onClick = {},
-                label = {
-                    Text(
-                        text = stringResource(R.string.important),
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-                colors = AssistChipDefaults.assistChipColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    labelColor = MaterialTheme.colorScheme.onErrorContainer,
-                ),
-                border = null,
-                shape = MaterialTheme.shapes.large
-            )
-        }
-
-        val formattedDate = remember(item.timestamp) {
-            if (item.timestamp == 0L) ""
-            else DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).format(
-                LocalDateTime.ofInstant(Instant.ofEpochSecond(item.timestamp), ZoneId.systemDefault())
-            )
-        }
-
-        AssistChip(
-            onClick = {},
-            label = {
-                Text(
-                    text = "${item.author} • $formattedDate",
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            },
-            colors = AssistChipDefaults.assistChipColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                labelColor = MaterialTheme.colorScheme.onSecondaryContainer,
-            ),
-            border = null,
-            shape = MaterialTheme.shapes.large,
-            modifier = Modifier.weight(1f, fill = false)
-        )
-    }
-}
-
-@Composable
-private fun ViewNewsFullImageDialog(
-    imageUrl: String,
-    onDismiss: () -> Unit,
-) {
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            usePlatformDefaultWidth = false,
-            dismissOnBackPress = true,
-            dismissOnClickOutside = true,
-            decorFitsSystemWindows = false
-        ),
-    ) {
-        val context = LocalContext.current
-        val model = remember(context, imageUrl) {
-            ImageRequest.Builder(context)
-                .data(imageUrl)
-                .crossfade(true)
-                .build()
-        }
-
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.96f))
-                .clickable(onClick = onDismiss),
-            contentAlignment = Alignment.Center,
-        ) {
-            AsyncImage(
-                model = model,
-                contentDescription = null,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-    }
-}
-
-@Composable
-private fun ViewNewsLoadingState(modifier: Modifier = Modifier) {
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = modifier.padding(24.dp),
-    ) {
-        ElevatedCard(
-            shape = MaterialTheme.shapes.extraLarge,
-            colors = MaterialTheme.colorScheme.surfaceContainerHigh.let {
-                CardDefaults.elevatedCardColors(containerColor = it)
-            },
-            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 6.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(48.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(24.dp),
-            ) {
-                CircularWavyProgressIndicator(
-                    modifier = Modifier.size(72.dp),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
-                )
-                Text(
-                    text = stringResource(R.string.loading),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ViewNewsErrorState(
-    message: String,
-    onRetry: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = modifier.padding(24.dp),
-    ) {
-        ElevatedCard(
-            shape = MaterialTheme.shapes.extraLarge,
-            colors = MaterialTheme.colorScheme.surfaceContainerHigh.let {
-                CardDefaults.elevatedCardColors(containerColor = it)
-            },
-            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 6.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .widthIn(max = 560.dp),
-        ) {
-            Column(
-                modifier = Modifier.padding(40.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                    modifier = Modifier.size(88.dp),
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            painter = painterResource(R.drawable.info),
-                            contentDescription = null,
-                            modifier = Modifier.size(44.dp),
-                        )
-                    }
-                }
-
-                Text(
-                    text = stringResource(R.string.error),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.ExtraBold,
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-
-                Text(
-                    text = stringResource(R.string.could_not_load_article),
-                    style = MaterialTheme.typography.bodyLarge,
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-
-                if (message.isNotBlank()) {
-                    Text(
-                        text = message,
-                        style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                ElevatedButton(
-                    onClick = onRetry,
-                    shape = MaterialTheme.shapes.extraLarge,
-                    colors = ButtonDefaults.elevatedButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    ),
-                    contentPadding = PaddingValues(horizontal = 32.dp, vertical = 16.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.action_retry),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
-    }
-}
 
 @Composable
 fun AdvancedMarkdownText(
@@ -1334,152 +1045,49 @@ fun AdvancedMarkdownText(
     style: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.bodyMedium,
     color: Color = MaterialTheme.colorScheme.onSurface
 ) {
+    val surfaceVariantColor = MaterialTheme.colorScheme.surfaceVariant
     val cleanedMarkdown = cleanMarkdown(markdown)
     val lines = cleanedMarkdown.lines()
-
-    var inCodeBlock by remember { mutableStateOf(false) }
-    var codeBlockContent by remember { mutableStateOf("") }
-    var codeBlockLanguage by remember { mutableStateOf("") }
     var inList by remember { mutableStateOf(false) }
-    var listItems by remember { mutableStateOf(mutableListOf<String>()) }
+    val listItems = remember { mutableListOf<String>() }
 
     Column(modifier = modifier) {
-        for ((index, line) in lines.withIndex()) {
+        for (line in lines) {
             val trimmedLine = line.trim()
-
             when {
-                trimmedLine.startsWith("```") -> {
-                    if (inList) {
-                        ListContainer(listItems.toList())
-                        listItems.clear()
-                        inList = false
-                    }
-
-                    if (inCodeBlock) {
-                        CodeBlock(
-                            code = codeBlockContent.trimEnd(),
-                            language = codeBlockLanguage
-                        )
-                        codeBlockContent = ""
-                        codeBlockLanguage = ""
-                        inCodeBlock = false
-                    } else {
-                        codeBlockLanguage = trimmedLine.substring(3).trim()
-                        inCodeBlock = true
-                    }
-                }
-
-                inCodeBlock -> {
-                    codeBlockContent += line + "\n"
-                }
-
                 trimmedLine.matches(Regex("^#{1,6}\\s+.*")) -> {
-                    if (inList) {
-                        ListContainer(listItems.toList())
-                        listItems.clear()
-                        inList = false
-                    }
-
+                    if (inList) { ListContainer(listItems.toList(), surfaceVariantColor); listItems.clear(); inList = false }
                     val level = trimmedLine.takeWhile { it == '#' }.length
                     val text = trimmedLine.substring(level).trim()
                     HeaderText(text = text, level = level)
                 }
-
-                trimmedLine.matches(Regex("^[-*+]\\s+.*")) -> {
-                    val content = trimmedLine.substring(2).trim()
-                    if (!inList) {
-                        inList = true
-                        listItems.clear()
-                    }
+                trimmedLine.matches(Regex("^[-*+]\\s+.*")) || trimmedLine.matches(Regex("^\\d+\\.\\s+.*")) -> {
+                    val content = if (trimmedLine.matches(Regex("^[-*+]\\s+.*"))) trimmedLine.substring(2).trim() else trimmedLine.substringAfter(". ").trim()
+                    if (!inList) { inList = true; listItems.clear() }
                     listItems.add(content)
                 }
-
-                trimmedLine.matches(Regex("^\\d+\\.\\s+.*")) -> {
-                    val content = trimmedLine.substringAfter(". ").trim()
-                    if (!inList) {
-                        inList = true
-                        listItems.clear()
-                    }
-                    listItems.add(content)
-                }
-
                 trimmedLine.startsWith("> ") -> {
-                    if (inList) {
-                        ListContainer(listItems.toList())
-                        listItems.clear()
-                        inList = false
-                    }
-                    BlockQuote(trimmedLine.substring(2))
+                    if (inList) { ListContainer(listItems.toList(), surfaceVariantColor); listItems.clear(); inList = false }
+                    BlockQuote(trimmedLine.substring(2), surfaceVariantColor)
                 }
-
-                trimmedLine.matches(Regex("^[-*_]{3,}$")) -> {
-                    if (inList) {
-                        ListContainer(listItems.toList())
-                        listItems.clear()
-                        inList = false
-                    }
-                    HorizontalRule()
-                }
-
                 trimmedLine.isEmpty() -> {
-                    if (inList) {
-                        ListContainer(listItems.toList())
-                        listItems.clear()
-                        inList = false
-                    }
+                    if (inList) { ListContainer(listItems.toList(), surfaceVariantColor); listItems.clear(); inList = false }
                     Spacer(modifier = Modifier.height(8.dp))
                 }
-
                 else -> {
-                    if (inList) {
-                        ListContainer(listItems.toList())
-                        listItems.clear()
-                        inList = false
-                    }
-                    FormattedText(trimmedLine, style = style, color = color)
+                    if (inList) { ListContainer(listItems.toList(), surfaceVariantColor); listItems.clear(); inList = false }
+                    FormattedText(trimmedLine, style = style, color = color, surfaceVariantColor = surfaceVariantColor)
                 }
             }
         }
-
-        if (inList && listItems.isNotEmpty()) {
-            ListContainer(listItems.toList())
-        }
+        if (inList && listItems.isNotEmpty()) ListContainer(listItems.toList(), surfaceVariantColor)
     }
 }
 
 private fun cleanMarkdown(markdown: String): String {
-    var cleaned = markdown
-
-    cleaned = cleaned.replace(Regex("<[^>]+>"), "")
-    cleaned = cleaned.replace(Regex("!\\[([^\\]]*)\\]\\([^)]*\\)"), "")
-    cleaned = cleaned.replace(Regex("\\[([^\\]]+)\\]\\([^)]*\\)")) { matchResult ->
-        matchResult.groupValues[1]
-    }
-    cleaned = cleaned.replace(Regex("\\[([^\\]]+)\\]\\[[^\\]]*\\]")) { matchResult ->
-        matchResult.groupValues[1]
-    }
-    cleaned = cleaned.replace(Regex("^\\[[^\\]]+\\]:.*$", RegexOption.MULTILINE), "")
-
-    val htmlEntities = mapOf(
-        "&amp;" to "&",
-        "&lt;" to "<",
-        "&gt;" to ">",
-        "&quot;" to "\"",
-        "&apos;" to "'",
-        "&nbsp;" to " ",
-        "&#39;" to "'",
-        "&#x27;" to "'",
-        "&hellip;" to "...",
-        "&mdash;" to "—",
-        "&ndash;" to "–"
-    )
-
-    for ((entity, replacement) in htmlEntities) {
-        cleaned = cleaned.replace(entity, replacement)
-    }
-
-    cleaned = cleaned.replace(Regex("\n{3,}"), "\n\n")
-    return cleaned.trim()
+    var cleaned = markdown.replace(Regex("<[^>]+>"), "").replace(Regex("!\\[([^\\]]*)\\]\\([^)]*\\)"), "")
+    cleaned = cleaned.replace(Regex("\\[([^\\]]+)\\]\\([^)]*\\)")) { it.groupValues[1] }
+    return cleaned.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&#39;", "'").replace(Regex("\n{3,}"), "\n\n").trim()
 }
 
 @Composable
@@ -1488,251 +1096,54 @@ private fun HeaderText(text: String, level: Int) {
         1 -> MaterialTheme.typography.headlineLarge
         2 -> MaterialTheme.typography.headlineMedium
         3 -> MaterialTheme.typography.headlineSmall
-        4 -> MaterialTheme.typography.titleLarge
-        else -> MaterialTheme.typography.titleMedium
+        else -> MaterialTheme.typography.titleLarge
     }
-
-    Text(
-        text = text,
-        style = style,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(vertical = (12 - level * 2).coerceAtLeast(4).dp)
-    )
+    Text(text = text, style = style.copy(fontWeight = FontWeight.Black), color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 24.dp, bottom = 8.dp))
 }
 
 @Composable
-private fun ListContainer(items: List<String>) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            items.forEach { item ->
-                UnorderedListItem(item)
-            }
+private fun ListContainer(items: List<String>, surfaceVariantColor: Color) {
+    Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items.forEach { Row(verticalAlignment = Alignment.Top) { Surface(modifier = Modifier.padding(top = 8.dp).size(6.dp), shape = CircleShape, color = MaterialTheme.colorScheme.primary) {}; Spacer(Modifier.width(12.dp)); FormattedText(text = it, modifier = Modifier.weight(1f), surfaceVariantColor = surfaceVariantColor) } }
         }
     }
 }
 
 @Composable
-private fun UnorderedListItem(content: String) {
-    Row(
-        modifier = Modifier.padding(vertical = 2.dp),
-        verticalAlignment = Alignment.Top
-    ) {
-        Surface(
-            modifier = Modifier
-                .size(6.dp)
-                .padding(top = 8.dp),
-            shape = RoundedCornerShape(3.dp),
-            color = MaterialTheme.colorScheme.primary
-        ) {}
-        Spacer(modifier = Modifier.width(12.dp))
-        FormattedText(
-            text = content,
-            modifier = Modifier.weight(1f)
-        )
-    }
-}
-
-@Composable
-private fun BlockQuote(content: String) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
+private fun BlockQuote(content: String, surfaceVariantColor: Color) {
+    Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Row {
-            Box(
-                modifier = Modifier
-                    .width(4.dp)
-                    .height(40.dp)
-                    .background(MaterialTheme.colorScheme.primary)
-            )
-            FormattedText(
-                text = content,
-                modifier = Modifier.padding(16.dp),
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontStyle = FontStyle.Italic
-                ),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Box(modifier = Modifier.width(4.dp).height(40.dp).background(MaterialTheme.colorScheme.primary))
+            FormattedText(text = content, modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic), color = MaterialTheme.colorScheme.onSurfaceVariant, surfaceVariantColor = surfaceVariantColor)
         }
     }
-}
-
-@Composable
-private fun CodeBlock(code: String, language: String) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column {
-            if (language.isNotEmpty()) {
-                Surface(
-                    color = MaterialTheme.colorScheme.primary,
-                    shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
-                ) {
-                    Text(
-                        text = language,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                    )
-                }
-            }
-            Text(
-                text = code.trimEnd(),
-                style = MaterialTheme.typography.bodySmall.copy(
-                    fontFamily = FontFamily.Monospace
-                ),
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(16.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun HorizontalRule() {
-    HorizontalDivider(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 16.dp),
-        thickness = 1.dp,
-        color = MaterialTheme.colorScheme.outline
-    )
 }
 
 @Composable
 private fun FormattedText(
-    text: String,
-    modifier: Modifier = Modifier,
-    style: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.bodyMedium,
-    color: Color = MaterialTheme.colorScheme.onSurface
+    text: String, 
+    modifier: Modifier = Modifier, 
+    style: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.bodyMedium, 
+    color: Color = MaterialTheme.colorScheme.onSurface,
+    surfaceVariantColor: Color
 ) {
     val annotatedString = buildAnnotatedString {
-        parseMarkdownText(text, this)
-    }
-
-    Text(
-        text = annotatedString,
-        style = style,
-        color = color,
-        modifier = modifier.padding(vertical = 2.dp)
-    )
-}
-
-private fun parseMarkdownText(text: String, builder: AnnotatedString.Builder) {
-    var currentIndex = 0
-    val processedText = text.trim()
-
-    val patterns = listOf(
-        Triple(
-            Regex("`([^`]+)`"),
-            { match: MatchResult ->
-                builder.withStyle(
-                    SpanStyle(
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 13.sp,
-                    )
-                ) {
-                    append(match.groupValues[1])
-                }
-            },
-            1
-        ),
-        Triple(
-            Regex("\\*\\*([^*]+)\\*\\*"),
-            { match: MatchResult ->
-                builder.withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
-                    append(match.groupValues[1])
-                }
-            },
-            2
-        ),
-        Triple(
-            Regex("__([^_]+)__"),
-            { match: MatchResult ->
-                builder.withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
-                    append(match.groupValues[1])
-                }
-            },
-            2
-        ),
-        Triple(
-            Regex("(?<!\\*)\\*([^*\\s][^*]*[^*\\s])\\*(?!\\*)"),
-            { match: MatchResult ->
-                builder.withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
-                    append(match.groupValues[1])
-                }
-            },
-            3
-        ),
-        Triple(
-            Regex("(?<!_)_([^_\\s][^_]*[^_\\s])_(?!_)"),
-            { match: MatchResult ->
-                builder.withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
-                    append(match.groupValues[1])
-                }
-            },
-            3
-        ),
-        Triple(
-            Regex("~~([^~]+)~~"),
-            { match: MatchResult ->
-                builder.withStyle(SpanStyle(textDecoration = TextDecoration.LineThrough)) {
-                    append(match.groupValues[1])
-                }
-            },
-            4
+        var currentIndex = 0
+        val patterns = listOf(
+            Regex("\\*\\*([^*]+)\\*\\*") to { m: MatchResult -> withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(m.groupValues[1]) } },
+            Regex("(?<!\\*)\\*([^*]+)\\*(?!\\*)") to { m: MatchResult -> withStyle(SpanStyle(fontStyle = FontStyle.Italic)) { append(m.groupValues[1]) } },
+            Regex("`([^`]+)`") to { m: MatchResult -> withStyle(SpanStyle(fontFamily = FontFamily.Monospace, background = surfaceVariantColor)) { append(" ${m.groupValues[1]} ") } }
         )
-    )
-
-    val allMatches = patterns.flatMap { (pattern, handler, priority) ->
-        pattern.findAll(processedText).map { match ->
-            Triple(match, handler, priority)
-        }
-    }.sortedWith(compareBy({ it.first.range.first }, { it.third }))
-
-    val processedRanges = mutableListOf<IntRange>()
-
-    for ((match, handler, _) in allMatches) {
-        val range = match.range
-        val overlaps = processedRanges.any { it.intersect(range).isNotEmpty() }
-
-        if (!overlaps) {
-            if (range.first > currentIndex) {
-                builder.append(processedText.substring(currentIndex, range.first))
+        val allMatches = patterns.flatMap { (p, h) -> p.findAll(text).map { Triple(it, h, 0) } }.sortedBy { it.first.range.first }
+        for ((match, handler) in allMatches) {
+            if (match.range.first >= currentIndex) {
+                append(text.substring(currentIndex, match.range.first))
+                handler(match)
+                currentIndex = match.range.last + 1
             }
-            handler(match)
-            currentIndex = range.last + 1
-            processedRanges.add(range)
         }
+        if (currentIndex < text.length) append(text.substring(currentIndex))
     }
-
-    if (currentIndex < processedText.length) {
-        builder.append(processedText.substring(currentIndex))
-    }
-
-    if (builder.length == 0) {
-        builder.append(processedText)
-    }
+    Text(text = annotatedString, style = style, color = color, modifier = modifier.padding(vertical = 4.dp))
 }

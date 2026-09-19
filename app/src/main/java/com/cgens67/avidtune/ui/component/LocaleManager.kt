@@ -161,7 +161,7 @@ class LocaleManager private constructor(private val context: Context) {
             "pt-PT" to LanguageMetadata("🇵🇹", CompletionStatus.INCOMPLETE, "v0.9.4"),
             "ru" to LanguageMetadata("🇷🇺", CompletionStatus.INCOMPLETE, "v0.9.4"),
             "zh-CN" to LanguageMetadata("🇨🇳", CompletionStatus.COMPLETE, "v1.5.0"),
-            "zh-TW" to LanguageMetadata("🇹🇼", CompletionStatus.COMPLETE, "v1.5.0"),
+            "zh-TW" to LanguageMetadata("🇹🇼", CompletionStatus.INCOMPLETE, "v1.5.0-rc1"),
             "ja" to LanguageMetadata("🇯🇵", CompletionStatus.INCOMPLETE, "v0.9.4"),
             "ko" to LanguageMetadata("🇰🇷", CompletionStatus.INCOMPLETE, "v0.9.4"),
             "ar" to LanguageMetadata("🇸🇦", CompletionStatus.BETA, "v0.9.4"),

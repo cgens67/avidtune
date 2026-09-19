@@ -5,6 +5,7 @@ import com.cgens67.lrclib.LrcLib
 import com.cgens67.avidtune.constants.EnableLrcLibKey
 import com.cgens67.avidtune.utils.dataStore
 import com.cgens67.avidtune.utils.get
+import timber.log.Timber
 
 object LrcLibLyricsProvider : LyricsProvider {
     override val name = "LrcLib"
@@ -16,7 +17,9 @@ object LrcLibLyricsProvider : LyricsProvider {
         title: String,
         artist: String,
         duration: Int,
-    ): Result<String> = LrcLib.getLyrics(title, artist, duration)
+    ): Result<String> = runCatching {
+        LrcLib.getLyrics(title, artist, duration).getOrThrow()
+    }
 
     override suspend fun getAllLyrics(
         id: String,
@@ -25,6 +28,14 @@ object LrcLibLyricsProvider : LyricsProvider {
         duration: Int,
         callback: (String) -> Unit,
     ) {
-        LrcLib.getAllLyrics(title, artist, duration, null, callback)
+        try {
+            LrcLib.getAllLyrics(title, artist, duration, null) { lyrics ->
+                if (lyrics.isNotBlank()) {
+                    callback(lyrics)
+                }
+            }
+        } catch (e: Throwable) {
+            Timber.e(e, "Error in LrcLib getAllLyrics")
+        }
     }
 }

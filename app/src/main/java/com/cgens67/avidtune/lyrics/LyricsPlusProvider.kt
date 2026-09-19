@@ -441,13 +441,17 @@ object LyricsPlusProvider : LyricsProvider {
         duration: Int,
         callback: (String) -> Unit,
     ) {
-        val album: String? = null
-        val binimumResult = fetchBinimumLyricsApi(id, title, artist, duration, album)
-        val response = fetchLyrics(title, artist, duration, album)
-        val lyricsPlusLrc = convertToLrc(response)
-        val result = resolveLyricsWithFallback(binimumResult, response, lyricsPlusLrc)
-        if (result != null) {
-            callback(result)
+        try {
+            val album: String? = null
+            val binimumResult = fetchBinimumLyricsApi(id, title, artist, duration, album)
+            val response = fetchLyrics(title, artist, duration, album)
+            val lyricsPlusLrc = convertToLrc(response)
+            val result = resolveLyricsWithFallback(binimumResult, response, lyricsPlusLrc)
+            if (!result.isNullOrBlank()) {
+                callback(result)
+            }
+        } catch (e: Throwable) {
+            Timber.tag("LyricsPlus").e(e, "Error in LyricsPlus getAllLyrics")
         }
     }
 }

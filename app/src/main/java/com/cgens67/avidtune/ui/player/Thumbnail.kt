@@ -56,6 +56,7 @@ fun Thumbnail(
     onOpenFullscreenLyrics: () -> Unit,
     modifier: Modifier = Modifier,
     isPlayerExpanded: Boolean = true,
+    isLandscape: Boolean = false,
 ) {
     val playerConnection = LocalPlayerConnection.current ?: return
     val context = LocalContext.current
@@ -164,7 +165,7 @@ fun Thumbnail(
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                if (!isAppleMusicStyle) {
+                if (!isAppleMusicStyle && !isLandscape) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.padding(horizontal = 32.dp, vertical = 16.dp)
@@ -187,7 +188,7 @@ fun Thumbnail(
                             )
                         }
                     }
-                } else {
+                } else if (!isLandscape) {
                     Spacer(modifier = Modifier.height(24.dp))
                 }
                 BoxWithConstraints(

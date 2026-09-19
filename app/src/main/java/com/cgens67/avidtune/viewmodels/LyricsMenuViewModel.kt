@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cgens67.avidtune.db.MusicDatabase
 import com.cgens67.avidtune.db.entities.LyricsEntity
+import com.cgens67.avidtune.db.entities.LyricsEntity.Companion.LYRICS_NOT_FOUND
 import com.cgens67.avidtune.lyrics.LyricsHelper
 import com.cgens67.avidtune.lyrics.LyricsResult
 import com.cgens67.avidtune.models.MediaMetadata
@@ -13,7 +14,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import timber.log.Timber
 import javax.inject.Inject
 
 @HiltViewModel
@@ -38,32 +39,45 @@ constructor(
         job?.cancel()
         job =
             viewModelScope.launch(Dispatchers.IO) {
-                lyricsHelper.getAllLyrics(mediaId, title, artist, duration) { result ->
-                    results.update {
-                        it + result
+                try {
+                    lyricsHelper.getAllLyrics(mediaId, title, artist, duration) { result ->
+                        if (result.lyrics.isNotBlank() && result.lyrics != LYRICS_NOT_FOUND) {
+                            results.update { currentList ->
+                                if (currentList.none { it.providerName == result.providerName && it.lyrics == result.lyrics }) {
+                                    currentList + result
+                                } else {
+                                    currentList
+                                }
+                            }
+                        }
                     }
+                } catch (e: Throwable) {
+                    Timber.e(e, "Lyrics search failed")
+                } finally {
+                    isLoading.value = false
                 }
-                isLoading.value = false
             }
     }
 
     fun cancelSearch() {
         job?.cancel()
         job = null
+        isLoading.value = false
     }
 
     fun refetchLyrics(
         mediaMetadata: MediaMetadata,
         lyricsEntity: LyricsEntity?,
     ) {
-        database.query {
-            lyricsEntity?.let(::delete)
-            val result =
-                runBlocking {
-                    lyricsHelper.getLyrics(mediaMetadata)
-                }
-            val textToSave = "[provider:${result.providerName}]\n${result.lyrics}"
-            upsert(LyricsEntity(mediaMetadata.id, textToSave))
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                lyricsEntity?.let { database.delete(it) }
+                val result = lyricsHelper.getLyrics(mediaMetadata)
+                val textToSave = "[provider:${result.providerName}]\n${result.lyrics}"
+                database.upsert(LyricsEntity(mediaMetadata.id, textToSave))
+            } catch (e: Throwable) {
+                Timber.e(e, "Failed to refetch lyrics")
+            }
         }
     }
 }

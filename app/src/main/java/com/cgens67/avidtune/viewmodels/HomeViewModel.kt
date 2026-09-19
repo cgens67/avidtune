@@ -10,14 +10,21 @@ import com.cgens67.innertube.models.YTItem
 import com.cgens67.innertube.pages.ExplorePage
 import com.cgens67.innertube.pages.HomePage
 import com.cgens67.innertube.utils.completed
+import com.cgens67.avidtune.constants.QuickPicks
+import com.cgens67.avidtune.constants.QuickPicksKey
 import com.cgens67.avidtune.db.MusicDatabase
 import com.cgens67.avidtune.db.entities.Album
 import com.cgens67.avidtune.db.entities.Artist
 import com.cgens67.avidtune.db.entities.LocalItem
 import com.cgens67.avidtune.db.entities.Playlist
 import com.cgens67.avidtune.db.entities.Song
+import com.cgens67.avidtune.extensions.toEnum
 import com.cgens67.avidtune.models.SimilarRecommendation
+import com.cgens67.avidtune.utils.dataStore
+import com.cgens67.avidtune.utils.get
 import com.cgens67.avidtune.utils.reportException
+import com.cgens67.avidtune.aicontentfilter.FilterAiContentUseCase
+import com.cgens67.avidtune.aicontentfilter.LoadAiContentFilterPolicyUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -28,8 +35,10 @@ import javax.inject.Inject
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    @ApplicationContext context: Context,
+    @ApplicationContext val context: Context,
     val database: MusicDatabase,
+    private val loadAiContentFilterPolicy: LoadAiContentFilterPolicyUseCase,
+    private val filterAiContent: FilterAiContentUseCase
 ) : ViewModel() {
     val isRefreshing = MutableStateFlow(false)
     val isLoading = MutableStateFlow(false)
@@ -52,9 +61,28 @@ class HomeViewModel @Inject constructor(
 
     private suspend fun load() {
         isLoading.value = true
+        val policy = loadAiContentFilterPolicy()
 
-        quickPicks.value = database.quickPicks()
-            .first().shuffled().take(20)
+        val recentEvents = database.events().first()
+        val listenedSongsCount = recentEvents.distinctBy { it.song.id }.size
+
+        if (listenedSongsCount >= 7) {
+            val quickPicksPref = context.dataStore.data.first()[QuickPicksKey].toEnum(QuickPicks.QUICK_PICKS)
+
+            var qp = if (quickPicksPref == QuickPicks.LAST_LISTEN) {
+                recentEvents.map { it.song }.distinctBy { it.id }.take(20)
+            } else {
+                database.quickPicks().first().shuffled().take(20)
+            }
+
+            if (qp.isEmpty()) {
+                qp = database.allSongs().first().shuffled().take(20)
+            }
+
+            quickPicks.value = qp
+        } else {
+            quickPicks.value = emptyList()
+        }
 
         forgottenFavorites.value = database.forgottenFavorites()
             .first().shuffled().take(20)
@@ -94,9 +122,10 @@ class HomeViewModel @Inject constructor(
                         items += page.sections.getOrNull(page.sections.size - 2)?.items.orEmpty()
                         items += page.sections.lastOrNull()?.items.orEmpty()
                     }
+                    val filteredItems = filterAiContent(items, policy)
                     SimilarRecommendation(
                         title = it,
-                        items = items
+                        items = filteredItems
                             .shuffled()
                             .ifEmpty { return@mapNotNull null }
                     )
@@ -111,12 +140,17 @@ class HomeViewModel @Inject constructor(
                         YouTube.next(WatchEndpoint(videoId = song.id)).getOrNull()?.relatedEndpoint
                             ?: return@mapNotNull null
                     val page = YouTube.related(endpoint).getOrNull() ?: return@mapNotNull null
+                    
+                    val relatedItems = page.songs.shuffled().take(8) +
+                            page.albums.shuffled().take(4) +
+                            page.artists.shuffled().take(4) +
+                            page.playlists.shuffled().take(4)
+                            
+                    val filteredItems = filterAiContent(relatedItems, policy)
+                    
                     SimilarRecommendation(
                         title = song,
-                        items = (page.songs.shuffled().take(8) +
-                                page.albums.shuffled().take(4) +
-                                page.artists.shuffled().take(4) +
-                                page.playlists.shuffled().take(4))
+                        items = filteredItems
                             .shuffled()
                             .ifEmpty { return@mapNotNull null }
                     )
@@ -124,7 +158,12 @@ class HomeViewModel @Inject constructor(
         similarRecommendations.value = (artistRecommendations + songRecommendations).shuffled()
 
         YouTube.home().onSuccess { page ->
-            homePage.value = page
+            val filteredSections = page.sections.mapNotNull { section ->
+                val filteredSectionItems = filterAiContent(section.items, policy)
+                if (filteredSectionItems.isEmpty()) null
+                else section.copy(items = filteredSectionItems)
+            }
+            homePage.value = page.copy(sections = filteredSections)
         }.onFailure {
             reportException(it)
         }
@@ -139,8 +178,11 @@ class HomeViewModel @Inject constructor(
                     .map { it.id }
                     .toHashSet()
             }
+            
+            val filteredAlbums = filterAiContent(page.newReleaseAlbums, policy)
+            
             explorePage.value = page.copy(
-                newReleaseAlbums = page.newReleaseAlbums
+                newReleaseAlbums = filteredAlbums
                     .sortedBy { album ->
                         if (album.artists.orEmpty().any { it.id in favouriteArtists }) 0
                         else if (album.artists.orEmpty().any { it.id in artists }) 1

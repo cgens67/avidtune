@@ -48,7 +48,11 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.ShuffleOrder.DefaultShuffleOrder
-import androidx.media3.extractor.DefaultExtractorsFactory
+import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
+import androidx.media3.extractor.ExtractorsFactory
+import androidx.media3.extractor.mkv.MatroskaExtractor
+import androidx.media3.extractor.mp4.FragmentedMp4Extractor
+import androidx.media3.extractor.mp4.Mp4Extractor
 import androidx.media3.session.CommandButton
 import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaController
@@ -155,6 +159,8 @@ import java.time.LocalDateTime
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.seconds
+import com.cgens67.avidtune.constants.AudioFadingKey
+import com.cgens67.avidtune.constants.StopMusicOnTaskClearKey
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 @AndroidEntryPoint
@@ -1202,6 +1208,16 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         }
     }
 
+    private fun createMediaSourceFactory() =
+        DefaultMediaSourceFactory(
+            createDataSourceFactory(),
+            ExtractorsFactory {
+                arrayOf(MatroskaExtractor(), FragmentedMp4Extractor(), Mp4Extractor())
+            }
+        ).setLoadErrorHandlingPolicy(
+            DefaultLoadErrorHandlingPolicy(1)
+        )
+
     private fun createDataSourceFactory(): DataSource.Factory {
         val songUrlCache = HashMap<String, Pair<String, Long>>()
         return ResolvingDataSource.Factory(createCacheDataSource()) { dataSpec ->
@@ -1348,12 +1364,6 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             }
         }
     }
-
-    private fun createMediaSourceFactory() =
-        DefaultMediaSourceFactory(
-            createDataSourceFactory(),
-            DefaultExtractorsFactory().setConstantBitrateSeekingEnabled(true)
-        )
 
     private fun createRenderersFactory() =
         object : DefaultRenderersFactory(this) {

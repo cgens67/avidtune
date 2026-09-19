@@ -411,15 +411,15 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            LaunchedEffect(playerConnection, enableDynamicTheme, isSystemInDarkTheme, customThemeColor) {
+            LaunchedEffect(playerConnection, enableDynamicTheme, useDarkTheme, customThemeColor) {
                 val playerConnection = playerConnection
                 if (!enableDynamicTheme) {
                     val seedPalette = ThemeSeedPaletteCodec.decodeFromPreference(customThemeColor)
                     if (seedPalette != null) {
                         themeColor = seedPalette.primary
                     } else {
-                        val palette = ThemePalettes.findById(customThemeColor)
-                            ?: ThemePalettes.findByPrimaryColor(customThemeColor)
+                        val palette = ThemePalettes.findById(customThemeColor, useDarkTheme)
+                            ?: ThemePalettes.findByPrimaryColor(customThemeColor, useDarkTheme)
                             ?: ThemePalettes.Default
                         themeColor = palette.primary
                     }

@@ -52,13 +52,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.LinkAnnotation
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withLink
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
@@ -115,27 +110,6 @@ private val developers = listOf(
         name = R.string.app_name, // Using a fallback since the name isn't dynamic (or we hardcode "cgens67" as string)
         role = R.string.lead_developer,
         profileUrl = "https://github.com/cgens67",
-    ),
-    Contributor(
-        avatarUrl = "https://raw.githubusercontent.com/cgens67/Assets/refs/heads/main/610099055_17913713952255174_103251256549509672_n.jpg",
-        name = R.string.co_developer, 
-        role = R.string.co_developer,
-        profileUrl = "https://www.instagram.com/chinsiang0304",
-    )
-)
-
-private val supporters = listOf(
-    Contributor(
-        avatarUrl = "https://raw.githubusercontent.com/cgens67/Assets/refs/heads/main/avidtunescreenshots/747643159_17944159968252146_2891069926341403652_n.jpg",
-        name = R.string.supporter, 
-        role = R.string.supporter,
-        profileUrl = "https://www.instagram.com/cct._.610",
-    ),
-    Contributor(
-        avatarUrl = "https://raw.githubusercontent.com/cgens67/Assets/refs/heads/main/627632846_17942422653109085_6346845649854714491_n.jpg",
-        name = R.string.supporter, 
-        role = R.string.supporter,
-        profileUrl = "https://www.instagram.com/wei_.3120",
     )
 )
 
@@ -195,11 +169,6 @@ fun AboutScreen(
                 HeroCard(shimmerBrush = shimmerEffect())
             }
 
-            // ── About App card ────────────────────────────────────────────
-            item {
-                AboutAppCard()
-            }
-
             // ── Social card ───────────────────────────────────────────────
             item {
                 SocialCard(
@@ -225,42 +194,10 @@ fun AboutScreen(
                             name = 0, // Using raw string name
                             role = R.string.lead_developer,
                             profileUrl = "https://github.com/cgens67",
-                        ),
-                        Contributor(
-                            avatarUrl = "https://raw.githubusercontent.com/cgens67/Assets/refs/heads/main/610099055_17913713952255174_103251256549509672_n.jpg",
-                            name = 1,
-                            role = R.string.co_developer,
-                            profileUrl = "https://www.instagram.com/chinsiang0304",
                         )
                     ),
                     onContributorClick = { uriHandler.openUri(it) },
-                    rawNames = listOf("cgens67", "chinsiang0304")
-                )
-            }
-
-            // ── Supporters section ───────────────────────────────
-            item {
-                SectionHeader(title = stringResource(R.string.supporters), iconRes = R.drawable.favorite)
-            }
-
-            item {
-                ContributorsCard(
-                    contributors = listOf(
-                        Contributor(
-                            avatarUrl = "https://raw.githubusercontent.com/cgens67/Assets/refs/heads/main/avidtunescreenshots/747643159_17944159968252146_2891069926341403652_n.jpg",
-                            name = 0,
-                            role = R.string.supporter,
-                            profileUrl = "https://www.instagram.com/cct._.610",
-                        ),
-                        Contributor(
-                            avatarUrl = "https://raw.githubusercontent.com/cgens67/Assets/refs/heads/main/627632846_17942422653109085_6346845649854714491_n.jpg",
-                            name = 1,
-                            role = R.string.supporter,
-                            profileUrl = "https://www.instagram.com/wei_.3120",
-                        )
-                    ),
-                    onContributorClick = { uriHandler.openUri(it) },
-                    rawNames = listOf("cct._.610", "wei_.3120")
+                    rawNames = listOf("cgens67")
                 )
             }
 
@@ -391,69 +328,6 @@ private fun HeroCard(shimmerBrush: Brush) {
                     )
                 }
             }
-        }
-    }
-}
-
-// ── About App card ─────────────────────────────────────────────────────────
-
-@Composable
-private fun AboutAppCard() {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            // Section header
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                ) {
-                    Box(
-                        modifier = Modifier.size(40.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.info),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
-                }
-                Text(
-                    text = stringResource(R.string.about_app),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-            }
-
-            Text(
-                text = buildAnnotatedString {
-                    append(stringResource(R.string.about_app_desc_part1))
-                    val link = LinkAnnotation.Url("https://ganvo.vercel.app/")
-                    withLink(link) {
-                        withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)) {
-                            append(stringResource(R.string.about_app_desc_ganvo))
-                        }
-                    }
-                    append(stringResource(R.string.about_app_desc_part2))
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }

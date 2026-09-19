@@ -1299,6 +1299,17 @@
     <string name="storage_used">Verwendet</string>
 
     <string name="mini_player_style">Mini-Player-Stil</string>
+    <string name="mini_player_modern">Modern</string>
 
+    <string name="ai_content_filter">KI-Inhaltsfilter</string>
+    <string name="enable_ai_content_filter">KI-Inhaltsfilter aktivieren</string>
+    <string name="ai_content_filter_desc">Filtert KI-generierte Inhalte (Cover, Originalsongs) mithilfe von AiSList heraus.</string>
+    <string name="include_moderate_confidence">Mittlere Zuversicht einschließen</string>
+    <string name="include_moderate_confidence_desc">Auch Kanäle herausfiltern, die stark verdächtigt werden, aber nicht zu 100 % als KI bestätigt sind.</string>
+    
+    <string name="sort_latest">Neueste</string>
+    <string name="sort_oldest">Älteste</string>
+    <string name="sort_important_first">Wichtig zuerst</string>
+    <string name="sort_prefix">Sortieren: %1$s</string>
 
 </resources>

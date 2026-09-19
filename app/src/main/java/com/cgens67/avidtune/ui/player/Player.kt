@@ -2,6 +2,7 @@
 
 package com.cgens67.avidtune.ui.player
 
+import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -14,8 +15,13 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -36,6 +42,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -71,6 +78,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -83,6 +91,7 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
@@ -93,6 +102,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -108,6 +118,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.graphics.ColorUtils
 import androidx.core.net.toUri
+import androidx.core.view.WindowCompat
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.Player.STATE_ENDED
@@ -138,6 +149,7 @@ import com.cgens67.avidtune.constants.PureBlackKey
 import com.cgens67.avidtune.constants.QueuePeekHeight
 import com.cgens67.avidtune.constants.SliderStyle
 import com.cgens67.avidtune.constants.SliderStyleKey
+import com.cgens67.avidtune.constants.SwipeThumbnailKey
 import com.cgens67.avidtune.extensions.toggleRepeatMode
 import com.cgens67.avidtune.models.MediaMetadata
 import com.cgens67.avidtune.playback.ExoDownloadService
@@ -156,22 +168,14 @@ import com.cgens67.avidtune.ui.utils.resize
 import com.cgens67.avidtune.utils.makeTimeString
 import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.saket.squiggles.SquigglySlider
 import kotlin.math.roundToInt
-import androidx.compose.ui.graphics.ColorMatrix
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.ui.platform.LocalView
-import android.app.Activity
-import androidx.core.view.WindowCompat
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -185,6 +189,7 @@ fun BottomSheetPlayer(
     val database = LocalDatabase.current
     val menuState = LocalMenuState.current
     val view = LocalView.current
+    val coroutineScope = rememberCoroutineScope()
 
     val clipboardManager = LocalClipboardManager.current
     val playerConnection = LocalPlayerConnection.current ?: return
@@ -503,8 +508,20 @@ fun BottomSheetPlayer(
             }
         },
         onDismiss = {
-            playerConnection.player.stop()
-            playerConnection.player.clearMediaItems()
+            coroutineScope.launch {
+                val player = playerConnection.player
+                val currentVol = player.volume
+                val steps = 10
+                val delayMs = 25L // 250ms smooth fade out
+                for (i in steps downTo 1) {
+                    player.volume = currentVol * (i / steps.toFloat())
+                    delay(delayMs)
+                }
+                player.pause()
+                player.stop()
+                player.clearMediaItems()
+                player.volume = currentVol
+            }
         },
         collapsedContent = {
             MiniPlayer(
@@ -516,98 +533,108 @@ fun BottomSheetPlayer(
         when (LocalConfiguration.current.orientation) {
             Configuration.ORIENTATION_LANDSCAPE -> {
                 Row(
-                    modifier =
-                        Modifier
-                            .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Horizontal))
-                            .padding(top = queueSheetState.collapsedBound)
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Horizontal))
+                        .padding(bottom = queueSheetState.collapsedBound)
                 ) {
                     Box(
                         contentAlignment = Alignment.Center,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(0.9f)
+                            .fillMaxHeight(),
                     ) {
-                        val screenWidth = LocalConfiguration.current.screenWidthDp
-                        val thumbnailSize = (screenWidth * 0.4).dp
+                        val screenHeight = LocalConfiguration.current.screenHeightDp
+                        val thumbnailSize = (screenHeight * 0.75).dp
 
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Thumbnail(
-                                sliderPositionProvider = { sliderPosition },
-                                onOpenFullscreenLyrics = onOpenFullscreenLyrics,
-                                modifier = Modifier.size(thumbnailSize),
-                                isPlayerExpanded = state.isExpanded
-                            )
-                        }
+                        Thumbnail(
+                            sliderPositionProvider = { sliderPosition },
+                            onOpenFullscreenLyrics = onOpenFullscreenLyrics,
+                            modifier = Modifier.size(thumbnailSize),
+                            isPlayerExpanded = state.isExpanded,
+                            isLandscape = true
+                        )
                     }
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier =
-                            Modifier
-                                .weight(1f)
-                                .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top)),
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .weight(1.1f)
+                            .fillMaxHeight()
+                            .padding(end = 24.dp)
+                            .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top)),
                     ) {
-                        Spacer(Modifier.weight(1f))
-
                         mediaMetadata?.let {
-                            PlayerTitleSection(
-                                mediaMetadata = it,
-                                textBackgroundColor = TextBackgroundColor,
-                                navController = navController,
-                                state = state
-                            )
-                            Spacer(Modifier.height(12.dp))
-                            
-                            if (minimalPlayerDesign) {
-                                PlayerTopActionsV3(
-                                    mediaMetadata = it,
-                                    textBackgroundColor = TextBackgroundColor,
-                                    currentSongLiked = currentSongLiked,
-                                    context = context,
-                                    playerConnection = playerConnection,
-                                    onMoreOptions = {
-                                        menuState.show {
-                                            PlayerMenu(
-                                                mediaMetadata = it,
-                                                navController = navController,
-                                                playerBottomSheetState = state,
-                                                onShowDetailsDialog = { showDetailsDialog = true },
-                                                onDismiss = menuState::dismiss,
-                                            )
+                            Row(
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = PlayerHorizontalPadding),
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    PlayerTitleSection(
+                                        mediaMetadata = it,
+                                        textBackgroundColor = TextBackgroundColor,
+                                        navController = navController,
+                                        state = state
+                                    )
+                                }
+                                
+                                Spacer(modifier = Modifier.width(12.dp))
+                                
+                                if (minimalPlayerDesign) {
+                                    PlayerTopActionsV3(
+                                        mediaMetadata = it,
+                                        textBackgroundColor = TextBackgroundColor,
+                                        currentSongLiked = currentSongLiked,
+                                        context = context,
+                                        playerConnection = playerConnection,
+                                        onMoreOptions = {
+                                            menuState.show {
+                                                PlayerMenu(
+                                                    mediaMetadata = it,
+                                                    navController = navController,
+                                                    playerBottomSheetState = state,
+                                                    onShowDetailsDialog = { showDetailsDialog = true },
+                                                    onDismiss = menuState::dismiss,
+                                                )
+                                            }
                                         }
-                                    }
-                                )
-                            } else {
-                                PlayerTopActionsV4(
-                                    mediaMetadata = it,
-                                    textBackgroundColor = TextBackgroundColor,
-                                    currentSongLiked = currentSongLiked,
-                                    onShare = {
-                                        val intent = Intent().apply {
-                                            action = Intent.ACTION_SEND
-                                            type = "text/plain"
-                                            putExtra(
-                                                Intent.EXTRA_TEXT,
-                                                "https://music.youtube.com/watch?v=${it.id}"
-                                            )
+                                    )
+                                } else {
+                                    PlayerTopActionsV4(
+                                        mediaMetadata = it,
+                                        textBackgroundColor = TextBackgroundColor,
+                                        currentSongLiked = currentSongLiked,
+                                        onShare = {
+                                            val intent = Intent().apply {
+                                                action = Intent.ACTION_SEND
+                                                type = "text/plain"
+                                                putExtra(
+                                                    Intent.EXTRA_TEXT,
+                                                    "https://music.youtube.com/watch?v=${it.id}"
+                                                )
+                                            }
+                                            context.startActivity(Intent.createChooser(intent, null))
+                                        },
+                                        onToggleLike = { playerConnection.toggleLike() },
+                                        onMoreOptions = {
+                                            menuState.show {
+                                                PlayerMenu(
+                                                    mediaMetadata = it,
+                                                    navController = navController,
+                                                    playerBottomSheetState = state,
+                                                    onShowDetailsDialog = { showDetailsDialog = true },
+                                                    onDismiss = menuState::dismiss,
+                                                )
+                                            }
                                         }
-                                        context.startActivity(Intent.createChooser(intent, null))
-                                    },
-                                    onToggleLike = { playerConnection.toggleLike() },
-                                    onMoreOptions = {
-                                        menuState.show {
-                                            PlayerMenu(
-                                                mediaMetadata = it,
-                                                navController = navController,
-                                                playerBottomSheetState = state,
-                                                onShowDetailsDialog = { showDetailsDialog = true },
-                                                onDismiss = menuState::dismiss,
-                                            )
-                                        }
-                                    }
-                                )
+                                    )
+                                }
                             }
 
-                            Spacer(Modifier.height(12.dp))
+                            Spacer(Modifier.height(16.dp))
 
                             PlayerSliderV4(
                                 sliderStyle = sliderStyle,
@@ -625,18 +652,18 @@ fun BottomSheetPlayer(
                                     sliderPosition = null
                                 }
                             )
-                            
+
                             Spacer(Modifier.height(4.dp))
-                            
+
                             PlayerTimeLabelV4(
                                 sliderPosition = sliderPosition,
                                 position = position,
                                 duration = duration,
                                 textBackgroundColor = TextBackgroundColor
                             )
-                            
+
                             Spacer(Modifier.height(12.dp))
-                            
+
                             if (minimalPlayerDesign) {
                                 PlayerPlaybackControlsV3(
                                     playbackState = playbackState,
@@ -668,8 +695,6 @@ fun BottomSheetPlayer(
                                 )
                             }
                         }
-
-                        Spacer(Modifier.weight(1f))
                     }
                 }
             }
@@ -1379,7 +1404,7 @@ fun PlayerTopActionsV4(
             }
         }
 
-        // More menu button - cinematic glass card
+        // More menu button
         Surface(
             onClick = onMoreOptions,
             shape = RoundedCornerShape(14.dp),

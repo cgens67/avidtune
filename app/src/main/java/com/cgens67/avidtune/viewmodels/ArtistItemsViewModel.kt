@@ -14,6 +14,8 @@ import com.cgens67.avidtune.models.ItemsPage
 import com.cgens67.avidtune.utils.dataStore
 import com.cgens67.avidtune.utils.get
 import com.cgens67.avidtune.utils.reportException
+import com.cgens67.avidtune.aicontentfilter.FilterAiContentUseCase
+import com.cgens67.avidtune.aicontentfilter.LoadAiContentFilterPolicyUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +29,8 @@ class ArtistItemsViewModel
 constructor(
     @ApplicationContext val context: Context,
     savedStateHandle: SavedStateHandle,
+    private val loadAiContentFilterPolicy: LoadAiContentFilterPolicyUseCase,
+    private val filterAiContent: FilterAiContentUseCase
 ) : ViewModel() {
     private val browseId = savedStateHandle.get<String>("browseId")!!
     private val params = savedStateHandle.get<String>("params")
@@ -36,6 +40,7 @@ constructor(
 
     init {
         viewModelScope.launch {
+            val policy = loadAiContentFilterPolicy()
             YouTube
                 .artistItems(
                     BrowseEndpoint(
@@ -46,7 +51,10 @@ constructor(
                     title.value = artistItemsPage.title
                     itemsPage.value =
                         ItemsPage(
-                            items = artistItemsPage.items.distinctBy { it.id }.filterExplicit(context.dataStore.get(HideExplicitKey, false)).filterVideoSongs(context.dataStore.get(HideMusicVideosKey, false)),
+                            items = filterAiContent(artistItemsPage.items, policy)
+                                .distinctBy { it.id }
+                                .filterExplicit(context.dataStore.get(HideExplicitKey, false))
+                                .filterVideoSongs(context.dataStore.get(HideMusicVideosKey, false)),
                             continuation = artistItemsPage.continuation,
                         )
                 }.onFailure {
@@ -57,15 +65,17 @@ constructor(
 
     fun loadMore() {
         viewModelScope.launch {
+            val policy = loadAiContentFilterPolicy()
             val oldItemsPage = itemsPage.value ?: return@launch
             val continuation = oldItemsPage.continuation ?: return@launch
             YouTube
                 .artistItemsContinuation(continuation)
                 .onSuccess { artistItemsContinuationPage ->
                     itemsPage.update {
+                        val filteredItems = filterAiContent(artistItemsContinuationPage.items, policy)
                         ItemsPage(
                             items =
-                                (oldItemsPage.items + artistItemsContinuationPage.items)
+                                (oldItemsPage.items + filteredItems)
                                     .distinctBy { it.id }
                                     .filterExplicit(context.dataStore.get(HideExplicitKey, false))
                                     .filterVideoSongs(context.dataStore.get(HideMusicVideosKey, false)),

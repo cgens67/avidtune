@@ -5,6 +5,7 @@ import com.cgens67.avidtune.constants.EnableSimpMusicKey
 import com.cgens67.avidtune.utils.dataStore
 import com.cgens67.avidtune.utils.get
 import com.music.simpmusic.SimpMusicLyrics
+import timber.log.Timber
 
 object SimpMusicLyricsProvider : LyricsProvider {
     override val name = "SimpMusic"
@@ -16,7 +17,9 @@ object SimpMusicLyricsProvider : LyricsProvider {
         title: String,
         artist: String,
         duration: Int,
-    ): Result<String> = SimpMusicLyrics.getLyrics(id, duration)
+    ): Result<String> = runCatching {
+        SimpMusicLyrics.getLyrics(id, duration).getOrThrow()
+    }
 
     override suspend fun getAllLyrics(
         id: String,
@@ -25,6 +28,14 @@ object SimpMusicLyricsProvider : LyricsProvider {
         duration: Int,
         callback: (String) -> Unit,
     ) {
-        SimpMusicLyrics.getAllLyrics(id, duration, callback)
+        try {
+            SimpMusicLyrics.getAllLyrics(id, duration) { lyrics ->
+                if (lyrics.isNotBlank()) {
+                    callback(lyrics)
+                }
+            }
+        } catch (e: Throwable) {
+            Timber.e(e, "Error in SimpMusic getAllLyrics")
+        }
     }
 }

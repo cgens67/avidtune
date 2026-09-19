@@ -20,21 +20,19 @@ object PaxsenixLyricsProvider : LyricsProvider {
         artist: String,
         duration: Int,
     ): Result<String> {
-        Timber.tag(TAG).d("getLyrics called: title='\$title', artist='\$artist', duration=\$duration")
+        Timber.tag(TAG).d("getLyrics called: title='$title', artist='$artist', duration=$duration")
         
-        try {
+        return try {
             val result = Paxsenix.getLyrics(title, artist, duration, null)
-            
             result.onSuccess { lyrics ->
-                Timber.tag(TAG).i("Success! Got \${lyrics.length} chars of lyrics")
+                Timber.tag(TAG).i("Success! Got ${lyrics.length} chars of lyrics")
             }.onFailure { e ->
                 Timber.tag(TAG).e(e, "Failed to get lyrics")
             }
-            
-            return result
-        } catch (e: Exception) {
+            result
+        } catch (e: Throwable) {
             Timber.tag(TAG).e(e, "Exception in getLyrics")
-            return Result.failure(e)
+            Result.failure(e)
         }
     }
 
@@ -47,10 +45,13 @@ object PaxsenixLyricsProvider : LyricsProvider {
     ) {
         Timber.tag(TAG).d("getAllLyrics called")
         try {
-            Paxsenix.getAllLyrics(title, artist, duration, null, callback)
-        } catch (e: Exception) {
+            Paxsenix.getAllLyrics(title, artist, duration, null) { lyrics ->
+                if (lyrics.isNotBlank()) {
+                    callback(lyrics)
+                }
+            }
+        } catch (e: Throwable) {
             Timber.tag(TAG).e(e, "Error fetching lyrics from Paxsenix")
-            callback("")
         }
     }
 }
