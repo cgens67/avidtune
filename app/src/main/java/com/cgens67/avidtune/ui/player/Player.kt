@@ -22,6 +22,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -31,6 +32,8 @@ import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -196,11 +199,6 @@ fun BottomSheetPlayer(
     val clipboardManager = LocalClipboardManager.current
     val playerConnection = LocalPlayerConnection.current ?: return
 
-    val playerVersion by rememberEnumPreference(
-        key = PlayerVersionKey,
-        defaultValue = PlayerVersion.V2
-    )
-
     val playerTextAlignment by rememberEnumPreference(
         PlayerTextAlignmentKey,
         PlayerTextAlignment.CENTER
@@ -208,6 +206,11 @@ fun BottomSheetPlayer(
 
     val minimalPlayerDesign by rememberPreference(MinimalPlayerDesignKey, false)
     val disableBlur by rememberPreference(DisableBlurKey, false)
+
+    val (playerVersion) = rememberEnumPreference(
+        PlayerVersionKey,
+        defaultValue = PlayerVersion.V2
+    )
 
     val playerBackground by rememberEnumPreference(
         key = PlayerBackgroundStyleKey,
@@ -220,13 +223,13 @@ fun BottomSheetPlayer(
     val useDarkTheme = remember(darkTheme, isSystemInDarkTheme) {
         if (darkTheme == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON
     }
-    
+
     val useBlackBackground =
         remember(isSystemInDarkTheme, darkTheme, pureBlack) {
             val isDark = if (darkTheme == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON
             isDark && pureBlack
         }
-        
+
     val bottomSheetBackgroundColor = when (playerBackground) {
         PlayerBackgroundStyle.LIVE_MESH, PlayerBackgroundStyle.BLUR, PlayerBackgroundStyle.GRADIENT, PlayerBackgroundStyle.APPLE_MUSIC ->
             if (useDarkTheme) MaterialTheme.colorScheme.surfaceContainer else Color(0xFF424242)
@@ -488,7 +491,6 @@ fun BottomSheetPlayer(
 
     val isLoading = playbackState == Player.STATE_BUFFERING
 
-    // If Modern/v2 Player is selected, delegate the bottom sheet content directly to PlayerV2
     if (playerVersion == PlayerVersion.V2) {
         BottomSheet(
             state = state,
@@ -548,7 +550,6 @@ fun BottomSheetPlayer(
         return
     }
 
-    // Classic v1 Player Layout
     BottomSheet(
         state = state,
         modifier = modifier,
@@ -580,7 +581,7 @@ fun BottomSheetPlayer(
                 val player = playerConnection.player
                 val currentVol = player.volume
                 val steps = 10
-                val delayMs = 25L // 250ms smooth fade out
+                val delayMs = 25L
                 for (i in steps downTo 1) {
                     player.volume = currentVol * (i / steps.toFloat())
                     delay(delayMs)
@@ -648,9 +649,9 @@ fun BottomSheetPlayer(
                                         state = state
                                     )
                                 }
-                                
+
                                 Spacer(modifier = Modifier.width(12.dp))
-                                
+
                                 if (minimalPlayerDesign) {
                                     PlayerTopActionsV3(
                                         mediaMetadata = it,
@@ -807,9 +808,9 @@ fun BottomSheetPlayer(
                                     state = state
                                 )
                             }
-                            
+
                             Spacer(modifier = Modifier.width(12.dp))
-                            
+
                             if (minimalPlayerDesign) {
                                 PlayerTopActionsV3(
                                     mediaMetadata = it,
@@ -1120,7 +1121,6 @@ fun PlayerBackground(
                             val saturationMatrix = remember { ColorMatrix().apply { setToSaturation(1.8f) } }
                             val baseBlur = if (!disableBlur) 24.dp else 0.dp
 
-                            // Layer 1 (Anchor)
                             AsyncImage(
                                 model = imageRequest,
                                 contentDescription = null,
@@ -1137,7 +1137,6 @@ fun PlayerBackground(
                                     .size(200.dp)
                             )
 
-                            // Layer 2 (Fast)
                             AsyncImage(
                                 model = imageRequest,
                                 contentDescription = null,
@@ -1156,7 +1155,6 @@ fun PlayerBackground(
                                     .size(200.dp)
                             )
 
-                            // Layer 3 (Slow)
                             AsyncImage(
                                 model = imageRequest,
                                 contentDescription = null,
@@ -1175,7 +1173,6 @@ fun PlayerBackground(
                                     .size(200.dp)
                             )
                             
-                            // Depth & Contrast Overlays
                             Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.2f)))
                             Box(
                                 modifier = Modifier
@@ -1191,7 +1188,6 @@ fun PlayerBackground(
                 }
             }
             else -> {
-                // DEFAULT
             }
         }
     }
@@ -1210,6 +1206,39 @@ fun PlayerSliderV4(
     onValueChangeFinished: () -> Unit
 ) {
     when (sliderStyle) {
+        SliderStyle.EXPANDING -> {
+            val trackInteractionSource = remember { MutableInteractionSource() }
+            val isTrackDragged by trackInteractionSource.collectIsDraggedAsState()
+            val isTrackPressed by trackInteractionSource.collectIsPressedAsState()
+            val isTrackActive = isTrackDragged || isTrackPressed
+
+            val trackHeight by animateDpAsState(
+                targetValue = if (isTrackActive) 12.dp else 6.dp,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
+                label = "trackScale"
+            )
+
+            Slider(
+                value = (sliderPosition ?: position).toFloat(),
+                valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
+                onValueChange = { onValueChange(it.toLong()) },
+                onValueChangeFinished = onValueChangeFinished,
+                interactionSource = trackInteractionSource,
+                thumb = { Spacer(modifier = Modifier.size(0.dp)) },
+                track = { sliderState ->
+                    PlayerSliderTrack(
+                        sliderState = sliderState,
+                        trackHeight = trackHeight,
+                        colors = SliderDefaults.colors(
+                            activeTrackColor = textBackgroundColor,
+                            inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
+                            thumbColor = textBackgroundColor
+                        )
+                    )
+                },
+                modifier = Modifier.padding(horizontal = PlayerHorizontalPadding),
+            )
+        }
         SliderStyle.DEFAULT -> {
             Slider(
                 value = (sliderPosition ?: position).toFloat(),
@@ -1313,7 +1342,7 @@ fun PlayerTitleSection(
 ) {
     val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
     val context = LocalContext.current
-    
+
     AnimatedContent(
         targetState = mediaMetadata.title,
         transitionSpec = { fadeIn() togetherWith fadeOut() },
@@ -1472,7 +1501,6 @@ fun PlayerTopActionsV4(
             }
         }
 
-        // More menu button
         Surface(
             onClick = onMoreOptions,
             shape = RoundedCornerShape(14.dp),
