@@ -1295,5 +1295,21 @@
     <string name="sort_oldest">最旧</string>
     <string name="sort_important_first">重要优先</string>
     <string name="sort_prefix">排序：%1$s</string>
+    
+    <string name="player_design">播放器样式</string>
+    <string name="player_design_classic">经典版 (v1)</string>
+    <string name="player_design_modern">现代版 (v2)</string>
+    <string name="slider_expanding">膨胀条</string>
+    <string name="audio_output">音频输出</string>
+    <string name="this_device">此设备</string>
+    <string name="internal_speaker">内置扬声器</string>
+    <string name="connected_bluetooth">已连接蓝牙设备</string>
+    <string name="open_system_output_switcher">打开系统输出切换器</string>
+    <string name="cover_art">专辑封面</string>
+    <string name="volume_down">调低音量</string>
+    <string name="volume_up">调高音量</string>
+    <string name="lock_queue">锁定队列</string>
+    <string name="unlock_queue">解锁队列</string>
+    <string name="drag_to_reorder">拖动重新排序</string>
 
 </resources>
