@@ -216,8 +216,14 @@ fun SwitchPreference(
                         ),
                         contentDescription = null,
                         modifier = Modifier.size(SwitchDefaults.IconSize),
+                        tint = if (checked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
                     )
-                }
+                },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = MaterialTheme.colorScheme.surface,
+                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                    checkedBorderColor = MaterialTheme.colorScheme.primary,
+                )
             )
         },
         onClick = { onCheckedChange(!checked) },
