@@ -216,6 +216,7 @@ import com.cgens67.avidtune.ui.screens.settings.ThemePalettes
 import com.cgens67.avidtune.ui.theme.ColorSaver
 import com.cgens67.avidtune.ui.theme.DefaultThemeColor
 import com.cgens67.avidtune.ui.theme.AvidTuneTheme
+import com.cgens67.avidtune.ui.theme.ThemeSeedPalette
 import com.cgens67.avidtune.ui.theme.ThemeSeedPaletteCodec
 import com.cgens67.avidtune.ui.theme.extractThemeColor
 import com.cgens67.avidtune.ui.utils.appBarScrollBehavior
@@ -396,9 +397,9 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(useDarkTheme) {
                 setSystemBarAppearance(useDarkTheme)
             }
-            var themeColor by rememberSaveable(stateSaver = ColorSaver) {
-                mutableStateOf(DefaultThemeColor)
-            }
+
+            var themeColor by rememberSaveable(stateSaver = ColorSaver) { mutableStateOf(DefaultThemeColor) }
+            var seedPalette by remember { mutableStateOf<ThemeSeedPalette?>(null) }
             
             val useSystemFont by rememberPreference(UseSystemFontKey, defaultValue = false)
             val appFontStr by rememberPreference(AppFontKey, defaultValue = "")
@@ -412,26 +413,30 @@ class MainActivity : ComponentActivity() {
             }
 
             LaunchedEffect(playerConnection, enableDynamicTheme, useDarkTheme, customThemeColor) {
-                val playerConnection = playerConnection
+                val connection = playerConnection
                 if (!enableDynamicTheme) {
-                    val seedPalette = ThemeSeedPaletteCodec.decodeFromPreference(customThemeColor)
-                    if (seedPalette != null) {
-                        themeColor = seedPalette.primary
+                    val decodedPalette = ThemeSeedPaletteCodec.decodeFromPreference(customThemeColor)
+                    if (decodedPalette != null) {
+                        seedPalette = decodedPalette
+                        themeColor = decodedPalette.primary
                     } else {
                         val palette = ThemePalettes.findById(customThemeColor, useDarkTheme)
                             ?: ThemePalettes.findByPrimaryColor(customThemeColor, useDarkTheme)
                             ?: ThemePalettes.Default
+                        seedPalette = ThemeSeedPalette(palette.primary, palette.secondary, palette.tertiary, palette.neutral)
                         themeColor = palette.primary
                     }
                     return@LaunchedEffect
                 }
                 
-                if (playerConnection == null) {
+                seedPalette = null
+                
+                if (connection == null) {
                     themeColor = DefaultThemeColor
                     return@LaunchedEffect
                 }
                 
-                playerConnection.service.currentMediaMetadata.collectLatest { song ->
+                connection.service.currentMediaMetadata.collectLatest { song ->
                     themeColor =
                         if (song != null) {
                             withContext(Dispatchers.IO) {
@@ -456,6 +461,7 @@ class MainActivity : ComponentActivity() {
                 darkTheme = useDarkTheme,
                 pureBlack = pureBlack,
                 themeColor = themeColor,
+                seedPalette = seedPalette,
                 appFont = appFont,
             ) {
                 var showUpdateChangelog by rememberSaveable { mutableStateOf(false) }
