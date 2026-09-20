@@ -13,6 +13,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
@@ -32,6 +33,12 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -41,13 +48,11 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -55,43 +60,30 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -102,29 +94,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.graphics.drawscope.clipRect
-import androidx.compose.ui.graphics.drawscope.scale
-import androidx.compose.ui.graphics.drawscope.translate
-import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.SpanStyle
+import androidx.compose.ui.graphics.buildAnnotatedString
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.withStyle
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -136,39 +120,27 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.PlatformTextStyle
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.drawText
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.zIndex
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.C
 import androidx.media3.common.Player
+import androidx.navigation.NavController
 import androidx.palette.graphics.Palette
 import coil.ImageLoader
 import coil.compose.AsyncImage
-import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.cgens67.avidtune.LocalDatabase
 import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.AnimateLyricsKey
-import com.cgens67.avidtune.constants.AppleMusicLyricsBlurKey
 import com.cgens67.avidtune.constants.DarkModeKey
 import com.cgens67.avidtune.constants.DisableBlurKey
 import com.cgens67.avidtune.constants.LyricsClickKey
@@ -185,13 +157,11 @@ import com.cgens67.avidtune.lyrics.LyricsEntry
 import com.cgens67.avidtune.lyrics.LyricsResult
 import com.cgens67.avidtune.lyrics.LyricsUtils.findCurrentLineIndex
 import com.cgens67.avidtune.lyrics.LyricsUtils.parseLyrics
-import com.cgens67.avidtune.lyrics.WordTimestamp
 import com.cgens67.avidtune.playback.PlayerConnection
 import com.cgens67.avidtune.ui.menu.LyricsMenu
 import com.cgens67.avidtune.ui.screens.settings.DarkMode
 import com.cgens67.avidtune.ui.screens.settings.LyricsPosition
 import com.cgens67.avidtune.ui.utils.fadingEdge
-import com.cgens67.avidtune.utils.ComposeToImage
 import com.cgens67.avidtune.utils.makeTimeString
 import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
@@ -204,32 +174,17 @@ import kotlinx.coroutines.withContext
 import me.saket.squiggles.SquigglySlider
 import kotlin.math.absoluteValue
 import kotlin.math.exp
-import kotlin.math.min
 import kotlin.math.roundToInt
+import kotlin.math.sin
 import kotlin.time.Duration.Companion.seconds
-import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.TextUnit
-import androidx.core.graphics.drawable.toBitmap
-import android.text.Layout
-import android.text.StaticLayout
-import android.text.TextPaint
-import android.graphics.Typeface
-import android.graphics.Rect
-import android.graphics.RectF
-import android.graphics.Shader
-import android.graphics.LinearGradient
-import android.graphics.Paint
-import androidx.compose.foundation.gestures.animateScrollBy
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.runtime.derivedStateOf
-import androidx.navigation.NavController
 
 @RequiresApi(Build.VERSION_CODES.M)
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class,
+@OptIn(
+    ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class,
     ExperimentalMaterial3ExpressiveApi::class
 )
-@SuppressLint("UnusedBoxWithConstraintsScope", "StringFormatInvalid",
+@SuppressLint(
+    "UnusedBoxWithConstraintsScope", "StringFormatInvalid",
     "LocalContextGetResourceValueCall"
 )
 @Composable
@@ -430,7 +385,6 @@ fun Lyrics(
                 val linesToRomanize = lines.map { it.text }
                 val romanizedResult = com.cgens67.avidtune.utils.TranslationHelper.romanize(linesToRomanize)
 
-                // romanizedResult is a List<String> aligned with 'lines'
                 val finalRomanizedLines = mutableListOf<String>()
                 for (i in lines.indices) {
                     if (lines[i].text.isNotBlank()) {
@@ -504,7 +458,6 @@ fun Lyrics(
 
             withContext(Dispatchers.IO) {
                 try {
-
                     val fallbackColors = listOf(primaryColor, secondaryColor, tertiaryColor)
                     gradientColorsCache[currentMetadata.id] = fallbackColors
                     withContext(Dispatchers.Main) { gradientColors = fallbackColors }
@@ -546,7 +499,6 @@ fun Lyrics(
 
                         val text = existingLyrics.lyrics.trim()
                         if (!text.startsWith("[provider:")) {
-                            // Old format, trigger a background upgrade
                             scope.launch(Dispatchers.IO) {
                                 try {
                                     val entryPoint = EntryPointAccessors.fromApplication(
@@ -568,7 +520,6 @@ fun Lyrics(
                                             }
                                         } catch (e: Throwable) {}
 
-                                        // Update state to show provider credit
                                         currentLyricsEntity = upgradedEntity
                                         val upgradedCache = lyricsCache.toMutableMap().apply {
                                             put(songId, upgradedEntity)
@@ -576,7 +527,6 @@ fun Lyrics(
                                         lyricsCache = upgradedCache
                                     }
                                 } catch (e: Throwable) {
-                                    // Ignore errors during background upgrade
                                 }
                             }
                         }
@@ -784,7 +734,6 @@ fun Lyrics(
             currentLineIndex = rawIndex
 
             var mainIdx = rawIndex
-            // Navigate back to find the closest main line (ignoring background lines)
             while (mainIdx >= 0 && lines.getOrNull(mainIdx)?.isBackground == true) {
                 mainIdx--
             }
@@ -995,7 +944,6 @@ fun Lyrics(
                                 
                                 val blurAmount = if (!disableBlur) 32.dp else 0.dp
 
-                                // Layer 1 (Anchor)
                                 AsyncImage(
                                     model = imageRequest,
                                     contentDescription = null,
@@ -1007,7 +955,6 @@ fun Lyrics(
                                         .graphicsLayer { rotationZ = anchorRotation }
                                 )
 
-                                // Layer 2 (Fast)
                                 AsyncImage(
                                     model = imageRequest,
                                     contentDescription = null,
@@ -1023,7 +970,6 @@ fun Lyrics(
                                         }
                                 )
 
-                                // Layer 3 (Slow)
                                 AsyncImage(
                                     model = imageRequest,
                                     contentDescription = null,
@@ -1039,7 +985,6 @@ fun Lyrics(
                                         }
                                 )
                                 
-                                // Depth & Contrast Overlays
                                 Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.2f)))
                                 Box(
                                     modifier = Modifier
@@ -1718,6 +1663,45 @@ fun Lyrics(
                             )
                         )
                     }
+
+                    SliderStyle.EXPANDING -> {
+                        val trackInteractionSource = remember { MutableInteractionSource() }
+                        val isTrackDragged by trackInteractionSource.collectIsDraggedAsState()
+                        val isTrackPressed by trackInteractionSource.collectIsPressedAsState()
+                        val isTrackActive = isTrackDragged || isTrackPressed
+
+                        val trackHeight by animateDpAsState(
+                            targetValue = if (isTrackActive) 12.dp else 6.dp,
+                            animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
+                            label = "trackScale"
+                        )
+
+                        Slider(
+                            value = (sliderPosition ?: position).toFloat(),
+                            valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
+                            onValueChange = { sliderPosition = it.toLong() },
+                            onValueChangeFinished = {
+                                sliderPosition?.let {
+                                    playerConnection.player.seekTo(it)
+                                    position = it
+                                }
+                                sliderPosition = null
+                            },
+                            interactionSource = trackInteractionSource,
+                            thumb = { Spacer(modifier = Modifier.size(0.dp)) },
+                            track = { sliderState ->
+                                PlayerSliderTrack(
+                                    sliderState = sliderState,
+                                    trackHeight = trackHeight,
+                                    colors = androidx.compose.material3.SliderDefaults.colors(
+                                        activeTrackColor = textBackgroundColor,
+                                        inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
+                                        thumbColor = textBackgroundColor
+                                    )
+                                )
+                            }
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(4.dp))
@@ -1871,7 +1855,7 @@ fun Lyrics(
     }
 
     if (showProgressDialog) {
-        BasicAlertDialog(onDismissRequest = { /* No permitir cerrar */ }) {
+        BasicAlertDialog(onDismissRequest = { }) {
             Card(
                 shape = MaterialTheme.shapes.medium,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -2001,7 +1985,6 @@ private fun ShareLyricsDialog(
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Share as text
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -2040,7 +2023,6 @@ private fun ShareLyricsDialog(
                     )
                 }
 
-                // Share as image
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -2063,7 +2045,6 @@ private fun ShareLyricsDialog(
                     )
                 }
 
-                // Cancel button
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -2085,14 +2066,9 @@ private fun ShareLyricsDialog(
     }
 }
 
-
-/**
- * Calculates the auto-swipe threshold based on swipe sensitivity.
- */
 private fun calculateAutoSwipeThreshold(swipeSensitivity: Float): Int {
     return (600 / (1f + exp(-(-11.44748 * swipeSensitivity + 9.04945)))).roundToInt()
 }
 
-// Preview time constant
 val LyricsPreviewTime = 2.seconds
 const val ANIMATE_SCROLL_DURATION = 300L
