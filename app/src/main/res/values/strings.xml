@@ -1321,10 +1321,19 @@
     <string name="sort_prefix">Sort: %1$s</string>
     
     <string name="player_design">Player design</string>
+    <string name="player_design_classic">Classic (v1)</string>
+    <string name="player_design_modern">Modern (v2)</string>
+    <string name="slider_expanding">Expanding</string>
     <string name="audio_output">Audio output</string>
     <string name="this_device">This device</string>
     <string name="internal_speaker">Built-in speaker</string>
     <string name="connected_bluetooth">Connected via Bluetooth</string>
     <string name="open_system_output_switcher">Open output switcher</string>
-
+    <string name="cover_art">Cover art</string>
+    <string name="volume_down">Volume down</string>
+    <string name="volume_up">Volume up</string>
+    <string name="lock_queue">Lock queue</string>
+    <string name="unlock_queue">Unlock queue</string>
+    <string name="drag_to_reorder">Drag to reorder</string>
+    
 </resources>
