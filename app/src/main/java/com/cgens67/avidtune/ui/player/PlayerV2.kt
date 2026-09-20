@@ -23,11 +23,9 @@ import androidx.compose.animation.BoundsTransform
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -42,6 +40,7 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -114,9 +113,12 @@ import com.cgens67.avidtune.constants.PlayerBackgroundStyle
 import com.cgens67.avidtune.constants.PlayerBackgroundStyleKey
 import com.cgens67.avidtune.constants.PlayerThumbnailShadowElevationKey
 import com.cgens67.avidtune.constants.ShowPlayerThumbnailShadowKey
+import com.cgens67.avidtune.constants.SliderStyle
+import com.cgens67.avidtune.constants.SliderStyleKey
 import com.cgens67.avidtune.extensions.togglePlayPause
 import com.cgens67.avidtune.together.TogetherRole
 import com.cgens67.avidtune.together.TogetherSessionState
+import com.cgens67.avidtune.ui.component.AppConfig
 import com.cgens67.avidtune.ui.component.BottomSheetState
 import com.cgens67.avidtune.ui.component.LocalBottomSheetPageState
 import com.cgens67.avidtune.ui.component.LocalMenuState
@@ -132,6 +134,7 @@ import com.cgens67.avidtune.utils.rememberPreference
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import me.saket.squiggles.SquigglySlider
 
 enum class PlayerInternalState { COVER, LYRICS, QUEUE }
 
@@ -324,6 +327,7 @@ fun AudioDeviceBottomSheet(onDismiss: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun PlayerV2(
     state: BottomSheetState,
@@ -363,6 +367,9 @@ fun PlayerV2(
     val canSkipPrevious by playerConnection.canSkipPrevious.collectAsState()
     val canSkipNext by playerConnection.canSkipNext.collectAsState()
 
+    // Synchronized Volume with PlayerConnection & PlayerMenu
+    val playerVolume by playerConnection.service.playerVolume.collectAsState()
+
     BackHandler(enabled = playerState != PlayerInternalState.COVER) {
         playerState = PlayerInternalState.COVER
     }
@@ -397,45 +404,21 @@ fun PlayerV2(
     var duration by remember { mutableLongStateOf(0L) }
     var sliderPosition by remember { mutableStateOf<Long?>(null) }
 
-    val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
-    val maxSystemVolume = remember { audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).toFloat() }
-
-    var systemVolume by remember { mutableFloatStateOf(audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() / maxSystemVolume) }
-    val animatedVolume by animateFloatAsState(
-        targetValue = systemVolume,
-        animationSpec = tween(
-            durationMillis = 150,
-            easing = FastOutLinearInEasing
-        ),
-        label = "volumeAnimation"
-    )
-
-    DisposableEffect(context) {
-        val receiver = object : BroadcastReceiver() {
-            override fun onReceive(c: Context?, intent: Intent?) {
-                if (intent?.action == "android.media.VOLUME_CHANGED_ACTION") {
-                    systemVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() / maxSystemVolume
-                }
-            }
-        }
-        context.registerReceiver(receiver, IntentFilter("android.media.VOLUME_CHANGED_ACTION"))
-        onDispose { context.unregisterReceiver(receiver) }
-    }
-
-    val (storedPlayerBackground, onPlayerBackgroundChange) = rememberEnumPreference(
+    val playerBackground by rememberEnumPreference(
         key = PlayerBackgroundStyleKey,
-        defaultValue = PlayerBackgroundStyle.GRADIENT
+        defaultValue = PlayerBackgroundStyle.DEFAULT
     )
-    LaunchedEffect(storedPlayerBackground) {
-        if (storedPlayerBackground == PlayerBackgroundStyle.APPLE_MUSIC) {
-            onPlayerBackgroundChange(PlayerBackgroundStyle.DEFAULT)
-        }
+
+    // Un-hardcode album cover corner radius
+    var thumbnailCornerRadius by remember { mutableFloatStateOf(16f) }
+    LaunchedEffect(Unit) {
+        thumbnailCornerRadius = AppConfig.getThumbnailCornerRadius(context)
     }
-    val playerBackground = if (storedPlayerBackground == PlayerBackgroundStyle.APPLE_MUSIC) {
-        PlayerBackgroundStyle.DEFAULT
-    } else {
-        storedPlayerBackground
-    }
+
+    val sliderStyle by rememberEnumPreference(
+        key = SliderStyleKey,
+        defaultValue = SliderStyle.EXPANDING
+    )
 
     val showPlayerThumbnailShadow by rememberPreference(ShowPlayerThumbnailShadowKey, defaultValue = false)
     val playerThumbnailShadowElevation by rememberPreference(PlayerThumbnailShadowElevationKey, defaultValue = 8f)
@@ -566,7 +549,6 @@ fun PlayerV2(
                 .padding(top = WindowInsets.systemBars.asPaddingValues().calculateTopPadding())
                 .padding(bottom = WindowInsets.systemBars.asPaddingValues().calculateBottomPadding())
         ) {
-            // Drag handle header
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -604,7 +586,8 @@ fun PlayerV2(
                         ) {
                             Spacer(modifier = Modifier.weight(1f))
 
-                            // Large Apple Music Style Artwork
+                            // Dynamic Album Corner Radius
+                            val coverRadius = thumbnailCornerRadius.dp
                             Box(
                                 modifier = Modifier
                                     .sharedElement(
@@ -618,11 +601,11 @@ fun PlayerV2(
                                     .aspectRatio(1f)
                                     .customSoftShadow(
                                         elevation = playerThumbnailShadowElevation.dp,
-                                        cornerRadius = 12.dp,
+                                        cornerRadius = coverRadius,
                                         enabled = showPlayerThumbnailShadow
                                     )
-                                    .background(adaptiveSurface, RoundedCornerShape(12.dp))
-                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(adaptiveSurface, RoundedCornerShape(coverRadius))
+                                    .clip(RoundedCornerShape(coverRadius))
                                     .SwipeGesture(
                                         enabled = (playerState == PlayerInternalState.COVER && !isListenTogetherGuest),
                                         onSwipeLeft = { if (canSkipNext) playerConnection.player.seekToNext() },
@@ -644,7 +627,7 @@ fun PlayerV2(
                                 } else {
                                     AsyncImage(
                                         model = mediaMetadata?.thumbnailUrl?.resize(1200, 1200),
-                                        contentDescription = "Cover Art",
+                                        contentDescription = stringResource(R.string.cover_art),
                                         modifier = Modifier.fillMaxSize(),
                                         contentScale = ContentScale.Crop
                                     )
@@ -767,6 +750,7 @@ fun PlayerV2(
                         }
                     } else if (targetState == PlayerInternalState.LYRICS || targetState == PlayerInternalState.QUEUE) {
                         Column(modifier = Modifier.fillMaxSize()) {
+                            val miniRadius = (thumbnailCornerRadius / 2f).coerceAtLeast(4f).dp
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -786,11 +770,11 @@ fun PlayerV2(
                                         .size(64.dp)
                                         .customSoftShadow(
                                             elevation = playerThumbnailShadowElevation.dp / 2f,
-                                            cornerRadius = 8.dp,
+                                            cornerRadius = miniRadius,
                                             enabled = showPlayerThumbnailShadow
                                         )
-                                        .background(adaptiveSurface, RoundedCornerShape(8.dp))
-                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(adaptiveSurface, RoundedCornerShape(miniRadius))
+                                        .clip(RoundedCornerShape(miniRadius))
                                         .clickable { playerState = PlayerInternalState.COVER }
                                 ) {
                                     if (hidePlayerThumbnail) {
@@ -808,7 +792,7 @@ fun PlayerV2(
                                     } else {
                                         AsyncImage(
                                             model = mediaMetadata?.thumbnailUrl?.resize(1200, 1200),
-                                            contentDescription = "Cover Art",
+                                            contentDescription = stringResource(R.string.cover_art),
                                             modifier = Modifier.fillMaxSize(),
                                             contentScale = ContentScale.Crop
                                         )
@@ -961,50 +945,143 @@ fun PlayerV2(
                     ) {
                         val currentPos = sliderPosition ?: position
 
-                        val trackInteractionSource = remember { MutableInteractionSource() }
-                        val isTrackDragged by trackInteractionSource.collectIsDraggedAsState()
-                        val isTrackPressed by trackInteractionSource.collectIsPressedAsState()
-                        val isTrackActive = isTrackDragged || isTrackPressed
+                        // Dynamic Slider rendering based on SliderStyle setting
+                        when (sliderStyle) {
+                            SliderStyle.EXPANDING -> {
+                                val trackInteractionSource = remember { MutableInteractionSource() }
+                                val isTrackDragged by trackInteractionSource.collectIsDraggedAsState()
+                                val isTrackPressed by trackInteractionSource.collectIsPressedAsState()
+                                val isTrackActive = isTrackDragged || isTrackPressed
 
-                        val trackHeight by animateDpAsState(
-                            targetValue = if (isTrackActive) 12.dp else 6.dp,
-                            animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
-                            label = "trackScale"
-                        )
-
-                        Slider(
-                            value = currentPos.toFloat(),
-                            valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
-                            onValueChange = { value ->
-                                if (!isListenTogetherGuest) {
-                                    sliderPosition = value.toLong()
-                                }
-                            },
-                            onValueChangeFinished = {
-                                if (!isListenTogetherGuest) {
-                                    sliderPosition?.let { pos ->
-                                        playerConnection.player.seekTo(pos)
-                                        position = pos
-                                        sliderPosition = null
-                                    }
-                                }
-                            },
-                            enabled = !isListenTogetherGuest,
-                            interactionSource = trackInteractionSource,
-                            thumb = { Spacer(modifier = Modifier.size(0.dp)) },
-                            track = { sliderState ->
-                                PlayerSliderTrack(
-                                    sliderState = sliderState,
-                                    trackHeight = trackHeight,
-                                    colors = PlayerSliderColors.getSliderColors(
-                                        activeColor = adaptivePrimary.copy(alpha = 0.8f),
-                                        playerBackground = playerBackground,
-                                        useDarkTheme = androidx.compose.foundation.isSystemInDarkTheme()
-                                    )
+                                val trackHeight by animateDpAsState(
+                                    targetValue = if (isTrackActive) 12.dp else 6.dp,
+                                    animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
+                                    label = "trackScale"
                                 )
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        )
+
+                                Slider(
+                                    value = currentPos.toFloat(),
+                                    valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
+                                    onValueChange = { value ->
+                                        if (!isListenTogetherGuest) {
+                                            sliderPosition = value.toLong()
+                                        }
+                                    },
+                                    onValueChangeFinished = {
+                                        if (!isListenTogetherGuest) {
+                                            sliderPosition?.let { pos ->
+                                                playerConnection.player.seekTo(pos)
+                                                position = pos
+                                                sliderPosition = null
+                                            }
+                                        }
+                                    },
+                                    enabled = !isListenTogetherGuest,
+                                    interactionSource = trackInteractionSource,
+                                    thumb = { Spacer(modifier = Modifier.size(0.dp)) },
+                                    track = { sliderState ->
+                                        PlayerSliderTrack(
+                                            sliderState = sliderState,
+                                            trackHeight = trackHeight,
+                                            colors = PlayerSliderColors.getSliderColors(
+                                                activeColor = adaptivePrimary.copy(alpha = 0.8f),
+                                                playerBackground = playerBackground,
+                                                useDarkTheme = isSystemInDarkTheme()
+                                            )
+                                        )
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                            SliderStyle.DEFAULT -> {
+                                Slider(
+                                    value = currentPos.toFloat(),
+                                    valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
+                                    onValueChange = { value ->
+                                        if (!isListenTogetherGuest) sliderPosition = value.toLong()
+                                    },
+                                    onValueChangeFinished = {
+                                        if (!isListenTogetherGuest) {
+                                            sliderPosition?.let { pos ->
+                                                playerConnection.player.seekTo(pos)
+                                                position = pos
+                                                sliderPosition = null
+                                            }
+                                        }
+                                    },
+                                    enabled = !isListenTogetherGuest,
+                                    colors = SliderDefaults.colors(
+                                        activeTrackColor = adaptivePrimary,
+                                        inactiveTrackColor = adaptivePrimary.copy(alpha = 0.25f),
+                                        thumbColor = adaptivePrimary
+                                    ),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                            SliderStyle.SQUIGGLY -> {
+                                SquigglySlider(
+                                    value = currentPos.toFloat(),
+                                    valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
+                                    onValueChange = { value ->
+                                        if (!isListenTogetherGuest) sliderPosition = value.toLong()
+                                    },
+                                    onValueChangeFinished = {
+                                        if (!isListenTogetherGuest) {
+                                            sliderPosition?.let { pos ->
+                                                playerConnection.player.seekTo(pos)
+                                                position = pos
+                                                sliderPosition = null
+                                            }
+                                        }
+                                    },
+                                    enabled = !isListenTogetherGuest,
+                                    colors = SliderDefaults.colors(
+                                        activeTrackColor = adaptivePrimary,
+                                        inactiveTrackColor = adaptivePrimary.copy(alpha = 0.25f),
+                                        thumbColor = adaptivePrimary
+                                    ),
+                                    squigglesSpec = SquigglySlider.SquigglesSpec(
+                                        amplitude = if (isPlaying) (4.dp).coerceAtLeast(2.dp) else 0.dp,
+                                        strokeWidth = 3.dp,
+                                        wavelength = 36.dp,
+                                    ),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                            SliderStyle.SLIM -> {
+                                Slider(
+                                    value = currentPos.toFloat(),
+                                    valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
+                                    onValueChange = { value ->
+                                        if (!isListenTogetherGuest) sliderPosition = value.toLong()
+                                    },
+                                    onValueChangeFinished = {
+                                        if (!isListenTogetherGuest) {
+                                            sliderPosition?.let { pos ->
+                                                playerConnection.player.seekTo(pos)
+                                                position = pos
+                                                sliderPosition = null
+                                            }
+                                        }
+                                    },
+                                    enabled = !isListenTogetherGuest,
+                                    thumb = { Spacer(modifier = Modifier.size(0.dp)) },
+                                    track = { sliderState ->
+                                        PlayerSliderTrack(
+                                            sliderState = sliderState,
+                                            colors = SliderDefaults.colors(
+                                                activeTrackColor = adaptivePrimary,
+                                                inactiveTrackColor = adaptivePrimary.copy(alpha = 0.25f),
+                                                thumbColor = adaptivePrimary
+                                            ),
+                                            trackHeight = 3.dp
+                                        )
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
+
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1012,13 +1089,13 @@ fun PlayerV2(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                makeTimeString(currentPos),
+                                text = makeTimeString(currentPos),
                                 color = adaptiveSecondary,
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                "-" + makeTimeString(maxOf(0L, duration - currentPos)),
+                                text = "-" + makeTimeString(maxOf(0L, duration - currentPos)),
                                 color = adaptiveSecondary,
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold
@@ -1027,7 +1104,7 @@ fun PlayerV2(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // Transparent Playback Controls
+                        // Playback Controls
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceEvenly,
@@ -1046,7 +1123,7 @@ fun PlayerV2(
                             ) {
                                 Icon(
                                     painter = painterResource(R.drawable.skip_previous),
-                                    contentDescription = "Previous",
+                                    contentDescription = stringResource(R.string.skip_previous),
                                     tint = adaptivePrimary,
                                     modifier = Modifier.size(48.dp)
                                 )
@@ -1065,14 +1142,14 @@ fun PlayerV2(
                                 if (isListenTogetherGuest) {
                                     Icon(
                                         painter = painterResource(if (isMuted) R.drawable.volume_off else R.drawable.volume_up),
-                                        contentDescription = if (isMuted) "Unmute" else "Mute",
+                                        contentDescription = stringResource(R.string.volume),
                                         modifier = Modifier.size(64.dp),
                                         tint = adaptivePrimary
                                     )
                                 } else {
                                     Icon(
                                         painter = painterResource(if (isPlaying) R.drawable.pause else R.drawable.play),
-                                        contentDescription = if (isPlaying) "Pause" else "Play",
+                                        contentDescription = stringResource(if (isPlaying) R.string.media3_controls_pause_description else R.string.play),
                                         modifier = Modifier.size(80.dp),
                                         tint = adaptivePrimary
                                     )
@@ -1092,7 +1169,7 @@ fun PlayerV2(
                             ) {
                                 Icon(
                                     painter = painterResource(R.drawable.skip_next),
-                                    contentDescription = "Next",
+                                    contentDescription = stringResource(R.string.skip_next),
                                     tint = adaptivePrimary,
                                     modifier = Modifier.size(48.dp)
                                 )
@@ -1101,36 +1178,40 @@ fun PlayerV2(
 
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        // Audio Volume Row
+                        // Audio Volume Row - Synchronized with Player Menu Volume
+                        val currentEffectiveVolume = if (isMuted) 0f else playerVolume
+                        val volumeInteractionSource = remember { MutableInteractionSource() }
+                        val isVolDragged by volumeInteractionSource.collectIsDraggedAsState()
+                        val isVolPressed by volumeInteractionSource.collectIsPressedAsState()
+                        val isVolActive = isVolDragged || isVolPressed
+
+                        val volHeight by animateDpAsState(
+                            targetValue = if (isVolActive) 12.dp else 6.dp,
+                            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                            label = "volHeight"
+                        )
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                painterResource(R.drawable.volume_off),
-                                contentDescription = "Volume Down",
+                                painter = painterResource(R.drawable.volume_off),
+                                contentDescription = stringResource(R.string.volume_down),
                                 tint = adaptiveSecondary,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .clickable { playerConnection.toggleMute() }
                             )
                             Spacer(modifier = Modifier.width(16.dp))
 
-                            val volumeInteractionSource = remember { MutableInteractionSource() }
-                            val isVolDragged by volumeInteractionSource.collectIsDraggedAsState()
-                            val isVolPressed by volumeInteractionSource.collectIsPressedAsState()
-                            val isVolActive = isVolDragged || isVolPressed
-
-                            val volHeight by animateDpAsState(
-                                targetValue = if (isVolActive) 12.dp else 6.dp,
-                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-                                label = "volHeight"
-                            )
-
                             Slider(
-                                value = if (isVolActive) systemVolume else animatedVolume,
+                                value = currentEffectiveVolume,
                                 onValueChange = { newValue ->
-                                    systemVolume = newValue
-                                    val targetVolume = (newValue * maxSystemVolume).toInt()
-                                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetVolume, 0)
+                                    if (isMuted) {
+                                        playerConnection.toggleMute()
+                                    }
+                                    playerConnection.setVolume(newValue)
                                 },
                                 interactionSource = volumeInteractionSource,
                                 thumb = { Spacer(modifier = Modifier.size(0.dp)) },
@@ -1141,7 +1222,7 @@ fun PlayerV2(
                                         colors = PlayerSliderColors.getSliderColors(
                                             activeColor = adaptivePrimary.copy(alpha = 0.8f),
                                             playerBackground = playerBackground,
-                                            useDarkTheme = androidx.compose.foundation.isSystemInDarkTheme()
+                                            useDarkTheme = isSystemInDarkTheme()
                                         )
                                     )
                                 },
@@ -1149,10 +1230,12 @@ fun PlayerV2(
                             )
                             Spacer(modifier = Modifier.width(16.dp))
                             Icon(
-                                painterResource(R.drawable.volume_up),
-                                contentDescription = "Volume Up",
+                                painter = painterResource(R.drawable.volume_up),
+                                contentDescription = stringResource(R.string.volume_up),
                                 tint = adaptiveSecondary,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clickable { playerConnection.setVolume(1f) }
                             )
                         }
                     }
@@ -1199,8 +1282,7 @@ fun PlayerV2(
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                     textAlign = TextAlign.Center,
-                                    modifier = Modifier
-                                        .widthIn(max = 84.dp)
+                                    modifier = Modifier.widthIn(max = 84.dp)
                                 )
                             }
                         }
