@@ -47,6 +47,17 @@ enum class AppFont {
     SYSTEM, SF_PRO, GOOGLE_SANS, SPACE_GROTESK
 }
 
+val PlayerVersionKey = stringPreferencesKey("playerVersion")
+
+enum class PlayerVersion {
+    V1,
+    V2,
+}
+
+val ShowPlayerThumbnailShadowKey = booleanPreferencesKey("showPlayerThumbnailShadow")
+val PlayerThumbnailShadowElevationKey = floatPreferencesKey("playerThumbnailShadowElevation")
+val HidePlayerThumbnailKey = booleanPreferencesKey("hidePlayerThumbnail")
+
 const val SYSTEM_DEFAULT = "SYSTEM_DEFAULT"
 val ContentLanguageKey = stringPreferencesKey("contentLanguage")
 val ContentCountryKey = stringPreferencesKey("contentCountry")
