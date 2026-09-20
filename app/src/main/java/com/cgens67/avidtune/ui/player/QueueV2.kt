@@ -286,7 +286,7 @@ fun QueueV2(
                                 else -> R.drawable.repeat
                             }
                         ),
-                        contentDescription = stringResource(R.string.repeat_mode),
+                        contentDescription = null,
                         tint = adaptivePrimary,
                         modifier = Modifier.size(24.dp)
                     )
