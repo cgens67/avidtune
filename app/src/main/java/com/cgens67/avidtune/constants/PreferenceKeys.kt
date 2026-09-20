@@ -37,6 +37,7 @@ enum class SliderStyle {
     DEFAULT,
     SQUIGGLY,
     SLIM,
+    EXPANDING,
 }
 
 enum class AppTextSize {
