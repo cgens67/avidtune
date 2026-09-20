@@ -415,7 +415,7 @@ fun PlayerV2(
         thumbnailCornerRadius = AppConfig.getThumbnailCornerRadius(context)
     }
 
-    val sliderStyle by rememberEnumPreference(
+    val sliderStyle by rememberEnumPreference<SliderStyle>(
         key = SliderStyleKey,
         defaultValue = SliderStyle.EXPANDING
     )
@@ -1123,7 +1123,7 @@ fun PlayerV2(
                             ) {
                                 Icon(
                                     painter = painterResource(R.drawable.skip_previous),
-                                    contentDescription = stringResource(R.string.skip_previous),
+                                    contentDescription = null,
                                     tint = adaptivePrimary,
                                     modifier = Modifier.size(48.dp)
                                 )
@@ -1169,7 +1169,7 @@ fun PlayerV2(
                             ) {
                                 Icon(
                                     painter = painterResource(R.drawable.skip_next),
-                                    contentDescription = stringResource(R.string.skip_next),
+                                    contentDescription = null,
                                     tint = adaptivePrimary,
                                     modifier = Modifier.size(48.dp)
                                 )
