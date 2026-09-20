@@ -68,6 +68,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderColors
 import androidx.compose.material3.SliderDefaults
@@ -109,6 +110,7 @@ import coil.compose.AsyncImage
 import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.HidePlayerThumbnailKey
+import com.cgens67.avidtune.constants.MinimalPlayerDesignKey
 import com.cgens67.avidtune.constants.PlayerBackgroundStyle
 import com.cgens67.avidtune.constants.PlayerBackgroundStyleKey
 import com.cgens67.avidtune.constants.PlayerThumbnailShadowElevationKey
@@ -404,6 +406,8 @@ fun PlayerV2(
     var duration by remember { mutableLongStateOf(0L) }
     var sliderPosition by remember { mutableStateOf<Long?>(null) }
 
+    val minimalPlayerDesign by rememberPreference(MinimalPlayerDesignKey, defaultValue = false)
+
     val playerBackground by rememberEnumPreference(
         key = PlayerBackgroundStyleKey,
         defaultValue = PlayerBackgroundStyle.DEFAULT
@@ -588,6 +592,8 @@ fun PlayerV2(
 
                             // Dynamic Album Corner Radius
                             val coverRadius = thumbnailCornerRadius.dp
+                            val isAppleMusicBg = playerBackground == PlayerBackgroundStyle.APPLE_MUSIC
+
                             Box(
                                 modifier = Modifier
                                     .sharedElement(
@@ -602,17 +608,23 @@ fun PlayerV2(
                                     .customSoftShadow(
                                         elevation = playerThumbnailShadowElevation.dp,
                                         cornerRadius = coverRadius,
-                                        enabled = showPlayerThumbnailShadow
+                                        enabled = showPlayerThumbnailShadow && !isAppleMusicBg
                                     )
-                                    .background(adaptiveSurface, RoundedCornerShape(coverRadius))
+                                    .background(
+                                        if (isAppleMusicBg) Color.Transparent else adaptiveSurface,
+                                        RoundedCornerShape(coverRadius)
+                                    )
                                     .clip(RoundedCornerShape(coverRadius))
+                                    .clickable(enabled = isAppleMusicBg) { playerState = PlayerInternalState.LYRICS }
                                     .SwipeGesture(
                                         enabled = (playerState == PlayerInternalState.COVER && !isListenTogetherGuest),
                                         onSwipeLeft = { if (canSkipNext) playerConnection.player.seekToNext() },
                                         onSwipeRight = { if (canSkipPrevious) playerConnection.player.seekToPrevious() }
                                     )
                             ) {
-                                if (hidePlayerThumbnail) {
+                                if (isAppleMusicBg) {
+                                    // Hidden when Apple Music background style is active
+                                } else if (hidePlayerThumbnail) {
                                     Box(
                                         modifier = Modifier.fillMaxSize(),
                                         contentAlignment = Alignment.Center
@@ -694,29 +706,21 @@ fun PlayerV2(
                                 ) {
                                     val isLiked = currentSong?.song?.liked == true
 
-                                    Box(
-                                        modifier = Modifier
-                                            .size(40.dp)
-                                            .background(adaptivePrimary.copy(alpha = 0.1f), CircleShape),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        IconButton(onClick = playerConnection::toggleLike) {
+                                    if (minimalPlayerDesign) {
+                                        IconButton(
+                                            onClick = playerConnection::toggleLike,
+                                            modifier = Modifier.size(36.dp)
+                                        ) {
                                             Icon(
                                                 painter = painterResource(if (isLiked) R.drawable.favorite else R.drawable.favorite_border),
                                                 contentDescription = if (isLiked) stringResource(R.string.remove_from_library) else stringResource(R.string.add_to_library),
                                                 tint = if (isLiked) MaterialTheme.colorScheme.error else adaptivePrimary,
+                                                modifier = Modifier.size(22.dp)
                                             )
                                         }
-                                    }
 
-                                    Spacer(modifier = Modifier.width(8.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
 
-                                    Box(
-                                        modifier = Modifier
-                                            .size(40.dp)
-                                            .background(adaptivePrimary.copy(alpha = 0.1f), CircleShape),
-                                        contentAlignment = Alignment.Center
-                                    ) {
                                         IconButton(
                                             onClick = {
                                                 menuState.show {
@@ -736,13 +740,67 @@ fun PlayerV2(
                                                         onDismiss = menuState::dismiss
                                                     )
                                                 }
-                                            }
+                                            },
+                                            modifier = Modifier.size(36.dp)
                                         ) {
                                             Icon(
                                                 painter = painterResource(R.drawable.more_horiz),
                                                 contentDescription = stringResource(R.string.more_options),
                                                 tint = adaptivePrimary,
+                                                modifier = Modifier.size(22.dp)
                                             )
+                                        }
+                                    } else {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(40.dp)
+                                                .background(adaptivePrimary.copy(alpha = 0.1f), CircleShape),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            IconButton(onClick = playerConnection::toggleLike) {
+                                                Icon(
+                                                    painter = painterResource(if (isLiked) R.drawable.favorite else R.drawable.favorite_border),
+                                                    contentDescription = if (isLiked) stringResource(R.string.remove_from_library) else stringResource(R.string.add_to_library),
+                                                    tint = if (isLiked) MaterialTheme.colorScheme.error else adaptivePrimary,
+                                                )
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.width(8.dp))
+
+                                        Box(
+                                            modifier = Modifier
+                                                .size(40.dp)
+                                                .background(adaptivePrimary.copy(alpha = 0.1f), CircleShape),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            IconButton(
+                                                onClick = {
+                                                    menuState.show {
+                                                        PlayerMenu(
+                                                            mediaMetadata = mediaMetadata,
+                                                            navController = navController,
+                                                            playerBottomSheetState = state,
+                                                            onShowDetailsDialog = {
+                                                                mediaMetadata?.id?.let {
+                                                                    bottomSheetPageState.show {
+                                                                        ShowMediaInfo(it) {
+                                                                            bottomSheetPageState.dismiss()
+                                                                        }
+                                                                    }
+                                                                }
+                                                            },
+                                                            onDismiss = menuState::dismiss
+                                                        )
+                                                    }
+                                                }
+                                            ) {
+                                                Icon(
+                                                    painter = painterResource(R.drawable.more_horiz),
+                                                    contentDescription = stringResource(R.string.more_options),
+                                                    tint = adaptivePrimary,
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -751,54 +809,57 @@ fun PlayerV2(
                     } else if (targetState == PlayerInternalState.LYRICS || targetState == PlayerInternalState.QUEUE) {
                         Column(modifier = Modifier.fillMaxSize()) {
                             val miniRadius = (thumbnailCornerRadius / 2f).coerceAtLeast(4f).dp
+                            val isAppleMusicBg = playerBackground == PlayerBackgroundStyle.APPLE_MUSIC
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .sharedElement(
-                                            rememberSharedContentState(key = "coverArt"),
-                                            animatedVisibilityScope = this@AnimatedContent,
-                                            zIndexInOverlay = 1f,
-                                            boundsTransform = BoundsTransform { _, _ ->
-                                                tween(durationMillis = 500, easing = FastOutSlowInEasing)
+                                if (!isAppleMusicBg) {
+                                    Box(
+                                        modifier = Modifier
+                                            .sharedElement(
+                                                rememberSharedContentState(key = "coverArt"),
+                                                animatedVisibilityScope = this@AnimatedContent,
+                                                zIndexInOverlay = 1f,
+                                                boundsTransform = BoundsTransform { _, _ ->
+                                                    tween(durationMillis = 500, easing = FastOutSlowInEasing)
+                                                }
+                                            )
+                                            .size(64.dp)
+                                            .customSoftShadow(
+                                                elevation = playerThumbnailShadowElevation.dp / 2f,
+                                                cornerRadius = miniRadius,
+                                                enabled = showPlayerThumbnailShadow
+                                            )
+                                            .background(adaptiveSurface, RoundedCornerShape(miniRadius))
+                                            .clip(RoundedCornerShape(miniRadius))
+                                            .clickable { playerState = PlayerInternalState.COVER }
+                                    ) {
+                                        if (hidePlayerThumbnail) {
+                                            Box(
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    painter = painterResource(R.drawable.avidtune_monochrome),
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(32.dp),
+                                                    tint = adaptivePrimary.copy(alpha = 0.5f)
+                                                )
                                             }
-                                        )
-                                        .size(64.dp)
-                                        .customSoftShadow(
-                                            elevation = playerThumbnailShadowElevation.dp / 2f,
-                                            cornerRadius = miniRadius,
-                                            enabled = showPlayerThumbnailShadow
-                                        )
-                                        .background(adaptiveSurface, RoundedCornerShape(miniRadius))
-                                        .clip(RoundedCornerShape(miniRadius))
-                                        .clickable { playerState = PlayerInternalState.COVER }
-                                ) {
-                                    if (hidePlayerThumbnail) {
-                                        Box(
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(
-                                                painter = painterResource(R.drawable.avidtune_monochrome),
-                                                contentDescription = null,
-                                                modifier = Modifier.size(32.dp),
-                                                tint = adaptivePrimary.copy(alpha = 0.5f)
+                                        } else {
+                                            AsyncImage(
+                                                model = mediaMetadata?.thumbnailUrl?.resize(1200, 1200),
+                                                contentDescription = stringResource(R.string.cover_art),
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentScale = ContentScale.Crop
                                             )
                                         }
-                                    } else {
-                                        AsyncImage(
-                                            model = mediaMetadata?.thumbnailUrl?.resize(1200, 1200),
-                                            contentDescription = stringResource(R.string.cover_art),
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentScale = ContentScale.Crop
-                                        )
                                     }
+                                    Spacer(modifier = Modifier.width(16.dp))
                                 }
-                                Spacer(modifier = Modifier.width(16.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = mediaMetadata?.title ?: stringResource(R.string.unknown),
@@ -903,7 +964,8 @@ fun PlayerV2(
                                     LyricsV2(
                                         mediaMetadata = mediaMetadata,
                                         showLyrics = true,
-                                        positionProvider = { sliderPosition ?: position }
+                                        positionProvider = { sliderPosition ?: position },
+                                        textColor = adaptivePrimary
                                     )
                                 } else {
                                     QueueV2(
@@ -1102,7 +1164,7 @@ fun PlayerV2(
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(if (minimalPlayerDesign) 10.dp else 16.dp))
 
                         // Playback Controls
                         Row(
@@ -1110,133 +1172,206 @@ fun PlayerV2(
                             horizontalArrangement = Arrangement.SpaceEvenly,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            IconButton(
-                                onClick = {
-                                    if (!isListenTogetherGuest && canSkipPrevious) {
-                                        playerConnection.player.seekToPrevious()
-                                    }
-                                },
-                                enabled = !isListenTogetherGuest && canSkipPrevious,
-                                modifier = Modifier
-                                    .size(64.dp)
-                                    .alpha(if (isListenTogetherGuest || !canSkipPrevious) 0.4f else 1f)
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.skip_previous),
-                                    contentDescription = null,
-                                    tint = adaptivePrimary,
-                                    modifier = Modifier.size(48.dp)
-                                )
-                            }
-
-                            IconButton(
-                                onClick = {
-                                    if (isListenTogetherGuest) {
-                                        playerConnection.toggleMute()
-                                    } else {
-                                        playerConnection.player.togglePlayPause()
-                                    }
-                                },
-                                modifier = Modifier.size(88.dp)
-                            ) {
-                                if (isListenTogetherGuest) {
+                            if (minimalPlayerDesign) {
+                                IconButton(
+                                    onClick = {
+                                        if (!isListenTogetherGuest && canSkipPrevious) {
+                                            playerConnection.player.seekToPrevious()
+                                        }
+                                    },
+                                    enabled = !isListenTogetherGuest && canSkipPrevious,
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .alpha(if (isListenTogetherGuest || !canSkipPrevious) 0.4f else 1f)
+                                ) {
                                     Icon(
-                                        painter = painterResource(if (isMuted) R.drawable.volume_off else R.drawable.volume_up),
-                                        contentDescription = stringResource(R.string.volume),
-                                        modifier = Modifier.size(64.dp),
-                                        tint = adaptivePrimary
+                                        painter = painterResource(R.drawable.skip_previous),
+                                        contentDescription = null,
+                                        tint = adaptivePrimary,
+                                        modifier = Modifier.size(32.dp)
                                     )
-                                } else {
+                                }
+
+                                Surface(
+                                    onClick = {
+                                        if (isListenTogetherGuest) {
+                                            playerConnection.toggleMute()
+                                        } else {
+                                            playerConnection.player.togglePlayPause()
+                                        }
+                                    },
+                                    shape = CircleShape,
+                                    color = adaptivePrimary.copy(alpha = 0.14f),
+                                    modifier = Modifier.size(68.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                                        if (isListenTogetherGuest) {
+                                            Icon(
+                                                painter = painterResource(if (isMuted) R.drawable.volume_off else R.drawable.volume_up),
+                                                contentDescription = stringResource(R.string.volume),
+                                                modifier = Modifier.size(36.dp),
+                                                tint = adaptivePrimary
+                                            )
+                                        } else {
+                                            Icon(
+                                                painter = painterResource(if (isPlaying) R.drawable.pause else R.drawable.play),
+                                                contentDescription = stringResource(if (isPlaying) R.string.media3_controls_pause_description else R.string.play),
+                                                modifier = Modifier.size(38.dp),
+                                                tint = adaptivePrimary
+                                            )
+                                        }
+                                    }
+                                }
+
+                                IconButton(
+                                    onClick = {
+                                        if (!isListenTogetherGuest && canSkipNext) {
+                                            playerConnection.player.seekToNext()
+                                        }
+                                    },
+                                    enabled = !isListenTogetherGuest && canSkipNext,
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .alpha(if (isListenTogetherGuest || !canSkipNext) 0.4f else 1f)
+                                ) {
                                     Icon(
-                                        painter = painterResource(if (isPlaying) R.drawable.pause else R.drawable.play),
-                                        contentDescription = stringResource(if (isPlaying) R.string.media3_controls_pause_description else R.string.play),
-                                        modifier = Modifier.size(80.dp),
-                                        tint = adaptivePrimary
+                                        painter = painterResource(R.drawable.skip_next),
+                                        contentDescription = null,
+                                        tint = adaptivePrimary,
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                }
+                            } else {
+                                IconButton(
+                                    onClick = {
+                                        if (!isListenTogetherGuest && canSkipPrevious) {
+                                            playerConnection.player.seekToPrevious()
+                                        }
+                                    },
+                                    enabled = !isListenTogetherGuest && canSkipPrevious,
+                                    modifier = Modifier
+                                        .size(64.dp)
+                                        .alpha(if (isListenTogetherGuest || !canSkipPrevious) 0.4f else 1f)
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.skip_previous),
+                                        contentDescription = null,
+                                        tint = adaptivePrimary,
+                                        modifier = Modifier.size(48.dp)
+                                    )
+                                }
+
+                                IconButton(
+                                    onClick = {
+                                        if (isListenTogetherGuest) {
+                                            playerConnection.toggleMute()
+                                        } else {
+                                            playerConnection.player.togglePlayPause()
+                                        }
+                                    },
+                                    modifier = Modifier.size(88.dp)
+                                ) {
+                                    if (isListenTogetherGuest) {
+                                        Icon(
+                                            painter = painterResource(if (isMuted) R.drawable.volume_off else R.drawable.volume_up),
+                                            contentDescription = stringResource(R.string.volume),
+                                            modifier = Modifier.size(64.dp),
+                                            tint = adaptivePrimary
+                                        )
+                                    } else {
+                                        Icon(
+                                            painter = painterResource(if (isPlaying) R.drawable.pause else R.drawable.play),
+                                            contentDescription = stringResource(if (isPlaying) R.string.media3_controls_pause_description else R.string.play),
+                                            modifier = Modifier.size(80.dp),
+                                            tint = adaptivePrimary
+                                        )
+                                    }
+                                }
+
+                                IconButton(
+                                    onClick = {
+                                        if (!isListenTogetherGuest && canSkipNext) {
+                                            playerConnection.player.seekToNext()
+                                        }
+                                    },
+                                    enabled = !isListenTogetherGuest && canSkipNext,
+                                    modifier = Modifier
+                                        .size(64.dp)
+                                        .alpha(if (isListenTogetherGuest || !canSkipNext) 0.4f else 1f)
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.skip_next),
+                                        contentDescription = null,
+                                        tint = adaptivePrimary,
+                                        modifier = Modifier.size(48.dp)
                                     )
                                 }
                             }
-
-                            IconButton(
-                                onClick = {
-                                    if (!isListenTogetherGuest && canSkipNext) {
-                                        playerConnection.player.seekToNext()
-                                    }
-                                },
-                                enabled = !isListenTogetherGuest && canSkipNext,
-                                modifier = Modifier
-                                    .size(64.dp)
-                                    .alpha(if (isListenTogetherGuest || !canSkipNext) 0.4f else 1f)
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.skip_next),
-                                    contentDescription = null,
-                                    tint = adaptivePrimary,
-                                    modifier = Modifier.size(48.dp)
-                                )
-                            }
                         }
 
-                        Spacer(modifier = Modifier.height(24.dp))
+                        if (!minimalPlayerDesign) {
+                            Spacer(modifier = Modifier.height(24.dp))
 
-                        // Audio Volume Row - Synchronized with Player Menu Volume
-                        val currentEffectiveVolume = if (isMuted) 0f else playerVolume
-                        val volumeInteractionSource = remember { MutableInteractionSource() }
-                        val isVolDragged by volumeInteractionSource.collectIsDraggedAsState()
-                        val isVolPressed by volumeInteractionSource.collectIsPressedAsState()
-                        val isVolActive = isVolDragged || isVolPressed
+                            // Audio Volume Row - Synchronized with Player Menu Volume
+                            val currentEffectiveVolume = if (isMuted) 0f else playerVolume
+                            val volumeInteractionSource = remember { MutableInteractionSource() }
+                            val isVolDragged by volumeInteractionSource.collectIsDraggedAsState()
+                            val isVolPressed by volumeInteractionSource.collectIsPressedAsState()
+                            val isVolActive = isVolDragged || isVolPressed
 
-                        val volHeight by animateDpAsState(
-                            targetValue = if (isVolActive) 12.dp else 6.dp,
-                            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-                            label = "volHeight"
-                        )
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.volume_off),
-                                contentDescription = stringResource(R.string.volume_down),
-                                tint = adaptiveSecondary,
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .clickable { playerConnection.toggleMute() }
+                            val volHeight by animateDpAsState(
+                                targetValue = if (isVolActive) 12.dp else 6.dp,
+                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                                label = "volHeight"
                             )
-                            Spacer(modifier = Modifier.width(16.dp))
 
-                            Slider(
-                                value = currentEffectiveVolume,
-                                onValueChange = { newValue ->
-                                    if (isMuted) {
-                                        playerConnection.toggleMute()
-                                    }
-                                    playerConnection.setVolume(newValue)
-                                },
-                                interactionSource = volumeInteractionSource,
-                                thumb = { Spacer(modifier = Modifier.size(0.dp)) },
-                                track = { sliderState ->
-                                    PlayerSliderTrack(
-                                        sliderState = sliderState,
-                                        trackHeight = volHeight,
-                                        colors = PlayerSliderColors.getSliderColors(
-                                            activeColor = adaptivePrimary.copy(alpha = 0.8f),
-                                            playerBackground = playerBackground,
-                                            useDarkTheme = isSystemInDarkTheme()
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.volume_off),
+                                    contentDescription = stringResource(R.string.volume_down),
+                                    tint = adaptiveSecondary,
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .clickable { playerConnection.toggleMute() }
+                                )
+                                Spacer(modifier = Modifier.width(16.dp))
+
+                                Slider(
+                                    value = currentEffectiveVolume,
+                                    onValueChange = { newValue ->
+                                        if (isMuted) {
+                                            playerConnection.toggleMute()
+                                        }
+                                        playerConnection.setVolume(newValue)
+                                    },
+                                    interactionSource = volumeInteractionSource,
+                                    thumb = { Spacer(modifier = Modifier.size(0.dp)) },
+                                    track = { sliderState ->
+                                        PlayerSliderTrack(
+                                            sliderState = sliderState,
+                                            trackHeight = volHeight,
+                                            colors = PlayerSliderColors.getSliderColors(
+                                                activeColor = adaptivePrimary.copy(alpha = 0.8f),
+                                                playerBackground = playerBackground,
+                                                useDarkTheme = isSystemInDarkTheme()
+                                            )
                                         )
-                                    )
-                                },
-                                modifier = Modifier.weight(1f).height(24.dp)
-                            )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Icon(
-                                painter = painterResource(R.drawable.volume_up),
-                                contentDescription = stringResource(R.string.volume_up),
-                                tint = adaptiveSecondary,
-                                modifier = Modifier
-                                    .size(24.dp)
-                                    .clickable { playerConnection.setVolume(1f) }
-                            )
+                                    },
+                                    modifier = Modifier.weight(1f).height(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Icon(
+                                    painter = painterResource(R.drawable.volume_up),
+                                    contentDescription = stringResource(R.string.volume_up),
+                                    tint = adaptiveSecondary,
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .clickable { playerConnection.setVolume(1f) }
+                                )
+                            }
                         }
                     }
 
@@ -1244,7 +1379,10 @@ fun PlayerV2(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 24.dp),
+                            .padding(
+                                horizontal = 16.dp,
+                                vertical = if (minimalPlayerDesign) 12.dp else 24.dp
+                            ),
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -1258,7 +1396,7 @@ fun PlayerV2(
                                 painter = painterResource(R.drawable.lyrics),
                                 contentDescription = stringResource(R.string.lyrics),
                                 tint = if (isLyricsActive) adaptivePrimary else adaptiveSecondary,
-                                modifier = Modifier.size(28.dp)
+                                modifier = Modifier.size(if (minimalPlayerDesign) 24.dp else 28.dp)
                             )
                         }
 
@@ -1271,7 +1409,7 @@ fun PlayerV2(
                                     painter = painterResource(R.drawable.volume_up),
                                     contentDescription = stringResource(R.string.audio_output),
                                     tint = adaptiveSecondary,
-                                    modifier = Modifier.size(28.dp)
+                                    modifier = Modifier.size(if (minimalPlayerDesign) 24.dp else 28.dp)
                                 )
                             }
                             if (bluetoothDeviceName != null) {
@@ -1297,7 +1435,7 @@ fun PlayerV2(
                                 painter = painterResource(R.drawable.queue_music),
                                 contentDescription = stringResource(R.string.queue),
                                 tint = if (isQueueActive) adaptivePrimary else adaptiveSecondary,
-                                modifier = Modifier.size(28.dp)
+                                modifier = Modifier.size(if (minimalPlayerDesign) 24.dp else 28.dp)
                             )
                         }
                     }
