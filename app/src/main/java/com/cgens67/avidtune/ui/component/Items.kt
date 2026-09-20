@@ -165,17 +165,17 @@ inline fun ListItem(
     val defaultContentColor = LocalContentColor.current.takeOrElse { MaterialTheme.colorScheme.onSurface }
     val titleColor = when {
         isActive -> MaterialTheme.colorScheme.onSecondaryContainer
-        isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
+        isSelected -> defaultContentColor
         else -> defaultContentColor
     }
     val subtitleContentColor = when {
         isActive -> MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
-        isSelected -> MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
+        isSelected -> defaultContentColor.copy(alpha = 0.75f)
         else -> defaultContentColor.copy(alpha = 0.7f)
     }
     val trailingContentColor = when {
         isActive -> MaterialTheme.colorScheme.onSecondaryContainer
-        isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
+        isSelected -> defaultContentColor
         else -> defaultContentColor
     }
 
@@ -195,7 +195,7 @@ inline fun ListItem(
                             .background(MaterialTheme.colorScheme.secondaryContainer)
                         isSelected -> Modifier
                             .clip(RoundedCornerShape(itemCornerRadius))
-                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
                         else -> Modifier
                     }
                 ),
@@ -254,7 +254,7 @@ fun ListItem(
                 text = subtitle,
                 color = when {
                     isActive -> MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
-                    isSelected -> MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
+                    isSelected -> defaultSubtitleColor.copy(alpha = 0.75f)
                     else -> defaultSubtitleColor.copy(alpha = 0.7f)
                 },
                 style = MaterialTheme.typography.bodySmall,
