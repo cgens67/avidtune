@@ -1294,5 +1294,21 @@
     <string name="sort_oldest">Plus ancien</string>
     <string name="sort_important_first">Important d\'abord</string>
     <string name="sort_prefix">Trier : %1$s</string>
+    
+    <string name="player_design">Style du lecteur</string>
+    <string name="player_design_classic">Classique (v1)</string>
+    <string name="player_design_modern">Moderne (v2)</string>
+    <string name="slider_expanding">Extensible</string>
+    <string name="audio_output">Sortie audio</string>
+    <string name="this_device">Cet appareil</string>
+    <string name="internal_speaker">Haut-parleur intégré</string>
+    <string name="connected_bluetooth">Connecté via Bluetooth</string>
+    <string name="open_system_output_switcher">Ouvrir le sélecteur de sortie</string>
+    <string name="cover_art">Pochette d\'album</string>
+    <string name="volume_down">Diminuer le volume</string>
+    <string name="volume_up">Augmenter le volume</string>
+    <string name="lock_queue">Verrouiller la file</string>
+    <string name="unlock_queue">Déverrouiller la file</string>
+    <string name="drag_to_reorder">Glisser pour réorganiser</string>
 
 </resources>
