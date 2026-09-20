@@ -71,15 +71,11 @@ import com.cgens67.avidtune.constants.AudioFadingKey
 import com.cgens67.avidtune.constants.AudioQuality
 import com.cgens67.avidtune.constants.AudioQualityKey
 import com.cgens67.avidtune.constants.AutoSkipNextOnErrorKey
-import com.cgens67.avidtune.constants.HidePlayerThumbnailKey
 import com.cgens67.avidtune.constants.PersistentQueueKey
-import com.cgens67.avidtune.constants.PlayerVersion
-import com.cgens67.avidtune.constants.PlayerVersionKey
-import com.cgens67.avidtune.constants.SeekIncrementKey
-import com.cgens67.avidtune.constants.ShowPlayerThumbnailShadowKey
 import com.cgens67.avidtune.constants.SkipSilenceKey
 import com.cgens67.avidtune.constants.SponsorBlockEnabledKey
 import com.cgens67.avidtune.constants.StopMusicOnTaskClearKey
+import com.cgens67.avidtune.constants.SeekIncrementKey
 import com.cgens67.avidtune.playback.PlayerConnection
 import com.cgens67.avidtune.ui.component.EnumListPreference
 import com.cgens67.avidtune.ui.component.ListPreference
@@ -100,10 +96,6 @@ fun PlayerSettings(
     navController: NavController,
     scrollBehavior: TopAppBarScrollBehavior,
 ) {
-    val (playerVersion, onPlayerVersionChange) = rememberEnumPreference(
-        PlayerVersionKey,
-        defaultValue = PlayerVersion.V2
-    )
     val (audioQuality, onAudioQualityChange) = rememberEnumPreference(
         AudioQualityKey,
         defaultValue = AudioQuality.AUTO
@@ -141,15 +133,6 @@ fun PlayerSettings(
         defaultValue = false
     )
 
-    val (showPlayerThumbnailShadow, onShowPlayerThumbnailShadowChange) = rememberPreference(
-        ShowPlayerThumbnailShadowKey,
-        defaultValue = false
-    )
-    val (hidePlayerThumbnail, onHidePlayerThumbnailChange) = rememberPreference(
-        HidePlayerThumbnailKey,
-        defaultValue = false
-    )
-
     val (showNerdStats, onShowNerdStatsChange) = rememberPreference(
         key = booleanPreferencesKey("dev_show_nerd_stats"),
         defaultValue = false
@@ -165,19 +148,6 @@ fun PlayerSettings(
         SettingsGeneralCategory(
             title = stringResource(R.string.player),
             items = listOf(
-                {EnumListPreference(
-                    title = { Text(stringResource(R.string.player)) },
-                    icon = { Icon(painterResource(R.drawable.play), null) },
-                    selectedValue = playerVersion,
-                    onValueSelected = onPlayerVersionChange,
-                    valueText = {
-                        when (it) {
-                            PlayerVersion.V1 -> "Classic (v1)"
-                            PlayerVersion.V2 -> "Modern (v2)"
-                        }
-                    }
-                )},
-
                 {EnumListPreference(
                     title = { Text(stringResource(R.string.audio_quality)) },
                     icon = { Icon(painterResource(R.drawable.graphic_eq), null) },
@@ -229,20 +199,6 @@ fun PlayerSettings(
                     icon = { Icon(painterResource(R.drawable.volume_up), null) },
                     checked = audioNormalization,
                     onCheckedChange = onAudioNormalizationChange
-                )},
-
-                {SwitchPreference(
-                    title = { Text("Thumbnail Shadow") },
-                    icon = { Icon(painterResource(R.drawable.image), null) },
-                    checked = showPlayerThumbnailShadow,
-                    onCheckedChange = onShowPlayerThumbnailShadowChange
-                )},
-
-                {SwitchPreference(
-                    title = { Text("Hide Thumbnail") },
-                    icon = { Icon(painterResource(R.drawable.image), null) },
-                    checked = hidePlayerThumbnail,
-                    onCheckedChange = onHidePlayerThumbnailChange
                 )},
             )
         )
