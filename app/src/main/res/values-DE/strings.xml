@@ -1311,5 +1311,21 @@
     <string name="sort_oldest">Älteste</string>
     <string name="sort_important_first">Wichtig zuerst</string>
     <string name="sort_prefix">Sortieren: %1$s</string>
+    
+    <string name="player_design">Player-Design</string>
+    <string name="player_design_classic">Klassisch (v1)</string>
+    <string name="player_design_modern">Modern (v2)</string>
+    <string name="slider_expanding">Expandierend</string>
+    <string name="audio_output">Audioausgabe</string>
+    <string name="this_device">Dieses Gerät</string>
+    <string name="internal_speaker">Integrierter Lautsprecher</string>
+    <string name="connected_bluetooth">Über Bluetooth verbunden</string>
+    <string name="open_system_output_switcher">Ausgabe-Umschalter öffnen</string>
+    <string name="cover_art">Cover</string>
+    <string name="volume_down">Lautstärke verringern</string>
+    <string name="volume_up">Lautstärke erhöhen</string>
+    <string name="lock_queue">Warteschlange sperren</string>
+    <string name="unlock_queue">Warteschlange entsperren</string>
+    <string name="drag_to_reorder">Ziehen zum Neuanordnen</string>
 
 </resources>
