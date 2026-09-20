@@ -145,6 +145,8 @@ import com.cgens67.avidtune.constants.PlayerButtonsStyle
 import com.cgens67.avidtune.constants.PlayerButtonsStyleKey
 import com.cgens67.avidtune.constants.PlayerHorizontalPadding
 import com.cgens67.avidtune.constants.PlayerTextAlignmentKey
+import com.cgens67.avidtune.constants.PlayerVersion
+import com.cgens67.avidtune.constants.PlayerVersionKey
 import com.cgens67.avidtune.constants.PureBlackKey
 import com.cgens67.avidtune.constants.QueuePeekHeight
 import com.cgens67.avidtune.constants.SliderStyle
@@ -193,6 +195,11 @@ fun BottomSheetPlayer(
 
     val clipboardManager = LocalClipboardManager.current
     val playerConnection = LocalPlayerConnection.current ?: return
+
+    val playerVersion by rememberEnumPreference(
+        key = PlayerVersionKey,
+        defaultValue = PlayerVersion.V2
+    )
 
     val playerTextAlignment by rememberEnumPreference(
         PlayerTextAlignmentKey,
@@ -481,6 +488,67 @@ fun BottomSheetPlayer(
 
     val isLoading = playbackState == Player.STATE_BUFFERING
 
+    // If Modern/v2 Player is selected, delegate the bottom sheet content directly to PlayerV2
+    if (playerVersion == PlayerVersion.V2) {
+        BottomSheet(
+            state = state,
+            modifier = modifier,
+            background = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(bottomSheetBackgroundColor)
+                ) {
+                    if (isCustomBackground) {
+                        PlayerBackground(
+                            playerBackground = playerBackground,
+                            mediaMetadata = mediaMetadata,
+                            gradientColors = gradientColors,
+                            disableBlur = disableBlur
+                        )
+                        if (playerBackground != PlayerBackgroundStyle.APPLE_MUSIC) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color.Black.copy(alpha = if (useDarkTheme) 0.3f else 0.45f))
+                            )
+                        }
+                    }
+                }
+            },
+            onDismiss = {
+                coroutineScope.launch {
+                    val player = playerConnection.player
+                    val currentVol = player.volume
+                    val steps = 10
+                    val delayMs = 25L
+                    for (i in steps downTo 1) {
+                        player.volume = currentVol * (i / steps.toFloat())
+                        delay(delayMs)
+                    }
+                    player.pause()
+                    player.stop()
+                    player.clearMediaItems()
+                    player.volume = currentVol
+                }
+            },
+            collapsedContent = {
+                MiniPlayer(
+                    position = position,
+                    duration = duration,
+                )
+            },
+        ) {
+            PlayerV2(
+                state = state,
+                navController = navController,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+        return
+    }
+
+    // Classic v1 Player Layout
     BottomSheet(
         state = state,
         modifier = modifier,
