@@ -1319,5 +1319,12 @@
     <string name="sort_oldest">Oldest</string>
     <string name="sort_important_first">Important first</string>
     <string name="sort_prefix">Sort: %1$s</string>
+    
+    <string name="player_design">Player design</string>
+    <string name="audio_output">Audio output</string>
+    <string name="this_device">This device</string>
+    <string name="internal_speaker">Built-in speaker</string>
+    <string name="connected_bluetooth">Connected via Bluetooth</string>
+    <string name="open_system_output_switcher">Open output switcher</string>
 
 </resources>
