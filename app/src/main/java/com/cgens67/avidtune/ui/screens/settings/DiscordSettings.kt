@@ -188,7 +188,6 @@ fun DiscordSettings(
         navController = navController,
         scrollBehavior = scrollBehavior
     ) {
-        // Banner informativo mejorado
         AnimatedVisibility(
             visible = !infoDismissed,
             enter = fadeIn(),
@@ -240,7 +239,6 @@ fun DiscordSettings(
             }
         }
 
-        // Sección de cuenta mejorada
         SettingsGeneralCategory(
             title = stringResource(R.string.account),
             items = buildList {
@@ -288,7 +286,6 @@ fun DiscordSettings(
             }
         )
 
-        // Opciones
         SettingsGeneralCategory(
             title = stringResource(R.string.options),
             items = buildList {
@@ -314,7 +311,6 @@ fun DiscordSettings(
             }
         )
 
-        // Preview mejorado
         PreferenceGroupTitle(title = stringResource(R.string.preview))
 
         EnhancedRichPresence(
@@ -339,7 +335,6 @@ fun EnhancedRichPresence(
 ) {
     val context = LocalContext.current
 
-    // Animación para el gradiente
     val gradientAlpha by animateFloatAsState(
         targetValue = if (song != null) 0.15f else 0f,
         animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing),
@@ -356,7 +351,6 @@ fun EnhancedRichPresence(
         )
     ) {
         Box {
-            // Fondo con gradiente sutil
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -375,15 +369,12 @@ fun EnhancedRichPresence(
                 modifier = Modifier.padding(20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Header - Rediseñado
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Logo y título mejorados
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        // Logo con contenedor circular y gradiente
                         Box(
                             modifier = Modifier
                                 .size(48.dp)
@@ -429,7 +420,6 @@ fun EnhancedRichPresence(
                         }
                     }
 
-                    // Indicador de reproducción mejorado
                     if (song != null && isPlaying) {
                         Surface(
                             shape = RoundedCornerShape(16.dp),
@@ -444,7 +434,6 @@ fun EnhancedRichPresence(
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                // Icono de play animado
                                 Icon(
                                     painter = painterResource(R.drawable.play),
                                     contentDescription = null,
@@ -466,12 +455,10 @@ fun EnhancedRichPresence(
 
                 Spacer(Modifier.height(20.dp))
 
-                // Contenido principal
                 Row(
                     verticalAlignment = Alignment.Top,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    // Thumbnail con diseño mejorado
                     Box(
                         modifier = Modifier
                             .size(120.dp)
@@ -496,7 +483,6 @@ fun EnhancedRichPresence(
                                     contentScale = ContentScale.Crop
                                 )
 
-                                // Overlay sutil
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
@@ -510,13 +496,11 @@ fun EnhancedRichPresence(
                                         )
                                 )
 
-                                // Avatar del artista mejorado
                                 Box(
                                     modifier = Modifier
                                         .align(Alignment.BottomEnd)
                                         .padding(8.dp)
                                 ) {
-                                    // Logo de AvidTune como fallback mejorado
                                     val artistAvatar = song?.artists?.firstOrNull()?.thumbnailUrl
 
                                     Card(
@@ -539,7 +523,6 @@ fun EnhancedRichPresence(
                                                     contentScale = ContentScale.Crop
                                                 )
                                             } else {
-                                                // Logo de AvidTune con estilo mejorado
                                                 Box(
                                                     modifier = Modifier
                                                         .fillMaxSize()
@@ -572,7 +555,6 @@ fun EnhancedRichPresence(
 
                     Spacer(Modifier.width(16.dp))
 
-                    // Información de la canción
                     Column(
                         modifier = Modifier.weight(1f)
                     ) {
@@ -608,7 +590,6 @@ fun EnhancedRichPresence(
                     }
                 }
 
-                // Barra de progreso mejorada
                 if (song != null) {
                     Spacer(Modifier.height(20.dp))
 
@@ -622,12 +603,10 @@ fun EnhancedRichPresence(
 
                 Spacer(Modifier.height(20.dp))
 
-                // Botones de acción mejorados
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Botón YouTube Music mejorado
                     FilledTonalButton(
                         enabled = song != null,
                         onClick = {
@@ -651,7 +630,6 @@ fun EnhancedRichPresence(
                         Text("YouTube Music", maxLines = 1, fontWeight = FontWeight.Medium)
                     }
 
-                    // Botón AvidTune mejorado
                     OutlinedButton(
                         onClick = {
                             val intent = Intent(
@@ -749,6 +727,18 @@ fun EnhancedProgressBar(
                         .fillMaxWidth()
                         .height(4.dp)
                         .clip(RoundedCornerShape(2.dp)),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            }
+
+            SliderStyle.EXPANDING -> {
+                LinearProgressIndicator(
+                    progress = { (position.toFloat() / duration.toFloat().coerceAtLeast(1f)) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp)),
                     color = MaterialTheme.colorScheme.primary,
                     trackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
