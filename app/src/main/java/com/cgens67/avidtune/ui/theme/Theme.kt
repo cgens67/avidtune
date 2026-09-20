@@ -2,6 +2,10 @@ package com.cgens67.avidtune.ui.theme
 
 import android.graphics.Bitmap
 import android.os.Build
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.LocalOverscrollFactory
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
@@ -9,10 +13,9 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MotionScheme
-import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Typography
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
@@ -24,22 +27,158 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import androidx.palette.graphics.Palette
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.AppFont
-import com.cgens67.avidtune.constants.PlayerBackgroundStyle
 import com.google.material.color.dynamiccolor.DynamicScheme
 import com.google.material.color.hct.Hct
+import com.google.material.color.scheme.SchemeMonochrome
+import com.google.material.color.scheme.SchemeNeutral
 import com.google.material.color.scheme.SchemeTonalSpot
-import com.google.material.color.score.Score
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 val DefaultThemeColor = Color(0xFF4285F4)
 
 val sfProDisplayBold = FontFamily(Font(R.font.sfprodisplaybold))
 val googleSansBold = FontFamily(Font(R.font.googlesansbold))
 val spaceGroteskBold = FontFamily(Font(R.font.spacegroteskbold))
+
+enum class PaletteStyle { Monochrome, Neutral, TonalSpot }
+
+private fun paletteStyleFor(seedColor: Color): PaletteStyle {
+    val chroma = Hct.fromInt(seedColor.toArgb()).chroma
+    return when {
+        chroma < 4.0 -> PaletteStyle.Monochrome
+        chroma < 12.0 -> PaletteStyle.Neutral
+        else -> PaletteStyle.TonalSpot
+    }
+}
+
+private fun materialKolorDynamicColorScheme(
+    seedColor: Color,
+    isDark: Boolean,
+    contrastLevel: Double,
+    style: PaletteStyle
+): ColorScheme {
+    val hct = Hct.fromInt(seedColor.toArgb())
+    val scheme = when (style) {
+        PaletteStyle.Monochrome -> SchemeMonochrome(hct, isDark, contrastLevel)
+        PaletteStyle.Neutral -> SchemeNeutral(hct, isDark, contrastLevel)
+        PaletteStyle.TonalSpot -> SchemeTonalSpot(hct, isDark, contrastLevel)
+    }
+    return scheme.toColorScheme()
+}
+
+private fun exactPaletteColorScheme(
+    palette: ThemeSeedPalette,
+    isDark: Boolean,
+): ColorScheme =
+    mergedSeedColorScheme(
+        primarySeed = palette.primary,
+        secondarySeed = palette.secondary,
+        tertiarySeed = palette.tertiary,
+        neutralSeed = palette.neutral,
+        isDark = isDark,
+    )
+
+private fun mergedSeedColorScheme(
+    primarySeed: Color,
+    secondarySeed: Color,
+    tertiarySeed: Color,
+    neutralSeed: Color,
+    isDark: Boolean,
+    contrastLevel: Double = 0.0,
+    style: PaletteStyle = paletteStyleFor(primarySeed),
+): ColorScheme {
+    val primaryScheme = materialKolorDynamicColorScheme(primarySeed, isDark, contrastLevel, style)
+    val secondaryScheme = materialKolorDynamicColorScheme(secondarySeed, isDark, contrastLevel, paletteStyleFor(secondarySeed))
+    val tertiaryScheme = materialKolorDynamicColorScheme(tertiarySeed, isDark, contrastLevel, paletteStyleFor(tertiarySeed))
+    val neutralScheme = materialKolorDynamicColorScheme(neutralSeed, isDark, contrastLevel, paletteStyleFor(neutralSeed))
+
+    return ColorScheme(
+        primary = primaryScheme.primary,
+        onPrimary = primaryScheme.onPrimary,
+        primaryContainer = primaryScheme.primaryContainer,
+        onPrimaryContainer = primaryScheme.onPrimaryContainer,
+        inversePrimary = primaryScheme.inversePrimary,
+        secondary = secondaryScheme.primary,
+        onSecondary = secondaryScheme.onPrimary,
+        secondaryContainer = secondaryScheme.primaryContainer,
+        onSecondaryContainer = secondaryScheme.onPrimaryContainer,
+        tertiary = tertiaryScheme.primary,
+        onTertiary = tertiaryScheme.onPrimary,
+        tertiaryContainer = tertiaryScheme.primaryContainer,
+        onTertiaryContainer = tertiaryScheme.onPrimaryContainer,
+        background = neutralScheme.background,
+        onBackground = neutralScheme.onBackground,
+        surface = neutralScheme.surface,
+        onSurface = neutralScheme.onSurface,
+        surfaceVariant = neutralScheme.surfaceVariant,
+        onSurfaceVariant = neutralScheme.onSurfaceVariant,
+        inverseSurface = neutralScheme.inverseSurface,
+        inverseOnSurface = neutralScheme.inverseOnSurface,
+        surfaceBright = neutralScheme.surfaceBright,
+        surfaceDim = neutralScheme.surfaceDim,
+        surfaceContainer = neutralScheme.surfaceContainer,
+        surfaceContainerLow = neutralScheme.surfaceContainerLow,
+        surfaceContainerLowest = neutralScheme.surfaceContainerLowest,
+        surfaceContainerHigh = neutralScheme.surfaceContainerHigh,
+        surfaceContainerHighest = neutralScheme.surfaceContainerHighest,
+        outline = neutralScheme.outline,
+        outlineVariant = neutralScheme.outlineVariant,
+        error = primaryScheme.error,
+        onError = primaryScheme.onError,
+        errorContainer = primaryScheme.errorContainer,
+        onErrorContainer = primaryScheme.onErrorContainer,
+        scrim = neutralScheme.scrim,
+        surfaceTint = primaryScheme.surfaceTint,
+    )
+}
+
+@Composable
+private fun animateColorScheme(
+    targetColorScheme: ColorScheme,
+    animationSpec: FiniteAnimationSpec<Color>,
+): ColorScheme = ColorScheme(
+    primary = animateColorAsState(targetColorScheme.primary, animationSpec, label = "primary").value,
+    onPrimary = animateColorAsState(targetColorScheme.onPrimary, animationSpec, label = "onPrimary").value,
+    primaryContainer = animateColorAsState(targetColorScheme.primaryContainer, animationSpec, label = "primaryContainer").value,
+    onPrimaryContainer = animateColorAsState(targetColorScheme.onPrimaryContainer, animationSpec, label = "onPrimaryContainer").value,
+    inversePrimary = animateColorAsState(targetColorScheme.inversePrimary, animationSpec, label = "inversePrimary").value,
+    secondary = animateColorAsState(targetColorScheme.secondary, animationSpec, label = "secondary").value,
+    onSecondary = animateColorAsState(targetColorScheme.onSecondary, animationSpec, label = "onSecondary").value,
+    secondaryContainer = animateColorAsState(targetColorScheme.secondaryContainer, animationSpec, label = "secondaryContainer").value,
+    onSecondaryContainer = animateColorAsState(targetColorScheme.onSecondaryContainer, animationSpec, label = "onSecondaryContainer").value,
+    tertiary = animateColorAsState(targetColorScheme.tertiary, animationSpec, label = "tertiary").value,
+    onTertiary = animateColorAsState(targetColorScheme.onTertiary, animationSpec, label = "onTertiary").value,
+    tertiaryContainer = animateColorAsState(targetColorScheme.tertiaryContainer, animationSpec, label = "tertiaryContainer").value,
+    onTertiaryContainer = animateColorAsState(targetColorScheme.onTertiaryContainer, animationSpec, label = "onTertiaryContainer").value,
+    background = animateColorAsState(targetColorScheme.background, animationSpec, label = "background").value,
+    onBackground = animateColorAsState(targetColorScheme.onBackground, animationSpec, label = "onBackground").value,
+    surface = animateColorAsState(targetColorScheme.surface, animationSpec, label = "surface").value,
+    onSurface = animateColorAsState(targetColorScheme.onSurface, animationSpec, label = "onSurface").value,
+    surfaceVariant = animateColorAsState(targetColorScheme.surfaceVariant, animationSpec, label = "surfaceVariant").value,
+    onSurfaceVariant = animateColorAsState(targetColorScheme.onSurfaceVariant, animationSpec, label = "onSurfaceVariant").value,
+    surfaceTint = animateColorAsState(targetColorScheme.surfaceTint, animationSpec, label = "surfaceTint").value,
+    inverseSurface = animateColorAsState(targetColorScheme.inverseSurface, animationSpec, label = "inverseSurface").value,
+    inverseOnSurface = animateColorAsState(targetColorScheme.inverseOnSurface, animationSpec, label = "inverseOnSurface").value,
+    error = animateColorAsState(targetColorScheme.error, animationSpec, label = "error").value,
+    onError = animateColorAsState(targetColorScheme.onError, animationSpec, label = "onError").value,
+    errorContainer = animateColorAsState(targetColorScheme.errorContainer, animationSpec, label = "errorContainer").value,
+    onErrorContainer = animateColorAsState(targetColorScheme.onErrorContainer, animationSpec, label = "onErrorContainer").value,
+    outline = animateColorAsState(targetColorScheme.outline, animationSpec, label = "outline").value,
+    outlineVariant = animateColorAsState(targetColorScheme.outlineVariant, animationSpec, label = "outlineVariant").value,
+    scrim = animateColorAsState(targetColorScheme.scrim, animationSpec, label = "scrim").value,
+    surfaceBright = animateColorAsState(targetColorScheme.surfaceBright, animationSpec, label = "surfaceBright").value,
+    surfaceDim = animateColorAsState(targetColorScheme.surfaceDim, animationSpec, label = "surfaceDim").value,
+    surfaceContainer = animateColorAsState(targetColorScheme.surfaceContainer, animationSpec, label = "surfaceContainer").value,
+    surfaceContainerLow = animateColorAsState(targetColorScheme.surfaceContainerLow, animationSpec, label = "surfaceContainerLow").value,
+    surfaceContainerLowest = animateColorAsState(targetColorScheme.surfaceContainerLowest, animationSpec, label = "surfaceContainerLowest").value,
+    surfaceContainerHigh = animateColorAsState(targetColorScheme.surfaceContainerHigh, animationSpec, label = "surfaceContainerHigh").value,
+    surfaceContainerHighest = animateColorAsState(targetColorScheme.surfaceContainerHighest, animationSpec, label = "surfaceContainerHighest").value,
+)
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -48,29 +187,58 @@ fun AvidTuneTheme(
     pureBlack: Boolean = false,
     expressive: Boolean = true,
     themeColor: Color = DefaultThemeColor,
+    seedPalette: ThemeSeedPalette? = null,
+    disableAnimations: Boolean = false,
     appFont: AppFont = AppFont.SYSTEM,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
+    val useSystemDynamicColor =
+        (seedPalette == null && themeColor == DefaultThemeColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
 
-    val colorScheme = remember(darkTheme, pureBlack, themeColor) {
-        if (themeColor == DefaultThemeColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (darkTheme) {
-                dynamicDarkColorScheme(context).pureBlack(pureBlack, darkTheme)
-            } else {
-                dynamicLightColorScheme(context).pureBlack(false, darkTheme)
-            }
+    val paletteStyle = remember(themeColor, seedPalette) {
+        paletteStyleFor(seedPalette?.primary ?: themeColor)
+    }
+
+    val appColorScheme = remember(seedPalette, themeColor, darkTheme) {
+        if (seedPalette != null) {
+            exactPaletteColorScheme(
+                palette = seedPalette,
+                isDark = darkTheme,
+            )
         } else {
-            SchemeTonalSpot(Hct.fromInt(themeColor.toArgb()), darkTheme, 0.0)
-                .toColorScheme()
-                .pureBlack(pureBlack, darkTheme)
+            materialKolorDynamicColorScheme(
+                seedColor = themeColor,
+                isDark = darkTheme,
+                contrastLevel = 0.0,
+                style = paletteStyle,
+            )
         }
+    }
+
+    val baseColorScheme = if (useSystemDynamicColor) {
+        if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    } else {
+        appColorScheme
+    }
+
+    val colorScheme = remember(baseColorScheme, pureBlack, darkTheme) {
+        if (darkTheme && pureBlack) baseColorScheme.pureBlack(true) else baseColorScheme
     }
 
     val motionScheme = if (expressive) {
         MotionScheme.expressive()
     } else {
         MotionScheme.standard()
+    }
+
+    val animatedColorScheme = if (disableAnimations) {
+        colorScheme
+    } else {
+        animateColorScheme(
+            targetColorScheme = colorScheme,
+            animationSpec = tween(500)
+        )
     }
 
     val typography = remember(appFont) {
@@ -85,7 +253,6 @@ fun AvidTuneTheme(
         if (customFontFamily == null) {
             default
         } else {
-            // Adjust tracking for custom fonts which often look too loose with Roboto's default letter spacing
             val titleLetterSpacing = when (appFont) {
                 AppFont.GOOGLE_SANS -> (-0.4).sp
                 AppFont.SPACE_GROTESK -> (-0.5).sp
@@ -124,7 +291,7 @@ fun AvidTuneTheme(
         LocalOverscrollFactory provides null
     ) {
         MaterialExpressiveTheme(
-            colorScheme = colorScheme,
+            colorScheme = animatedColorScheme,
             typography = typography,
             shapes = MaterialTheme.shapes,
             motionScheme = motionScheme,
@@ -139,7 +306,7 @@ fun Bitmap.extractThemeColor(): Color {
         .generate()
         .swatches
         .associate { it.rgb to it.population }
-    val rankedColors = Score.score(colorsToPopulation)
+    val rankedColors = com.google.material.color.score.Score.score(colorsToPopulation)
     return Color(rankedColors.first())
 }
 
@@ -150,7 +317,7 @@ fun Bitmap.extractGradientColors(): List<Color> {
         .swatches
         .associate { it.rgb to it.population }
 
-    val orderedColors = Score.score(extractedColors, 2, 0xFF4285F4.toInt(), true)
+    val orderedColors = com.google.material.color.score.Score.score(extractedColors, 2, 0xFF4285F4.toInt(), true)
         .sortedByDescending { Color(it).luminance() }
 
     return if (orderedColors.size >= 2)
@@ -162,66 +329,225 @@ fun Bitmap.extractGradientColors(): List<Color> {
 object PlayerColorExtractor {
     val gradientCache = android.util.LruCache<String, List<Color>>(50)
 
-    fun extractGradientColors(
+    suspend fun extractGradientColors(
         palette: Palette,
-        fallbackColor: Int = Color(0xFF595959).toArgb()
-    ): List<Color> {
-        val extractedColors = palette.swatches
-            .associate { it.rgb to it.population }
+        fallbackColor: Int
+    ): List<Color> = withContext(Dispatchers.Default) {
+        val allSwatches = listOfNotNull(
+            palette.vibrantSwatch,
+            palette.lightVibrantSwatch,
+            palette.darkVibrantSwatch,
+            palette.dominantSwatch,
+            palette.mutedSwatch,
+            palette.darkMutedSwatch,
+            palette.lightMutedSwatch,
+        ).distinctBy { it.rgb }
 
-        val orderedColors = Score.score(extractedColors, 2, fallbackColor, true)
-            .sortedByDescending { Color(it).luminance() }
+        val rankedSwatches = allSwatches.sortedByDescending { calculateColorWeight(it) }
+        val availableColors = mutableListOf<Color>()
 
-        return if (orderedColors.size >= 2) {
-            listOf(Color(orderedColors[0]), Color(orderedColors[1]))
-        } else {
-            listOf(Color(0xFF595959), Color(0xFF0D0D0D))
+        fun addIfUnique(color: Color, saturationFactor: Float) {
+            if (!isSimilarToAny(color, availableColors)) {
+                availableColors.add(enhanceColorVividness(color, saturationFactor))
+            }
         }
+
+        for (swatch in rankedSwatches) {
+            val hsv = FloatArray(3)
+            android.graphics.Color.colorToHSV(swatch.rgb, hsv)
+            val satFactor = if (hsv[1] > 0.3f) 1.25f else 1.05f
+            addIfUnique(Color(swatch.rgb), satFactor)
+            if (availableColors.size >= 6) break
+        }
+
+        val totalPopulation = allSwatches.sumOf { it.population }.coerceAtLeast(1)
+        val weightedExtractedSaturation = allSwatches.sumOf { swatch ->
+            val hsv = FloatArray(3)
+            android.graphics.Color.colorToHSV(swatch.rgb, hsv)
+            (hsv[1] * swatch.population).toDouble()
+        }.toFloat() / totalPopulation.toFloat()
+
+        val dominantColor = availableColors.firstOrNull() ?: Color(fallbackColor)
+        val isGreyscaleImage = weightedExtractedSaturation < 0.22f || isNearGray(dominantColor)
+
+        if (isGreyscaleImage) {
+            availableColors.clear()
+            val baseBrightness = allSwatches.maxByOrNull { it.population }?.let { swatch ->
+                val hsv = FloatArray(3)
+                android.graphics.Color.colorToHSV(swatch.rgb, hsv)
+                hsv[2]
+            } ?: 0.10f
+            val greyStops = floatArrayOf(
+                (baseBrightness * 1.2f).coerceIn(0.06f, 0.40f),
+                (baseBrightness * 0.9f).coerceIn(0.04f, 0.28f),
+                (baseBrightness * 0.6f).coerceIn(0.02f, 0.16f),
+                (baseBrightness * 1.4f).coerceIn(0.08f, 0.44f),
+                (baseBrightness * 0.7f).coerceIn(0.03f, 0.20f),
+                (baseBrightness * 0.5f).coerceIn(0.01f, 0.12f),
+            )
+            while (availableColors.size < 6) {
+                val v = greyStops[availableColors.size % greyStops.size]
+                availableColors.add(Color(android.graphics.Color.HSVToColor(floatArrayOf(0f, 0f, v))))
+            }
+            return@withContext availableColors
+        }
+
+        val fallbackSeed = Color(fallbackColor).takeUnless { isNearGray(it) }
+            ?: palette.dominantSwatch?.let { Color(it.rgb) }?.takeUnless { isNearGray(it) }
+            ?: Color.DarkGray
+
+        val seed = availableColors.firstOrNull() ?: fallbackSeed
+        val targets = listOf(25f, -25f, 55f, -55f, 120f, -120f, 180f, 150f, -150f)
+        val valueTargets = floatArrayOf(0.82f, 0.74f, 0.68f, 0.6f, 0.86f, 0.7f)
+
+        val baseCandidates = (availableColors.toList() + seed).distinct()
+        var baseIndex = 0
+        var targetIndex = 0
+        while (availableColors.size < 6) {
+            val baseColor = baseCandidates[baseIndex % baseCandidates.size]
+            val hueShiftDegrees = targets[targetIndex % targets.size]
+            val valueTarget = valueTargets[availableColors.size % valueTargets.size]
+            val derived = tuneColorForMesh(
+                hueShift(baseColor, hueShiftDegrees),
+                saturationMin = 0.62f,
+                saturationBoost = 1.08f,
+                valueTarget = valueTarget,
+                valueMin = 0.38f,
+                valueMax = 0.9f,
+            )
+            if (!isSimilarToAny(derived, availableColors)) {
+                availableColors.add(derived)
+            }
+            baseIndex++
+            targetIndex++
+            if (baseIndex > 40) break
+        }
+
+        if (availableColors.isEmpty()) {
+            availableColors.add(tuneColorForMesh(fallbackSeed, 0.62f, 1.08f, 0.75f, 0.38f, 0.9f))
+        }
+
+        return@withContext availableColors
+    }
+
+    private fun enhanceColorVividness(color: Color, saturationFactor: Float = 1.4f): Color {
+        val argb = color.toArgb()
+        val hsv = FloatArray(3)
+        android.graphics.Color.colorToHSV(argb, hsv)
+        hsv[1] = (hsv[1] * saturationFactor).coerceAtMost(1.0f)
+        hsv[2] = (hsv[2] * 1.02f).coerceIn(0.32f, 0.88f)
+        return Color(android.graphics.Color.HSVToColor(hsv))
+    }
+
+    private fun calculateColorWeight(swatch: Palette.Swatch?): Float {
+        if (swatch == null) return 0f
+        val population = swatch.population.toFloat()
+        val hsv = FloatArray(3)
+        android.graphics.Color.colorToHSV(swatch.rgb, hsv)
+        val saturation = hsv[1]
+        val brightness = hsv[2]
+        val vibrancyBonus = if (saturation > 0.3f && brightness in 0.2f..0.9f) 1.3f else 1.0f
+        return population * vibrancyBonus
+    }
+
+    private fun isSimilarColor(color1: Color?, color2: Color?): Boolean {
+        if (color1 == null || color2 == null) return false
+        val hsv1 = FloatArray(3)
+        val hsv2 = FloatArray(3)
+        android.graphics.Color.colorToHSV(color1.toArgb(), hsv1)
+        android.graphics.Color.colorToHSV(color2.toArgb(), hsv2)
+
+        val hueDiffRaw = kotlin.math.abs(hsv1[0] - hsv2[0])
+        val hueDiff = kotlin.math.min(hueDiffRaw, 360f - hueDiffRaw)
+        val satDiff = kotlin.math.abs(hsv1[1] - hsv2[1])
+        val valueDiff = kotlin.math.abs(hsv1[2] - hsv2[2])
+        if (hueDiff < 12f && satDiff < 0.12f && valueDiff < 0.12f) return true
+
+        val threshold = 28
+        val r1 = (color1.red * 255).toInt()
+        val g1 = (color1.green * 255).toInt()
+        val b1 = (color1.blue * 255).toInt()
+        val r2 = (color2.red * 255).toInt()
+        val g2 = (color2.green * 255).toInt()
+        val b2 = (color2.blue * 255).toInt()
+
+        return kotlin.math.abs(r1 - r2) < threshold &&
+            kotlin.math.abs(g1 - g2) < threshold &&
+            kotlin.math.abs(b1 - b2) < threshold
+    }
+
+    private fun isSimilarToAny(color: Color, colors: List<Color>): Boolean = colors.any { isSimilarColor(color, it) }
+
+    private fun hueShift(color: Color, degrees: Float): Color {
+        val hsv = FloatArray(3)
+        android.graphics.Color.colorToHSV(color.toArgb(), hsv)
+        hsv[0] = ((hsv[0] + degrees) % 360f + 360f) % 360f
+        return Color(android.graphics.Color.HSVToColor(hsv))
+    }
+
+    private fun tuneColorForMesh(
+        color: Color,
+        saturationMin: Float,
+        saturationBoost: Float,
+        valueTarget: Float,
+        valueMin: Float,
+        valueMax: Float,
+    ): Color {
+        val hsv = FloatArray(3)
+        android.graphics.Color.colorToHSV(color.toArgb(), hsv)
+        hsv[1] = (kotlin.math.max(hsv[1], saturationMin) * saturationBoost).coerceIn(0f, 1f)
+        hsv[2] = (hsv[2] * 0.85f + valueTarget * 0.15f).coerceIn(valueMin, valueMax)
+        return Color(android.graphics.Color.HSVToColor(hsv))
+    }
+
+    private fun isNearGray(color: Color): Boolean {
+        val hsv = FloatArray(3)
+        android.graphics.Color.colorToHSV(color.toArgb(), hsv)
+        return hsv[1] < 0.15f || hsv[2] < 0.08f
     }
 }
 
-fun DynamicScheme.toColorScheme() =
-    ColorScheme(
-        primary = Color(primary),
-        onPrimary = Color(onPrimary),
-        primaryContainer = Color(primaryContainer),
-        onPrimaryContainer = Color(onPrimaryContainer),
-        inversePrimary = Color(inversePrimary),
-        secondary = Color(secondary),
-        onSecondary = Color(onSecondary),
-        secondaryContainer = Color(secondaryContainer),
-        onSecondaryContainer = Color(onSecondaryContainer),
-        tertiary = Color(tertiary),
-        onTertiary = Color(onTertiary),
-        tertiaryContainer = Color(tertiaryContainer),
-        onTertiaryContainer = Color(onTertiaryContainer),
-        background = Color(background),
-        onBackground = Color(onBackground),
-        surface = Color(surface),
-        onSurface = Color(onSurface),
-        surfaceVariant = Color(surfaceVariant),
-        onSurfaceVariant = Color(onSurfaceVariant),
-        surfaceTint = Color(primary),
-        inverseSurface = Color(inverseSurface),
-        inverseOnSurface = Color(inverseOnSurface),
-        error = Color(error),
-        onError = Color(onError),
-        errorContainer = Color(errorContainer),
-        onErrorContainer = Color(onErrorContainer),
-        outline = Color(outline),
-        outlineVariant = Color(outlineVariant),
-        scrim = Color(scrim),
-        surfaceBright = Color(surfaceBright),
-        surfaceDim = Color(surfaceDim),
-        surfaceContainer = Color(surfaceContainer),
-        surfaceContainerHigh = Color(surfaceContainerHigh),
-        surfaceContainerHighest = Color(surfaceContainerHighest),
-        surfaceContainerLow = Color(surfaceContainerLow),
-        surfaceContainerLowest = Color(surfaceContainerLowest),
-    )
+fun DynamicScheme.toColorScheme() = ColorScheme(
+    primary = Color(this.primary),
+    onPrimary = Color(this.onPrimary),
+    primaryContainer = Color(this.primaryContainer),
+    onPrimaryContainer = Color(this.onPrimaryContainer),
+    inversePrimary = Color(this.inversePrimary),
+    secondary = Color(this.secondary),
+    onSecondary = Color(this.onSecondary),
+    secondaryContainer = Color(this.secondaryContainer),
+    onSecondaryContainer = Color(this.onSecondaryContainer),
+    tertiary = Color(this.tertiary),
+    onTertiary = Color(this.onTertiary),
+    tertiaryContainer = Color(this.tertiaryContainer),
+    onTertiaryContainer = Color(this.onTertiaryContainer),
+    background = Color(this.background),
+    onBackground = Color(this.onBackground),
+    surface = Color(this.surface),
+    onSurface = Color(this.onSurface),
+    surfaceVariant = Color(this.surfaceVariant),
+    onSurfaceVariant = Color(this.onSurfaceVariant),
+    surfaceTint = Color(this.primary),
+    inverseSurface = Color(this.inverseSurface),
+    inverseOnSurface = Color(this.inverseOnSurface),
+    error = Color(this.error),
+    onError = Color(this.onError),
+    errorContainer = Color(this.errorContainer),
+    onErrorContainer = Color(this.onErrorContainer),
+    outline = Color(this.outline),
+    outlineVariant = Color(this.outlineVariant),
+    scrim = Color(this.scrim),
+    surfaceBright = Color(this.surfaceBright),
+    surfaceDim = Color(this.surfaceDim),
+    surfaceContainer = Color(this.surfaceContainer),
+    surfaceContainerHigh = Color(this.surfaceContainerHigh),
+    surfaceContainerHighest = Color(this.surfaceContainerHighest),
+    surfaceContainerLow = Color(this.surfaceContainerLow),
+    surfaceContainerLowest = Color(this.surfaceContainerLowest),
+)
 
-fun ColorScheme.pureBlack(apply: Boolean, isDarkTheme: Boolean) =
-    if (apply && isDarkTheme) {
+fun ColorScheme.pureBlack(apply: Boolean) =
+    if (apply) {
         copy(
             surface = Color.Black,
             background = Color.Black,
@@ -236,40 +562,4 @@ fun ColorScheme.pureBlack(apply: Boolean, isDarkTheme: Boolean) =
 val ColorSaver = object : Saver<Color, Int> {
     override fun restore(value: Int): Color = Color(value)
     override fun SaverScope.save(value: Color): Int = value.toArgb()
-}
-
-object PlayerSliderColors {
-    @Composable
-    fun getSliderColors(
-        textButtonColor: Color,
-        playerBackground: PlayerBackgroundStyle,
-        useDarkTheme: Boolean
-    ) = SliderDefaults.colors(
-        activeTrackColor = when (playerBackground) {
-            PlayerBackgroundStyle.DEFAULT -> textButtonColor
-            PlayerBackgroundStyle.BLUR -> Color.White
-            PlayerBackgroundStyle.GRADIENT -> Color.White
-            PlayerBackgroundStyle.APPLE_MUSIC -> Color.White
-            PlayerBackgroundStyle.LIVE_MESH -> Color.White
-        },
-        inactiveTrackColor = when {
-            useDarkTheme -> Color.Gray.copy(alpha = 0.5f)
-            else -> Color.Gray.copy(alpha = 0.3f)
-        },
-        activeTickColor = when (playerBackground) {
-            PlayerBackgroundStyle.DEFAULT -> textButtonColor
-            PlayerBackgroundStyle.BLUR -> Color.White
-            PlayerBackgroundStyle.GRADIENT -> Color.White
-            PlayerBackgroundStyle.APPLE_MUSIC -> Color.White
-            PlayerBackgroundStyle.LIVE_MESH -> Color.White
-        },
-        inactiveTickColor = Color.Gray,
-        thumbColor = when (playerBackground) {
-            PlayerBackgroundStyle.DEFAULT -> textButtonColor
-            PlayerBackgroundStyle.BLUR -> Color.White
-            PlayerBackgroundStyle.GRADIENT -> Color.White
-            PlayerBackgroundStyle.APPLE_MUSIC -> Color.White
-            PlayerBackgroundStyle.LIVE_MESH -> Color.White
-        }
-    )
 }
