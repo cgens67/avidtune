@@ -55,6 +55,7 @@ fun LyricsV2(
     showLyrics: Boolean,
     positionProvider: () -> Long?,
     modifier: Modifier = Modifier,
+    textColor: Color = MaterialTheme.colorScheme.onSurface,
 ) {
     val playerConnection = LocalPlayerConnection.current ?: return
     val coroutineScope = rememberCoroutineScope()
@@ -166,7 +167,7 @@ fun LyricsV2(
                 text = if (originalLyrics == LYRICS_NOT_FOUND) stringResource(R.string.lyrics_not_found)
                 else stringResource(R.string.loading_lyrics),
                 style = MaterialTheme.typography.titleMedium,
-                color = Color.White.copy(alpha = 0.6f),
+                color = textColor.copy(alpha = 0.6f),
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(24.dp)
             )
@@ -187,7 +188,7 @@ fun LyricsV2(
                         isActive = isActiveLine,
                         distanceFromCurrent = distance,
                         lyricsTextPosition = lyricsTextPosition,
-                        textColor = Color.White,
+                        textColor = textColor,
                         textSize = 28f,
                         lineSpacing = 6f,
                         onClick = {
