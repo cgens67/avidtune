@@ -1,5 +1,3 @@
---- START OF FILE app/src/main/java/com/cgens67/avidtune/ui/player/PlayerV2.kt ---
-
 @file:OptIn(
     ExperimentalMaterial3Api::class,
     ExperimentalMaterial3ExpressiveApi::class,
