@@ -53,6 +53,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
@@ -93,7 +94,6 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -123,7 +123,6 @@ import com.cgens67.avidtune.constants.ShowPlayerThumbnailShadowKey
 import com.cgens67.avidtune.constants.SliderStyle
 import com.cgens67.avidtune.constants.SliderStyleKey
 import com.cgens67.avidtune.extensions.togglePlayPause
-import com.cgens67.avidtune.extensions.metadata
 import com.cgens67.avidtune.together.TogetherRole
 import com.cgens67.avidtune.together.TogetherSessionState
 import com.cgens67.avidtune.ui.component.AppConfig
@@ -144,7 +143,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import me.saket.squiggles.SquigglySlider
 
-enum class PlayerInternalState { COVER, LYRICS_PREVIEW, LYRICS, QUEUE_PREVIEW, QUEUE }
+enum class PlayerInternalState { COVER, LYRICS, QUEUE }
 
 fun Modifier.customSoftShadow(
     elevation: Dp,
@@ -365,12 +364,8 @@ fun PlayerV2(
     val isPlaying by playerConnection.isPlaying.collectAsState()
     val currentSong by playerConnection.currentSong.collectAsState(initial = null)
     val currentLyrics by playerConnection.currentLyrics.collectAsState(initial = null)
-    val queueWindows by playerConnection.queueWindows.collectAsState()
-    val currentWindowIndex by playerConnection.currentWindowIndex.collectAsState()
     val menuState = LocalMenuState.current
     val bottomSheetPageState = LocalBottomSheetPageState.current
-    
-    // State management: defaults to COVER
     var playerState by remember { mutableStateOf(PlayerInternalState.COVER) }
 
     val togetherSessionState by playerConnection.service.togetherSessionState.collectAsState()
@@ -379,35 +374,18 @@ fun PlayerV2(
     val canSkipPrevious by playerConnection.canSkipPrevious.collectAsState()
     val canSkipNext by playerConnection.canSkipNext.collectAsState()
 
+    // Synchronized Volume with PlayerConnection & PlayerMenu
     val playerVolume by playerConnection.service.playerVolume.collectAsState()
 
-    // Back handler smoothly steps down from full expanded -> cover
     BackHandler(enabled = playerState != PlayerInternalState.COVER) {
         playerState = PlayerInternalState.COVER
     }
 
     var controlsVisible by remember { mutableStateOf(true) }
-    var lastInteractionTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
     LaunchedEffect(playerState) {
-        if (playerState == PlayerInternalState.LYRICS) {
+        if (playerState != PlayerInternalState.LYRICS) {
             controlsVisible = true
-            delay(1500L)
-            if (playerState == PlayerInternalState.LYRICS) {
-                controlsVisible = false
-            }
-        } else {
-            controlsVisible = true
-        }
-    }
-
-    LaunchedEffect(lastInteractionTime) {
-        if (playerState == PlayerInternalState.LYRICS) {
-            controlsVisible = true
-            delay(2000L)
-            if (playerState == PlayerInternalState.LYRICS) {
-                controlsVisible = false
-            }
         }
     }
 
@@ -422,11 +400,13 @@ fun PlayerV2(
         defaultValue = PlayerBackgroundStyle.DEFAULT
     )
 
+    // Un-hardcode album cover corner radius
     var thumbnailCornerRadius by remember { mutableFloatStateOf(16f) }
     LaunchedEffect(Unit) {
         thumbnailCornerRadius = AppConfig.getThumbnailCornerRadius(context)
     }
 
+    // Album cover resolution setting
     val (coverResolution) = rememberEnumPreference(
         key = CoverResolutionKey,
         defaultValue = CoverResolution.RES_1080
@@ -550,9 +530,7 @@ fun PlayerV2(
                     while (true) {
                         val event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
                         if (event.changes.any { it.pressed }) {
-                            if (playerState == PlayerInternalState.LYRICS) {
-                                lastInteractionTime = System.currentTimeMillis()
-                            } else {
+                            if (playerState == PlayerInternalState.COVER) {
                                 controlsVisible = true
                             }
                         }
@@ -595,279 +573,204 @@ fun PlayerV2(
                     modifier = Modifier.fillMaxSize(),
                     label = "InternalWindow"
                 ) { targetState ->
-                    when (targetState) {
-                        PlayerInternalState.COVER,
-                        PlayerInternalState.LYRICS_PREVIEW,
-                        PlayerInternalState.QUEUE_PREVIEW -> {
-                            Column(
+                    if (targetState == PlayerInternalState.COVER) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 24.dp)
+                        ) {
+                            Spacer(modifier = Modifier.weight(1f))
+
+                            // Dynamic Album Corner Radius
+                            val coverRadius = thumbnailCornerRadius.dp
+                            val isAppleMusicBg = playerBackground == PlayerBackgroundStyle.APPLE_MUSIC
+
+                            Box(
                                 modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 24.dp)
+                                    .sharedElement(
+                                        rememberSharedContentState(key = "coverArt"),
+                                        animatedVisibilityScope = this@AnimatedContent,
+                                        boundsTransform = BoundsTransform { _, _ ->
+                                            tween(durationMillis = 500, easing = FastOutSlowInEasing)
+                                        }
+                                    )
+                                    .fillMaxWidth()
+                                    .aspectRatio(1f)
+                                    .customSoftShadow(
+                                        elevation = playerThumbnailShadowElevation.dp,
+                                        cornerRadius = coverRadius,
+                                        enabled = showPlayerThumbnailShadow && !isAppleMusicBg
+                                    )
+                                    .background(
+                                        if (isAppleMusicBg) Color.Transparent else adaptiveSurface,
+                                        RoundedCornerShape(coverRadius)
+                                    )
+                                    .clip(RoundedCornerShape(coverRadius))
+                                    .clickable(enabled = isAppleMusicBg) { playerState = PlayerInternalState.LYRICS }
+                                    .SwipeGesture(
+                                        enabled = (playerState == PlayerInternalState.COVER && !isListenTogetherGuest),
+                                        onSwipeLeft = { if (canSkipNext) playerConnection.player.seekToNext() },
+                                        onSwipeRight = { if (canSkipPrevious) playerConnection.player.seekToPrevious() }
+                                    )
                             ) {
-                                Spacer(modifier = Modifier.weight(1f))
+                                if (isAppleMusicBg) {
+                                    // Hidden when Apple Music background style is active
+                                } else if (hidePlayerThumbnail) {
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(R.drawable.avidtune_monochrome),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(72.dp),
+                                            tint = adaptivePrimary.copy(alpha = 0.5f)
+                                        )
+                                    }
+                                } else {
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(LocalContext.current)
+                                            .data(mediaMetadata?.thumbnailUrl?.resize(coverResolution.size, coverResolution.size))
+                                            .memoryCachePolicy(CachePolicy.ENABLED)
+                                            .diskCachePolicy(CachePolicy.ENABLED)
+                                            .networkCachePolicy(CachePolicy.ENABLED)
+                                            .crossfade(true)
+                                            .build(),
+                                        contentDescription = stringResource(R.string.cover_art),
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                }
+                            }
 
-                                val coverRadius = thumbnailCornerRadius.dp
-                                val isAppleMusicBg = playerBackground == PlayerBackgroundStyle.APPLE_MUSIC
+                            Spacer(modifier = Modifier.weight(1f))
 
-                                Box(
-                                    modifier = Modifier
-                                        .sharedElement(
-                                            rememberSharedContentState(key = "coverArt"),
+                            // Track Meta Info
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = mediaMetadata?.title ?: stringResource(R.string.unknown),
+                                        style = MaterialTheme.typography.headlineSmall,
+                                        color = adaptivePrimary,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.sharedBounds(
+                                            rememberSharedContentState(key = "title"),
                                             animatedVisibilityScope = this@AnimatedContent,
                                             boundsTransform = BoundsTransform { _, _ ->
                                                 tween(durationMillis = 500, easing = FastOutSlowInEasing)
                                             }
-                                        )
-                                        .fillMaxWidth()
-                                        .aspectRatio(1f)
-                                        .customSoftShadow(
-                                            elevation = playerThumbnailShadowElevation.dp,
-                                            cornerRadius = coverRadius,
-                                            enabled = showPlayerThumbnailShadow && !isAppleMusicBg
-                                        )
-                                        .background(
-                                            if (isAppleMusicBg) Color.Transparent else adaptiveSurface,
-                                            RoundedCornerShape(coverRadius)
-                                        )
-                                        .clip(RoundedCornerShape(coverRadius))
-                                        .clickable { 
-                                            // Quick preview toggle on tap
-                                            playerState = if (playerState == PlayerInternalState.LYRICS_PREVIEW) 
-                                                PlayerInternalState.COVER 
-                                            else 
-                                                PlayerInternalState.LYRICS_PREVIEW
+                                        ).clickable {
+                                            state.collapseSoft()
+                                            mediaMetadata?.album?.id?.let { navController.navigate("album/$it") }
                                         }
-                                        .SwipeGesture(
-                                            enabled = !isListenTogetherGuest,
-                                            onSwipeLeft = { if (canSkipNext) playerConnection.player.seekToNext() },
-                                            onSwipeRight = { if (canSkipPrevious) playerConnection.player.seekToPrevious() }
-                                        )
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = mediaMetadata?.artists?.firstOrNull()?.name ?: stringResource(R.string.unknown),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = adaptiveSecondary,
+                                        fontWeight = FontWeight.Medium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.sharedBounds(
+                                            rememberSharedContentState(key = "artist"),
+                                            animatedVisibilityScope = this@AnimatedContent,
+                                            boundsTransform = BoundsTransform { _, _ ->
+                                                tween(durationMillis = 500, easing = FastOutSlowInEasing)
+                                            }
+                                        ).clickable {
+                                            state.collapseSoft()
+                                            mediaMetadata?.artists?.firstOrNull()?.id?.let { navController.navigate("artist/$it") }
+                                        }
+                                    )
+                                }
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.sharedBounds(
+                                        rememberSharedContentState(key = "actionButtons"),
+                                        animatedVisibilityScope = this@AnimatedContent,
+                                        boundsTransform = BoundsTransform { _, _ ->
+                                            tween(durationMillis = 500, easing = FastOutSlowInEasing)
+                                        }
+                                    )
                                 ) {
-                                    if (isAppleMusicBg) {
-                                        // Hidden when Apple Music background style is active
-                                    } else if (hidePlayerThumbnail) {
-                                        Box(
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentAlignment = Alignment.Center
+                                    val isLiked = currentSong?.song?.liked == true
+
+                                    if (minimalPlayerDesign) {
+                                        IconButton(
+                                            onClick = playerConnection::toggleLike,
+                                            modifier = Modifier.size(36.dp)
                                         ) {
                                             Icon(
-                                                painter = painterResource(R.drawable.avidtune_monochrome),
-                                                contentDescription = null,
-                                                modifier = Modifier.size(72.dp),
-                                                tint = adaptivePrimary.copy(alpha = 0.5f)
+                                                painter = painterResource(if (isLiked) R.drawable.favorite else R.drawable.favorite_border),
+                                                contentDescription = if (isLiked) stringResource(R.string.remove_from_library) else stringResource(R.string.add_to_library),
+                                                tint = if (isLiked) MaterialTheme.colorScheme.error else adaptivePrimary,
+                                                modifier = Modifier.size(22.dp)
                                             )
                                         }
-                                    } else {
-                                        AsyncImage(
-                                            model = ImageRequest.Builder(LocalContext.current)
-                                                .data(mediaMetadata?.thumbnailUrl?.resize(coverResolution.size, coverResolution.size))
-                                                .memoryCachePolicy(CachePolicy.ENABLED)
-                                                .diskCachePolicy(CachePolicy.ENABLED)
-                                                .networkCachePolicy(CachePolicy.ENABLED)
-                                                .crossfade(true)
-                                                .build(),
-                                            contentDescription = stringResource(R.string.cover_art),
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentScale = ContentScale.Crop
-                                        )
-                                    }
 
-                                    // Inline preview overlay for Lyrics
-                                    if (targetState == PlayerInternalState.LYRICS_PREVIEW) {
-                                        Surface(
-                                            color = Color.Black.copy(alpha = 0.72f),
-                                            modifier = Modifier.fillMaxSize()
-                                        ) {
-                                            Box(modifier = Modifier.fillMaxSize()) {
-                                                LyricsV2(
-                                                    mediaMetadata = mediaMetadata,
-                                                    showLyrics = true,
-                                                    positionProvider = { sliderPosition ?: position },
-                                                    textColor = Color.White,
-                                                    modifier = Modifier.fillMaxSize().padding(12.dp)
-                                                )
-                                                // Expand Button
-                                                Surface(
-                                                    onClick = { playerState = PlayerInternalState.LYRICS },
-                                                    shape = CircleShape,
-                                                    color = MaterialTheme.colorScheme.primaryContainer,
-                                                    modifier = Modifier
-                                                        .align(Alignment.TopEnd)
-                                                        .padding(12.dp)
-                                                        .size(36.dp)
-                                                ) {
-                                                    Box(contentAlignment = Alignment.Center) {
-                                                        Icon(
-                                                            painter = painterResource(R.drawable.expand_more),
-                                                            contentDescription = "Expand Lyrics",
-                                                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                                            modifier = Modifier.size(20.dp).graphicsLayer { rotationZ = 180f }
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
+                                        Spacer(modifier = Modifier.width(4.dp))
 
-                                    // Inline preview overlay for Queue
-                                    if (targetState == PlayerInternalState.QUEUE_PREVIEW) {
-                                        Surface(
-                                            color = Color.Black.copy(alpha = 0.78f),
-                                            modifier = Modifier.fillMaxSize()
-                                        ) {
-                                            Box(modifier = Modifier.fillMaxSize()) {
-                                                Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-                                                    Row(
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                                        verticalAlignment = Alignment.CenterVertically
-                                                    ) {
-                                                        Text(
-                                                            text = "Up next",
-                                                            style = MaterialTheme.typography.titleMedium,
-                                                            color = Color.White,
-                                                            fontWeight = FontWeight.Bold
-                                                        )
-                                                        // Expand Button
-                                                        Surface(
-                                                            onClick = { playerState = PlayerInternalState.QUEUE },
-                                                            shape = CircleShape,
-                                                            color = MaterialTheme.colorScheme.primaryContainer,
-                                                            modifier = Modifier.size(36.dp)
-                                                        ) {
-                                                            Box(contentAlignment = Alignment.Center) {
-                                                                Icon(
-                                                                    painter = painterResource(R.drawable.expand_more),
-                                                                    contentDescription = "Expand Queue",
-                                                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                                                    modifier = Modifier.size(20.dp).graphicsLayer { rotationZ = 180f }
-                                                                )
-                                                            }
-                                                        }
-                                                    }
-                                                    Spacer(modifier = Modifier.height(10.dp))
-                                                    // Show next 3 upcoming songs
-                                                    val nextSongs = queueWindows.drop(currentWindowIndex + 1).take(3)
-                                                    if (nextSongs.isEmpty()) {
-                                                        Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                                                            Text(
-                                                                text = "No upcoming songs",
-                                                                color = Color.White.copy(alpha = 0.6f),
-                                                                style = MaterialTheme.typography.bodyMedium
-                                                            )
-                                                        }
-                                                    } else {
-                                                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                                            nextSongs.forEach { window ->
-                                                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                                                    AsyncImage(
-                                                                        model = window.mediaItem.metadata?.thumbnailUrl,
-                                                                        contentDescription = null,
-                                                                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
-                                                                        contentScale = ContentScale.Crop
-                                                                    )
-                                                                    Spacer(modifier = Modifier.width(10.dp))
-                                                                    Column(modifier = Modifier.weight(1f)) {
-                                                                        Text(
-                                                                            text = window.mediaItem.metadata?.title ?: "",
-                                                                            color = Color.White,
-                                                                            style = MaterialTheme.typography.bodyMedium,
-                                                                            maxLines = 1,
-                                                                            overflow = TextOverflow.Ellipsis
-                                                                        )
-                                                                        Text(
-                                                                            text = window.mediaItem.metadata?.artists?.joinToString { it.name } ?: "",
-                                                                            color = Color.White.copy(alpha = 0.6f),
-                                                                            style = MaterialTheme.typography.bodySmall,
-                                                                            maxLines = 1,
-                                                                            overflow = TextOverflow.Ellipsis
-                                                                        )
+                                        IconButton(
+                                            onClick = {
+                                                menuState.show {
+                                                    PlayerMenu(
+                                                        mediaMetadata = mediaMetadata,
+                                                        navController = navController,
+                                                        playerBottomSheetState = state,
+                                                        onShowDetailsDialog = {
+                                                            mediaMetadata?.id?.let {
+                                                                bottomSheetPageState.show {
+                                                                    ShowMediaInfo(it) {
+                                                                        bottomSheetPageState.dismiss()
                                                                     }
                                                                 }
                                                             }
-                                                        }
-                                                    }
+                                                        },
+                                                        onDismiss = menuState::dismiss
+                                                    )
                                                 }
-                                            }
+                                            },
+                                            modifier = Modifier.size(36.dp)
+                                        ) {
+                                            Icon(
+                                                painter = painterResource(R.drawable.more_horiz),
+                                                contentDescription = stringResource(R.string.more_options),
+                                                tint = adaptivePrimary,
+                                                modifier = Modifier.size(22.dp)
+                                            )
                                         }
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.weight(1f))
-
-                                // Track Meta Info
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = mediaMetadata?.title ?: stringResource(R.string.unknown),
-                                            style = MaterialTheme.typography.headlineSmall,
-                                            color = adaptivePrimary,
-                                            fontWeight = FontWeight.Bold,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.sharedBounds(
-                                                rememberSharedContentState(key = "title"),
-                                                animatedVisibilityScope = this@AnimatedContent,
-                                                boundsTransform = BoundsTransform { _, _ ->
-                                                    tween(durationMillis = 500, easing = FastOutSlowInEasing)
-                                                }
-                                            ).clickable {
-                                                state.collapseSoft()
-                                                mediaMetadata?.album?.id?.let { navController.navigate("album/$it") }
-                                            }
-                                        )
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            text = mediaMetadata?.artists?.firstOrNull()?.name ?: stringResource(R.string.unknown),
-                                            style = MaterialTheme.typography.titleMedium,
-                                            color = adaptiveSecondary,
-                                            fontWeight = FontWeight.Medium,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.sharedBounds(
-                                                rememberSharedContentState(key = "artist"),
-                                                animatedVisibilityScope = this@AnimatedContent,
-                                                boundsTransform = BoundsTransform { _, _ ->
-                                                    tween(durationMillis = 500, easing = FastOutSlowInEasing)
-                                                }
-                                            ).clickable {
-                                                state.collapseSoft()
-                                                mediaMetadata?.artists?.firstOrNull()?.id?.let { navController.navigate("artist/$it") }
-                                            }
-                                        )
-                                    }
-
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.sharedBounds(
-                                            rememberSharedContentState(key = "actionButtons"),
-                                            animatedVisibilityScope = this@AnimatedContent,
-                                            boundsTransform = BoundsTransform { _, _ ->
-                                                tween(durationMillis = 500, easing = FastOutSlowInEasing)
-                                            }
-                                        )
-                                    ) {
-                                        val isLiked = currentSong?.song?.liked == true
-
-                                        if (minimalPlayerDesign) {
-                                            IconButton(
-                                                onClick = playerConnection::toggleLike,
-                                                modifier = Modifier.size(36.dp)
-                                            ) {
+                                    } else {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(40.dp)
+                                                .background(adaptivePrimary.copy(alpha = 0.1f), CircleShape),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            IconButton(onClick = playerConnection::toggleLike) {
                                                 Icon(
                                                     painter = painterResource(if (isLiked) R.drawable.favorite else R.drawable.favorite_border),
                                                     contentDescription = if (isLiked) stringResource(R.string.remove_from_library) else stringResource(R.string.add_to_library),
                                                     tint = if (isLiked) MaterialTheme.colorScheme.error else adaptivePrimary,
-                                                    modifier = Modifier.size(22.dp)
                                                 )
                                             }
+                                        }
 
-                                            Spacer(modifier = Modifier.width(4.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
 
+                                        Box(
+                                            modifier = Modifier
+                                                .size(40.dp)
+                                                .background(adaptivePrimary.copy(alpha = 0.1f), CircleShape),
+                                            contentAlignment = Alignment.Center
+                                        ) {
                                             IconButton(
                                                 onClick = {
                                                     menuState.show {
@@ -887,251 +790,215 @@ fun PlayerV2(
                                                             onDismiss = menuState::dismiss
                                                         )
                                                     }
-                                                },
-                                                modifier = Modifier.size(36.dp)
+                                                }
                                             ) {
                                                 Icon(
-                                                    painter = painterResource(R.drawable.more_horiz),
+                                                    painter = painterResource(R.drawable.more_vert),
                                                     contentDescription = stringResource(R.string.more_options),
                                                     tint = adaptivePrimary,
-                                                    modifier = Modifier.size(22.dp)
                                                 )
-                                            }
-                                        } else {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(40.dp)
-                                                    .background(adaptivePrimary.copy(alpha = 0.1f), CircleShape),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                IconButton(onClick = playerConnection::toggleLike) {
-                                                    Icon(
-                                                        painter = painterResource(if (isLiked) R.drawable.favorite else R.drawable.favorite_border),
-                                                        contentDescription = if (isLiked) stringResource(R.string.remove_from_library) else stringResource(R.string.add_to_library),
-                                                        tint = if (isLiked) MaterialTheme.colorScheme.error else adaptivePrimary,
-                                                    )
-                                                }
-                                            }
-
-                                            Spacer(modifier = Modifier.width(8.dp))
-
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(40.dp)
-                                                    .background(adaptivePrimary.copy(alpha = 0.1f), CircleShape),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                IconButton(
-                                                    onClick = {
-                                                        menuState.show {
-                                                            PlayerMenu(
-                                                                mediaMetadata = mediaMetadata,
-                                                                navController = navController,
-                                                                playerBottomSheetState = state,
-                                                                onShowDetailsDialog = {
-                                                                    mediaMetadata?.id?.let {
-                                                                        bottomSheetPageState.show {
-                                                                            ShowMediaInfo(it) {
-                                                                                bottomSheetPageState.dismiss()
-                                                                            }
-                                                                        }
-                                                                    }
-                                                                },
-                                                                onDismiss = menuState::dismiss
-                                                            )
-                                                        }
-                                                    }
-                                                ) {
-                                                    Icon(
-                                                        painter = painterResource(R.drawable.more_horiz),
-                                                        contentDescription = stringResource(R.string.more_options),
-                                                        tint = adaptivePrimary,
-                                                    )
-                                                }
                                             }
                                         }
                                     }
                                 }
                             }
                         }
-                        PlayerInternalState.LYRICS,
-                        PlayerInternalState.QUEUE -> {
-                            // Fully Expanded Mode
-                            Column(modifier = Modifier.fillMaxSize()) {
-                                val miniRadius = (thumbnailCornerRadius / 2f).coerceAtLeast(4f).dp
-                                val isAppleMusicBg = playerBackground == PlayerBackgroundStyle.APPLE_MUSIC
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    if (!isAppleMusicBg) {
-                                        Box(
-                                            modifier = Modifier
-                                                .sharedElement(
-                                                    rememberSharedContentState(key = "coverArt"),
-                                                    animatedVisibilityScope = this@AnimatedContent,
-                                                    zIndexInOverlay = 1f,
-                                                    boundsTransform = BoundsTransform { _, _ ->
-                                                        tween(durationMillis = 500, easing = FastOutSlowInEasing)
-                                                    }
-                                                )
-                                                .size(64.dp)
-                                                .customSoftShadow(
-                                                    elevation = playerThumbnailShadowElevation.dp / 2f,
-                                                    cornerRadius = miniRadius,
-                                                    enabled = showPlayerThumbnailShadow
-                                                )
-                                                .background(adaptiveSurface, RoundedCornerShape(miniRadius))
-                                                .clip(RoundedCornerShape(miniRadius))
-                                                .clickable { playerState = PlayerInternalState.COVER }
-                                        ) {
-                                            if (hidePlayerThumbnail) {
-                                                Box(
-                                                    modifier = Modifier.fillMaxSize(),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    Icon(
-                                                        painter = painterResource(R.drawable.avidtune_monochrome),
-                                                        contentDescription = null,
-                                                        modifier = Modifier.size(32.dp),
-                                                        tint = adaptivePrimary.copy(alpha = 0.5f)
-                                                    )
+                    } else if (targetState == PlayerInternalState.LYRICS || targetState == PlayerInternalState.QUEUE) {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            val miniRadius = (thumbnailCornerRadius / 2f).coerceAtLeast(4f).dp
+                            val isAppleMusicBg = playerBackground == PlayerBackgroundStyle.APPLE_MUSIC
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (!isAppleMusicBg) {
+                                    Box(
+                                        modifier = Modifier
+                                            .sharedElement(
+                                                rememberSharedContentState(key = "coverArt"),
+                                                animatedVisibilityScope = this@AnimatedContent,
+                                                zIndexInOverlay = 1f,
+                                                boundsTransform = BoundsTransform { _, _ ->
+                                                    tween(durationMillis = 500, easing = FastOutSlowInEasing)
                                                 }
-                                            } else {
-                                                AsyncImage(
-                                                    model = ImageRequest.Builder(LocalContext.current)
-                                                        .data(mediaMetadata?.thumbnailUrl?.resize(coverResolution.size, coverResolution.size))
-                                                        .memoryCachePolicy(CachePolicy.ENABLED)
-                                                        .diskCachePolicy(CachePolicy.ENABLED)
-                                                        .networkCachePolicy(CachePolicy.ENABLED)
-                                                        .crossfade(true)
-                                                        .build(),
-                                                    contentDescription = stringResource(R.string.cover_art),
-                                                    modifier = Modifier.fillMaxSize(),
-                                                    contentScale = ContentScale.Crop
+                                            )
+                                            .size(64.dp)
+                                            .customSoftShadow(
+                                                elevation = playerThumbnailShadowElevation.dp / 2f,
+                                                cornerRadius = miniRadius,
+                                                enabled = showPlayerThumbnailShadow
+                                            )
+                                            .background(adaptiveSurface, RoundedCornerShape(miniRadius))
+                                            .clip(RoundedCornerShape(miniRadius))
+                                            .clickable { playerState = PlayerInternalState.COVER }
+                                    ) {
+                                        if (hidePlayerThumbnail) {
+                                            Box(
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    painter = painterResource(R.drawable.avidtune_monochrome),
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(32.dp),
+                                                    tint = adaptivePrimary.copy(alpha = 0.5f)
                                                 )
                                             }
+                                        } else {
+                                            AsyncImage(
+                                                model = ImageRequest.Builder(LocalContext.current)
+                                                    .data(mediaMetadata?.thumbnailUrl?.resize(coverResolution.size, coverResolution.size))
+                                                    .memoryCachePolicy(CachePolicy.ENABLED)
+                                                    .diskCachePolicy(CachePolicy.ENABLED)
+                                                    .networkCachePolicy(CachePolicy.ENABLED)
+                                                    .crossfade(true)
+                                                    .build(),
+                                                contentDescription = stringResource(R.string.cover_art),
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentScale = ContentScale.Crop
+                                            )
                                         }
-                                        Spacer(modifier = Modifier.width(16.dp))
                                     }
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = mediaMetadata?.title ?: stringResource(R.string.unknown),
-                                            style = MaterialTheme.typography.titleMedium,
-                                            color = adaptivePrimary,
-                                            fontWeight = FontWeight.Bold,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.sharedBounds(
-                                                rememberSharedContentState(key = "title"),
-                                                animatedVisibilityScope = this@AnimatedContent,
-                                                enter = fadeIn(tween(400)),
-                                                exit = fadeOut(tween(300))
-                                            )
-                                        )
-                                        Text(
-                                            text = mediaMetadata?.artists?.firstOrNull()?.name ?: stringResource(R.string.unknown),
-                                            style = MaterialTheme.typography.titleSmall,
-                                            color = adaptiveSecondary,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.sharedBounds(
-                                                rememberSharedContentState(key = "artist"),
-                                                animatedVisibilityScope = this@AnimatedContent,
-                                                enter = fadeIn(tween(400)),
-                                                exit = fadeOut(tween(300))
-                                            )
-                                        )
-                                    }
-
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
+                                    Spacer(modifier = Modifier.width(16.dp))
+                                }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = mediaMetadata?.title ?: stringResource(R.string.unknown),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = adaptivePrimary,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
                                         modifier = Modifier.sharedBounds(
-                                            rememberSharedContentState(key = "actionButtons"),
+                                            rememberSharedContentState(key = "title"),
                                             animatedVisibilityScope = this@AnimatedContent,
                                             enter = fadeIn(tween(400)),
                                             exit = fadeOut(tween(300))
                                         )
-                                    ) {
-                                        // Collapse to Cover Button
-                                        IconButton(onClick = { playerState = PlayerInternalState.COVER }) {
-                                            Icon(
-                                                painter = painterResource(R.drawable.close),
-                                                contentDescription = stringResource(R.string.collapse),
-                                                tint = adaptivePrimary,
-                                                modifier = Modifier.size(24.dp)
-                                            )
-                                        }
-
-                                        IconButton(
-                                            onClick = {
-                                                if (targetState == PlayerInternalState.QUEUE) {
-                                                    menuState.show {
-                                                        PlayerMenu(
-                                                            mediaMetadata = mediaMetadata,
-                                                            navController = navController,
-                                                            playerBottomSheetState = state,
-                                                            onShowDetailsDialog = {
-                                                                mediaMetadata?.id?.let {
-                                                                    bottomSheetPageState.show {
-                                                                        ShowMediaInfo(it) {
-                                                                            bottomSheetPageState.dismiss()
-                                                                        }
-                                                                    }
-                                                                }
-                                                            },
-                                                            onDismiss = menuState::dismiss
-                                                        )
-                                                    }
-                                                } else {
-                                                    menuState.show {
-                                                        LyricsMenu(
-                                                            lyricsEntity = currentLyrics,
-                                                            mediaMetadata = mediaMetadata!!,
-                                                            onDismiss = menuState::dismiss,
-                                                            navController = navController
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        ) {
-                                            Icon(
-                                                painter = painterResource(R.drawable.more_vert),
-                                                contentDescription = stringResource(R.string.more_options),
-                                                tint = adaptivePrimary,
-                                                modifier = Modifier.size(24.dp)
-                                            )
-                                        }
-                                    }
+                                    )
+                                    Text(
+                                        text = mediaMetadata?.artists?.firstOrNull()?.name ?: stringResource(R.string.unknown),
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = adaptiveSecondary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.sharedBounds(
+                                            rememberSharedContentState(key = "artist"),
+                                            animatedVisibilityScope = this@AnimatedContent,
+                                            enter = fadeIn(tween(400)),
+                                            exit = fadeOut(tween(300))
+                                        )
+                                    )
                                 }
 
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .animateEnterExit(
-                                            enter = fadeIn(tween(350, easing = FastOutSlowInEasing)),
-                                            exit = fadeOut(animationSpec = tween(250, easing = FastOutSlowInEasing))
-                                        )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.sharedBounds(
+                                        rememberSharedContentState(key = "actionButtons"),
+                                        animatedVisibilityScope = this@AnimatedContent,
+                                        enter = fadeIn(tween(400)),
+                                        exit = fadeOut(tween(300))
+                                    )
                                 ) {
-                                    if (targetState == PlayerInternalState.LYRICS) {
+                                    val isLiked = currentSong?.song?.liked == true
+
+                                    IconButton(onClick = playerConnection::toggleLike) {
+                                        Icon(
+                                            painter = painterResource(if (isLiked) R.drawable.favorite else R.drawable.favorite_border),
+                                            contentDescription = if (isLiked) stringResource(R.string.remove_from_library) else stringResource(R.string.add_to_library),
+                                            tint = if (isLiked) MaterialTheme.colorScheme.error else adaptivePrimary,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+
+                                    IconButton(
+                                        onClick = {
+                                            if (targetState == PlayerInternalState.QUEUE) {
+                                                menuState.show {
+                                                    PlayerMenu(
+                                                        mediaMetadata = mediaMetadata,
+                                                        navController = navController,
+                                                        playerBottomSheetState = state,
+                                                        onShowDetailsDialog = {
+                                                            mediaMetadata?.id?.let {
+                                                                bottomSheetPageState.show {
+                                                                    ShowMediaInfo(it) {
+                                                                        bottomSheetPageState.dismiss()
+                                                                    }
+                                                                }
+                                                            }
+                                                        },
+                                                        onDismiss = menuState::dismiss
+                                                    )
+                                                }
+                                            } else {
+                                                menuState.show {
+                                                    LyricsMenu(
+                                                        lyricsEntity = currentLyrics,
+                                                        mediaMetadata = mediaMetadata!!,
+                                                        onDismiss = menuState::dismiss,
+                                                        navController = navController
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(R.drawable.more_vert),
+                                            contentDescription = stringResource(R.string.more_options),
+                                            tint = adaptivePrimary,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                }
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .animateEnterExit(
+                                        enter = fadeIn(tween(350, easing = FastOutSlowInEasing)),
+                                        exit = fadeOut(animationSpec = tween(250, easing = FastOutSlowInEasing))
+                                    )
+                            ) {
+                                if (targetState == PlayerInternalState.LYRICS) {
+                                    Box(modifier = Modifier.fillMaxSize()) {
                                         LyricsV2(
                                             mediaMetadata = mediaMetadata,
                                             showLyrics = true,
                                             positionProvider = { sliderPosition ?: position },
                                             textColor = adaptivePrimary
                                         )
-                                    } else {
-                                        QueueV2(
-                                            navController = navController,
-                                            playerBottomSheetState = state,
-                                            modifier = Modifier.fillMaxSize(),
-                                            onControlsVisibilityChange = { isVisible ->
-                                                controlsVisible = isVisible
-                                            }
-                                        )
+                                        
+                                        Box(
+                                            modifier = Modifier
+                                                .align(Alignment.BottomEnd)
+                                                .padding(16.dp)
+                                                .size(40.dp)
+                                                .clip(CircleShape)
+                                                .background(adaptivePrimary.copy(alpha = 0.15f))
+                                                .clickable { controlsVisible = !controlsVisible },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                painter = painterResource(if (controlsVisible) R.drawable.expand_more else R.drawable.expand_less),
+                                                contentDescription = "Toggle Fullscreen",
+                                                tint = adaptivePrimary,
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                        }
                                     }
+                                } else {
+                                    QueueV2(
+                                        navController = navController,
+                                        playerBottomSheetState = state,
+                                        modifier = Modifier.fillMaxSize(),
+                                        onControlsVisibilityChange = { isVisible ->
+                                            controlsVisible = isVisible
+                                        }
+                                    )
                                 }
                             }
                         }
@@ -1163,6 +1030,7 @@ fun PlayerV2(
                     ) {
                         val currentPos = sliderPosition ?: position
 
+                        // Dynamic Slider rendering based on SliderStyle setting
                         when (sliderStyle) {
                             SliderStyle.EXPANDING -> {
                                 val trackInteractionSource = remember { MutableInteractionSource() }
@@ -1550,14 +1418,10 @@ fun PlayerV2(
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val isLyricsActive = playerState == PlayerInternalState.LYRICS || playerState == PlayerInternalState.LYRICS_PREVIEW
+                        val isLyricsActive = playerState == PlayerInternalState.LYRICS
                         IconButton(
                             onClick = {
-                                playerState = when (playerState) {
-                                    PlayerInternalState.LYRICS -> PlayerInternalState.COVER
-                                    PlayerInternalState.LYRICS_PREVIEW -> PlayerInternalState.LYRICS
-                                    else -> PlayerInternalState.LYRICS_PREVIEW
-                                }
+                                playerState = if (isLyricsActive) PlayerInternalState.COVER else PlayerInternalState.LYRICS
                             }
                         ) {
                             Icon(
@@ -1593,14 +1457,10 @@ fun PlayerV2(
                             }
                         }
 
-                        val isQueueActive = playerState == PlayerInternalState.QUEUE || playerState == PlayerInternalState.QUEUE_PREVIEW
+                        val isQueueActive = playerState == PlayerInternalState.QUEUE
                         IconButton(
                             onClick = {
-                                playerState = when (playerState) {
-                                    PlayerInternalState.QUEUE -> PlayerInternalState.COVER
-                                    PlayerInternalState.QUEUE_PREVIEW -> PlayerInternalState.QUEUE
-                                    else -> PlayerInternalState.QUEUE_PREVIEW
-                                }
+                                playerState = if (isQueueActive) PlayerInternalState.COVER else PlayerInternalState.QUEUE
                             }
                         ) {
                             Icon(
