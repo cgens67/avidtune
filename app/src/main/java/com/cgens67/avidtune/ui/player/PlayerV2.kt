@@ -1,3 +1,5 @@
+--- START OF FILE app/src/main/java/com/cgens67/avidtune/ui/player/PlayerV2.kt ---
+
 @file:OptIn(
     ExperimentalMaterial3Api::class,
     ExperimentalMaterial3ExpressiveApi::class,
@@ -93,6 +95,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -122,6 +125,7 @@ import com.cgens67.avidtune.constants.ShowPlayerThumbnailShadowKey
 import com.cgens67.avidtune.constants.SliderStyle
 import com.cgens67.avidtune.constants.SliderStyleKey
 import com.cgens67.avidtune.extensions.togglePlayPause
+import com.cgens67.avidtune.extensions.metadata
 import com.cgens67.avidtune.together.TogetherRole
 import com.cgens67.avidtune.together.TogetherSessionState
 import com.cgens67.avidtune.ui.component.AppConfig
@@ -721,7 +725,7 @@ fun PlayerV2(
                                                         verticalAlignment = Alignment.CenterVertically
                                                     ) {
                                                         Text(
-                                                            text = stringResource(R.string.up_next),
+                                                            text = "Up next",
                                                             style = MaterialTheme.typography.titleMedium,
                                                             color = Color.White,
                                                             fontWeight = FontWeight.Bold
@@ -749,7 +753,7 @@ fun PlayerV2(
                                                     if (nextSongs.isEmpty()) {
                                                         Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                                                             Text(
-                                                                text = stringResource(R.string.no_upcoming_songs),
+                                                                text = "No upcoming songs",
                                                                 color = Color.White.copy(alpha = 0.6f),
                                                                 style = MaterialTheme.typography.bodyMedium
                                                             )
