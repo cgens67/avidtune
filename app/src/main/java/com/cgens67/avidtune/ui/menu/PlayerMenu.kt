@@ -874,21 +874,12 @@ fun ColumnScope.PlayerMenu(
                             },
                             onClick = {
                                 refetchIconDegree -= 360
-                                val currentPos = playerConnection.player.currentPosition
-                                val currentIdx = playerConnection.player.currentMediaItemIndex
-                                playerConnection.player.stop()
-
                                 coroutineScope.launch(Dispatchers.IO) {
-                                    delay(100) // Give ExoPlayer time to release cache file locks
                                     try {
-                                        // Clear DownloadUtil cache
                                         val field = downloadUtil.javaClass.getDeclaredField("songUrlCache")
                                         field.isAccessible = true
                                         val cacheMap = field.get(downloadUtil) as? java.util.HashMap<*, *>
                                         cacheMap?.remove(mediaMetadata.id)
-
-                                        // Clear MusicService active playback cache
-                                        playerConnection.service.songUrlCache.remove(mediaMetadata.id)
 
                                         val playerCache = playerConnection.service.playerCache
                                         val keysToRemove = playerCache.keys.filter { it.contains(mediaMetadata.id) }
@@ -899,6 +890,9 @@ fun ColumnScope.PlayerMenu(
                                         e.printStackTrace()
                                     }
                                     withContext(Dispatchers.Main) {
+                                        val currentPos = playerConnection.player.currentPosition
+                                        val currentIdx = playerConnection.player.currentMediaItemIndex
+                                        playerConnection.player.stop()
                                         playerConnection.player.seekTo(currentIdx, currentPos)
                                         playerConnection.player.prepare()
                                         playerConnection.player.play()
