@@ -2,6 +2,7 @@
 
 package com.cgens67.avidtune.ui.menu
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.widget.Toast
@@ -142,7 +143,8 @@ fun ColumnScope.PlayerMenu(
     val context = LocalContext.current
     val database = LocalDatabase.current
     val playerConnection = LocalPlayerConnection.current ?: return
-    val playerVolume = playerConnection.service.playerVolume.collectAsState()
+    val playerVolume by playerConnection.service.playerVolume.collectAsState()
+    val isMuted by playerConnection.isMuted.collectAsState()
     val activityResultLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { }
     val librarySong by database.song(mediaMetadata.id).collectAsState(initial = null)
@@ -426,9 +428,6 @@ fun ColumnScope.PlayerMenu(
     }
 
     if (isQueueTrigger != true) {
-        var isMuted by remember { mutableStateOf(false) }
-        var previousVolume by remember { mutableFloatStateOf(playerVolume.value) }
-
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -448,24 +447,16 @@ fun ColumnScope.PlayerMenu(
                         .size(28.dp)
                         .clip(CircleShape)
                         .clickable {
-                            isMuted = !isMuted
-                            if (isMuted) {
-                                previousVolume = playerVolume.value
-                                playerConnection.service.playerVolume.value = 0f
-                            } else {
-                                playerConnection.service.playerVolume.value = previousVolume
-                            }
+                            playerConnection.toggleMute()
                         },
                 )
 
                 Slider(
-                    value = if (isMuted) 0f else playerVolume.value,
+                    value = if (isMuted) 0f else playerVolume,
                     onValueChange = { volume ->
-                        if (!isMuted) {
-                            playerConnection.service.playerVolume.value = volume
-                            previousVolume = volume
-                        }
+                        playerConnection.setVolume(volume)
                     },
+                    valueRange = 0f..1f,
                     modifier = Modifier
                         .weight(1f)
                         .height(36.dp),
