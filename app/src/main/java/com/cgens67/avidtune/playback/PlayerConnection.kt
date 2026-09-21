@@ -248,12 +248,10 @@ class PlayerConnection(
         }
     }
 
-
     fun refreshLikeStatus() {
         updateScope.launch(Dispatchers.IO) {
             updateLikeStatusForCurrentSong()
         }
-
     }
 
     private fun handlePlayerEvents(player: Player, events: Player.Events) {
@@ -340,7 +338,6 @@ class PlayerConnection(
             if (kotlin.math.abs(currentPos - lastPosition) > 500L ||
                 _duration.value != totalDuration
             ) {
-
                 _currentPosition.value = currentPos
                 _duration.value = totalDuration
                 _bufferedPosition.value = buffered
@@ -366,7 +363,6 @@ class PlayerConnection(
 
         widgetUpdateHandler.postDelayed(pendingWidgetUpdate!!, WIDGET_UPDATE_DEBOUNCE)
     }
-
 
     fun playQueue(queue: Queue) {
         service.playQueue(queue)
@@ -416,7 +412,6 @@ class PlayerConnection(
         }
     }
 
-
     fun isCurrentSongLiked(): Boolean {
         return _isLiked.value
     }
@@ -430,18 +425,18 @@ class PlayerConnection(
                     val targetVol = service.playerVolume.value
                     val steps = 10
                     val delayMs = 150L / steps
-                    
+
                     for (i in steps downTo 1) {
                         player.volume = targetVol * (i.toFloat() / steps)
                         delay(delayMs)
                     }
-                    
+
                     if (player.hasNextMediaItem()) {
                         player.seekToNext()
                         player.prepare()
                         player.playWhenReady = true
                     }
-                    
+
                     for (i in 1..steps) {
                         player.volume = targetVol * (i.toFloat() / steps)
                         delay(delayMs)
@@ -470,18 +465,18 @@ class PlayerConnection(
                     val targetVol = service.playerVolume.value
                     val steps = 10
                     val delayMs = 150L / steps
-                    
+
                     for (i in steps downTo 1) {
                         player.volume = targetVol * (i.toFloat() / steps)
                         delay(delayMs)
                     }
-                    
+
                     if (player.hasPreviousMediaItem() || player.currentPosition > 3000) {
                         player.seekToPrevious()
                         player.prepare()
                         player.playWhenReady = true
                     }
-                    
+
                     for (i in 1..steps) {
                         player.volume = targetVol * (i.toFloat() / steps)
                         delay(delayMs)
@@ -521,7 +516,7 @@ class PlayerConnection(
         try {
             val newPlayWhenReady = !player.playWhenReady
             Log.d(TAG, "Toggling play/pause to: $newPlayWhenReady")
-            
+
             if (audioFadingEnabled) {
                 fadeJob?.cancel()
                 fadeJob = scope.launch {
@@ -603,8 +598,12 @@ class PlayerConnection(
         try {
             val clampedVolume = volume.coerceIn(0.0f, 1.0f)
             Log.d(TAG, "Setting volume to: $clampedVolume")
+            service.playerVolume.value = clampedVolume
             player.volume = clampedVolume
             _volume.value = clampedVolume
+            if (clampedVolume > 0f && _isMuted.value) {
+                _isMuted.value = false
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error setting volume", e)
             reportException(e)
@@ -619,7 +618,8 @@ class PlayerConnection(
             if (newMuteState) {
                 player.volume = 0.0f
             } else {
-                player.volume = _volume.value
+                val restored = service.playerVolume.value.takeIf { it > 0f } ?: _volume.value.takeIf { it > 0f } ?: 1.0f
+                player.volume = restored
             }
 
             _isMuted.value = newMuteState
@@ -676,8 +676,6 @@ class PlayerConnection(
         try {
             val currentSongId = player.currentMediaItem?.mediaId
             if (currentSongId != null) {
-                // Consultar la base de datos para obtener el estado actual del like
-                // Similar a como lo hace Player.kt con currentSong?.song?.liked
                 val songWithInfo = database.song(currentSongId).first()
                 _isLiked.value = songWithInfo?.song?.liked ?: false
                 Timber.tag(TAG).d("Like status updated for song $currentSongId: ${_isLiked.value}")
@@ -690,6 +688,7 @@ class PlayerConnection(
             _isLiked.value = false
         }
     }
+
     override fun onTimelineChanged(timeline: Timeline, reason: Int) {
         Log.d(TAG, "Timeline changed (reason: $reason)")
         _queueWindows.value = player.getQueueWindows()
