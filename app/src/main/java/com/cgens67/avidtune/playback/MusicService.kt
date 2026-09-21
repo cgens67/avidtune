@@ -1131,6 +1131,12 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     override fun onPlayerError(error: PlaybackException) {
         super.onPlayerError(error)
         Log.e(TAG, "Player error: ${error.errorCodeName}, message: ${error.message}", error)
+        
+        // FIX: Clear stale VisitorData so a fresh one is generated for the next track
+        runBlocking {
+            dataStore.edit { it.remove(com.cgens67.avidtune.constants.VisitorDataKey) }
+        }
+
         val isConnectionError = (error.cause?.cause is PlaybackException) &&
             (error.cause?.cause as PlaybackException).errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED
         if (!isNetworkConnected.value || isConnectionError) {
@@ -1297,6 +1303,12 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 return@Factory dataSpec.withUri(streamUrl.toUri())
             } catch (e: Exception) {
                 Timber.tag(ytLogTag).e(e, "YouTube playback error, trying JossRed as fallback")
+                
+                // FIX: Invalidate stale VisitorData on 403 / IO_UNSPECIFIED errors
+                runBlocking {
+                    dataStore.edit { it.remove(com.cgens67.avidtune.constants.VisitorDataKey) }
+                }
+
                 val useAlternativeSource = runBlocking {
                     dataStore.data.map { preferences ->
                         val JossRedMultimedia = booleanPreferencesKey("JossRedMultimedia")
