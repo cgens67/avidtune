@@ -107,8 +107,12 @@ import androidx.compose.ui.unit.sp
 import androidx.media3.common.C
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import coil.request.CachePolicy
+import coil.request.ImageRequest
 import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
+import com.cgens67.avidtune.constants.CoverResolution
+import com.cgens67.avidtune.constants.CoverResolutionKey
 import com.cgens67.avidtune.constants.HidePlayerThumbnailKey
 import com.cgens67.avidtune.constants.MinimalPlayerDesignKey
 import com.cgens67.avidtune.constants.PlayerBackgroundStyle
@@ -419,6 +423,12 @@ fun PlayerV2(
         thumbnailCornerRadius = AppConfig.getThumbnailCornerRadius(context)
     }
 
+    // Album cover resolution setting
+    val (coverResolution) = rememberEnumPreference(
+        key = CoverResolutionKey,
+        defaultValue = CoverResolution.RES_1080
+    )
+
     val sliderStyle by rememberEnumPreference<SliderStyle>(
         key = SliderStyleKey,
         defaultValue = SliderStyle.EXPANDING
@@ -638,7 +648,13 @@ fun PlayerV2(
                                     }
                                 } else {
                                     AsyncImage(
-                                        model = mediaMetadata?.thumbnailUrl?.resize(1200, 1200),
+                                        model = ImageRequest.Builder(LocalContext.current)
+                                            .data(mediaMetadata?.thumbnailUrl?.resize(coverResolution.size, coverResolution.size))
+                                            .memoryCachePolicy(CachePolicy.ENABLED)
+                                            .diskCachePolicy(CachePolicy.ENABLED)
+                                            .networkCachePolicy(CachePolicy.ENABLED)
+                                            .crossfade(true)
+                                            .build(),
                                         contentDescription = stringResource(R.string.cover_art),
                                         modifier = Modifier.fillMaxSize(),
                                         contentScale = ContentScale.Crop
@@ -851,7 +867,13 @@ fun PlayerV2(
                                             }
                                         } else {
                                             AsyncImage(
-                                                model = mediaMetadata?.thumbnailUrl?.resize(1200, 1200),
+                                                model = ImageRequest.Builder(LocalContext.current)
+                                                    .data(mediaMetadata?.thumbnailUrl?.resize(coverResolution.size, coverResolution.size))
+                                                    .memoryCachePolicy(CachePolicy.ENABLED)
+                                                    .diskCachePolicy(CachePolicy.ENABLED)
+                                                    .networkCachePolicy(CachePolicy.ENABLED)
+                                                    .crossfade(true)
+                                                    .build(),
                                                 contentDescription = stringResource(R.string.cover_art),
                                                 modifier = Modifier.fillMaxSize(),
                                                 contentScale = ContentScale.Crop
@@ -1313,7 +1335,8 @@ fun PlayerV2(
                             Spacer(modifier = Modifier.height(24.dp))
 
                             // Audio Volume Row - Synchronized with Player Menu Volume
-                            val currentEffectiveVolume = if (isMuted) 0f else playerVolume
+                            var volumeSliderPosition by remember { mutableStateOf<Float?>(null) }
+                            val currentEffectiveVolume = volumeSliderPosition ?: (if (isMuted) 0f else playerVolume)
                             val volumeInteractionSource = remember { MutableInteractionSource() }
                             val isVolDragged by volumeInteractionSource.collectIsDraggedAsState()
                             val isVolPressed by volumeInteractionSource.collectIsPressedAsState()
@@ -1330,23 +1353,28 @@ fun PlayerV2(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
-                                    painter = painterResource(R.drawable.volume_off),
+                                    painter = painterResource(if (isMuted) R.drawable.volume_off else R.drawable.volume_mute),
                                     contentDescription = stringResource(R.string.volume_down),
                                     tint = adaptiveSecondary,
                                     modifier = Modifier
                                         .size(20.dp)
-                                        .clickable { playerConnection.toggleMute() }
+                                        .clickable {
+                                            volumeSliderPosition = null
+                                            playerConnection.toggleMute()
+                                        }
                                 )
                                 Spacer(modifier = Modifier.width(16.dp))
 
                                 Slider(
-                                    value = currentEffectiveVolume,
+                                    value = currentEffectiveVolume.coerceIn(0f, 1f),
                                     onValueChange = { newValue ->
-                                        if (isMuted) {
-                                            playerConnection.toggleMute()
-                                        }
+                                        volumeSliderPosition = newValue
                                         playerConnection.setVolume(newValue)
                                     },
+                                    onValueChangeFinished = {
+                                        volumeSliderPosition = null
+                                    },
+                                    valueRange = 0f..1f,
                                     interactionSource = volumeInteractionSource,
                                     thumb = { Spacer(modifier = Modifier.size(0.dp)) },
                                     track = { sliderState ->
@@ -1369,7 +1397,10 @@ fun PlayerV2(
                                     tint = adaptiveSecondary,
                                     modifier = Modifier
                                         .size(24.dp)
-                                        .clickable { playerConnection.setVolume(1f) }
+                                        .clickable {
+                                            volumeSliderPosition = null
+                                            playerConnection.setVolume(1f)
+                                        }
                                 )
                             }
                         }
