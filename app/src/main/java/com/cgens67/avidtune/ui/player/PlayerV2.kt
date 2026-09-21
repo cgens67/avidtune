@@ -1353,7 +1353,7 @@ fun PlayerV2(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
-                                    painter = painterResource(if (isMuted) R.drawable.volume_off else R.drawable.volume_mute),
+                                    painter = painterResource(if (isMuted) R.drawable.volume_off else R.drawable.volume_up),
                                     contentDescription = stringResource(R.string.volume_down),
                                     tint = adaptiveSecondary,
                                     modifier = Modifier
