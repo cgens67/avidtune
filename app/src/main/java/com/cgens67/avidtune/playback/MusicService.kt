@@ -214,8 +214,6 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     var queueTitle: String? = null
     val currentMediaMetadata = MutableStateFlow<com.cgens67.avidtune.models.MediaMetadata?>(null)
 
-    val songUrlCache = HashMap<String, Pair<String, Long>>()
-
     private val currentSong = currentMediaMetadata
         .flatMapLatest { mediaMetadata ->
             database.song(mediaMetadata?.id)
@@ -1227,6 +1225,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         )
 
     private fun createDataSourceFactory(): DataSource.Factory {
+        val songUrlCache = HashMap<String, Pair<String, Long>>()
         return ResolvingDataSource.Factory(createCacheDataSource()) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")
             if (downloadCache.isCached(mediaId, dataSpec.position, if (dataSpec.length >= 0) dataSpec.length else 1) ||
