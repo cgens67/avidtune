@@ -72,6 +72,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialogDefaults
@@ -916,7 +917,7 @@ class MainActivity : ComponentActivity() {
                                         )
 
                                         if (shouldShowTopBar) {
-                                        AnimatedVisibility(
+                                        SimpleAnimatedVisibility(
                                             visible = shouldShowTopBar,
                                             enter = fadeIn(animationSpec = tween(400)) + slideInVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { -it },
                                             exit = fadeOut(animationSpec = tween(300)) + slideOutVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { -it }
@@ -1366,7 +1367,7 @@ class MainActivity : ComponentActivity() {
                                                 modifier = Modifier.fillMaxSize()
                                             )
 
-                                            AnimatedVisibility(
+                                            SimpleAnimatedVisibility(
                                                 visible = showFullscreenLyrics,
                                                 enter = slideInVertically(
                                                     initialOffsetY = { it },
@@ -1380,7 +1381,7 @@ class MainActivity : ComponentActivity() {
                                                 // Usar directamente LyricsScreen que ya es una pantalla completa
                                                 val playerConnection = LocalPlayerConnection.current
                                                 val mediaMetadata by playerConnection?.mediaMetadata?.collectAsState()
-                                                    ?: return@AnimatedVisibility
+                                                    ?: return@SimpleAnimatedVisibility
 
                                                 if (mediaMetadata != null) {
                                                     Lyrics(
@@ -2053,4 +2054,19 @@ fun ProfileIconWithUpdateBadge(
             }
         }
     }
+}
+
+@Composable
+fun SimpleAnimatedVisibility(
+    visible: Boolean,
+    enter: androidx.compose.animation.EnterTransition,
+    exit: androidx.compose.animation.ExitTransition,
+    content: @Composable androidx.compose.animation.AnimatedVisibilityScope.() -> Unit
+) {
+    androidx.compose.animation.AnimatedVisibility(
+        visible = visible,
+        enter = enter,
+        exit = exit,
+        content = content
+    )
 }
