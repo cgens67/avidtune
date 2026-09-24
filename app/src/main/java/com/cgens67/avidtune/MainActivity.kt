@@ -140,6 +140,7 @@ import androidx.compose.ui.util.fastFirstOrNull
 import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.zIndex
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
@@ -248,7 +249,6 @@ import timber.log.Timber
 import java.net.URL
 import java.net.URLDecoder
 import java.net.URLEncoder
-import androidx.compose.ui.zIndex
 import javax.inject.Inject
 
 @Suppress("DEPRECATION", "ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
@@ -857,7 +857,8 @@ class MainActivity : ComponentActivity() {
                         LocalSyncUtils provides syncUtils,
                     ) {
                         Row(modifier = Modifier.fillMaxSize()) {
-                            AnimatedVisibility(
+                            val rowScope = this@Row
+                            rowScope.AnimatedVisibility(
                                 visible = isLandscape && shouldShowNavigationBar,
                                 enter = slideInHorizontally { -it } + fadeIn(),
                                 exit = slideOutHorizontally { -it } + fadeOut()
