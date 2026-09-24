@@ -1,6 +1,8 @@
 package com.cgens67.avidtune.ui.screens
 
 import android.annotation.SuppressLint
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -68,7 +70,6 @@ import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -225,12 +226,6 @@ fun AlbumScreen(
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val layoutDirection = LocalLayoutDirection.current
-
-    val transparentAppBar by remember {
-        derivedStateOf {
-            lazyListState.firstVisibleItemIndex == 0 && lazyListState.firstVisibleItemScrollOffset < 200
-        }
-    }
 
     var thumbnailCornerRadius by remember { mutableFloatStateOf(16f) }
     LaunchedEffect(Unit) {
@@ -699,7 +694,7 @@ fun AlbumScreen(
                     }
                 }
             } else {
-                // Portrait Layout (preserved)
+                // Portrait Layout
                 LazyColumn(
                     state = lazyListState,
                     contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues(),
@@ -1051,22 +1046,15 @@ fun AlbumScreen(
                         text = pluralStringResource(R.plurals.n_song, count, count),
                         style = MaterialTheme.typography.titleLarge
                     )
-                } else if (!transparentAppBar && !isLandscape) {
-                    Text(
-                        text = albumData?.album?.title.orEmpty(),
-                        style = MaterialTheme.typography.titleLarge,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
                 }
             },
             navigationIcon = {
                 Surface(
                     shape = CircleShape,
-                    color = if (transparentAppBar && !selection) MaterialTheme.colorScheme.surface.copy(alpha = 0.7f) else Color.Transparent,
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                     modifier = Modifier.padding(start = 8.dp)
                 ) {
-                    IconButton(
+                    com.cgens67.avidtune.ui.component.IconButton(
                         onClick = {
                             if (selection) {
                                 selection = false
@@ -1074,12 +1062,18 @@ fun AlbumScreen(
                                 navController.navigateUp()
                             }
                         },
+                        onLongClick = {
+                            if (!selection) {
+                                navController.backToMain()
+                            }
+                        },
                     ) {
                         Icon(
                             painter = painterResource(
                                 if (selection) R.drawable.close else R.drawable.arrow_back
                             ),
-                            contentDescription = null
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -1121,14 +1115,37 @@ fun AlbumScreen(
                             contentDescription = null
                         )
                     }
+                } else {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.padding(end = 8.dp)
+                    ) {
+                        IconButton(
+                            onClick = {
+                                val link = albumData?.album?.playlistId?.let { "https://music.youtube.com/playlist?list=$it" }
+                                    ?: albumData?.album?.id?.let { "https://music.youtube.com/browse/$it" }
+                                if (link != null) {
+                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                    val clip = ClipData.newPlainText("Album Link", link)
+                                    clipboard.setPrimaryClip(clip)
+                                    Toast.makeText(context, R.string.link_copied, Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                        ) {
+                            Icon(
+                                painterResource(R.drawable.link),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
             },
-            colors = if (transparentAppBar && !selection) {
-                TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
-            } else {
-                TopAppBarDefaults.topAppBarColors()
-            },
-            scrollBehavior = scrollBehavior
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = Color.Transparent,
+                scrolledContainerColor = Color.Transparent
+            )
         )
     }
 }
