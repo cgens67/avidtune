@@ -38,8 +38,10 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
@@ -860,8 +862,8 @@ class MainActivity : ComponentActivity() {
                         Row(modifier = Modifier.fillMaxSize()) {
                             AnimatedVisibility(
                                 visible = isLandscape && shouldShowNavigationBar,
-                                enter = slideInHorizontally { -it } + fadeIn(),
-                                exit = slideOutHorizontally { -it } + fadeOut()
+                                enter = expandHorizontally() + slideInHorizontally { -it } + fadeIn(),
+                                exit = shrinkHorizontally() + slideOutHorizontally { -it } + fadeOut()
                             ) {
                                 NavigationRail(
                                     modifier = Modifier.zIndex(1f).windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Start + WindowInsetsSides.Vertical)),
