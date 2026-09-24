@@ -10,8 +10,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -152,16 +150,8 @@ fun ColumnScope.PlayerMenu(
     val librarySong by database.song(mediaMetadata.id).collectAsState(initial = null)
     val coroutineScope = rememberCoroutineScope()
 
-    val downloadUtil = LocalDownloadUtil.current
-    val download by downloadUtil.getDownload(mediaMetadata.id)
+    val download by LocalDownloadUtil.current.getDownload(mediaMetadata.id)
         .collectAsState(initial = null)
-
-    var refetchIconDegree by remember { mutableFloatStateOf(0f) }
-    val rotationAnimation by animateFloatAsState(
-        targetValue = refetchIconDegree,
-        animationSpec = tween(durationMillis = 800),
-        label = "",
-    )
 
     val artists =
         remember(mediaMetadata.artists) {
@@ -859,49 +849,6 @@ fun ColumnScope.PlayerMenu(
                             )
                         )
                     }
-
-                    add(
-                        MenuItemData(
-                            title = { Text(text = "Refetch Stream from YouTube Music") },
-                            icon = {
-                                Icon(
-                                    painter = painterResource(R.drawable.sync),
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .size(24.dp)
-                                        .graphicsLayer(rotationZ = rotationAnimation)
-                                )
-                            },
-                            onClick = {
-                                refetchIconDegree -= 360
-                                coroutineScope.launch(Dispatchers.IO) {
-                                    try {
-                                        val field = downloadUtil.javaClass.getDeclaredField("songUrlCache")
-                                        field.isAccessible = true
-                                        val cacheMap = field.get(downloadUtil) as? java.util.HashMap<*, *>
-                                        cacheMap?.remove(mediaMetadata.id)
-
-                                        val playerCache = playerConnection.service.playerCache
-                                        val keysToRemove = playerCache.keys.filter { it.contains(mediaMetadata.id) }
-                                        keysToRemove.forEach { key ->
-                                            playerCache.removeResource(key)
-                                        }
-                                    } catch (e: Exception) {
-                                        e.printStackTrace()
-                                    }
-                                    withContext(Dispatchers.Main) {
-                                        val currentPos = playerConnection.player.currentPosition
-                                        val currentIdx = playerConnection.player.currentMediaItemIndex
-                                        playerConnection.player.stop()
-                                        playerConnection.player.seekTo(currentIdx, currentPos)
-                                        playerConnection.player.prepare()
-                                        playerConnection.player.play()
-                                        onDismiss()
-                                    }
-                                }
-                            }
-                        )
-                    )
 
                     add(
                         MenuItemData(
