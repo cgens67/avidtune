@@ -507,7 +507,8 @@ fun BottomSheetPlayer(
                             playerBackground = playerBackground,
                             mediaMetadata = mediaMetadata,
                             gradientColors = gradientColors,
-                            disableBlur = disableBlur
+                            disableBlur = disableBlur,
+                            expansionProgress = state.progress.coerceIn(0f, 1f)
                         )
                         if (playerBackground != PlayerBackgroundStyle.APPLE_MUSIC) {
                             Box(
@@ -565,7 +566,8 @@ fun BottomSheetPlayer(
                         playerBackground = playerBackground,
                         mediaMetadata = mediaMetadata,
                         gradientColors = gradientColors,
-                        disableBlur = disableBlur
+                        disableBlur = disableBlur,
+                        expansionProgress = state.progress.coerceIn(0f, 1f)
                     )
                     if (playerBackground != PlayerBackgroundStyle.APPLE_MUSIC) {
                         Box(
@@ -946,7 +948,8 @@ fun PlayerBackground(
     playerBackground: PlayerBackgroundStyle,
     mediaMetadata: MediaMetadata?,
     gradientColors: List<Color>,
-    disableBlur: Boolean
+    disableBlur: Boolean,
+    expansionProgress: Float = 1f
 ) {
     val context = LocalContext.current
     Box(modifier = Modifier.fillMaxSize()) {
@@ -1026,16 +1029,7 @@ fun PlayerBackground(
                 ) { thumbnailUrl ->
                     if (thumbnailUrl != null) {
                         Box(modifier = Modifier.fillMaxSize()) {
-                            AsyncImage(
-                                model = ImageRequest.Builder(context)
-                                    .data(thumbnailUrl)
-                                    .allowHardware(true)
-                                    .build(),
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
-                                modifier = Modifier.fillMaxSize()
-                            )
+                            val blurAmount = if (!disableBlur) 80.dp else 0.dp
                             AsyncImage(
                                 model = ImageRequest.Builder(context)
                                     .data(thumbnailUrl)
@@ -1046,36 +1040,17 @@ fun PlayerBackground(
                                 filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .let { if (!disableBlur) it.blur(48.dp) else it }
-                                    .graphicsLayer(
-                                        alpha = 1f, 
-                                        clip = true,
-                                        compositingStrategy = CompositingStrategy.Offscreen
-                                    )
-                                    .drawWithContent {
-                                        drawContent()
-                                        drawRect(
-                                            brush = Brush.verticalGradient(
-                                                0.4f to Color.Transparent,
-                                                0.6f to Color.Black
-                                            ),
-                                            blendMode = BlendMode.DstIn
-                                        )
+                                    .graphicsLayer {
+                                        scaleX = 1.25f
+                                        scaleY = 1.25f
+                                        alpha = expansionProgress
                                     }
+                                    .blur(blurAmount)
                             )
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .background(
-                                        Brush.verticalGradient(
-                                            listOf(
-                                                Color.Transparent,
-                                                Color.Black.copy(alpha = 0.3f),
-                                                Color.Black.copy(alpha = 0.7f)
-                                            ),
-                                            startY = 0.4f
-                                        )
-                                    )
+                                    .background(Color.Black.copy(alpha = 0.4f * expansionProgress))
                             )
                         }
                     }
