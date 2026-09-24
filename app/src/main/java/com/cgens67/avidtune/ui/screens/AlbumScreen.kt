@@ -183,6 +183,8 @@ fun AlbumScreen(
     val albumWithSongs by viewModel.albumWithSongs.collectAsState()
     val otherVersions by viewModel.otherVersions.collectAsState()
     val albumDescription by viewModel.albumDescription.collectAsState()
+    val isTranslated by viewModel.isTranslated.collectAsState()
+    val canTranslate by viewModel.canTranslate.collectAsState()
 
     val wrappedSongs = albumWithSongs?.songs?.map { item -> ItemWrapper(item) }?.toMutableList()
     var selection by remember { mutableStateOf(false) }
@@ -740,6 +742,9 @@ fun AlbumScreen(
                             downloadState = downloadState,
                             isDescriptionLoading = isDescriptionLoading,
                             albumDescription = albumDescription,
+                            isTranslated = isTranslated,
+                            canTranslate = canTranslate,
+                            onToggleTranslation = viewModel::toggleDescriptionTranslation,
                             navController = navController,
                             onPlayClick = onPlayClick,
                             onShuffleClick = onShuffleClick,
@@ -804,6 +809,9 @@ fun AlbumScreen(
                             downloadState = downloadState,
                             isDescriptionLoading = isDescriptionLoading,
                             albumDescription = albumDescription,
+                            isTranslated = isTranslated,
+                            canTranslate = canTranslate,
+                            onToggleTranslation = viewModel::toggleDescriptionTranslation,
                             navController = navController,
                             onPlayClick = onPlayClick,
                             onShuffleClick = onShuffleClick,
@@ -953,6 +961,9 @@ private fun AlbumHeaderContent(
     downloadState: Int,
     isDescriptionLoading: Boolean,
     albumDescription: String?,
+    isTranslated: Boolean,
+    canTranslate: Boolean,
+    onToggleTranslation: () -> Unit,
     navController: NavController,
     onPlayClick: () -> Unit,
     onShuffleClick: () -> Unit,
@@ -963,6 +974,8 @@ private fun AlbumHeaderContent(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val horizontalPadding = if (artworkSize <= 160.dp) 20.dp else 32.dp
+
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -1019,7 +1032,7 @@ private fun AlbumHeaderContent(
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
-                .padding(horizontal = 24.dp)
+                .padding(horizontal = horizontalPadding)
                 .padding(top = 12.dp)
         )
 
@@ -1043,7 +1056,7 @@ private fun AlbumHeaderContent(
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
             modifier = Modifier
-                .padding(horizontal = 24.dp)
+                .padding(horizontal = horizontalPadding)
                 .padding(top = 4.dp)
         )
 
@@ -1063,7 +1076,7 @@ private fun AlbumHeaderContent(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
             modifier = Modifier
-                .padding(horizontal = 24.dp)
+                .padding(horizontal = horizontalPadding)
                 .padding(top = 4.dp)
         )
 
@@ -1071,7 +1084,7 @@ private fun AlbumHeaderContent(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 32.dp)
+                .padding(horizontal = horizontalPadding)
                 .padding(top = 14.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
@@ -1114,7 +1127,7 @@ private fun AlbumHeaderContent(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 32.dp)
+                .padding(horizontal = horizontalPadding)
                 .padding(top = 6.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
@@ -1151,7 +1164,7 @@ private fun AlbumHeaderContent(
 
         // Description
         if (isDescriptionLoading) {
-            ShimmerHost(modifier = Modifier.padding(horizontal = 32.dp, vertical = 12.dp)) {
+            ShimmerHost(modifier = Modifier.padding(horizontal = horizontalPadding, vertical = 12.dp)) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Spacer(modifier = Modifier.fillMaxWidth().height(12.dp).background(MaterialTheme.colorScheme.onSurface, RoundedCornerShape(6.dp)))
                     Spacer(modifier = Modifier.fillMaxWidth(0.7f).height(12.dp).background(MaterialTheme.colorScheme.onSurface, RoundedCornerShape(6.dp)))
@@ -1159,19 +1172,48 @@ private fun AlbumHeaderContent(
             }
         } else {
             var isDescExpanded by rememberSaveable { mutableStateOf(false) }
-            val staticDesc = "${albumData.album.title} is an album by ${albumData.artists.joinToString { it.name }}."
+            val staticDesc = "${albumData.album.title} • ${stringResource(R.string.album_text)} ${stringResource(R.string.by_text)} ${albumData.artists.joinToString { it.name }}."
             val desc = albumDescription ?: staticDesc
+
             Text(
                 text = desc,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
-                    .padding(horizontal = 32.dp, vertical = 8.dp)
+                    .padding(horizontal = horizontalPadding)
+                    .padding(top = 8.dp)
+                    .fillMaxWidth()
                     .clickable { isDescExpanded = !isDescExpanded }
                     .animateContentSize(),
-                maxLines = if (isDescExpanded) Int.MAX_VALUE else 2,
+                maxLines = if (isDescExpanded) Int.MAX_VALUE else 3,
                 overflow = TextOverflow.Ellipsis
             )
+
+            if (canTranslate || isTranslated) {
+                Row(
+                    modifier = Modifier
+                        .padding(horizontal = horizontalPadding)
+                        .padding(top = 4.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { onToggleTranslation() }
+                        .padding(vertical = 4.dp, horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.translate),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Text(
+                        text = if (isTranslated) stringResource(R.string.show_original) else stringResource(R.string.Translate),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
         }
 
         Spacer(Modifier.height(12.dp))
