@@ -857,8 +857,7 @@ class MainActivity : ComponentActivity() {
                         LocalSyncUtils provides syncUtils,
                     ) {
                         Row(modifier = Modifier.fillMaxSize()) {
-                            val rowScope = this@Row
-                            rowScope.AnimatedVisibility(
+                            AnimatedVisibility(
                                 visible = isLandscape && shouldShowNavigationBar,
                                 enter = slideInHorizontally { -it } + fadeIn(),
                                 exit = slideOutHorizontally { -it } + fadeOut()
