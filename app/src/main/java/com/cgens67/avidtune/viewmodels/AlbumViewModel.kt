@@ -1,16 +1,19 @@
 package com.cgens67.avidtune.viewmodels
 
+import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cgens67.innertube.YouTube
 import com.cgens67.innertube.models.AlbumItem
 import com.cgens67.avidtune.db.MusicDatabase
+import com.cgens67.avidtune.ui.component.LocaleManager
 import com.cgens67.avidtune.utils.AppleMusicAboutAlbum
 import com.cgens67.avidtune.utils.TranslationHelper
 import com.cgens67.avidtune.utils.Wikipedia
 import com.cgens67.avidtune.utils.reportException
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -18,12 +21,14 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Locale
 import javax.inject.Inject
 
 @HiltViewModel
 class AlbumViewModel
 @Inject
 constructor(
+    @ApplicationContext val context: Context,
     val database: MusicDatabase,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
@@ -35,7 +40,11 @@ constructor(
             .stateIn(viewModelScope, SharingStarted.Eagerly, null)
     var otherVersions = MutableStateFlow<List<AlbumItem>>(emptyList())
 
+    val originalDescription = MutableStateFlow<String?>(null)
     val albumDescription = MutableStateFlow<String?>(null)
+    val isTranslated = MutableStateFlow(false)
+    val canTranslate = MutableStateFlow(false)
+
     private var isFetchingDescription = false
 
     init {
@@ -74,55 +83,112 @@ constructor(
         }
     }
 
+    private fun resolveTargetLanguage(context: Context): String {
+        val effectiveCode = runCatching {
+            LocaleManager.getInstance(context).getEffectiveLanguageCode()
+        }.getOrNull()
+
+        val locale = Locale.getDefault()
+        val tag = locale.toLanguageTag()
+        val lang = locale.language
+
+        val code = when {
+            !effectiveCode.isNullOrBlank() && effectiveCode != "system" && effectiveCode != "SYSTEM_DEFAULT" -> effectiveCode
+            tag.isNotBlank() -> tag
+            lang.isNotBlank() -> lang
+            else -> "en"
+        }
+
+        val lower = code.lowercase()
+        return when {
+            lower.startsWith("zh-tw") || lower.startsWith("zh-hk") || lower.startsWith("zh-hant") -> "zh-TW"
+            lower.startsWith("zh") -> "zh-CN"
+            lower.startsWith("pt-pt") -> "pt-PT"
+            lower.startsWith("pt") -> "pt"
+            lower == "he" || lower == "iw" -> "iw"
+            lower.contains("-") -> lower.substringBefore("-")
+            else -> lower
+        }
+    }
+
     private fun fetchDescription(albumTitle: String, artistName: String?) {
         if (isFetchingDescription) return
         isFetchingDescription = true
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val hl = YouTube.locale.hl
-                val gl = YouTube.locale.gl.lowercase()
-                val langCode = hl.substringBefore("-").lowercase()
-                
-                val googleTranslateLang = when {
-                    hl.lowercase().startsWith("zh-tw") || hl.lowercase().startsWith("zh-hk") -> "zh-TW"
-                    hl.lowercase().startsWith("zh") -> "zh-CN"
-                    else -> langCode
+                val targetLang = resolveTargetLanguage(context)
+                val storefront = runCatching { YouTube.locale.gl.lowercase() }
+                    .getOrNull()
+                    ?.takeIf { it.length == 2 && it != "system" }
+                    ?: Locale.getDefault().country.lowercase().takeIf { it.length == 2 }
+                    ?: "us"
+
+                // 1. Try Apple Music with user's storefront & locale
+                var desc = AppleMusicAboutAlbum.fetchAlbumDescription(albumTitle, artistName, storefront, targetLang)
+
+                // 2. Try Wikipedia in user's locale
+                val wikiLang = targetLang.substringBefore("-").lowercase()
+                if (desc == null && !wikiLang.startsWith("en")) {
+                    desc = Wikipedia.fetchAlbumInfo(albumTitle, artistName, wikiLang)
                 }
 
-                // 1. Try Apple Music with user's locale
-                var desc = AppleMusicAboutAlbum.fetchAlbumDescription(albumTitle, artistName, gl, hl)
-                
-                // 2. Try Wikipedia in user's locale
-                if (desc == null && !langCode.startsWith("en")) {
-                    desc = Wikipedia.fetchAlbumInfo(albumTitle, artistName, langCode)
-                }
-                
                 // 3. Try Apple Music in English (US) if localized version wasn't found
                 if (desc == null) {
                     desc = AppleMusicAboutAlbum.fetchAlbumDescription(albumTitle, artistName, "us", "en-US")
                 }
-                
+
                 // 4. Try Wikipedia in English
                 if (desc == null) {
                     desc = Wikipedia.fetchAlbumInfo(albumTitle, artistName, "en")
                 }
 
-                // 5. If a description is found and the target language is not English, translate it.
-                // Apple Music API might return English text even if we requested localized text, 
-                // so translating it automatically guarantees it's in the user's language.
-                if (desc != null && !langCode.startsWith("en")) {
-                    val translatedDesc = TranslationHelper.translate(desc, googleTranslateLang)
-                    if (!translatedDesc.isNullOrBlank()) {
-                        desc = translatedDesc
-                    }
-                }
+                if (desc != null) {
+                    originalDescription.value = desc
+                    canTranslate.value = true
 
-                withContext(Dispatchers.Main) {
-                    albumDescription.value = desc
+                    val detectedLang = runCatching { TranslationHelper.detectLanguage(desc.take(200)) }.getOrNull()?.lowercase()
+                    val targetBase = targetLang.substringBefore("-").lowercase()
+
+                    val needsTranslation = when {
+                        detectedLang != null && detectedLang != "und" && !detectedLang.startsWith(targetBase) -> true
+                        !targetBase.startsWith("en") && desc.any { it in 'a'..'z' || it in 'A'..'Z' } -> true
+                        else -> false
+                    }
+
+                    if (needsTranslation) {
+                        val translated = TranslationHelper.translate(desc, targetLang)
+                        if (!translated.isNullOrBlank() && translated.trim() != desc.trim()) {
+                            albumDescription.value = translated
+                            isTranslated.value = true
+                        } else {
+                            albumDescription.value = desc
+                            isTranslated.value = false
+                        }
+                    } else {
+                        albumDescription.value = desc
+                        isTranslated.value = false
+                    }
                 }
             } finally {
                 isFetchingDescription = false
+            }
+        }
+    }
+
+    fun toggleDescriptionTranslation() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val orig = originalDescription.value ?: return@launch
+            if (isTranslated.value) {
+                albumDescription.value = orig
+                isTranslated.value = false
+            } else {
+                val targetLang = resolveTargetLanguage(context)
+                val translated = TranslationHelper.translate(orig, targetLang)
+                if (!translated.isNullOrBlank()) {
+                    albumDescription.value = translated
+                    isTranslated.value = true
+                }
             }
         }
     }
