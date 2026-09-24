@@ -87,6 +87,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
@@ -234,6 +235,7 @@ fun AlbumScreen(
     }
 
     val lazyListState = rememberLazyListState()
+    val landscapeScrollState = rememberScrollState()
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val layoutDirection = LocalLayoutDirection.current
@@ -288,11 +290,16 @@ fun AlbumScreen(
 
     val gradientAlpha by remember {
         derivedStateOf {
-            if (lazyListState.firstVisibleItemIndex == 0) {
-                val offset = lazyListState.firstVisibleItemScrollOffset
-                (1f - (offset / 800f)).coerceIn(0f, 1f)
+            if (isLandscape) {
+                val offset = landscapeScrollState.value
+                (1f - (offset / 500f)).coerceIn(0f, 1f)
             } else {
-                0f
+                if (lazyListState.firstVisibleItemIndex == 0) {
+                    val offset = lazyListState.firstVisibleItemScrollOffset
+                    (1f - (offset / 800f)).coerceIn(0f, 1f)
+                } else {
+                    0f
+                }
             }
         }
     }
@@ -499,106 +506,209 @@ fun AlbumScreen(
             .fillMaxSize()
             .background(surfaceColor)
     ) {
-        // Gradient background layer matching the artist screen
+        // Gradient background layer
         if (gradientColors.isNotEmpty() && gradientAlpha > 0f) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .fillMaxSize(0.65f)
+                    .fillMaxHeight(if (isLandscape) 1f else 0.75f)
                     .align(Alignment.TopCenter)
                     .zIndex(-1f)
                     .drawBehind {
                         val width = size.width
                         val height = size.height
+                        val isLightMode = surfaceColor.luminance() > 0.5f
 
-                        if (gradientColors.size >= 3) {
-                            val c0 = gradientColors[0]
-                            val c1 = gradientColors[1]
-                            val c2 = gradientColors[2]
-                            val c3 = gradientColors.getOrElse(3) { c0 }
-                            val c4 = gradientColors.getOrElse(4) { c1 }
+                        fun adaptColor(c: Color, alphaFactor: Float): Color {
+                            val a = (gradientAlpha * alphaFactor).coerceIn(0f, 1f)
+                            return if (isLightMode) {
+                                if (c.luminance() < 0.25f) c.copy(alpha = a * 0.32f)
+                                else c.copy(alpha = a * 0.55f)
+                            } else {
+                                c.copy(alpha = a)
+                            }
+                        }
+
+                        if (isLandscape) {
+                            val leftPaneWidth = width * 0.42f
+                            val centerX = leftPaneWidth * 0.5f
+                            val centerY = (140.dp.toPx()).coerceAtMost(height * 0.42f)
+                            val radius = maxOf(height * 0.85f, leftPaneWidth * 0.95f)
+
+                            if (gradientColors.size >= 3) {
+                                val c0 = gradientColors[0]
+                                val c1 = gradientColors[1]
+                                val c2 = gradientColors[2]
+
+                                drawRect(
+                                    brush = Brush.radialGradient(
+                                        colors = listOf(
+                                            adaptColor(c0, 0.75f),
+                                            adaptColor(c0, 0.35f),
+                                            Color.Transparent
+                                        ),
+                                        center = Offset(centerX, centerY),
+                                        radius = radius
+                                    )
+                                )
+                                drawRect(
+                                    brush = Brush.radialGradient(
+                                        colors = listOf(
+                                            adaptColor(c1, 0.55f),
+                                            adaptColor(c1, 0.20f),
+                                            Color.Transparent
+                                        ),
+                                        center = Offset(centerX * 0.4f, centerY * 0.65f),
+                                        radius = radius * 0.8f
+                                    )
+                                )
+                                drawRect(
+                                    brush = Brush.radialGradient(
+                                        colors = listOf(
+                                            adaptColor(c2, 0.50f),
+                                            adaptColor(c2, 0.18f),
+                                            Color.Transparent
+                                        ),
+                                        center = Offset(centerX * 1.5f, centerY * 1.35f),
+                                        radius = radius * 0.85f
+                                    )
+                                )
+                            } else if (gradientColors.isNotEmpty()) {
+                                drawRect(
+                                    brush = Brush.radialGradient(
+                                        colors = listOf(
+                                            adaptColor(gradientColors[0], 0.65f),
+                                            adaptColor(gradientColors[0], 0.25f),
+                                            Color.Transparent
+                                        ),
+                                        center = Offset(centerX, centerY),
+                                        radius = radius
+                                    )
+                                )
+                            }
+
+                            // Smooth horizontal fade into surfaceColor across right boundary of left pane
                             drawRect(
-                                brush = Brush.radialGradient(
+                                brush = Brush.horizontalGradient(
                                     colors = listOf(
-                                        c0.copy(alpha = gradientAlpha * 0.72f),
-                                        c0.copy(alpha = gradientAlpha * 0.4f),
-                                        Color.Transparent
+                                        Color.Transparent,
+                                        surfaceColor.copy(alpha = 0.5f),
+                                        surfaceColor,
+                                        surfaceColor
                                     ),
-                                    center = Offset(width * 0.5f, height * 0.2f),
-                                    radius = width * 0.75f
+                                    startX = leftPaneWidth * 0.65f,
+                                    endX = leftPaneWidth * 1.05f
                                 )
                             )
+
+                            // Smooth vertical fade towards bottom of left pane
                             drawRect(
-                                brush = Brush.radialGradient(
+                                brush = Brush.verticalGradient(
                                     colors = listOf(
-                                        c1.copy(alpha = gradientAlpha * 0.56f),
-                                        c1.copy(alpha = gradientAlpha * 0.3f),
-                                        Color.Transparent
+                                        Color.Transparent,
+                                        Color.Transparent,
+                                        surfaceColor.copy(alpha = 0.6f),
+                                        surfaceColor
                                     ),
-                                    center = Offset(width * 0.15f, height * 0.35f),
-                                    radius = width * 0.6f
+                                    startY = height * 0.62f,
+                                    endY = height
                                 )
                             )
-                            drawRect(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(
-                                        c2.copy(alpha = gradientAlpha * 0.52f),
-                                        c2.copy(alpha = gradientAlpha * 0.26f),
-                                        Color.Transparent
-                                    ),
-                                    center = Offset(width * 0.85f, height * 0.45f),
-                                    radius = width * 0.65f
+                        } else {
+                            // Portrait
+                            val centerY = (160.dp.toPx()).coerceAtMost(height * 0.28f)
+                            val radius = width * 0.75f
+
+                            if (gradientColors.size >= 3) {
+                                val c0 = gradientColors[0]
+                                val c1 = gradientColors[1]
+                                val c2 = gradientColors[2]
+                                val c3 = gradientColors.getOrElse(3) { c0 }
+                                val c4 = gradientColors.getOrElse(4) { c1 }
+
+                                drawRect(
+                                    brush = Brush.radialGradient(
+                                        colors = listOf(
+                                            adaptColor(c0, 0.72f),
+                                            adaptColor(c0, 0.40f),
+                                            Color.Transparent
+                                        ),
+                                        center = Offset(width * 0.5f, centerY),
+                                        radius = radius
+                                    )
                                 )
-                            )
-                            drawRect(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(
-                                        c3.copy(alpha = gradientAlpha * 0.34f),
-                                        c3.copy(alpha = gradientAlpha * 0.18f),
-                                        Color.Transparent
-                                    ),
-                                    center = Offset(width * 0.35f, height * 0.6f),
-                                    radius = width * 0.8f
+                                drawRect(
+                                    brush = Brush.radialGradient(
+                                        colors = listOf(
+                                            adaptColor(c1, 0.56f),
+                                            adaptColor(c1, 0.30f),
+                                            Color.Transparent
+                                        ),
+                                        center = Offset(width * 0.15f, centerY * 1.5f),
+                                        radius = width * 0.6f
+                                    )
                                 )
-                            )
-                            drawRect(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(
-                                        c4.copy(alpha = gradientAlpha * 0.28f),
-                                        c4.copy(alpha = gradientAlpha * 0.14f),
-                                        Color.Transparent
-                                    ),
-                                    center = Offset(width * 0.55f, height * 0.85f),
-                                    radius = width * 0.95f
+                                drawRect(
+                                    brush = Brush.radialGradient(
+                                        colors = listOf(
+                                            adaptColor(c2, 0.52f),
+                                            adaptColor(c2, 0.26f),
+                                            Color.Transparent
+                                        ),
+                                        center = Offset(width * 0.85f, centerY * 1.5f),
+                                        radius = width * 0.65f
+                                    )
                                 )
-                            )
-                        } else if (gradientColors.isNotEmpty()) {
+                                drawRect(
+                                    brush = Brush.radialGradient(
+                                        colors = listOf(
+                                            adaptColor(c3, 0.34f),
+                                            adaptColor(c3, 0.18f),
+                                            Color.Transparent
+                                        ),
+                                        center = Offset(width * 0.35f, centerY * 2.1f),
+                                        radius = width * 0.8f
+                                    )
+                                )
+                                drawRect(
+                                    brush = Brush.radialGradient(
+                                        colors = listOf(
+                                            adaptColor(c4, 0.28f),
+                                            adaptColor(c4, 0.14f),
+                                            Color.Transparent
+                                        ),
+                                        center = Offset(width * 0.55f, centerY * 2.6f),
+                                        radius = width * 0.95f
+                                    )
+                                )
+                            } else if (gradientColors.isNotEmpty()) {
+                                drawRect(
+                                    brush = Brush.radialGradient(
+                                        colors = listOf(
+                                            adaptColor(gradientColors[0], 0.60f),
+                                            adaptColor(gradientColors[0], 0.30f),
+                                            Color.Transparent
+                                        ),
+                                        center = Offset(width * 0.5f, centerY),
+                                        radius = width * 0.8f
+                                    )
+                                )
+                            }
+
                             drawRect(
-                                brush = Brush.radialGradient(
+                                brush = Brush.verticalGradient(
                                     colors = listOf(
-                                        gradientColors[0].copy(alpha = gradientAlpha * 0.6f),
-                                        gradientColors[0].copy(alpha = gradientAlpha * 0.3f),
-                                        Color.Transparent
+                                        Color.Transparent,
+                                        Color.Transparent,
+                                        surfaceColor.copy(alpha = 0.3f),
+                                        surfaceColor.copy(alpha = 0.7f),
+                                        surfaceColor
                                     ),
-                                    center = Offset(width * 0.5f, height * 0.3f),
-                                    radius = width * 0.8f
+                                    startY = height * 0.35f,
+                                    endY = height * 0.85f
                                 )
                             )
                         }
-
-                        drawRect(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Transparent,
-                                    Color.Transparent,
-                                    surfaceColor.copy(alpha = gradientAlpha * 0.22f),
-                                    surfaceColor.copy(alpha = gradientAlpha * 0.55f),
-                                    surfaceColor
-                                ),
-                                startY = height * 0.4f,
-                                endY = height
-                            )
-                        )
                     }
             )
         }
@@ -617,7 +727,7 @@ fun AlbumScreen(
                                 start = LocalPlayerAwareWindowInsets.current.asPaddingValues().calculateStartPadding(layoutDirection) + 16.dp,
                                 bottom = LocalPlayerAwareWindowInsets.current.asPaddingValues().calculateBottomPadding() + 16.dp
                             )
-                            .verticalScroll(rememberScrollState()),
+                            .verticalScroll(landscapeScrollState),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         AlbumHeaderContent(
