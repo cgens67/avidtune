@@ -1039,10 +1039,10 @@ private fun AlbumHeaderContent(
         explicitTransitionState.targetState = effectiveIsExplicit
     }
 
-    val cleanAlbumTitleAnnotated = remember(cleanAlbumTitle, effectiveIsExplicit) {
+    val cleanAlbumTitleAnnotated = remember(cleanAlbumTitle, explicitTransitionState.targetState) {
         buildAnnotatedString {
             append(cleanAlbumTitle)
-            if (effectiveIsExplicit) {
+            if (explicitTransitionState.targetState) {
                 append("\u00A0")
                 appendInlineContent("explicitIcon", "[E]")
             }
@@ -1140,27 +1140,26 @@ private fun AlbumHeaderContent(
             }
         }
 
-        // Title with inline animated Explicit icon (animates height change on wrapping to 2nd row)
-        Text(
-            text = cleanAlbumTitleAnnotated,
-            inlineContent = inlineContent,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
+        // Title with inline animated Explicit icon
+        Row(
             modifier = Modifier
-                .fillMaxWidth()
                 .padding(horizontal = horizontalPadding)
                 .padding(top = 12.dp)
-                .animateContentSize(
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioNoBouncy,
-                        stiffness = Spring.StiffnessMediumLow
-                    )
-                )
-        )
+                .animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = cleanAlbumTitleAnnotated,
+                inlineContent = inlineContent,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
 
         // Artists
         Text(
