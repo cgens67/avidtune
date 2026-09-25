@@ -18,8 +18,10 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.updateTransition
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -97,8 +99,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -1039,44 +1043,62 @@ private fun AlbumHeaderContent(
         explicitTransitionState.targetState = effectiveIsExplicit
     }
 
-    val cleanAlbumTitleAnnotated = remember(cleanAlbumTitle, explicitTransitionState.targetState) {
+    val explicitTransition = updateTransition(
+        transitionState = explicitTransitionState,
+        label = "explicitTransition"
+    )
+
+    val explicitWidth by explicitTransition.animateFloat(
+        transitionSpec = {
+            spring(
+                dampingRatio = Spring.DampingRatioNoBouncy,
+                stiffness = Spring.StiffnessMediumLow
+            )
+        },
+        label = "explicitWidth"
+    ) { state ->
+        if (state) 28f else 0f
+    }
+
+    val explicitScale by explicitTransition.animateFloat(
+        transitionSpec = {
+            spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMediumLow
+            )
+        },
+        label = "explicitScale"
+    ) { state ->
+        if (state) 1f else 0.3f
+    }
+
+    val explicitAlpha by explicitTransition.animateFloat(
+        transitionSpec = {
+            tween(if (it) 350 else 200)
+        },
+        label = "explicitAlpha"
+    ) { state ->
+        if (state) 1f else 0f
+    }
+
+    val cleanAlbumTitleAnnotated = remember(cleanAlbumTitle, explicitWidth) {
         buildAnnotatedString {
             append(cleanAlbumTitle)
-            if (explicitTransitionState.targetState) {
-                append("\u00A0")
+            if (explicitWidth > 0f) {
                 appendInlineContent("explicitIcon", "[E]")
             }
         }
     }
 
-    val inlineContent = remember(explicitTransitionState) {
-        mapOf(
-            "explicitIcon" to InlineTextContent(
-                Placeholder(
-                    width = 24.sp,
-                    height = 18.sp,
-                    placeholderVerticalAlign = PlaceholderVerticalAlign.Center
-                )
-            ) {
-                AnimatedVisibility(
-                    visibleState = explicitTransitionState,
-                    enter = fadeIn(tween(350)) +
-                        scaleIn(
-                            animationSpec = spring(
-                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                stiffness = Spring.StiffnessMediumLow
-                            ),
-                            initialScale = 0.3f
-                        ) +
-                        expandHorizontally(
-                            animationSpec = spring(
-                                dampingRatio = Spring.DampingRatioNoBouncy,
-                                stiffness = Spring.StiffnessMediumLow
-                            )
-                        ),
-                    exit = fadeOut(tween(200)) +
-                        scaleOut(targetScale = 0.3f) +
-                        shrinkHorizontally()
+    val inlineContent = remember(explicitWidth, explicitScale, explicitAlpha) {
+        if (explicitWidth > 0f) {
+            mapOf(
+                "explicitIcon" to InlineTextContent(
+                    Placeholder(
+                        width = explicitWidth.sp,
+                        height = 18.sp,
+                        placeholderVerticalAlign = PlaceholderVerticalAlign.Center
+                    )
                 ) {
                     Box(
                         modifier = Modifier.fillMaxSize(),
@@ -1086,12 +1108,17 @@ private fun AlbumHeaderContent(
                             painter = painterResource(R.drawable.explicit),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier
+                                .size(16.dp)
+                                .scale(explicitScale)
+                                .alpha(explicitAlpha)
                         )
                     }
                 }
-            }
-        )
+            )
+        } else {
+            emptyMap()
+        }
     }
 
     Column(
