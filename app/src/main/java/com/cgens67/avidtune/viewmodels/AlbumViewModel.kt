@@ -44,6 +44,7 @@ constructor(
     val albumDescription = MutableStateFlow<String?>(null)
     val isTranslated = MutableStateFlow(false)
     val canTranslate = MutableStateFlow(false)
+    val isExplicit = MutableStateFlow(false)
 
     private var isFetchingDescription = false
 
@@ -59,6 +60,8 @@ constructor(
                 .onSuccess {
                     playlistId.value = it.album.playlistId
                     otherVersions.value = it.otherVersions
+                    isExplicit.value = it.songs.any { song -> song.explicit } ||
+                        it.otherVersions.any { version -> version.id == albumId && version.explicit }
                     database.transaction {
                         if (album == null) {
                             insert(it)
