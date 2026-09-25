@@ -154,6 +154,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
 
+private enum class AlbumReleaseType {
+    ALBUM,
+    SINGLE,
+    EP
+}
+
 @SuppressLint("LocalContextGetResourceValueCall")
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class,
     ExperimentalMaterial3ExpressiveApi::class
@@ -976,6 +982,25 @@ private fun AlbumHeaderContent(
     val context = LocalContext.current
     val horizontalPadding = if (artworkSize <= 160.dp) 20.dp else 32.dp
 
+    val releaseType = remember(albumData) {
+        val title = albumData.album.title.trim()
+        val count = if (albumData.songs.isNotEmpty()) albumData.songs.size else albumData.album.songCount
+        when {
+            title.endsWith(" - Single", ignoreCase = true) ||
+            title.endsWith(" (Single)", ignoreCase = true) ||
+            title.endsWith("[Single]", ignoreCase = true) ||
+            count == 1 -> AlbumReleaseType.SINGLE
+
+            title.endsWith(" - EP", ignoreCase = true) ||
+            title.endsWith(" (EP)", ignoreCase = true) ||
+            title.endsWith("[EP]", ignoreCase = true) ||
+            title.endsWith(" EP") ||
+            count in 2..6 -> AlbumReleaseType.EP
+
+            else -> AlbumReleaseType.ALBUM
+        }
+    }
+
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -1172,7 +1197,16 @@ private fun AlbumHeaderContent(
             }
         } else {
             var isDescExpanded by rememberSaveable { mutableStateOf(false) }
-            val staticDesc = "${albumData.album.title} • ${stringResource(R.string.album_text)} ${stringResource(R.string.by_text)} ${albumData.artists.joinToString { it.name }}."
+            val fallbackRes = when (releaseType) {
+                AlbumReleaseType.ALBUM -> R.string.album_fallback_description
+                AlbumReleaseType.SINGLE -> R.string.single_fallback_description
+                AlbumReleaseType.EP -> R.string.ep_fallback_description
+            }
+            val staticDesc = stringResource(
+                fallbackRes,
+                albumData.album.title,
+                albumData.artists.joinToString { it.name }
+            )
             val desc = albumDescription ?: staticDesc
 
             Text(
