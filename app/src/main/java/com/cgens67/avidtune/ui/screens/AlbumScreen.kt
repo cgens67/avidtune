@@ -1074,7 +1074,7 @@ private fun AlbumHeaderContent(
 
     val explicitAlpha by explicitTransition.animateFloat(
         transitionSpec = {
-            tween(if (it) 350 else 200)
+            tween(if (targetState) 350 else 200)
         },
         label = "explicitAlpha"
     ) { state ->
