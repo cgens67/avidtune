@@ -1090,9 +1090,16 @@ private fun AlbumHeaderContent(
         val hours = totalDuration / 3600
         val minutes = (totalDuration % 3600) / 60
         val durationStr = if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
+
+        val releaseTypeText = when (releaseType) {
+            AlbumReleaseType.ALBUM -> stringResource(R.string.album_text)
+            AlbumReleaseType.SINGLE -> stringResource(R.string.single_text)
+            AlbumReleaseType.EP -> stringResource(R.string.ep_text)
+        }
+
         Text(
             text = listOfNotNull(
-                stringResource(R.string.album_text),
+                releaseTypeText,
                 albumData.album.year?.toString(),
                 pluralStringResource(R.plurals.n_song, albumData.songs.size, albumData.songs.size),
                 durationStr
