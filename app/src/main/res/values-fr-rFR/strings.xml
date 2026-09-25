@@ -1314,5 +1314,7 @@
     <string name="album_fallback_description">%1$s est un album de %2$s.</string>
     <string name="single_fallback_description">%1$s est un single de %2$s.</string>
     <string name="ep_fallback_description">%1$s est un EP de %2$s.</string>
+    <string name="single_text">Single</string>
+    <string name="ep_text">EP</string>
 
 </resources>
