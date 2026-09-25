@@ -15,14 +15,17 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
+import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -121,6 +124,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastForEachIndexed
 import androidx.compose.ui.zIndex
 import androidx.core.graphics.drawable.toBitmap
@@ -611,6 +615,7 @@ fun AlbumScreen(
                                 )
                             }
 
+                            // Smooth horizontal fade into surfaceColor across right boundary of left pane
                             drawRect(
                                 brush = Brush.horizontalGradient(
                                     colors = listOf(
@@ -624,6 +629,7 @@ fun AlbumScreen(
                                 )
                             )
 
+                            // Smooth vertical fade towards bottom of left pane
                             drawRect(
                                 brush = Brush.verticalGradient(
                                     colors = listOf(
@@ -993,7 +999,6 @@ private fun AlbumHeaderContent(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val density = LocalDensity.current
     val horizontalPadding = if (artworkSize <= 160.dp) 20.dp else 32.dp
 
     val releaseType = remember(albumData) {
@@ -1026,73 +1031,6 @@ private fun AlbumHeaderContent(
                 .trim()
         } else {
             albumData.album.title
-        }
-    }
-
-    val inlineContentId = "explicitBadge"
-
-    val annotatedTitle = remember(cleanAlbumTitle, effectiveIsExplicit) {
-        buildAnnotatedString {
-            append(cleanAlbumTitle)
-            if (effectiveIsExplicit) {
-                append("\u00A0") // Non-breaking space keeps the badge tethered to the last word
-                appendInlineContent(inlineContentId, "[E]")
-            }
-        }
-    }
-
-    val inlineContent = remember(effectiveIsExplicit, density) {
-        if (effectiveIsExplicit) {
-            mapOf(
-                inlineContentId to InlineTextContent(
-                    Placeholder(
-                        width = with(density) { 20.dp.toSp() },
-                        height = with(density) { 20.dp.toSp() },
-                        placeholderVerticalAlign = PlaceholderVerticalAlign.Center
-                    )
-                ) {
-                    val animScale = remember { Animatable(0.3f) }
-                    val animAlpha = remember { Animatable(0f) }
-
-                    LaunchedEffect(Unit) {
-                        launch {
-                            animScale.animateTo(
-                                targetValue = 1f,
-                                animationSpec = spring(
-                                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                                    stiffness = Spring.StiffnessMediumLow
-                                )
-                            )
-                        }
-                        launch {
-                            animAlpha.animateTo(
-                                targetValue = 1f,
-                                animationSpec = tween(350)
-                            )
-                        }
-                    }
-
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.explicit),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier
-                                .size(16.dp)
-                                .graphicsLayer {
-                                    scaleX = animScale.value
-                                    scaleY = animScale.value
-                                    alpha = animAlpha.value
-                                }
-                        )
-                    }
-                }
-            )
-        } else {
-            emptyMap()
         }
     }
 
@@ -1142,7 +1080,69 @@ private fun AlbumHeaderContent(
             }
         }
 
-        // Title with inline flowing animated Explicit badge
+        // Title with inline Explicit icon
+        val inlineContentId = "explicitBadge"
+        val inlineContent = remember(effectiveIsExplicit) {
+            if (!effectiveIsExplicit) {
+                emptyMap()
+            } else {
+                mapOf(
+                    inlineContentId to InlineTextContent(
+                        Placeholder(
+                            width = 18.sp,
+                            height = 18.sp,
+                            placeholderVerticalAlign = PlaceholderVerticalAlign.Center
+                        )
+                    ) {
+                        var visible by remember { mutableStateOf(false) }
+                        LaunchedEffect(Unit) {
+                            visible = true
+                        }
+                        val scale by animateFloatAsState(
+                            targetValue = if (visible) 1f else 0.3f,
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessMediumLow
+                            ),
+                            label = "explicitScale"
+                        )
+                        val alpha by animateFloatAsState(
+                            targetValue = if (visible) 1f else 0f,
+                            animationSpec = tween(350),
+                            label = "explicitAlpha"
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer {
+                                    scaleX = scale
+                                    scaleY = scale
+                                    this.alpha = alpha
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.explicit),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                )
+            }
+        }
+
+        val annotatedTitle = remember(cleanAlbumTitle, effectiveIsExplicit) {
+            buildAnnotatedString {
+                append(cleanAlbumTitle)
+                if (effectiveIsExplicit) {
+                    append("\u00A0")
+                    appendInlineContent(inlineContentId, "[E]")
+                }
+            }
+        }
+
         Text(
             text = annotatedTitle,
             inlineContent = inlineContent,
@@ -1155,7 +1155,7 @@ private fun AlbumHeaderContent(
             modifier = Modifier
                 .padding(horizontal = horizontalPadding)
                 .padding(top = 12.dp)
-                .fillMaxWidth()
+                .animateContentSize(spring(stiffness = Spring.StiffnessMediumLow))
         )
 
         // Artists
