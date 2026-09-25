@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
 @HiltViewModel
@@ -39,6 +40,7 @@ class ArtistViewModel @Inject constructor(
     val artistDescription = MutableStateFlow<String?>(null)
     val isTranslated = MutableStateFlow(false)
     val canTranslate = MutableStateFlow(false)
+    val isDescriptionLoading = MutableStateFlow(true)
 
     init {
         fetchArtistsFromYTM()
@@ -54,9 +56,12 @@ class ArtistViewModel @Inject constructor(
                         originalDescription.value = rawDesc
                         canTranslate.value = true
                         processTranslation(rawDesc)
+                    } else {
+                        isDescriptionLoading.value = false
                     }
                 }.onFailure {
                     reportException(it)
+                    isDescriptionLoading.value = false
                 }
         }
     }
@@ -91,28 +96,42 @@ class ArtistViewModel @Inject constructor(
 
     private fun processTranslation(desc: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            val targetLang = resolveTargetLanguage(context)
-            val detectedLang = runCatching { TranslationHelper.detectLanguage(desc.take(200)) }.getOrNull()?.lowercase()
-            val targetBase = targetLang.substringBefore("-").lowercase()
+            try {
+                // If translation takes more than 5 seconds, fallback to untranslated text
+                withTimeoutOrNull(5000L) {
+                    val targetLang = resolveTargetLanguage(context)
+                    val detectedLang = runCatching { TranslationHelper.detectLanguage(desc.take(200)) }.getOrNull()?.lowercase()
+                    val targetBase = targetLang.substringBefore("-").lowercase()
 
-            val needsTranslation = when {
-                detectedLang != null && detectedLang != "und" && !detectedLang.startsWith(targetBase) -> true
-                !targetBase.startsWith("en") && desc.any { it in 'a'..'z' || it in 'A'..'Z' } -> true
-                else -> false
-            }
+                    val needsTranslation = when {
+                        detectedLang != null && detectedLang != "und" && !detectedLang.startsWith(targetBase) -> true
+                        !targetBase.startsWith("en") && desc.any { it in 'a'..'z' || it in 'A'..'Z' } -> true
+                        else -> false
+                    }
 
-            if (needsTranslation) {
-                val translated = TranslationHelper.translate(desc, targetLang)
-                if (!translated.isNullOrBlank() && translated.trim() != desc.trim()) {
-                    artistDescription.value = translated
-                    isTranslated.value = true
-                } else {
+                    if (needsTranslation) {
+                        val translated = TranslationHelper.translate(desc, targetLang)
+                        if (!translated.isNullOrBlank() && translated.trim() != desc.trim()) {
+                            artistDescription.value = translated
+                            isTranslated.value = true
+                        } else {
+                            artistDescription.value = desc
+                            isTranslated.value = false
+                        }
+                    } else {
+                        artistDescription.value = desc
+                        isTranslated.value = false
+                    }
+                } ?: run {
+                    // Timed out after 5 seconds: use untranslated
                     artistDescription.value = desc
                     isTranslated.value = false
                 }
-            } else {
+            } catch (e: Exception) {
                 artistDescription.value = desc
                 isTranslated.value = false
+            } finally {
+                isDescriptionLoading.value = false
             }
         }
     }
