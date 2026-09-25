@@ -801,7 +801,7 @@ fun AlbumScreen(
                     item(key = "album_header") {
                         AlbumHeaderContent(
                             albumData = albumData,
-                            artworkSize = 180.dp,
+                            artworkSize = 240.dp,
                             thumbnailCornerRadius = thumbnailCornerRadius,
                             coverResolution = coverResolution,
                             isPlaying = isPlaying,
@@ -982,7 +982,7 @@ private fun AlbumHeaderContent(
     ) {
         Spacer(Modifier.height(56.dp))
 
-        // Compact Artwork
+        // Artwork
         Box(
             modifier = Modifier
                 .size(artworkSize)
