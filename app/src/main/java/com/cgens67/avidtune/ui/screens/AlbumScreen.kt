@@ -1140,26 +1140,27 @@ private fun AlbumHeaderContent(
             }
         }
 
-        // Title with inline animated Explicit icon
-        Row(
+        // Title with inline animated Explicit icon (animates height change on wrapping to 2nd row)
+        Text(
+            text = cleanAlbumTitleAnnotated,
+            inlineContent = inlineContent,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier
+                .fillMaxWidth()
                 .padding(horizontal = horizontalPadding)
                 .padding(top = 12.dp)
-                .animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = cleanAlbumTitleAnnotated,
-                inlineContent = inlineContent,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
+                .animateContentSize(
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessMediumLow
+                    )
+                )
+        )
 
         // Artists
         Text(
