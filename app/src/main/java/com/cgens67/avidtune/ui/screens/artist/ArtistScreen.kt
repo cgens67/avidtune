@@ -167,6 +167,10 @@ fun ArtistScreen(
     val artistPage = viewModel.artistPage
     val libraryArtist by viewModel.libraryArtist.collectAsState()
     val librarySongs by viewModel.librarySongs.collectAsState()
+    
+    val artistDescription by viewModel.artistDescription.collectAsState()
+    val isTranslated by viewModel.isTranslated.collectAsState()
+    val canTranslate by viewModel.canTranslate.collectAsState()
 
     val totalPlayCount by remember(viewModel.artistId) { database.artistTotalPlayCount(viewModel.artistId) }.collectAsState(initial = 0)
 
@@ -562,7 +566,7 @@ fun ArtistScreen(
                             // Description
                             var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
                             val fallbackDesc = "$artistName is a music artist."
-                            val description = artistPage?.description?.substringBefore("From Wikipedia")?.trim() ?: fallbackDesc
+                            val description = artistDescription ?: artistPage?.description?.substringBefore("From Wikipedia")?.trim() ?: fallbackDesc
 
                             Text(
                                 text = description,
@@ -570,7 +574,7 @@ fun ArtistScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Start,
                                 modifier = Modifier
-                                    .padding(bottom = 16.dp)
+                                    .padding(bottom = if (canTranslate || isTranslated) 4.dp else 16.dp)
                                     .fillMaxWidth()
                                     .animateContentSize()
                                     .clickable(
@@ -581,6 +585,31 @@ fun ArtistScreen(
                                 maxLines = if (isDescriptionExpanded) Int.MAX_VALUE else 3,
                                 overflow = TextOverflow.Ellipsis
                             )
+
+                            if (canTranslate || isTranslated) {
+                                Row(
+                                    modifier = Modifier
+                                        .padding(bottom = 16.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable { viewModel.toggleDescriptionTranslation() }
+                                        .padding(vertical = 4.dp, horizontal = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.translate),
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Text(
+                                        text = if (isTranslated) stringResource(R.string.show_original) else stringResource(R.string.Translate),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
 
                             // Buttons Row
                             Row(
