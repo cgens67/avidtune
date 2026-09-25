@@ -178,6 +178,7 @@ import com.cgens67.avidtune.ui.screens.settings.DarkMode
 import com.cgens67.avidtune.ui.screens.settings.LyricsPosition
 import com.cgens67.avidtune.ui.utils.fadingEdge
 import com.cgens67.avidtune.utils.ComposeToImage
+import com.cgens67.avidtune.utils.TranslationHelper
 import com.cgens67.avidtune.utils.makeTimeString
 import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
@@ -352,10 +353,26 @@ fun Lyrics(
                 }
                 
                 val textToTranslate = itemsToTranslate.joinToString("\n")
-                val translatedText = com.cgens67.avidtune.utils.TranslationHelper.translate(textToTranslate)
+
+                val targetLang = if (isZhConversion) {
+                    "zh-CN"
+                } else {
+                    val effectiveCode = runCatching {
+                        LocaleManager.getInstance(context).getEffectiveLanguageCode()
+                    }.getOrNull()
+                    val locale = java.util.Locale.getDefault()
+                    val code = when {
+                        !effectiveCode.isNullOrBlank() && effectiveCode != "system" && effectiveCode != "SYSTEM_DEFAULT" && effectiveCode != "system_default" -> effectiveCode
+                        locale.language.isNotBlank() -> locale.toLanguageTag()
+                        else -> "en"
+                    }
+                    TranslationHelper.normalizeTargetLanguage(code)
+                }
+
+                val translatedText = TranslationHelper.translate(textToTranslate, targetLang)
                 
                 if (translatedText != null) {
-                    val translatedSplit = translatedText.split("\n")
+                    val translatedSplit = translatedText.replace("\r", "").split("\n")
                     val newEntries = lines.toMutableList()
                     
                     var transIdx = 0
@@ -398,7 +415,7 @@ fun Lyrics(
         } else {
             scope.launch {
                 val linesToRomanize = lines.map { it.text }
-                val romanizedResult = com.cgens67.avidtune.utils.TranslationHelper.romanize(linesToRomanize)
+                val romanizedResult = TranslationHelper.romanize(linesToRomanize)
 
                 val finalRomanizedLines = mutableListOf<String>()
                 for (i in lines.indices) {
@@ -610,19 +627,25 @@ fun Lyrics(
         if (lines.isNotEmpty() && originalLyrics != LYRICS_NOT_FOUND) {
             val textOnly = lines.mapNotNull { it.text }.filter { it.isNotBlank() }.joinToString("\n").take(500)
             if (textOnly.isNotBlank()) {
-                val detectedLang = com.cgens67.avidtune.utils.TranslationHelper.detectLanguage(textOnly)
-                val systemLocale = java.util.Locale.getDefault()
-                val systemLang = systemLocale.language.lowercase()
-                val langTag = systemLocale.toLanguageTag().lowercase()
-                
-                val isSystemZhCn = langTag.contains("zh-cn") || langTag.contains("zh-hans") || (langTag == "zh")
+                val detectedLang = TranslationHelper.detectLanguage(textOnly)
+                val effectiveCode = runCatching {
+                    LocaleManager.getInstance(context).getEffectiveLanguageCode()
+                }.getOrNull()
+                val locale = java.util.Locale.getDefault()
+                val userLang = when {
+                    !effectiveCode.isNullOrBlank() && effectiveCode != "system" && effectiveCode != "SYSTEM_DEFAULT" && effectiveCode != "system_default" -> effectiveCode
+                    locale.language.isNotBlank() -> locale.language
+                    else -> "en"
+                }.lowercase()
+                val userBase = userLang.substringBefore('-')
+                val isUserZhCn = userLang.contains("zh-cn") || userLang.contains("zh-hans") || (userLang == "zh")
                 
                 if (detectedLang != null && detectedLang != "und") {
                     val detectedLower = detectedLang.lowercase()
-                    if (isSystemZhCn && (detectedLower == "zh-tw" || detectedLower == "zh-hant")) {
+                    if (isUserZhCn && (detectedLower == "zh-tw" || detectedLower == "zh-hant")) {
                         translationPromptText = context.getString(R.string.translate_zh_tw_prompt)
                         showTranslatePrompt = true
-                    } else if (!detectedLower.startsWith(systemLang)) {
+                    } else if (!detectedLower.startsWith(userBase)) {
                         translationPromptText = context.getString(R.string.translate_lyrics_prompt)
                         showTranslatePrompt = true
                     }
