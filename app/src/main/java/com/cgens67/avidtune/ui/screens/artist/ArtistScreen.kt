@@ -585,49 +585,50 @@ fun ArtistScreen(
                             } else {
                                 var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
                                 val fallbackDesc = "$artistName is a music artist."
-                                val description = artistDescription ?: fallbackDesc
+                                val description = artistDescription ?: artistPage?.description?.substringBefore("From Wikipedia")?.trim() ?: fallbackDesc
 
-                                Text(
-                                    text = description,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    textAlign = TextAlign.Start,
+                                Column(
                                     modifier = Modifier
-                                        .padding(bottom = if (canTranslate || isTranslated) 4.dp else 16.dp)
                                         .fillMaxWidth()
                                         .animateContentSize()
-                                        .clickable(
-                                            interactionSource = remember { MutableInteractionSource() },
-                                            indication = null,
-                                            onClick = { isDescriptionExpanded = !isDescriptionExpanded }
-                                        ),
-                                    maxLines = if (isDescriptionExpanded) Int.MAX_VALUE else 3,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                                ) {
+                                    Text(
+                                        text = description,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Start,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable(
+                                                interactionSource = remember { MutableInteractionSource() },
+                                                indication = null,
+                                                onClick = { isDescriptionExpanded = !isDescriptionExpanded }
+                                            ),
+                                        maxLines = if (isDescriptionExpanded) Int.MAX_VALUE else 3,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
 
-                                if (canTranslate || isTranslated) {
-                                    Surface(
-                                        onClick = { viewModel.toggleDescriptionTranslation() },
-                                        shape = CircleShape,
-                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                                        modifier = Modifier.padding(top = 4.dp, bottom = 14.dp)
-                                    ) {
+                                    if (canTranslate || isTranslated) {
+                                        Spacer(modifier = Modifier.height(8.dp))
                                         Row(
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .clickable { viewModel.toggleDescriptionTranslation() }
+                                                .padding(vertical = 4.dp, horizontal = 4.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                                         ) {
                                             Icon(
                                                 painter = painterResource(R.drawable.translate),
                                                 contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
-                                                modifier = Modifier.size(12.dp)
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(14.dp)
                                             )
                                             Text(
                                                 text = if (isTranslated) stringResource(R.string.show_original) else stringResource(R.string.Translate),
-                                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                                                fontWeight = FontWeight.Medium,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
                                     }
@@ -638,7 +639,7 @@ fun ArtistScreen(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(top = 8.dp, bottom = 16.dp),
+                                    .padding(top = 16.dp, bottom = 16.dp),
                                 horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
                             ) {
                                 // Subscribe Button
@@ -784,8 +785,6 @@ fun ArtistScreen(
                                 }
                             }
                         }
-
-                        Spacer(modifier = Modifier.height(16.dp))
                     }
                 }
 
