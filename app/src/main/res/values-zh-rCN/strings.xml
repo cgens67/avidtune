@@ -1315,5 +1315,7 @@
     <string name="album_fallback_description">%1$s 是 %2$s 的一张专辑。</string>
     <string name="single_fallback_description">%1$s 是 %2$s 的一首单曲。</string>
     <string name="ep_fallback_description">%1$s 是 %2$s 的一张 EP。</string>
+    <string name="single_text">单曲</string>
+    <string name="ep_text">EP</string>
 
 </resources>
