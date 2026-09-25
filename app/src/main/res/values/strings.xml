@@ -1336,4 +1336,8 @@
     <string name="unlock_queue">Unlock queue</string>
     <string name="drag_to_reorder">Drag to reorder</string>
     
+    <string name="album_fallback_description">%1$s is an album by %2$s.</string>
+    <string name="single_fallback_description">%1$s is a single by %2$s.</string>
+    <string name="ep_fallback_description">%1$s is an EP by %2$s.</string>
+    
 </resources>
