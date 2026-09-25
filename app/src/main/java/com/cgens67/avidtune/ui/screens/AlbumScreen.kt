@@ -13,7 +13,19 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -596,6 +608,7 @@ fun AlbumScreen(
                                 )
                             }
 
+                            // Smooth horizontal fade into surfaceColor across right boundary of left pane
                             drawRect(
                                 brush = Brush.horizontalGradient(
                                     colors = listOf(
@@ -609,6 +622,7 @@ fun AlbumScreen(
                                 )
                             )
 
+                            // Smooth vertical fade towards bottom of left pane
                             drawRect(
                                 brush = Brush.verticalGradient(
                                     colors = listOf(
@@ -1059,11 +1073,12 @@ private fun AlbumHeaderContent(
             }
         }
 
-        // Title with optional Explicit icon
+        // Title with optional animated Explicit icon
         Row(
             modifier = Modifier
                 .padding(horizontal = horizontalPadding)
-                .padding(top = 12.dp),
+                .padding(top = 12.dp)
+                .animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
@@ -1078,14 +1093,35 @@ private fun AlbumHeaderContent(
                 modifier = Modifier.weight(1f, fill = false)
             )
 
-            if (effectiveIsExplicit) {
-                Spacer(Modifier.width(6.dp))
-                Icon(
-                    painter = painterResource(R.drawable.explicit),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(18.dp)
-                )
+            AnimatedVisibility(
+                visible = effectiveIsExplicit,
+                enter = fadeIn(tween(350)) +
+                    scaleIn(
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessMediumLow
+                        ),
+                        initialScale = 0.3f
+                    ) +
+                    expandHorizontally(
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioNoBouncy,
+                            stiffness = Spring.StiffnessMediumLow
+                        )
+                    ),
+                exit = fadeOut(tween(200)) +
+                    scaleOut(targetScale = 0.3f) +
+                    shrinkHorizontally()
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Spacer(Modifier.width(6.dp))
+                    Icon(
+                        painter = painterResource(R.drawable.explicit),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
         }
 
