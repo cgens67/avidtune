@@ -15,16 +15,14 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -60,6 +58,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.InlineTextContent
+import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -99,6 +99,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -111,6 +112,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.Placeholder
+import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -608,7 +611,6 @@ fun AlbumScreen(
                                 )
                             }
 
-                            // Smooth horizontal fade into surfaceColor across right boundary of left pane
                             drawRect(
                                 brush = Brush.horizontalGradient(
                                     colors = listOf(
@@ -622,7 +624,6 @@ fun AlbumScreen(
                                 )
                             )
 
-                            // Smooth vertical fade towards bottom of left pane
                             drawRect(
                                 brush = Brush.verticalGradient(
                                     colors = listOf(
@@ -992,6 +993,7 @@ private fun AlbumHeaderContent(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val density = LocalDensity.current
     val horizontalPadding = if (artworkSize <= 160.dp) 20.dp else 32.dp
 
     val releaseType = remember(albumData) {
@@ -1024,6 +1026,73 @@ private fun AlbumHeaderContent(
                 .trim()
         } else {
             albumData.album.title
+        }
+    }
+
+    val inlineContentId = "explicitBadge"
+
+    val annotatedTitle = remember(cleanAlbumTitle, effectiveIsExplicit) {
+        buildAnnotatedString {
+            append(cleanAlbumTitle)
+            if (effectiveIsExplicit) {
+                append("\u00A0") // Non-breaking space keeps the badge tethered to the last word
+                appendInlineContent(inlineContentId, "[E]")
+            }
+        }
+    }
+
+    val inlineContent = remember(effectiveIsExplicit, density) {
+        if (effectiveIsExplicit) {
+            mapOf(
+                inlineContentId to InlineTextContent(
+                    Placeholder(
+                        width = with(density) { 20.dp.toSp() },
+                        height = with(density) { 20.dp.toSp() },
+                        placeholderVerticalAlign = PlaceholderVerticalAlign.Center
+                    )
+                ) {
+                    val animScale = remember { Animatable(0.3f) }
+                    val animAlpha = remember { Animatable(0f) }
+
+                    LaunchedEffect(Unit) {
+                        launch {
+                            animScale.animateTo(
+                                targetValue = 1f,
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                    stiffness = Spring.StiffnessMediumLow
+                                )
+                            )
+                        }
+                        launch {
+                            animAlpha.animateTo(
+                                targetValue = 1f,
+                                animationSpec = tween(350)
+                            )
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.explicit),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .size(16.dp)
+                                .graphicsLayer {
+                                    scaleX = animScale.value
+                                    scaleY = animScale.value
+                                    alpha = animAlpha.value
+                                }
+                        )
+                    }
+                }
+            )
+        } else {
+            emptyMap()
         }
     }
 
@@ -1073,57 +1142,21 @@ private fun AlbumHeaderContent(
             }
         }
 
-        // Title with optional animated Explicit icon
-        Row(
+        // Title with inline flowing animated Explicit badge
+        Text(
+            text = annotatedTitle,
+            inlineContent = inlineContent,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier
                 .padding(horizontal = horizontalPadding)
                 .padding(top = 12.dp)
-                .animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = cleanAlbumTitle,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false)
-            )
-
-            AnimatedVisibility(
-                visible = effectiveIsExplicit,
-                enter = fadeIn(tween(350)) +
-                    scaleIn(
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessMediumLow
-                        ),
-                        initialScale = 0.3f
-                    ) +
-                    expandHorizontally(
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioNoBouncy,
-                            stiffness = Spring.StiffnessMediumLow
-                        )
-                    ),
-                exit = fadeOut(tween(200)) +
-                    scaleOut(targetScale = 0.3f) +
-                    shrinkHorizontally()
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Spacer(Modifier.width(6.dp))
-                    Icon(
-                        painter = painterResource(R.drawable.explicit),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-        }
+                .fillMaxWidth()
+        )
 
         // Artists
         Text(
