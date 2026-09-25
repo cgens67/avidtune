@@ -16,8 +16,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
@@ -102,7 +102,6 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -615,7 +614,6 @@ fun AlbumScreen(
                                 )
                             }
 
-                            // Smooth horizontal fade into surfaceColor across right boundary of left pane
                             drawRect(
                                 brush = Brush.horizontalGradient(
                                     colors = listOf(
@@ -629,7 +627,6 @@ fun AlbumScreen(
                                 )
                             )
 
-                            // Smooth vertical fade towards bottom of left pane
                             drawRect(
                                 brush = Brush.verticalGradient(
                                     colors = listOf(
@@ -1030,7 +1027,64 @@ private fun AlbumHeaderContent(
                 .replace(Regex("""\s*[\(\[](Explicit|explicit)[\)\]]"""), "")
                 .trim()
         } else {
-            albumData.album.title
+            albumData.album.title.trim()
+        }
+    }
+
+    val inlineContent = remember(effectiveIsExplicit) {
+        mapOf(
+            "explicit" to InlineTextContent(
+                Placeholder(
+                    width = 24.sp,
+                    height = 18.sp,
+                    placeholderVerticalAlign = PlaceholderVerticalAlign.Center
+                )
+            ) {
+                val animationState = remember { MutableTransitionState(false).apply { targetState = true } }
+                AnimatedVisibility(
+                    visibleState = animationState,
+                    enter = fadeIn(tween(350)) +
+                        scaleIn(
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessMediumLow
+                            ),
+                            initialScale = 0.3f
+                        ) +
+                        expandHorizontally(
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioNoBouncy,
+                                stiffness = Spring.StiffnessMediumLow
+                            )
+                        ),
+                    exit = fadeOut(tween(200)) +
+                        scaleOut(targetScale = 0.3f) +
+                        shrinkHorizontally()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(start = 5.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.explicit),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(17.dp)
+                        )
+                    }
+                }
+            }
+        )
+    }
+
+    val titleAnnotatedString = remember(cleanAlbumTitle, effectiveIsExplicit) {
+        buildAnnotatedString {
+            append(cleanAlbumTitle)
+            if (effectiveIsExplicit) {
+                appendInlineContent("explicit", "[E]")
+            }
         }
     }
 
@@ -1081,70 +1135,8 @@ private fun AlbumHeaderContent(
         }
 
         // Title with inline Explicit icon
-        val inlineContentId = "explicitBadge"
-        val inlineContent = remember(effectiveIsExplicit) {
-            if (!effectiveIsExplicit) {
-                emptyMap()
-            } else {
-                mapOf(
-                    inlineContentId to InlineTextContent(
-                        Placeholder(
-                            width = 18.sp,
-                            height = 18.sp,
-                            placeholderVerticalAlign = PlaceholderVerticalAlign.Center
-                        )
-                    ) {
-                        var visible by remember { mutableStateOf(false) }
-                        LaunchedEffect(Unit) {
-                            visible = true
-                        }
-                        val scale by animateFloatAsState(
-                            targetValue = if (visible) 1f else 0.3f,
-                            animationSpec = spring(
-                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                stiffness = Spring.StiffnessMediumLow
-                            ),
-                            label = "explicitScale"
-                        )
-                        val alpha by animateFloatAsState(
-                            targetValue = if (visible) 1f else 0f,
-                            animationSpec = tween(350),
-                            label = "explicitAlpha"
-                        )
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .graphicsLayer {
-                                    scaleX = scale
-                                    scaleY = scale
-                                    this.alpha = alpha
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.explicit),
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
-                )
-            }
-        }
-
-        val annotatedTitle = remember(cleanAlbumTitle, effectiveIsExplicit) {
-            buildAnnotatedString {
-                append(cleanAlbumTitle)
-                if (effectiveIsExplicit) {
-                    append("\u00A0")
-                    appendInlineContent(inlineContentId, "[E]")
-                }
-            }
-        }
-
         Text(
-            text = annotatedTitle,
+            text = titleAnnotatedString,
             inlineContent = inlineContent,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
