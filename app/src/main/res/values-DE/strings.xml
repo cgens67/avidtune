@@ -1327,5 +1327,9 @@
     <string name="lock_queue">Warteschlange sperren</string>
     <string name="unlock_queue">Warteschlange entsperren</string>
     <string name="drag_to_reorder">Ziehen zum Neuanordnen</string>
+    
+    <string name="album_fallback_description">%1$s ist ein Album von %2$s.</string>
+    <string name="single_fallback_description">%1$s ist eine Single von %2$s.</string>
+    <string name="ep_fallback_description">%1$s ist eine EP von %2$s.</string>
 
 </resources>
