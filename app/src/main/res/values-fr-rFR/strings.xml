@@ -1310,5 +1310,9 @@
     <string name="lock_queue">Verrouiller la file</string>
     <string name="unlock_queue">Déverrouiller la file</string>
     <string name="drag_to_reorder">Glisser pour réorganiser</string>
+    
+    <string name="album_fallback_description">%1$s est un album de %2$s.</string>
+    <string name="single_fallback_description">%1$s est un single de %2$s.</string>
+    <string name="ep_fallback_description">%1$s est un EP de %2$s.</string>
 
 </resources>
