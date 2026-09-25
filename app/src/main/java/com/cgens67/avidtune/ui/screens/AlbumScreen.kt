@@ -191,6 +191,7 @@ fun AlbumScreen(
     val albumDescription by viewModel.albumDescription.collectAsState()
     val isTranslated by viewModel.isTranslated.collectAsState()
     val canTranslate by viewModel.canTranslate.collectAsState()
+    val isExplicit by viewModel.isExplicit.collectAsState()
 
     val wrappedSongs = albumWithSongs?.songs?.map { item -> ItemWrapper(item) }?.toMutableList()
     var selection by remember { mutableStateOf(false) }
@@ -595,7 +596,6 @@ fun AlbumScreen(
                                 )
                             }
 
-                            // Smooth horizontal fade into surfaceColor across right boundary of left pane
                             drawRect(
                                 brush = Brush.horizontalGradient(
                                     colors = listOf(
@@ -609,7 +609,6 @@ fun AlbumScreen(
                                 )
                             )
 
-                            // Smooth vertical fade towards bottom of left pane
                             drawRect(
                                 brush = Brush.verticalGradient(
                                     colors = listOf(
@@ -623,7 +622,6 @@ fun AlbumScreen(
                                 )
                             )
                         } else {
-                            // Portrait
                             val centerY = (160.dp.toPx()).coerceAtMost(height * 0.28f)
                             val radius = width * 0.75f
 
@@ -726,7 +724,6 @@ fun AlbumScreen(
                 Row(
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    // Left Pane: Album presentation with fitted cover & quick actions
                     Column(
                         modifier = Modifier
                             .weight(0.42f)
@@ -750,6 +747,7 @@ fun AlbumScreen(
                             albumDescription = albumDescription,
                             isTranslated = isTranslated,
                             canTranslate = canTranslate,
+                            isExplicit = isExplicit,
                             onToggleTranslation = viewModel::toggleDescriptionTranslation,
                             navController = navController,
                             onPlayClick = onPlayClick,
@@ -762,7 +760,6 @@ fun AlbumScreen(
                         )
                     }
 
-                    // Right Pane: Track list & other versions
                     LazyColumn(
                         state = lazyListState,
                         modifier = Modifier
@@ -798,7 +795,6 @@ fun AlbumScreen(
                     }
                 }
             } else {
-                // Portrait Layout
                 LazyColumn(
                     state = lazyListState,
                     contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues(),
@@ -817,6 +813,7 @@ fun AlbumScreen(
                             albumDescription = albumDescription,
                             isTranslated = isTranslated,
                             canTranslate = canTranslate,
+                            isExplicit = isExplicit,
                             onToggleTranslation = viewModel::toggleDescriptionTranslation,
                             navController = navController,
                             onPlayClick = onPlayClick,
@@ -969,6 +966,7 @@ private fun AlbumHeaderContent(
     albumDescription: String?,
     isTranslated: Boolean,
     canTranslate: Boolean,
+    isExplicit: Boolean,
     onToggleTranslation: () -> Unit,
     navController: NavController,
     onPlayClick: () -> Unit,
@@ -998,6 +996,20 @@ private fun AlbumHeaderContent(
             count in 2..6 -> AlbumReleaseType.EP
 
             else -> AlbumReleaseType.ALBUM
+        }
+    }
+
+    val effectiveIsExplicit = remember(isExplicit, albumData.album.title) {
+        isExplicit || albumData.album.title.contains("explicit", ignoreCase = true)
+    }
+
+    val cleanAlbumTitle = remember(albumData.album.title, effectiveIsExplicit) {
+        if (effectiveIsExplicit) {
+            albumData.album.title
+                .replace(Regex("""\s*[\(\[](Explicit|explicit)[\)\]]"""), "")
+                .trim()
+        } else {
+            albumData.album.title
         }
     }
 
@@ -1047,19 +1059,35 @@ private fun AlbumHeaderContent(
             }
         }
 
-        // Title
-        Text(
-            text = albumData.album.title,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
+        // Title with optional Explicit icon
+        Row(
             modifier = Modifier
                 .padding(horizontal = horizontalPadding)
-                .padding(top = 12.dp)
-        )
+                .padding(top = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = cleanAlbumTitle,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
+            )
+
+            if (effectiveIsExplicit) {
+                Spacer(Modifier.width(6.dp))
+                Icon(
+                    painter = painterResource(R.drawable.explicit),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
 
         // Artists
         Text(
@@ -1211,7 +1239,7 @@ private fun AlbumHeaderContent(
             }
             val staticDesc = stringResource(
                 fallbackRes,
-                albumData.album.title,
+                cleanAlbumTitle,
                 albumData.artists.joinToString { it.name }
             )
             val desc = albumDescription ?: staticDesc
