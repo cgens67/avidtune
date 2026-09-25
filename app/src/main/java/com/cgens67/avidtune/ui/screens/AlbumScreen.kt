@@ -1027,22 +1027,39 @@ private fun AlbumHeaderContent(
                 .replace(Regex("""\s*[\(\[](Explicit|explicit)[\)\]]"""), "")
                 .trim()
         } else {
-            albumData.album.title.trim()
+            albumData.album.title
         }
     }
 
-    val inlineContent = remember(effectiveIsExplicit) {
+    val explicitTransitionState = remember(albumData.album.id) {
+        MutableTransitionState(false)
+    }
+
+    LaunchedEffect(effectiveIsExplicit) {
+        explicitTransitionState.targetState = effectiveIsExplicit
+    }
+
+    val cleanAlbumTitleAnnotated = remember(cleanAlbumTitle, effectiveIsExplicit) {
+        buildAnnotatedString {
+            append(cleanAlbumTitle)
+            if (effectiveIsExplicit) {
+                append("\u00A0")
+                appendInlineContent("explicitIcon", "[E]")
+            }
+        }
+    }
+
+    val inlineContent = remember(explicitTransitionState) {
         mapOf(
-            "explicit" to InlineTextContent(
+            "explicitIcon" to InlineTextContent(
                 Placeholder(
                     width = 24.sp,
                     height = 18.sp,
                     placeholderVerticalAlign = PlaceholderVerticalAlign.Center
                 )
             ) {
-                val animationState = remember { MutableTransitionState(false).apply { targetState = true } }
                 AnimatedVisibility(
-                    visibleState = animationState,
+                    visibleState = explicitTransitionState,
                     enter = fadeIn(tween(350)) +
                         scaleIn(
                             animationSpec = spring(
@@ -1062,30 +1079,19 @@ private fun AlbumHeaderContent(
                         shrinkHorizontally()
                 ) {
                     Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(start = 5.dp),
-                        contentAlignment = Alignment.CenterStart
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             painter = painterResource(R.drawable.explicit),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(17.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
             }
         )
-    }
-
-    val titleAnnotatedString = remember(cleanAlbumTitle, effectiveIsExplicit) {
-        buildAnnotatedString {
-            append(cleanAlbumTitle)
-            if (effectiveIsExplicit) {
-                appendInlineContent("explicit", "[E]")
-            }
-        }
     }
 
     Column(
@@ -1134,21 +1140,26 @@ private fun AlbumHeaderContent(
             }
         }
 
-        // Title with inline Explicit icon
-        Text(
-            text = titleAnnotatedString,
-            inlineContent = inlineContent,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
+        // Title with inline animated Explicit icon
+        Row(
             modifier = Modifier
                 .padding(horizontal = horizontalPadding)
                 .padding(top = 12.dp)
-                .animateContentSize(spring(stiffness = Spring.StiffnessMediumLow))
-        )
+                .animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = cleanAlbumTitleAnnotated,
+                inlineContent = inlineContent,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
 
         // Artists
         Text(
