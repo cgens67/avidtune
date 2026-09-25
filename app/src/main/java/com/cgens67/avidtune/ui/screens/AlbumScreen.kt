@@ -801,7 +801,7 @@ fun AlbumScreen(
                     item(key = "album_header") {
                         AlbumHeaderContent(
                             albumData = albumData,
-                            artworkSize = 240.dp,
+                            artworkSize = 280.dp,
                             thumbnailCornerRadius = thumbnailCornerRadius,
                             coverResolution = coverResolution,
                             isPlaying = isPlaying,
