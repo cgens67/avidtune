@@ -2,6 +2,7 @@
 
 package com.cgens67.avidtune.ui.player
 
+import android.content.res.Configuration
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -52,6 +53,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -97,6 +99,8 @@ fun QueueV2(
     val playerConnection = LocalPlayerConnection.current ?: return
     val menuState = LocalMenuState.current
     val bottomSheetPageState = LocalBottomSheetPageState.current
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     val queueWindows by playerConnection.queueWindows.collectAsState()
     val currentWindowIndex by playerConnection.currentWindowIndex.collectAsState()
@@ -242,7 +246,7 @@ fun QueueV2(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 val pillShape = RoundedCornerShape(16.dp)
@@ -253,7 +257,7 @@ fun QueueV2(
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .height(48.dp)
+                        .height(44.dp)
                         .background(if (shuffleModeEnabled) activeColor else inactiveColor, pillShape)
                         .clip(pillShape)
                         .clickable(enabled = !isGuest) {
@@ -265,7 +269,7 @@ fun QueueV2(
                         painter = painterResource(R.drawable.shuffle),
                         contentDescription = stringResource(R.string.shuffle),
                         tint = adaptivePrimary,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
 
@@ -273,7 +277,7 @@ fun QueueV2(
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .height(48.dp)
+                        .height(44.dp)
                         .background(if (repeatMode != Player.REPEAT_MODE_OFF) activeColor else inactiveColor, pillShape)
                         .clip(pillShape)
                         .clickable(enabled = !isGuest) { playerConnection.player.toggleRepeatMode() },
@@ -288,7 +292,7 @@ fun QueueV2(
                         ),
                         contentDescription = null,
                         tint = adaptivePrimary,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
 
@@ -296,7 +300,7 @@ fun QueueV2(
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .height(48.dp)
+                        .height(44.dp)
                         .background(if (sleepTimerEnabled) activeColor else inactiveColor, pillShape)
                         .clip(pillShape)
                         .clickable(enabled = !isGuest) {
@@ -313,7 +317,7 @@ fun QueueV2(
                             painter = painterResource(R.drawable.bedtime),
                             contentDescription = stringResource(R.string.sleep_timer),
                             tint = adaptivePrimary,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                         if (sleepTimerEnabled) {
                             Spacer(modifier = Modifier.width(4.dp))
@@ -331,7 +335,7 @@ fun QueueV2(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -351,7 +355,7 @@ fun QueueV2(
                                 fontWeight = FontWeight.Bold,
                                 color = adaptivePrimary,
                                 maxLines = 1,
-                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                overflow = TextOverflow.Ellipsis
                             )
                         } else {
                             Text(
@@ -374,9 +378,11 @@ fun QueueV2(
                 }
             }
 
+            val bottomPadding = if (isLandscape) 24.dp else 120.dp
+
             LazyColumn(
                 state = lazyListState,
-                contentPadding = PaddingValues(bottom = 120.dp, top = 4.dp),
+                contentPadding = PaddingValues(bottom = bottomPadding, top = 4.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
                 itemsIndexed(
@@ -516,7 +522,7 @@ fun QueueV2(
                 ) {
                     Text(
                         text = stringResource(R.string.sleep_timer),
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        overflow = TextOverflow.Ellipsis,
                         maxLines = 1,
                         style = MaterialTheme.typography.headlineSmall,
                     )
