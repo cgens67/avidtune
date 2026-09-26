@@ -1235,6 +1235,18 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
             onClick = { resetSearch(); navController.navigate("settings/content") }
         ),
         SettingsItem(
+            icon = painterResource(R.drawable.security),
+            title = stringResource(R.string.enable_ai_content_filter),
+            keywords = listOf("ai", "content", "filter", "moderate", "strict"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.info),
+            title = stringResource(R.string.include_moderate_confidence),
+            keywords = listOf("ai", "content", "filter", "moderate", "confidence"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
             icon = painterResource(R.drawable.wifi_proxy),
             title = stringResource(R.string.enable_proxy),
             keywords = listOf("proxy", "network", "connection"),
@@ -1284,7 +1296,7 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
         ),
         SettingsItem(
             icon = painterResource(R.drawable.lyrics),
-            title = "Enable BiniLyrics",
+            title = stringResource(R.string.enable_binilyrics),
             keywords = listOf("binilyrics", "bini", "lyrics", "provider"),
             onClick = { resetSearch(); navController.navigate("settings/content") }
         ),
