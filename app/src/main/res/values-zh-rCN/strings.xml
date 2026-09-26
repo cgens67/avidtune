@@ -1317,5 +1317,6 @@
     <string name="ep_fallback_description">%1$s 是 %2$s 的一张 EP。</string>
     <string name="single_text">单曲</string>
     <string name="ep_text">EP</string>
+    <string name="enable_binilyrics">启用 BiniLyrics</string>
 
 </resources>
