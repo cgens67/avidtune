@@ -1,10 +1,12 @@
 package com.cgens67.avidtune.ui.component
 
 import android.content.res.Configuration
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,13 +24,18 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -60,7 +67,6 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
-import kotlin.math.max
 
 @Composable
 fun LyricsV2(
@@ -174,6 +180,34 @@ fun LyricsV2(
     var previousMainLineIndex by remember(mediaMetadata?.id) { mutableIntStateOf(-1) }
     val lazyListState = rememberLazyListState()
 
+    var isAutoScrollEnabled by remember { mutableStateOf(true) }
+    var userScrolledTime by remember { mutableLongStateOf(0L) }
+    var isAnimatingScroll by remember { mutableStateOf(false) }
+
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                if (source == NestedScrollSource.UserInput) {
+                    isAutoScrollEnabled = false
+                    userScrolledTime = System.currentTimeMillis()
+                }
+                return super.onPostScroll(consumed, available, source)
+            }
+        }
+    }
+
+    LaunchedEffect(userScrolledTime) {
+        if (userScrolledTime != 0L) {
+            delay(3500)
+            isAutoScrollEnabled = true
+            userScrolledTime = 0L
+        }
+    }
+
     // Sync position tracking
     LaunchedEffect(originalLyrics, lyricsOffsetMs, currentSkipSegments, sponsorBlockEnabled) {
         if (originalLyrics.isNullOrEmpty() || !isSynced) {
@@ -206,35 +240,56 @@ fun LyricsV2(
         }
     }
 
-    // Auto-scroll to current lyric line
-    LaunchedEffect(currentMainLineIndex) {
-        if (!isSynced || !scrollLyrics || currentMainLineIndex == -1) return@LaunchedEffect
-        if (currentMainLineIndex != previousMainLineIndex) {
-            previousMainLineIndex = currentMainLineIndex
-            val itemInfo = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == currentMainLineIndex }
-            if (itemInfo != null) {
-                val viewportHeight = lazyListState.layoutInfo.viewportEndOffset - lazyListState.layoutInfo.viewportStartOffset
-                val center = lazyListState.layoutInfo.viewportStartOffset + (viewportHeight / 2)
-                val itemCenter = itemInfo.offset + itemInfo.size / 2
-                val offset = itemCenter - center
-                if (abs(offset) > 10) {
-                    lazyListState.animateScrollBy(
-                        value = offset.toFloat(),
-                        animationSpec = if (animateLyrics) tween(800) else tween(1)
-                    )
+    suspend fun scrollToCurrentLine(targetIndex: Int) {
+        if (targetIndex < 0 || targetIndex >= lines.size || isAnimatingScroll) return
+        isAnimatingScroll = true
+        try {
+            val itemInfo = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == targetIndex }
+            val viewportHeight = lazyListState.layoutInfo.viewportSize.height
+            if (viewportHeight > 0) {
+                if (itemInfo != null) {
+                    val center = viewportHeight / 2
+                    val itemCenter = itemInfo.offset + itemInfo.size / 2
+                    val offset = itemCenter - center
+                    if (abs(offset) > 8) {
+                        lazyListState.animateScrollBy(
+                            value = offset.toFloat(),
+                            animationSpec = tween(
+                                durationMillis = if (animateLyrics) 600 else 1,
+                                easing = FastOutSlowInEasing
+                            )
+                        )
+                    }
+                } else {
+                    val targetOffset = -(viewportHeight / 2)
+                    lazyListState.animateScrollToItem(targetIndex, targetOffset)
                 }
-            } else {
-                lazyListState.scrollToItem(max(0, currentMainLineIndex - 2))
             }
+        } catch (_: Exception) {
+        } finally {
+            isAnimatingScroll = false
         }
     }
 
-    Box(
+    // Auto-scroll to current lyric line
+    LaunchedEffect(currentMainLineIndex, isAutoScrollEnabled) {
+        if (!isSynced || !scrollLyrics || currentMainLineIndex == -1 || !isAutoScrollEnabled) return@LaunchedEffect
+        if (currentMainLineIndex != previousMainLineIndex) {
+            previousMainLineIndex = currentMainLineIndex
+            scrollToCurrentLine(currentMainLineIndex)
+        }
+    }
+
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .fadingEdge(vertical = if (isLandscape) 24.dp else 48.dp),
+            .fadingEdge(vertical = if (isLandscape) 20.dp else 40.dp),
         contentAlignment = Alignment.Center
     ) {
+        val halfHeight = maxHeight / 2
+        val topPadding = if (isLandscape) (maxHeight / 3) else (halfHeight - 24.dp).coerceAtLeast(40.dp)
+        val bottomPadding = if (isLandscape) (maxHeight / 3) else halfHeight.coerceAtLeast(40.dp)
+
         if (lines.isEmpty()) {
             if (isLoadingLyrics || matchingLyrics == null) {
                 Column(
@@ -264,13 +319,12 @@ fun LyricsV2(
                 )
             }
         } else {
-            val topPadding = if (isLandscape) 24.dp else 100.dp
-            val bottomPadding = if (isLandscape) 32.dp else 120.dp
-
             LazyColumn(
                 state = lazyListState,
                 contentPadding = PaddingValues(top = topPadding, bottom = bottomPadding, start = 8.dp, end = 8.dp),
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .nestedScroll(nestedScrollConnection)
             ) {
                 itemsIndexed(lines, key = { idx, item -> "$idx-${item.time}" }) { index, item ->
                     val isActiveLine = (index == currentMainLineIndex) && isSynced
@@ -284,18 +338,22 @@ fun LyricsV2(
                         distanceFromCurrent = distance,
                         lyricsTextPosition = lyricsTextPosition,
                         textColor = textColor,
-                        textSize = if (isLandscape) 24f else 28f,
+                        textSize = if (isLandscape) 22f else 28f,
                         lineSpacing = if (isLandscape) 4f else 6f,
                         onClick = {
                             if (isSynced && changeLyrics) {
                                 val targetTime = item.time - lyricsOffsetMs
                                 playerConnection.player.seekTo(targetTime.coerceAtLeast(0L))
+                                isAutoScrollEnabled = true
+                                coroutineScope.launch {
+                                    scrollToCurrentLine(index)
+                                }
                             }
                         },
                         onLongClick = {},
                         isSelected = false,
                         isSelectionModeActive = false,
-                        isAutoScrollActive = true,
+                        isAutoScrollActive = isAutoScrollEnabled,
                         animateLyrics = animateLyrics,
                         lyricsOffset = lyricsOffsetMs,
                         currentSkipSegments = currentSkipSegments,
