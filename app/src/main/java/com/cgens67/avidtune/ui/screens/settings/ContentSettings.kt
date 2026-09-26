@@ -67,6 +67,7 @@ import com.cgens67.avidtune.constants.EnableBetterLyricsKey
 import com.cgens67.avidtune.constants.EnableSimpMusicKey
 import com.cgens67.avidtune.constants.EnableLyricsPlusKey
 import com.cgens67.avidtune.constants.EnablePaxsenixKey
+import com.cgens67.avidtune.constants.EnableBiniLyricsKey
 import com.cgens67.avidtune.constants.EnableNetEaseKey
 import com.cgens67.avidtune.constants.EnableGeniusKey
 import com.cgens67.avidtune.constants.HideExplicitKey
@@ -168,6 +169,10 @@ fun ContentSettings(
         key = EnablePaxsenixKey,
         defaultValue = true
     )
+    val (enableBiniLyrics, onEnableBiniLyricsChange) = rememberPreference(
+        key = EnableBiniLyricsKey,
+        defaultValue = true
+    )
     val (enableLyricsPlus, onEnableLyricsPlusChange) = rememberPreference(
         key = EnableLyricsPlusKey,
         defaultValue = true
@@ -190,7 +195,7 @@ fun ContentSettings(
         defaultValue = false
     )
 
-    val defaultOrder = listOf("AvidLyrics", "LyricsPlus", "Paxsenix", "BetterLyrics", "SimpMusic", "LrcLib", "Kugou", "NetEase", "Genius", "YouTube Subtitle", "YouTube Music")
+    val defaultOrder = listOf("AvidLyrics", "LyricsPlus", "Paxsenix", "BiniLyrics", "BetterLyrics", "SimpMusic", "LrcLib", "Kugou", "NetEase", "Genius", "YouTube Subtitle", "YouTube Music")
     val (providerOrderStr, onProviderOrderChange) = rememberPreference(LyricsProviderOrderKey, defaultOrder.joinToString(","))
     val currentOrder = remember(providerOrderStr) {
         providerOrderStr.split(",").filter { it.isNotBlank() }.let { saved ->
@@ -353,6 +358,12 @@ fun ContentSettings(
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = enablePaxsenix,
                     onCheckedChange = onEnablePaxsenixChange,
+                )},
+                {SwitchPreference(
+                    title = { Text("Enable BiniLyrics") },
+                    icon = { Icon(painterResource(R.drawable.lyrics), null) },
+                    checked = enableBiniLyrics,
+                    onCheckedChange = onEnableBiniLyricsChange,
                 )},
                 {SwitchPreference(
                     title = { Text(stringResource(R.string.enable_lrclib)) },
