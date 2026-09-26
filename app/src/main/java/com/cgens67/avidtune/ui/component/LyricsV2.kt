@@ -1,5 +1,6 @@
 package com.cgens67.avidtune.ui.component
 
+import android.content.res.Configuration
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Arrangement
@@ -28,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -72,6 +74,8 @@ fun LyricsV2(
     val database = LocalDatabase.current
     val playerConnection = LocalPlayerConnection.current ?: return
     val coroutineScope = rememberCoroutineScope()
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     val currentLyrics by playerConnection.currentLyrics.collectAsState(initial = null)
     var isLoadingLyrics by remember(mediaMetadata?.id) { mutableStateOf(false) }
@@ -185,7 +189,7 @@ fun LyricsV2(
                     if (basePosition >= segment.second) {
                         sponsorBlockOffset += (segment.second - segment.first)
                     } else if (basePosition > segment.first) {
-                        sponsorBlockOffset += (basePosition - segment.first)
+                        sponsorBlockOffset += (currentVideoPos - segment.first)
                     }
                 }
             }
@@ -228,7 +232,7 @@ fun LyricsV2(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .fadingEdge(vertical = 48.dp),
+            .fadingEdge(vertical = if (isLandscape) 24.dp else 48.dp),
         contentAlignment = Alignment.Center
     ) {
         if (lines.isEmpty()) {
@@ -260,9 +264,12 @@ fun LyricsV2(
                 )
             }
         } else {
+            val topPadding = if (isLandscape) 24.dp else 100.dp
+            val bottomPadding = if (isLandscape) 32.dp else 120.dp
+
             LazyColumn(
                 state = lazyListState,
-                contentPadding = PaddingValues(top = 100.dp, bottom = 120.dp, start = 8.dp, end = 8.dp),
+                contentPadding = PaddingValues(top = topPadding, bottom = bottomPadding, start = 8.dp, end = 8.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
                 itemsIndexed(lines, key = { idx, item -> "$idx-${item.time}" }) { index, item ->
@@ -277,8 +284,8 @@ fun LyricsV2(
                         distanceFromCurrent = distance,
                         lyricsTextPosition = lyricsTextPosition,
                         textColor = textColor,
-                        textSize = 28f,
-                        lineSpacing = 6f,
+                        textSize = if (isLandscape) 24f else 28f,
+                        lineSpacing = if (isLandscape) 4f else 6f,
                         onClick = {
                             if (isSynced && changeLyrics) {
                                 val targetTime = item.time - lyricsOffsetMs
