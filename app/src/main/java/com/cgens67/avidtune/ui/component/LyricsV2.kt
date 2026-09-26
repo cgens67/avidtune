@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -60,7 +61,6 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
-import kotlin.math.max
 
 @Composable
 fun LyricsV2(
@@ -174,7 +174,7 @@ fun LyricsV2(
     var previousMainLineIndex by remember(mediaMetadata?.id) { mutableIntStateOf(-1) }
     val lazyListState = rememberLazyListState()
 
-    // Sync position tracking
+    // Sync position tracking directly from the provider or player
     LaunchedEffect(originalLyrics, lyricsOffsetMs, currentSkipSegments, sponsorBlockEnabled) {
         if (originalLyrics.isNullOrEmpty() || !isSynced) {
             currentMainLineIndex = -1
@@ -206,33 +206,47 @@ fun LyricsV2(
         }
     }
 
-    // Auto-scroll to current lyric line
+    // Centered auto-scroll logic
     LaunchedEffect(currentMainLineIndex) {
         if (!isSynced || !scrollLyrics || currentMainLineIndex == -1) return@LaunchedEffect
         if (currentMainLineIndex != previousMainLineIndex) {
             previousMainLineIndex = currentMainLineIndex
             val itemInfo = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == currentMainLineIndex }
             if (itemInfo != null) {
-                val viewportHeight = lazyListState.layoutInfo.viewportEndOffset - lazyListState.layoutInfo.viewportStartOffset
-                val center = lazyListState.layoutInfo.viewportStartOffset + (viewportHeight / 2)
+                val viewportHeight = lazyListState.layoutInfo.viewportSize.height
+                val center = viewportHeight / 2
                 val itemCenter = itemInfo.offset + itemInfo.size / 2
                 val offset = itemCenter - center
-                if (abs(offset) > 10) {
+                if (abs(offset) > 4) {
                     lazyListState.animateScrollBy(
                         value = offset.toFloat(),
-                        animationSpec = if (animateLyrics) tween(800) else tween(1)
+                        animationSpec = if (animateLyrics) tween(600) else tween(1)
                     )
                 }
             } else {
-                lazyListState.scrollToItem(max(0, currentMainLineIndex - 2))
+                // Scroll targetIndex directly into the viewport, then center smoothly
+                lazyListState.scrollToItem(currentMainLineIndex)
+                val refreshedItem = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == currentMainLineIndex }
+                if (refreshedItem != null) {
+                    val viewportHeight = lazyListState.layoutInfo.viewportSize.height
+                    val center = viewportHeight / 2
+                    val itemCenter = refreshedItem.offset + refreshedItem.size / 2
+                    val offset = itemCenter - center
+                    if (abs(offset) > 4) {
+                        lazyListState.animateScrollBy(
+                            value = offset.toFloat(),
+                            animationSpec = if (animateLyrics) tween(300) else tween(1)
+                        )
+                    }
+                }
             }
         }
     }
 
-    Box(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .fadingEdge(vertical = if (isLandscape) 24.dp else 48.dp),
+            .fadingEdge(vertical = if (isLandscape) 20.dp else 40.dp),
         contentAlignment = Alignment.Center
     ) {
         if (lines.isEmpty()) {
@@ -264,9 +278,10 @@ fun LyricsV2(
                 )
             }
         } else {
-            // Adaptive padding prevents lines from starting or centering too low in landscape
-            val topPadding = if (isLandscape) 40.dp else 100.dp
-            val bottomPadding = if (isLandscape) 60.dp else 120.dp
+            // Half-height padding guarantees that ANY line can reach the exact vertical center
+            val halfHeight = maxHeight / 2
+            val topPadding = (halfHeight - (if (isLandscape) 16.dp else 24.dp)).coerceAtLeast(32.dp)
+            val bottomPadding = halfHeight.coerceAtLeast(32.dp)
 
             LazyColumn(
                 state = lazyListState,
@@ -285,7 +300,7 @@ fun LyricsV2(
                         distanceFromCurrent = distance,
                         lyricsTextPosition = lyricsTextPosition,
                         textColor = textColor,
-                        textSize = if (isLandscape) 22f else 28f,
+                        textSize = if (isLandscape) 21f else 28f,
                         lineSpacing = if (isLandscape) 4f else 6f,
                         onClick = {
                             if (isSynced && changeLyrics) {
