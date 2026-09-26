@@ -21,14 +21,15 @@ constructor(
         AvidLyricsProvider, // 1
         LyricsPlusProvider, // 2
         PaxsenixLyricsProvider, // 3
-        BetterLyricsProvider, // 4
-        SimpMusicLyricsProvider, // 5
-        LrcLibLyricsProvider, // 6
-        KuGouLyricsProvider, // 7
-        NetEaseLyricsProvider, // 8
-        GeniusLyricsProvider, // 9
-        YouTubeSubtitleLyricsProvider, // 10
-        YouTubeLyricsProvider // 11
+        BiniLyricsProvider, // 4
+        BetterLyricsProvider, // 5
+        SimpMusicLyricsProvider, // 6
+        LrcLibLyricsProvider, // 7
+        KuGouLyricsProvider, // 8
+        NetEaseLyricsProvider, // 9
+        GeniusLyricsProvider, // 10
+        YouTubeSubtitleLyricsProvider, // 11
+        YouTubeLyricsProvider // 12
     )
 
     private suspend fun getOrderedProviders(): List<LyricsProvider> {
