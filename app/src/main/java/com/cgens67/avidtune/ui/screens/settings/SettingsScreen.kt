@@ -1284,6 +1284,12 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
         ),
         SettingsItem(
             icon = painterResource(R.drawable.lyrics),
+            title = "Enable BiniLyrics",
+            keywords = listOf("binilyrics", "bini", "lyrics", "provider"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.lyrics),
             title = stringResource(R.string.enable_lrclib),
             keywords = listOf("lrclib", "lyrics", "provider", "synced"),
             onClick = { resetSearch(); navController.navigate("settings/content") }
