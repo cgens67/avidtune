@@ -36,20 +36,47 @@ object AvidLyricsProvider : LyricsProvider {
         artist: String,
         duration: Int,
     ): Result<String> = runCatching {
-        // Replaced jsDelivr with GitHub Raw to avoid the 12-hour CDN cache on branches.
-        // Appended a timestamp to completely bypass GitHub's 5-minute cache so edits show up instantly.
-        val url = "https://raw.githubusercontent.com/$GITHUB_USERNAME/$GITHUB_REPO/$GITHUB_BRANCH/lyrics/$id.lrc?t=${System.currentTimeMillis()}"
+        // Clean the title to strip out typical YouTube suffixes like "(Official Video)" or "[Audio]"
+        val baseTitle = title.substringBefore("(").substringBefore("[").trim()
+        val cleanTitle = baseTitle.replace(Regex("[^a-zA-Z0-9 ]"), "").trim()
+        
+        val titleUnderscores = cleanTitle.lowercase().replace(Regex("\\s+"), "_")
+        val titleNoSpaces = cleanTitle.lowercase().replace(Regex("\\s+"), "")
+        val rawTitleUnderscores = title.replace(" ", "_")
 
-        val response = client.get(url)
-        if (response.status == HttpStatusCode.OK) {
-            val body = response.bodyAsText()
-            if (body.isNotBlank()) {
-                body
-            } else {
-                throw IllegalStateException("Empty lyrics file")
-            }
-        } else {
-            throw IllegalStateException("Failed to fetch from AvidLyrics: ${response.status}")
+        // Build a fallback priority list of possible paths
+        // Exact YT video ID uses lyrics/ directory
+        val possiblePaths = mutableListOf("lyrics/$id.lrc")
+        
+        // Title fallbacks use lyrics/sorted/ directory
+        val fallbackNames = listOfNotNull(
+            titleUnderscores.takeIf { it.isNotBlank() },
+            titleNoSpaces.takeIf { it.isNotBlank() },
+            rawTitleUnderscores.takeIf { it.isNotBlank() }
+        ).distinct()
+        
+        for (name in fallbackNames) {
+            possiblePaths.add("lyrics/sorted/$name.lrc")
         }
+
+        for (path in possiblePaths) {
+            // Replaced jsDelivr with GitHub Raw to avoid the 12-hour CDN cache on branches.
+            // Appended a timestamp to completely bypass GitHub's 5-minute cache so edits show up instantly.
+            val url = "https://raw.githubusercontent.com/$GITHUB_USERNAME/$GITHUB_REPO/$GITHUB_BRANCH/$path?t=${System.currentTimeMillis()}"
+
+            try {
+                val response = client.get(url)
+                if (response.status == HttpStatusCode.OK) {
+                    val body = response.bodyAsText()
+                    if (body.isNotBlank()) {
+                        return@runCatching body
+                    }
+                }
+            } catch (e: Exception) {
+                // Ignore network errors for an individual attempt, try the next one
+            }
+        }
+        
+        throw IllegalStateException("Failed to fetch from AvidLyrics: No matching lyrics found")
     }
 }
