@@ -566,7 +566,7 @@ fun ArtistScreen(
 
                             // Description (waits for translation, fallback to untranslated if >5s or error)
                             if (isDescriptionLoading) {
-                                ShimmerHost(modifier = Modifier.padding(bottom = 16.dp)) {
+                                ShimmerHost(modifier = Modifier.padding(bottom = 4.dp)) {
                                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                         Spacer(
                                             modifier = Modifier
@@ -639,7 +639,7 @@ fun ArtistScreen(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(top = 16.dp, bottom = 16.dp),
+                                    .padding(top = 4.dp, bottom = 16.dp),
                                 horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
                             ) {
                                 // Subscribe Button
