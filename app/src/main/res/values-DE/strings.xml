@@ -1333,5 +1333,6 @@
     <string name="ep_fallback_description">%1$s ist eine EP von %2$s.</string>
     <string name="single_text">Single</string>
     <string name="ep_text">EP</string>
+    <string name="enable_binilyrics">BiniLyrics aktivieren</string>
 
 </resources>
