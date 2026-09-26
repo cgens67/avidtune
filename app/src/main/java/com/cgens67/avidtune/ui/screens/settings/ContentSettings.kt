@@ -360,7 +360,7 @@ fun ContentSettings(
                     onCheckedChange = onEnablePaxsenixChange,
                 )},
                 {SwitchPreference(
-                    title = { Text("Enable BiniLyrics") },
+                    title = { Text(stringResource(R.string.enable_binilyrics)) },
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = enableBiniLyrics,
                     onCheckedChange = onEnableBiniLyricsChange,
