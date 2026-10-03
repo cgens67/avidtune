@@ -298,9 +298,13 @@ fun PlayerV2Slider(
     playerBackground: PlayerBackgroundStyle,
     useDarkTheme: Boolean,
     onValueChange: (Long) -> Unit,
-    onValueChangeFinished: () -> Unit,
+    onSeekTo: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var scrubbedValue by remember { mutableStateOf<Float?>(null) }
+    val maxRange = if (duration == C.TIME_UNSET || duration <= 0L) 0f else duration.toFloat()
+    val displayValue = (scrubbedValue ?: currentPos.toFloat()).coerceIn(0f, if (maxRange > 0f) maxRange else 1f)
+
     when (sliderStyle) {
         SliderStyle.EXPANDING -> {
             val trackInteractionSource = remember { MutableInteractionSource() }
@@ -315,19 +319,24 @@ fun PlayerV2Slider(
             )
 
             Slider(
-                value = currentPos.toFloat(),
-                valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
+                value = displayValue,
+                valueRange = 0f..maxRange,
                 onValueChange = { value ->
                     if (!isListenTogetherGuest) {
+                        scrubbedValue = value
                         onValueChange(value.toLong())
                     }
                 },
                 onValueChangeFinished = {
                     if (!isListenTogetherGuest) {
-                        onValueChangeFinished()
+                        val targetPos = scrubbedValue?.toLong()
+                        if (targetPos != null) {
+                            onSeekTo(targetPos)
+                        }
+                        scrubbedValue = null
                     }
                 },
-                enabled = !isListenTogetherGuest,
+                enabled = !isListenTogetherGuest && maxRange > 0f,
                 interactionSource = trackInteractionSource,
                 thumb = { Spacer(modifier = Modifier.size(0.dp)) },
                 track = { sliderState ->
@@ -346,15 +355,24 @@ fun PlayerV2Slider(
         }
         SliderStyle.DEFAULT -> {
             Slider(
-                value = currentPos.toFloat(),
-                valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
+                value = displayValue,
+                valueRange = 0f..maxRange,
                 onValueChange = { value ->
-                    if (!isListenTogetherGuest) onValueChange(value.toLong())
+                    if (!isListenTogetherGuest) {
+                        scrubbedValue = value
+                        onValueChange(value.toLong())
+                    }
                 },
                 onValueChangeFinished = {
-                    if (!isListenTogetherGuest) onValueChangeFinished()
+                    if (!isListenTogetherGuest) {
+                        val targetPos = scrubbedValue?.toLong()
+                        if (targetPos != null) {
+                            onSeekTo(targetPos)
+                        }
+                        scrubbedValue = null
+                    }
                 },
-                enabled = !isListenTogetherGuest,
+                enabled = !isListenTogetherGuest && maxRange > 0f,
                 colors = SliderDefaults.colors(
                     activeTrackColor = adaptivePrimary,
                     inactiveTrackColor = adaptivePrimary.copy(alpha = 0.25f),
@@ -365,15 +383,24 @@ fun PlayerV2Slider(
         }
         SliderStyle.SQUIGGLY -> {
             SquigglySlider(
-                value = currentPos.toFloat(),
-                valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
+                value = displayValue,
+                valueRange = 0f..maxRange,
                 onValueChange = { value ->
-                    if (!isListenTogetherGuest) onValueChange(value.toLong())
+                    if (!isListenTogetherGuest) {
+                        scrubbedValue = value
+                        onValueChange(value.toLong())
+                    }
                 },
                 onValueChangeFinished = {
-                    if (!isListenTogetherGuest) onValueChangeFinished()
+                    if (!isListenTogetherGuest) {
+                        val targetPos = scrubbedValue?.toLong()
+                        if (targetPos != null) {
+                            onSeekTo(targetPos)
+                        }
+                        scrubbedValue = null
+                    }
                 },
-                enabled = !isListenTogetherGuest,
+                enabled = !isListenTogetherGuest && maxRange > 0f,
                 colors = SliderDefaults.colors(
                     activeTrackColor = adaptivePrimary,
                     inactiveTrackColor = adaptivePrimary.copy(alpha = 0.25f),
@@ -389,15 +416,24 @@ fun PlayerV2Slider(
         }
         SliderStyle.SLIM -> {
             Slider(
-                value = currentPos.toFloat(),
-                valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
+                value = displayValue,
+                valueRange = 0f..maxRange,
                 onValueChange = { value ->
-                    if (!isListenTogetherGuest) onValueChange(value.toLong())
+                    if (!isListenTogetherGuest) {
+                        scrubbedValue = value
+                        onValueChange(value.toLong())
+                    }
                 },
                 onValueChangeFinished = {
-                    if (!isListenTogetherGuest) onValueChangeFinished()
+                    if (!isListenTogetherGuest) {
+                        val targetPos = scrubbedValue?.toLong()
+                        if (targetPos != null) {
+                            onSeekTo(targetPos)
+                        }
+                        scrubbedValue = null
+                    }
                 },
-                enabled = !isListenTogetherGuest,
+                enabled = !isListenTogetherGuest && maxRange > 0f,
                 thumb = { Spacer(modifier = Modifier.size(0.dp)) },
                 track = { sliderState ->
                     PlayerSliderTrack(
@@ -936,9 +972,7 @@ private fun PlayerV2Landscape(
                             playerBackground = playerBackground,
                             useDarkTheme = isSystemInDarkTheme(),
                             onValueChange = onSliderPositionChange,
-                            onValueChangeFinished = {
-                                sliderPosition?.let { onSeekTo(it) }
-                            }
+                            onSeekTo = onSeekTo
                         )
                         Row(
                             modifier = Modifier
@@ -1158,7 +1192,6 @@ private fun PlayerV2Landscape(
                 }
             } else {
                 // Split layout for LYRICS or QUEUE in landscape
-                // Left Pane: Compact Album Art + Info + Playback controls
                 Column(
                     modifier = Modifier
                         .weight(if (minimalPlayerDesign) 0.8f else 0.85f)
@@ -1167,7 +1200,6 @@ private fun PlayerV2Landscape(
                     verticalArrangement = Arrangement.SpaceBetween,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Top row with close/return to cover and output device
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -1216,7 +1248,6 @@ private fun PlayerV2Landscape(
                         }
                     }
 
-                    // Middle: Compact Cover & Song details
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -1272,7 +1303,6 @@ private fun PlayerV2Landscape(
                         }
                     }
 
-                    // Slider & Time
                     Column(modifier = Modifier.fillMaxWidth()) {
                         PlayerV2Slider(
                             sliderStyle = sliderStyle,
@@ -1284,9 +1314,7 @@ private fun PlayerV2Landscape(
                             playerBackground = playerBackground,
                             useDarkTheme = isSystemInDarkTheme(),
                             onValueChange = onSliderPositionChange,
-                            onValueChangeFinished = {
-                                sliderPosition?.let { onSeekTo(it) }
-                            }
+                            onSeekTo = onSeekTo
                         )
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -1305,7 +1333,6 @@ private fun PlayerV2Landscape(
                         }
                     }
 
-                    // Compact Transport Row
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly,
@@ -1372,7 +1399,6 @@ private fun PlayerV2Landscape(
                     }
                 }
 
-                // Right Pane: Lyrics or Queue taking full height with custom transitions
                 Box(
                     modifier = Modifier
                         .weight(if (minimalPlayerDesign) 1.2f else 1.15f)
@@ -1953,9 +1979,7 @@ private fun PlayerV2Portrait(
                             playerBackground = playerBackground,
                             useDarkTheme = isSystemInDarkTheme(),
                             onValueChange = onSliderPositionChange,
-                            onValueChangeFinished = {
-                                sliderPosition?.let { onSeekTo(it) }
-                            }
+                            onSeekTo = onSeekTo
                         )
 
                         Row(
