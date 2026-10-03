@@ -1,11 +1,9 @@
 package com.cgens67.avidtune.ui.component
 
-import android.content.res.Configuration
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -30,7 +28,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -61,6 +58,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
+import kotlin.math.max
 
 @Composable
 fun LyricsV2(
@@ -74,8 +72,6 @@ fun LyricsV2(
     val database = LocalDatabase.current
     val playerConnection = LocalPlayerConnection.current ?: return
     val coroutineScope = rememberCoroutineScope()
-    val configuration = LocalConfiguration.current
-    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     val currentLyrics by playerConnection.currentLyrics.collectAsState(initial = null)
     var isLoadingLyrics by remember(mediaMetadata?.id) { mutableStateOf(false) }
@@ -174,7 +170,7 @@ fun LyricsV2(
     var previousMainLineIndex by remember(mediaMetadata?.id) { mutableIntStateOf(-1) }
     val lazyListState = rememberLazyListState()
 
-    // Sync position tracking directly from the provider or player
+    // Sync position tracking
     LaunchedEffect(originalLyrics, lyricsOffsetMs, currentSkipSegments, sponsorBlockEnabled) {
         if (originalLyrics.isNullOrEmpty() || !isSynced) {
             currentMainLineIndex = -1
@@ -206,47 +202,33 @@ fun LyricsV2(
         }
     }
 
-    // Centered auto-scroll logic
+    // Auto-scroll to current lyric line
     LaunchedEffect(currentMainLineIndex) {
         if (!isSynced || !scrollLyrics || currentMainLineIndex == -1) return@LaunchedEffect
         if (currentMainLineIndex != previousMainLineIndex) {
             previousMainLineIndex = currentMainLineIndex
             val itemInfo = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == currentMainLineIndex }
             if (itemInfo != null) {
-                val viewportHeight = lazyListState.layoutInfo.viewportSize.height
-                val center = viewportHeight / 2
+                val viewportHeight = lazyListState.layoutInfo.viewportEndOffset - lazyListState.layoutInfo.viewportStartOffset
+                val center = lazyListState.layoutInfo.viewportStartOffset + (viewportHeight / 2)
                 val itemCenter = itemInfo.offset + itemInfo.size / 2
                 val offset = itemCenter - center
-                if (abs(offset) > 4) {
+                if (abs(offset) > 10) {
                     lazyListState.animateScrollBy(
                         value = offset.toFloat(),
-                        animationSpec = if (animateLyrics) tween(600) else tween(1)
+                        animationSpec = if (animateLyrics) tween(800) else tween(1)
                     )
                 }
             } else {
-                // Scroll targetIndex directly into the viewport, then center smoothly
-                lazyListState.scrollToItem(currentMainLineIndex)
-                val refreshedItem = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == currentMainLineIndex }
-                if (refreshedItem != null) {
-                    val viewportHeight = lazyListState.layoutInfo.viewportSize.height
-                    val center = viewportHeight / 2
-                    val itemCenter = refreshedItem.offset + refreshedItem.size / 2
-                    val offset = itemCenter - center
-                    if (abs(offset) > 4) {
-                        lazyListState.animateScrollBy(
-                            value = offset.toFloat(),
-                            animationSpec = if (animateLyrics) tween(300) else tween(1)
-                        )
-                    }
-                }
+                lazyListState.scrollToItem(max(0, currentMainLineIndex - 2))
             }
         }
     }
 
-    BoxWithConstraints(
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .fadingEdge(vertical = if (isLandscape) 20.dp else 40.dp),
+            .fadingEdge(vertical = 48.dp),
         contentAlignment = Alignment.Center
     ) {
         if (lines.isEmpty()) {
@@ -278,14 +260,9 @@ fun LyricsV2(
                 )
             }
         } else {
-            // Half-height padding guarantees that ANY line can reach the exact vertical center
-            val halfHeight = maxHeight / 2
-            val topPadding = (halfHeight - (if (isLandscape) 16.dp else 24.dp)).coerceAtLeast(32.dp)
-            val bottomPadding = halfHeight.coerceAtLeast(32.dp)
-
             LazyColumn(
                 state = lazyListState,
-                contentPadding = PaddingValues(top = topPadding, bottom = bottomPadding, start = 8.dp, end = 8.dp),
+                contentPadding = PaddingValues(top = 100.dp, bottom = 120.dp, start = 8.dp, end = 8.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
                 itemsIndexed(lines, key = { idx, item -> "$idx-${item.time}" }) { index, item ->
@@ -300,8 +277,8 @@ fun LyricsV2(
                         distanceFromCurrent = distance,
                         lyricsTextPosition = lyricsTextPosition,
                         textColor = textColor,
-                        textSize = if (isLandscape) 21f else 28f,
-                        lineSpacing = if (isLandscape) 4f else 6f,
+                        textSize = 28f,
+                        lineSpacing = 6f,
                         onClick = {
                             if (isSynced && changeLyrics) {
                                 val targetTime = item.time - lyricsOffsetMs
