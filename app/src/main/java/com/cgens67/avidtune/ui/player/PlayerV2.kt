@@ -1884,7 +1884,7 @@ private fun PlayerV2Portrait(
                                         LyricsV2(
                                             mediaMetadata = mediaMetadata,
                                             showLyrics = true,
-                                            positionProvider = { currentPos },
+                                            positionProvider = { sliderPosition ?: playerConnection.player.currentPosition },
                                             textColor = adaptivePrimary
                                         )
 
