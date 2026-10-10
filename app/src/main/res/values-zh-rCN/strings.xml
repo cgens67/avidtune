@@ -1318,5 +1318,29 @@
     <string name="single_text">单曲</string>
     <string name="ep_text">EP</string>
     <string name="enable_binilyrics">启用 BiniLyrics</string>
+    
+    <!-- Debug & Error Log Viewer Strings -->
+    <string name="debug_and_error_logs">调试与错误日志</string>
+    <string name="debug_logs_subtitle">查看异常和崩溃堆栈跟踪</string>
+    <string name="search_logs_placeholder">筛选错误、异常…</string>
+    <string name="log_level_all">全部</string>
+    <string name="no_matching_logs_found">未找到匹配的日志</string>
+    <string name="no_logs_recorded">暂无记录的日志</string>
+    <string name="inject_demo_exception">插入测试异常</string>
+    <string name="demo_exception_message">示例 IllegalStateException：从调试屏幕触发的测试异常</string>
+    <string name="scroll_to_top">滚动到顶部</string>
+    <string name="scroll_to_bottom">滚动到底部</string>
+    <string name="share_all_logs">分享所有日志</string>
+    <string name="copy_all_logs">复制所有日志</string>
+    <string name="clear_logs">清空日志</string>
+    <string name="clear_logs_dialog_title">清空所有日志？</string>
+    <string name="clear_logs_dialog_message">这将清除所有缓冲的运行时调试日志和堆栈跟踪。</string>
+    <string name="stack_trace_label">堆栈跟踪：</string>
+    <string name="log_copied_to_clipboard">日志已复制到剪贴板</string>
+    <string name="all_logs_copied">所有日志已复制到剪贴板</string>
+    <string name="no_logs_to_export">没有可导出的日志</string>
+    <string name="export_all_logs_chooser">导出所有日志</string>
+    <string name="share_exception">分享异常</string>
+    <string name="exception_tag">异常</string>
 
 </resources>
