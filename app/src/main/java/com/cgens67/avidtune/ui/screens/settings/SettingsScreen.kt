@@ -888,6 +888,14 @@ private fun buildSettingsGroups(
                 ),
                 SettingsItem(
                     icon = painterResource(R.drawable.info),
+                    title = stringResource(R.string.debug_and_error_logs),
+                    subtitle = stringResource(R.string.debug_logs_subtitle),
+                    accentColor = MaterialTheme.colorScheme.error,
+                    keywords = listOf("debug", "error", "logs", "crash", "exception", "trace", "stacktrace"),
+                    onClick = { resetSearch(); navController.navigate("settings/logs") }
+                ),
+                SettingsItem(
+                    icon = painterResource(R.drawable.info),
                     title = stringResource(R.string.about),
                     subtitle = stringResource(R.string.version_name, BuildConfig.VERSION_NAME),
                     accentColor = MaterialTheme.colorScheme.tertiary,
