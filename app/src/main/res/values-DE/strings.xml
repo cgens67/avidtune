@@ -1334,5 +1334,29 @@
     <string name="single_text">Single</string>
     <string name="ep_text">EP</string>
     <string name="enable_binilyrics">BiniLyrics aktivieren</string>
+    
+    <!-- Debug & Error Log Viewer Strings -->
+    <string name="debug_and_error_logs">Debug- &amp; Fehlerprotokolle</string>
+    <string name="debug_logs_subtitle">Ausnahmen und Absturzberichte einsehen</string>
+    <string name="search_logs_placeholder">Fehler, Ausnahmen filtern…</string>
+    <string name="log_level_all">ALLE</string>
+    <string name="no_matching_logs_found">Keine passenden Protokolle gefunden</string>
+    <string name="no_logs_recorded">Noch keine Protokolle aufgezeichnet</string>
+    <string name="inject_demo_exception">Test-Ausnahme auslösen</string>
+    <string name="demo_exception_message">Beispiel IllegalStateException: Test-Ausnahme vom Debug-Bildschirm ausgelöst</string>
+    <string name="scroll_to_top">Nach oben scrollen</string>
+    <string name="scroll_to_bottom">Nach unten scrollen</string>
+    <string name="share_all_logs">Alle Protokolle teilen</string>
+    <string name="copy_all_logs">Alle Protokolle kopieren</string>
+    <string name="clear_logs">Protokolle löschen</string>
+    <string name="clear_logs_dialog_title">Alle Protokolle löschen?</string>
+    <string name="clear_logs_dialog_message">Dadurch werden alle zwischengespeicherten Debug-Protokolle und Stacktraces gelöscht.</string>
+    <string name="stack_trace_label">Stacktrace:</string>
+    <string name="log_copied_to_clipboard">Protokoll in die Zwischenablage kopiert</string>
+    <string name="all_logs_copied">Alle Protokolle in die Zwischenablage kopiert</string>
+    <string name="no_logs_to_export">Keine Protokolle zum Exportieren</string>
+    <string name="export_all_logs_chooser">Alle Protokolle exportieren</string>
+    <string name="share_exception">Ausnahme teilen</string>
+    <string name="exception_tag">Ausnahme</string>
 
 </resources>
