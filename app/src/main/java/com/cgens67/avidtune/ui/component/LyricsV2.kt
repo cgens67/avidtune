@@ -48,6 +48,7 @@ import com.cgens67.avidtune.lyrics.LyricsEntry
 import com.cgens67.avidtune.lyrics.LyricsUtils.findCurrentLineIndex
 import com.cgens67.avidtune.lyrics.LyricsUtils.parseLyrics
 import com.cgens67.avidtune.models.MediaMetadata
+import com.cgens67.avidtune.models.toMediaMetadata
 import com.cgens67.avidtune.ui.screens.settings.LyricsPosition
 import com.cgens67.avidtune.ui.utils.fadingEdge
 import com.cgens67.avidtune.utils.rememberEnumPreference
@@ -59,8 +60,8 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import timber.log.Timber
 import kotlin.math.abs
-import kotlin.math.max
 
 @Composable
 fun LyricsV2(
@@ -76,52 +77,147 @@ fun LyricsV2(
     val coroutineScope = rememberCoroutineScope()
     val currentPositionProvider by rememberUpdatedState(positionProvider)
 
-    val currentLyrics by playerConnection.currentLyrics.collectAsState(initial = null)
-    var isLoadingLyrics by remember(mediaMetadata?.id) { mutableStateOf(false) }
-
     val songId = mediaMetadata?.id
-    val matchingLyrics = remember(currentLyrics, songId) {
-        if (currentLyrics?.id == songId) currentLyrics else null
+
+    var lyricsCache by remember { mutableStateOf<Map<String, LyricsEntity>>(emptyMap()) }
+    var currentLyricsEntity by remember(songId) {
+        mutableStateOf<LyricsEntity?>(lyricsCache[songId])
     }
+    var isLoadingLyrics by remember(songId) { mutableStateOf(false) }
 
-    LaunchedEffect(mediaMetadata?.id) {
+    val rawLyricsEntity by playerConnection.currentLyrics.collectAsState(initial = null)
+    val activeLyricsEntity = rawLyricsEntity?.takeIf { it.id == songId } ?: currentLyricsEntity
+
+    LaunchedEffect(songId) {
         val metadata = mediaMetadata ?: return@LaunchedEffect
-        val id = metadata.id
+        val id = songId ?: return@LaunchedEffect
 
-        val existing = withContext(Dispatchers.IO) {
-            database.lyrics(id).firstOrNull()
+        if (lyricsCache.containsKey(id)) {
+            currentLyricsEntity = lyricsCache[id]
+            val text = currentLyricsEntity?.lyrics?.trim()
+            if (!text.isNullOrBlank() && text != LYRICS_NOT_FOUND && text.startsWith("[provider:")) {
+                return@LaunchedEffect
+            }
         }
 
-        if (existing == null) {
-            isLoadingLyrics = true
-            withContext(Dispatchers.IO) {
-                try {
-                    val entryPoint = EntryPointAccessors.fromApplication(
-                        context.applicationContext,
-                        LyricsHelperEntryPoint::class.java
-                    )
-                    val lyricsHelper = entryPoint.lyricsHelper()
-                    val result = lyricsHelper.getLyrics(metadata)
+        isLoadingLyrics = true
 
-                    val textToSave = if (result.lyrics.isNotBlank() && result.lyrics != LYRICS_NOT_FOUND) {
-                        "[provider:${result.providerName}]\n${result.lyrics}"
-                    } else {
-                        LYRICS_NOT_FOUND
-                    }
-
-                    database.query {
-                        upsert(LyricsEntity(id, textToSave))
-                    }
+        withContext(Dispatchers.IO) {
+            try {
+                val existingLyrics = try {
+                    database.getLyrics(id)
                 } catch (e: Throwable) {
-                    database.query {
-                        upsert(LyricsEntity(id, LYRICS_NOT_FOUND))
+                    null
+                }
+
+                // Fallback to database song metadata if in-memory metadata is missing artist or duration
+                val dbSong = try { database.song(id).firstOrNull() } catch (e: Throwable) { null }
+                val resolvedDuration = if (metadata.duration > 0) {
+                    if (metadata.duration > 10000) metadata.duration / 1000 else metadata.duration
+                } else if (dbSong != null && dbSong.song.duration > 0) {
+                    dbSong.song.duration
+                } else {
+                    val pDur = (playerConnection.player.duration / 1000).toInt()
+                    if (pDur > 0) pDur else -1
+                }
+
+                val resolvedArtists = if (metadata.artists.isNotEmpty() && metadata.artists.any { it.name.isNotBlank() }) {
+                    metadata.artists
+                } else if (dbSong != null && dbSong.artists.isNotEmpty()) {
+                    dbSong.artists.map { MediaMetadata.Artist(it.id, it.name) }
+                } else {
+                    metadata.artists
+                }
+
+                val resolvedMetadata = metadata.copy(
+                    artists = resolvedArtists,
+                    duration = resolvedDuration
+                )
+
+                if (existingLyrics != null && existingLyrics.lyrics != LYRICS_NOT_FOUND && existingLyrics.lyrics.isNotBlank()) {
+                    val text = existingLyrics.lyrics.trim()
+                    withContext(Dispatchers.Main) {
+                        currentLyricsEntity = existingLyrics
+                        lyricsCache = lyricsCache + (id to existingLyrics)
                     }
-                } finally {
+
+                    // If existing lyrics do not have a provider tag, upgrade them in background
+                    if (!text.startsWith("[provider:")) {
+                        try {
+                            val entryPoint = EntryPointAccessors.fromApplication(
+                                context.applicationContext,
+                                LyricsHelperEntryPoint::class.java
+                            )
+                            val lyricsHelper = entryPoint.lyricsHelper()
+                            val fetchedResult = lyricsHelper.getLyrics(resolvedMetadata)
+
+                            val fetchedLyrics = fetchedResult.lyrics
+                            val pName = fetchedResult.providerName
+
+                            if (fetchedLyrics.isNotBlank() && fetchedLyrics != LYRICS_NOT_FOUND) {
+                                val textToSave = "[provider:$pName]\n$fetchedLyrics"
+                                val upgradedEntity = LyricsEntity(id, textToSave)
+                                database.query {
+                                    upsert(upgradedEntity)
+                                }
+                                withContext(Dispatchers.Main) {
+                                    currentLyricsEntity = upgradedEntity
+                                    lyricsCache = lyricsCache + (id to upgradedEntity)
+                                }
+                            }
+                        } catch (e: Throwable) {
+                            Timber.e(e, "Error upgrading lyrics in LyricsV2")
+                        }
+                    }
+                } else {
+                    // Fetch from LyricsHelper (queries AvidLyrics, LyricsPlus, Paxsenix, etc.)
+                    try {
+                        val entryPoint = EntryPointAccessors.fromApplication(
+                            context.applicationContext,
+                            LyricsHelperEntryPoint::class.java
+                        )
+                        val lyricsHelper = entryPoint.lyricsHelper()
+                        val fetchedResult = lyricsHelper.getLyrics(resolvedMetadata)
+
+                        val fetchedLyrics = fetchedResult.lyrics
+                        val pName = fetchedResult.providerName
+
+                        val textToSave = if (fetchedLyrics.isNotBlank() && fetchedLyrics != LYRICS_NOT_FOUND) {
+                            "[provider:$pName]\n$fetchedLyrics"
+                        } else {
+                            LYRICS_NOT_FOUND
+                        }
+
+                        val entity = LyricsEntity(id, textToSave)
+                        database.query {
+                            upsert(entity)
+                        }
+
+                        withContext(Dispatchers.Main) {
+                            currentLyricsEntity = entity
+                            lyricsCache = lyricsCache + (id to entity)
+                        }
+                    } catch (e: Throwable) {
+                        Timber.e(e, "Error fetching lyrics in LyricsV2")
+                        val errorEntity = LyricsEntity(id, LYRICS_NOT_FOUND)
+                        withContext(Dispatchers.Main) {
+                            currentLyricsEntity = errorEntity
+                            lyricsCache = lyricsCache + (id to errorEntity)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Exception in LyricsV2 lyrics loader")
+                val errorEntity = LyricsEntity(id, LYRICS_NOT_FOUND)
+                withContext(Dispatchers.Main) {
+                    currentLyricsEntity = errorEntity
+                    lyricsCache = lyricsCache + (id to errorEntity)
+                }
+            } finally {
+                withContext(Dispatchers.Main) {
                     isLoadingLyrics = false
                 }
             }
-        } else {
-            isLoadingLyrics = false
         }
     }
 
@@ -132,7 +228,7 @@ fun LyricsV2(
     val currentSkipSegments by playerConnection.currentSkipSegments.collectAsState()
     val sponsorBlockEnabled by playerConnection.sponsorBlockEnabled.collectAsState()
 
-    val rawLyricsText = matchingLyrics?.lyrics
+    val rawLyricsText = activeLyricsEntity?.lyrics
     val isNotFound = remember(rawLyricsText) {
         rawLyricsText != null && (
             rawLyricsText == LYRICS_NOT_FOUND ||
@@ -153,8 +249,20 @@ fun LyricsV2(
         Regex("\\[offset:(-?\\d+)\\]").find(raw)?.groupValues?.get(1)?.toLongOrNull() ?: 0L
     }
 
+    val lyricsProviderName = remember(rawLyricsText) {
+        val text = rawLyricsText?.trim()
+        if (text != null && text.startsWith("[provider:")) {
+            text.substringBefore('\n').trim().removePrefix("[provider:").removeSuffix("]")
+        } else {
+            null
+        }
+    }
+
     val isSynced = remember(originalLyrics) {
-        !originalLyrics.isNullOrEmpty() && "\\[\\d\\d:\\d\\d\\.\\d{2,3}\\]".toRegex().containsMatchIn(originalLyrics)
+        !originalLyrics.isNullOrEmpty() && (
+            "\\[\\d\\d:\\d\\d\\.\\d{2,3}\\]".toRegex().containsMatchIn(originalLyrics) ||
+            "<\\d\\d:\\d\\d\\.\\d{2,3}>".toRegex().containsMatchIn(originalLyrics)
+        )
     }
 
     val lines = remember(originalLyrics, isNotFound) {
@@ -169,12 +277,12 @@ fun LyricsV2(
         }
     }
 
-    var currentMainLineIndex by remember(mediaMetadata?.id) { mutableIntStateOf(-1) }
-    var previousMainLineIndex by remember(mediaMetadata?.id) { mutableIntStateOf(-1) }
+    var currentMainLineIndex by remember(songId) { mutableIntStateOf(-1) }
+    var previousMainLineIndex by remember(songId) { mutableIntStateOf(-1) }
     val lazyListState = rememberLazyListState()
 
     // Sync position tracking
-    LaunchedEffect(mediaMetadata?.id, originalLyrics, lyricsOffsetMs, currentSkipSegments, sponsorBlockEnabled) {
+    LaunchedEffect(songId, originalLyrics, lyricsOffsetMs, currentSkipSegments, sponsorBlockEnabled) {
         if (originalLyrics.isNullOrEmpty() || !isSynced) {
             currentMainLineIndex = -1
             return@LaunchedEffect
@@ -244,7 +352,7 @@ fun LyricsV2(
         }
     }
 
-    LaunchedEffect(mediaMetadata?.id) {
+    LaunchedEffect(songId) {
         currentMainLineIndex = -1
         previousMainLineIndex = -1
         if (lines.isNotEmpty()) {
@@ -259,7 +367,7 @@ fun LyricsV2(
         contentAlignment = Alignment.Center
     ) {
         if (lines.isEmpty()) {
-            if (isLoadingLyrics || matchingLyrics == null) {
+            if (isLoadingLyrics || activeLyricsEntity == null) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -336,6 +444,20 @@ fun LyricsV2(
                         sponsorBlockEnabled = sponsorBlockEnabled,
                         modifier = Modifier.fillMaxWidth()
                     )
+                }
+
+                if (!lyricsProviderName.isNullOrBlank() && originalLyrics != LYRICS_NOT_FOUND) {
+                    item(key = "provider_credit") {
+                        Text(
+                            text = stringResource(R.string.lyrics_provided_by, lyricsProviderName),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = textColor.copy(alpha = 0.5f),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 24.dp, bottom = 16.dp)
+                        )
+                    }
                 }
             }
         }
