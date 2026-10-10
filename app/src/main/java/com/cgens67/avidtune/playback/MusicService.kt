@@ -1421,12 +1421,14 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             val PauseRemoteListenHistoryKey = booleanPreferencesKey("pauseRemoteListenHistory")
             if (!dataStore.get(PauseRemoteListenHistoryKey, false)) {
                 CoroutineScope(Dispatchers.IO).launch {
-                    val playbackUrl = database.format(mediaItem.mediaId).first()?.playbackUrl
+                    val rawUrl = database.format(mediaItem.mediaId).first()?.playbackUrl
+                    val playbackUrl = rawUrl?.takeIf { !it.contains("googlevideo.com") }
                         ?: YTPlayerUtils.playerResponseForMetadata(mediaItem.mediaId, null)
                             .getOrNull()?.playbackTracking?.videostatsPlaybackUrl?.baseUrl
-                    playbackUrl?.let {
+
+                    if (playbackUrl != null && !playbackUrl.contains("googlevideo.com")) {
                         YouTube.registerPlayback(null, playbackUrl).onFailure {
-                            reportException(it)
+                            Timber.tag(TAG).w(it, "Failed to register playback tracking")
                         }
                     }
                 }
