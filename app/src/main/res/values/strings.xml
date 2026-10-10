@@ -1343,4 +1343,28 @@
     <string name="ep_text">EP</string>
     <string name="enable_binilyrics">Enable BiniLyrics</string>
     
+    <!-- Debug & Error Log Viewer Strings -->
+    <string name="debug_and_error_logs">Debug &amp; Error Logs</string>
+    <string name="debug_logs_subtitle">Inspect exceptions and crash traces</string>
+    <string name="search_logs_placeholder">Filter errors, exceptions…</string>
+    <string name="log_level_all">ALL</string>
+    <string name="no_matching_logs_found">No matching logs found</string>
+    <string name="no_logs_recorded">No logs recorded yet</string>
+    <string name="inject_demo_exception">Inject test exception</string>
+    <string name="demo_exception_message">Sample IllegalStateException: demo exception triggered from Debug Screen</string>
+    <string name="scroll_to_top">Scroll to top</string>
+    <string name="scroll_to_bottom">Scroll to bottom</string>
+    <string name="share_all_logs">Share all logs</string>
+    <string name="copy_all_logs">Copy all logs</string>
+    <string name="clear_logs">Clear logs</string>
+    <string name="clear_logs_dialog_title">Clear all logs?</string>
+    <string name="clear_logs_dialog_message">This will erase all buffered runtime debug logs and stack traces.</string>
+    <string name="stack_trace_label">Stack trace:</string>
+    <string name="log_copied_to_clipboard">Log copied to clipboard</string>
+    <string name="all_logs_copied">All logs copied to clipboard</string>
+    <string name="no_logs_to_export">No logs to export</string>
+    <string name="export_all_logs_chooser">Export all logs</string>
+    <string name="share_exception">Share exception</string>
+    <string name="exception_tag">Exception</string>
+    
 </resources>
