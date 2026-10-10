@@ -1241,7 +1241,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
 
             // Complete offline download bypass
             val isDownloaded = downloadCache.isCached(mediaId, dataSpec.position, if (dataSpec.length >= 0) dataSpec.length else 1)
-            if (isDownloaded && downloadUtil.downloads.value[mediaId]?.state == Download.STATE_COMPLETED) {
+            if (isDownloaded) {
                 scope.launch(Dispatchers.IO) {
                     recoverSong(mediaId)
                 }
