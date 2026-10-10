@@ -81,6 +81,7 @@ import com.cgens67.avidtune.db.entities.Song
 import com.cgens67.avidtune.extensions.togglePlayPause
 import com.cgens67.avidtune.extensions.toggleRepeatMode
 import com.cgens67.avidtune.models.MediaMetadata
+import com.cgens67.avidtune.models.toMediaMetadata
 import com.cgens67.avidtune.together.TogetherRole
 import com.cgens67.avidtune.together.TogetherSessionState
 import com.cgens67.avidtune.ui.component.*
@@ -624,7 +625,7 @@ fun PlayerV2(
         PlayerV2Landscape(
             state = state,
             navController = navController,
-            mediaMetadata = mediaMetadata,
+            mediaMetadata = currentSong?.toMediaMetadata() ?: mediaMetadata,
             currentSong = currentSong,
             currentLyrics = currentLyrics,
             isPlaying = isPlaying,
@@ -663,7 +664,7 @@ fun PlayerV2(
         PlayerV2Portrait(
             state = state,
             navController = navController,
-            mediaMetadata = mediaMetadata,
+            mediaMetadata = currentSong?.toMediaMetadata() ?: mediaMetadata,
             currentSong = currentSong,
             currentLyrics = currentLyrics,
             isPlaying = isPlaying,
@@ -1408,7 +1409,7 @@ private fun PlayerV2Landscape(
                 ) {
                     if (currentUiState == PlayerInternalState.LYRICS) {
                         LyricsV2(
-                            mediaMetadata = mediaMetadata,
+                            mediaMetadata = currentSong?.toMediaMetadata() ?: mediaMetadata,
                             showLyrics = true,
                             positionProvider = { sliderPosition ?: playerConnection.player.currentPosition },
                             textColor = adaptivePrimary
@@ -1908,7 +1909,7 @@ private fun PlayerV2Portrait(
                                 if (targetState == PlayerInternalState.LYRICS) {
                                     Box(modifier = Modifier.fillMaxSize()) {
                                         LyricsV2(
-                                            mediaMetadata = mediaMetadata,
+                                            mediaMetadata = currentSong?.toMediaMetadata() ?: mediaMetadata,
                                             showLyrics = true,
                                             positionProvider = { sliderPosition ?: playerConnection.player.currentPosition },
                                             textColor = adaptivePrimary
