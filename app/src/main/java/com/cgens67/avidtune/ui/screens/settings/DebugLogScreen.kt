@@ -10,7 +10,6 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -94,8 +93,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -146,7 +147,6 @@ fun DebugLogScreen(
         }
     }
 
-    val demoExceptionMessage = stringResource(R.string.demo_exception_message)
     val noLogsToExportText = stringResource(R.string.no_logs_to_export)
     val exportChooserTitle = stringResource(R.string.export_all_logs_chooser)
     val allLogsCopiedText = stringResource(R.string.all_logs_copied)
@@ -191,20 +191,29 @@ fun DebugLogScreen(
                                     value = searchQuery,
                                     onValueChange = { searchQuery = it },
                                     singleLine = true,
+                                    maxLines = 1,
                                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                                     textStyle = MaterialTheme.typography.bodyLarge.copy(
                                         color = MaterialTheme.colorScheme.onSurface
                                     ),
                                     modifier = Modifier.weight(1f),
                                     decorationBox = { innerTextField ->
-                                        if (searchQuery.isEmpty()) {
-                                            Text(
-                                                text = stringResource(R.string.search_logs_placeholder),
-                                                style = MaterialTheme.typography.bodyLarge,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                            )
+                                        Box(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            contentAlignment = Alignment.CenterStart
+                                        ) {
+                                            if (searchQuery.isEmpty()) {
+                                                Text(
+                                                    text = stringResource(R.string.search_logs_placeholder),
+                                                    style = MaterialTheme.typography.bodyLarge,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                                    maxLines = 1,
+                                                    softWrap = false,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                            innerTextField()
                                         }
-                                        innerTextField()
                                     }
                                 )
                                 if (searchQuery.isNotEmpty()) {
@@ -265,28 +274,11 @@ fun DebugLogScreen(
                             contentDescription = stringResource(R.string.search)
                         )
                     }
-                    IconButton(onClick = {
-                        try {
-                            throw IllegalStateException(demoExceptionMessage)
-                        } catch (e: Exception) {
-                            LogManager.log(
-                                priority = Log.ERROR,
-                                tag = "DemoTest",
-                                message = e.message ?: "IllegalStateException",
-                                t = e
-                            )
-                        }
-                    }) {
-                        Icon(
-                            painter = painterResource(R.drawable.add),
-                            contentDescription = stringResource(R.string.inject_demo_exception),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
                 },
+                modifier = Modifier.clip(RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp)),
                 scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
                     scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                 )
             )
@@ -301,7 +293,7 @@ fun DebugLogScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -357,26 +349,9 @@ fun DebugLogScreen(
                             .weight(1f),
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.check_circle),
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                                modifier = Modifier.size(56.dp)
-                            )
-                            Text(
-                                text = if (searchQuery.isNotBlank()) {
-                                    stringResource(R.string.no_matching_logs_found)
-                                } else {
-                                    stringResource(R.string.no_logs_recorded)
-                                },
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                        AnimatedEmptyLogsState(
+                            isSearching = searchQuery.isNotBlank()
+                        )
                     }
                 } else {
                     LazyColumn(
@@ -552,6 +527,67 @@ fun DebugLogScreen(
                     Text(stringResource(android.R.string.cancel))
                 }
             }
+        )
+    }
+}
+
+@Composable
+fun AnimatedEmptyLogsState(
+    isSearching: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "emptyStateBob")
+    val floatOffset by infiniteTransition.animateFloat(
+        initialValue = -8f,
+        targetValue = 8f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "floatOffset"
+    )
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 0.96f,
+        targetValue = 1.04f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseScale"
+    )
+
+    Column(
+        modifier = modifier.padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(80.dp)
+                .scale(pulseScale)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(if (isSearching) R.drawable.search else R.drawable.check_circle),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .size(44.dp)
+                    .graphicsLayer { translationY = floatOffset }
+            )
+        }
+
+        Text(
+            text = if (isSearching) {
+                stringResource(R.string.no_matching_logs_found)
+            } else {
+                stringResource(R.string.no_logs_recorded)
+            },
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
         )
     }
 }
