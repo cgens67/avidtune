@@ -257,7 +257,7 @@ object YTPlayerUtils {
     ): Int? {
         return NewPipeUtils.getSignatureTimestamp(videoId)
             .onFailure {
-                reportException(it)
+                Timber.tag(logTag).w(it, "Could not obtain signature timestamp for videoId: $videoId")
             }
             .getOrNull()
     }
@@ -266,9 +266,12 @@ object YTPlayerUtils {
         format: PlayerResponse.StreamingData.Format,
         videoId: String
     ): String? {
+        if (!format.url.isNullOrBlank()) {
+            return format.url
+        }
         return NewPipeUtils.getStreamUrl(format, videoId)
             .onFailure {
-                reportException(it)
+                Timber.tag(logTag).w(it, "Could not resolve stream URL for candidate format itag: ${format.itag}")
             }
             .getOrNull()
     }
