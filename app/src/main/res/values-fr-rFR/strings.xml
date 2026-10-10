@@ -1317,5 +1317,29 @@
     <string name="single_text">Single</string>
     <string name="ep_text">EP</string>
     <string name="enable_binilyrics">Activer BiniLyrics</string>
+    
+    <!-- Debug & Error Log Viewer Strings -->
+    <string name="debug_and_error_logs">Journaux d’erreurs et débogage</string>
+    <string name="debug_logs_subtitle">Inspecter les exceptions et traces d’erreurs</string>
+    <string name="search_logs_placeholder">Filtrer les erreurs, exceptions…</string>
+    <string name="log_level_all">TOUT</string>
+    <string name="no_matching_logs_found">Aucun journal correspondant trouvé</string>
+    <string name="no_logs_recorded">Aucun journal enregistré</string>
+    <string name="inject_demo_exception">Injecter une exception de test</string>
+    <string name="demo_exception_message">Exemple IllegalStateException : exception de test déclenchée depuis l’écran de débogage</string>
+    <string name="scroll_to_top">Faire défiler vers le haut</string>
+    <string name="scroll_to_bottom">Faire défiler vers le bas</string>
+    <string name="share_all_logs">Partager tous les journaux</string>
+    <string name="copy_all_logs">Copier tous les journaux</string>
+    <string name="clear_logs">Effacer les journaux</string>
+    <string name="clear_logs_dialog_title">Effacer tous les journaux ?</string>
+    <string name="clear_logs_dialog_message">Cette action effacera tous les journaux de débogage et traces d’exécution en mémoire.</string>
+    <string name="stack_trace_label">Trace de la pile :</string>
+    <string name="log_copied_to_clipboard">Journal copié dans le presse-papiers</string>
+    <string name="all_logs_copied">Tous les journaux ont été copiés dans le presse-papiers</string>
+    <string name="no_logs_to_export">Aucun journal à exporter</string>
+    <string name="export_all_logs_chooser">Exporter tous les journaux</string>
+    <string name="share_exception">Partager l’exception</string>
+    <string name="exception_tag">Exception</string>
 
 </resources>
