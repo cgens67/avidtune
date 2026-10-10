@@ -1137,7 +1137,8 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         super.onPlayerError(error)
         Log.e(TAG, "Player error: ${error.errorCodeName}, message: ${error.message}", error)
         
-        // FIX: Clear stale VisitorData so a fresh one is generated for the next track
+        // Clear cached stream URL and VisitorData so retry/next track fetches fresh credentials
+        player.currentMediaItem?.mediaId?.let { songUrlCache.remove(it) }
         runBlocking {
             dataStore.edit { it.remove(com.cgens67.avidtune.constants.VisitorDataKey) }
         }
@@ -1155,12 +1156,17 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         }
     }
 
+    private val songUrlCache = java.util.concurrent.ConcurrentHashMap<String, Pair<String, Long>>()
+
     private fun createCacheDataSource(): DataSource.Factory {
         val upstreamFactory = DefaultDataSource.Factory(
             this,
             OkHttpDataSource.Factory(
                 OkHttpClient.Builder()
                     .proxy(YouTube.proxy)
+                    .retryOnConnectionFailure(true)
+                    .connectTimeout(30, TimeUnit.SECONDS)
+                    .readTimeout(30, TimeUnit.SECONDS)
                     .build()
             )
         )
@@ -1226,22 +1232,23 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 arrayOf(MatroskaExtractor(), FragmentedMp4Extractor(), Mp4Extractor())
             }
         ).setLoadErrorHandlingPolicy(
-            DefaultLoadErrorHandlingPolicy(1)
+            DefaultLoadErrorHandlingPolicy(3)
         )
 
     private fun createDataSourceFactory(): DataSource.Factory {
-        val songUrlCache = HashMap<String, Pair<String, Long>>()
         return ResolvingDataSource.Factory(createCacheDataSource()) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")
-            if (downloadCache.isCached(mediaId, dataSpec.position, if (dataSpec.length >= 0) dataSpec.length else 1) ||
-                playerCache.isCached(mediaId, dataSpec.position, CHUNK_LENGTH)
-            ) {
+
+            // Complete offline download bypass
+            val isDownloaded = downloadCache.isCached(mediaId, dataSpec.position, if (dataSpec.length >= 0) dataSpec.length else 1)
+            if (isDownloaded && downloadUtil.downloads.value[mediaId]?.state == Download.STATE_COMPLETED) {
                 scope.launch(Dispatchers.IO) {
                     recoverSong(mediaId)
                 }
                 return@Factory dataSpec
             }
-            
+
+            // Return cached HTTP URL if still valid so missing bytes can be fetched smoothly
             songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
                 scope.launch(Dispatchers.IO) {
                     recoverSong(mediaId)
