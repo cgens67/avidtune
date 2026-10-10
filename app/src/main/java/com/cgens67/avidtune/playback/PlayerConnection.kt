@@ -43,6 +43,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -674,17 +675,20 @@ class PlayerConnection(
 
     private suspend fun updateLikeStatusForCurrentSong() {
         try {
-            val currentSongId = player.currentMediaItem?.mediaId
+            // Player properties MUST be read on Dispatchers.Main
+            val currentSongId = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                player.currentMediaItem?.mediaId
+            }
             if (currentSongId != null) {
                 val songWithInfo = database.song(currentSongId).first()
                 _isLiked.value = songWithInfo?.song?.liked ?: false
-                Timber.tag(TAG).d("Like status updated for song $currentSongId: ${_isLiked.value}")
+                timber.log.Timber.tag(TAG).d("Like status updated for song $currentSongId: ${_isLiked.value}")
             } else {
                 _isLiked.value = false
-                Timber.tag(TAG).d("No current song, setting like status to false")
+                timber.log.Timber.tag(TAG).d("No current song, setting like status to false")
             }
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error updating like status for current song")
+            timber.log.Timber.tag(TAG).e(e, "Error updating like status for current song")
             _isLiked.value = false
         }
     }
