@@ -68,10 +68,11 @@ object BiniLyricsProvider : LyricsProvider {
         artist: String,
         duration: Int,
     ): Result<String> = runCatching {
+        val durationSec = if (duration > 10000) duration / 1000 else duration
         val response = client.get(BASE_URL) {
             parameter("track", title)
             parameter("artist", artist)
-            if (duration > 0) parameter("duration", duration)
+            if (durationSec > 0) parameter("duration", durationSec)
         }
 
         if (!response.status.isSuccess()) throw IllegalStateException("BiniLyrics HTTP Error: ${response.status}")
@@ -99,10 +100,11 @@ object BiniLyricsProvider : LyricsProvider {
         callback: (String) -> Unit,
     ) {
         try {
+            val durationSec = if (duration > 10000) duration / 1000 else duration
             val response = client.get(BASE_URL) {
                 parameter("track", title)
                 parameter("artist", artist)
-                if (duration > 0) parameter("duration", duration)
+                if (durationSec > 0) parameter("duration", durationSec)
             }
 
             if (!response.status.isSuccess()) return
