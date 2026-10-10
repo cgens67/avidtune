@@ -358,11 +358,16 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         }.collectLatest(scope) { (mediaMetadata, showLyrics) ->
             if (showLyrics && mediaMetadata != null && database.lyrics(mediaMetadata.id).first() == null) {
                 val lyricsResult = lyricsHelper.getLyrics(mediaMetadata)
+                val textToSave = if (lyricsResult.lyrics.isNotBlank() && lyricsResult.lyrics != LyricsEntity.LYRICS_NOT_FOUND) {
+                    "[provider:${lyricsResult.providerName}]\n${lyricsResult.lyrics}"
+                } else {
+                    lyricsResult.lyrics
+                }
                 database.query {
                     upsert(
                         LyricsEntity(
                             id = mediaMetadata.id,
-                            lyrics = lyricsResult.lyrics,
+                            lyrics = textToSave,
                         )
                     )
                 }
