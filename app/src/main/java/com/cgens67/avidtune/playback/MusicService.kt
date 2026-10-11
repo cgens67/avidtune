@@ -1235,11 +1235,13 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             DefaultLoadErrorHandlingPolicy(3)
         )
 
+    private val songUrlCache = java.util.concurrent.ConcurrentHashMap<String, Pair<String, Long>>()
+
     private fun createDataSourceFactory(): DataSource.Factory {
         return ResolvingDataSource.Factory(createCacheDataSource()) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")
 
-            // Complete offline download bypass
+            // If completely downloaded, serve from offline cache
             val isDownloaded = downloadCache.isCached(mediaId, dataSpec.position, if (dataSpec.length >= 0) dataSpec.length else 1)
             if (isDownloaded) {
                 scope.launch(Dispatchers.IO) {
@@ -1248,7 +1250,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 return@Factory dataSpec
             }
 
-            // Return cached HTTP URL if still valid so missing bytes can be fetched smoothly
+            // Always provide the resolved HTTP URL so cache misses never hit an invalid URI
             songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
                 scope.launch(Dispatchers.IO) {
                     recoverSong(mediaId)
