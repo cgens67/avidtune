@@ -1235,8 +1235,6 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             DefaultLoadErrorHandlingPolicy(3)
         )
 
-    private val songUrlCache = java.util.concurrent.ConcurrentHashMap<String, Pair<String, Long>>()
-
     private fun createDataSourceFactory(): DataSource.Factory {
         return ResolvingDataSource.Factory(createCacheDataSource()) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")
