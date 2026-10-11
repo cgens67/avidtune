@@ -113,11 +113,18 @@ object YTPlayerUtils {
                 val tempStreamPlayerResponse = YouTube.newPipePlayer(videoId, streamPlayerResponse)
                 streamPlayerResponse = tempStreamPlayerResponse ?: streamPlayerResponse
 
-                format = findFormat(streamPlayerResponse, audioQuality, connectivityManager)
+                // Try each candidate audio format in order of quality preference
+                val candidateFormats = findCandidateFormats(streamPlayerResponse, audioQuality, connectivityManager)
+                for (candidate in candidateFormats) {
+                    val candidateUrl = findUrlOrNull(candidate, videoId)
+                    if (candidateUrl != null) {
+                        format = candidate
+                        streamUrl = candidateUrl
+                        break
+                    }
+                }
 
-                if (format == null) continue
-                streamUrl = findUrlOrNull(format, videoId)
-                if (streamUrl == null) continue
+                if (format == null || streamUrl == null) continue
 
                 streamExpiresInSeconds = streamPlayerResponse.streamingData?.expiresInSeconds
                 if (streamExpiresInSeconds == null) continue
@@ -225,20 +232,25 @@ object YTPlayerUtils {
         validStreams
     }
 
-    private fun findFormat(
+    private fun findCandidateFormats(
         playerResponse: PlayerResponse,
         audioQuality: AudioQuality,
         connectivityManager: ConnectivityManager,
-    ): PlayerResponse.StreamingData.Format? {
-        return playerResponse.streamingData?.adaptiveFormats
+    ): List<PlayerResponse.StreamingData.Format> {
+        val formats = playerResponse.streamingData?.adaptiveFormats
             ?.filter { it.isAudio && it.isOriginal }
-            ?.maxByOrNull {
-                it.bitrate * when (audioQuality) {
-                    AudioQuality.AUTO -> if (connectivityManager.isActiveNetworkMetered) -1 else 1
-                    AudioQuality.HIGH -> 1
-                    AudioQuality.LOW -> -1
-                } + (if (it.mimeType.startsWith("audio/webm")) 10240 else 0)
+            ?: return emptyList()
+
+        val isMetered = connectivityManager.isActiveNetworkMetered
+
+        return formats.sortedByDescending { format ->
+            val qualityMultiplier = when (audioQuality) {
+                AudioQuality.AUTO -> if (isMetered) -1 else 1
+                AudioQuality.HIGH -> 1
+                AudioQuality.LOW -> -1
             }
+            (format.bitrate * qualityMultiplier) + (if (format.mimeType.startsWith("audio/webm")) 10240 else 0)
+        }
     }
 
     private fun validateStatus(url: String): Boolean {
@@ -255,11 +267,7 @@ object YTPlayerUtils {
     private fun getSignatureTimestampOrNull(
         videoId: String
     ): Int? {
-        return NewPipeUtils.getSignatureTimestamp(videoId)
-            .onFailure {
-                Timber.tag(logTag).w(it, "Could not obtain signature timestamp for videoId: $videoId")
-            }
-            .getOrNull()
+        return NewPipeUtils.getSignatureTimestamp(videoId).getOrNull()
     }
 
     private fun findUrlOrNull(
@@ -269,10 +277,6 @@ object YTPlayerUtils {
         if (!format.url.isNullOrBlank()) {
             return format.url
         }
-        return NewPipeUtils.getStreamUrl(format, videoId)
-            .onFailure {
-                Timber.tag(logTag).w(it, "Could not resolve stream URL for candidate format itag: ${format.itag}")
-            }
-            .getOrNull()
+        return NewPipeUtils.getStreamUrl(format, videoId).getOrNull()
     }
 }
