@@ -482,6 +482,7 @@ fun LyricsImageCardPreview(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    .clip(RoundedCornerShape(customization.cornerRadius.dp))
                     .background(
                         brush = when (customization.backgroundStyle) {
                             BackgroundStyle.SOLID -> Brush.linearGradient(
@@ -658,11 +659,16 @@ fun LyricsImageCardPreview(
                             modifier = Modifier.fillMaxWidth(),
                             letterSpacing = if (customization.lyricsStyle == LyricsStyle.CONDENSED) (-0.5).sp else 0.3.sp,
                             style = if (customization.textShadowEnabled) {
+                                val shadowColor = if (customization.textColor.luminance() > 0.5f) {
+                                    Color.Black.copy(alpha = 0.85f)
+                                } else {
+                                    Color.White.copy(alpha = 0.75f)
+                                }
                                 TextStyle(
                                     shadow = Shadow(
-                                        color = customization.backgroundColor.copy(alpha = 0.5f),
-                                        offset = Offset(2f, 2f),
-                                        blurRadius = 4f
+                                        color = shadowColor,
+                                        offset = Offset(2.5f, 2.5f),
+                                        blurRadius = 8f
                                     ),
                                     fontStyle = if (customization.lyricsStyle == LyricsStyle.ITALIC)
                                         androidx.compose.ui.text.font.FontStyle.Italic
@@ -694,6 +700,7 @@ fun LyricsImageCardPreview(
                                 Image(
                                     painter = painterResource(id = R.drawable.avidtune),
                                     contentDescription = null,
+                                    colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(customization.textColor),
                                     modifier = Modifier.size((28 * logoSizeMultiplier).dp)
                                 )
 
