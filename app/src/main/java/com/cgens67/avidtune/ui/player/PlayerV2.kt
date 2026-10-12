@@ -7,16 +7,11 @@
 
 package com.cgens67.avidtune.ui.player
 
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.res.Configuration
 import android.media.AudioManager
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
-import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -34,20 +29,17 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderColors
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,7 +54,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -94,7 +85,6 @@ import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 import me.saket.squiggles.SquigglySlider
 
 enum class PlayerInternalState { COVER, LYRICS, QUEUE }
@@ -146,146 +136,6 @@ object PlayerSliderColors {
         inactiveTrackColor = activeColor.copy(alpha = 0.25f),
         thumbColor = activeColor
     )
-}
-
-fun getConnectedBluetoothDeviceName(context: Context): String? {
-    return try {
-        val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val devices = am.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
-            devices.firstOrNull {
-                it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
-                it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
-                it.type == android.media.AudioDeviceInfo.TYPE_BLE_HEADSET ||
-                it.type == android.media.AudioDeviceInfo.TYPE_BLE_SPEAKER
-            }?.productName?.toString()
-        } else null
-    } catch (_: Exception) {
-        null
-    }
-}
-
-@Composable
-fun AudioDeviceBottomSheet(onDismiss: () -> Unit) {
-    val context = LocalContext.current
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val coroutineScope = rememberCoroutineScope()
-    val bluetoothDevice = remember { getConnectedBluetoothDeviceName(context) }
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 24.dp, vertical = 16.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.audio_output),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            if (bluetoothDevice != null) {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.volume_up),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = bluetoothDevice,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = stringResource(R.string.connected_bluetooth),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                }
-            }
-
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = if (bluetoothDevice == null)
-                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
-                else
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.volume_up),
-                        contentDescription = null,
-                        tint = if (bluetoothDevice == null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.this_device),
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = stringResource(R.string.internal_speaker),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (bluetoothDevice == null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                Button(
-                    onClick = {
-                        try {
-                            val intent = Intent("android.settings.panel.action.MEDIA_OUTPUT")
-                            context.startActivity(intent)
-                        } catch (_: Exception) {
-                            try {
-                                val intent = Intent(Settings.ACTION_SOUND_SETTINGS)
-                                context.startActivity(intent)
-                            } catch (_: Exception) {}
-                        }
-                        coroutineScope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Text(stringResource(R.string.open_system_output_switcher))
-                }
-            }
-        }
-    }
 }
 
 @Composable
@@ -521,56 +371,6 @@ fun PlayerV2(
     val playerThumbnailShadowElevation by rememberPreference(PlayerThumbnailShadowElevationKey, defaultValue = 8f)
     val hidePlayerThumbnail by rememberPreference(HidePlayerThumbnailKey, false)
 
-    var showAudioDeviceBottomSheet by remember { mutableStateOf(false) }
-
-    val bluetoothDeviceName by produceState<String?>(initialValue = getConnectedBluetoothDeviceName(context)) {
-        val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        val scope = this
-        val updateDeviceState: () -> Unit = {
-            scope.value = getConnectedBluetoothDeviceName(context)
-            scope.launch {
-                delay(500)
-                scope.value = getConnectedBluetoothDeviceName(context)
-            }
-        }
-
-        val receiver = object : BroadcastReceiver() {
-            override fun onReceive(c: Context?, intent: Intent?) {
-                updateDeviceState()
-            }
-        }
-        val callback = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            object : android.media.AudioDeviceCallback() {
-                override fun onAudioDevicesAdded(addedDevices: Array<out android.media.AudioDeviceInfo>?) {
-                    updateDeviceState()
-                }
-                override fun onAudioDevicesRemoved(removedDevices: Array<out android.media.AudioDeviceInfo>?) {
-                    updateDeviceState()
-                }
-            }
-        } else null
-
-        val filter = IntentFilter().apply {
-            addAction(AudioManager.ACTION_HEADSET_PLUG)
-            addAction("android.bluetooth.adapter.action.STATE_CHANGED")
-            addAction("android.bluetooth.device.action.ACL_CONNECTED")
-            addAction("android.bluetooth.device.action.ACL_DISCONNECTED")
-            addAction("android.media.AUDIO_BECOMING_NOISY")
-        }
-
-        context.registerReceiver(receiver, filter)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && callback != null) {
-            am.registerAudioDeviceCallback(callback, Handler(Looper.getMainLooper()))
-        }
-
-        awaitDispose {
-            context.unregisterReceiver(receiver)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && callback != null) {
-                am.unregisterAudioDeviceCallback(callback)
-            }
-        }
-    }
-
     LaunchedEffect(isPlaying) {
         if (isPlaying) {
             while (isActive) {
@@ -653,8 +453,6 @@ fun PlayerV2(
             playerThumbnailShadowElevation = playerThumbnailShadowElevation,
             hidePlayerThumbnail = hidePlayerThumbnail,
             minimalPlayerDesign = minimalPlayerDesign,
-            bluetoothDeviceName = bluetoothDeviceName,
-            onShowAudioDeviceBottomSheet = { showAudioDeviceBottomSheet = true },
             adaptivePrimary = adaptivePrimary,
             adaptiveSecondary = adaptiveSecondary,
             adaptiveSurface = adaptiveSurface,
@@ -694,17 +492,11 @@ fun PlayerV2(
             playerThumbnailShadowElevation = playerThumbnailShadowElevation,
             hidePlayerThumbnail = hidePlayerThumbnail,
             minimalPlayerDesign = minimalPlayerDesign,
-            bluetoothDeviceName = bluetoothDeviceName,
-            onShowAudioDeviceBottomSheet = { showAudioDeviceBottomSheet = true },
             adaptivePrimary = adaptivePrimary,
             adaptiveSecondary = adaptiveSecondary,
             adaptiveSurface = adaptiveSurface,
             modifier = modifier
         )
-    }
-
-    if (showAudioDeviceBottomSheet) {
-        AudioDeviceBottomSheet(onDismiss = { showAudioDeviceBottomSheet = false })
     }
 }
 
@@ -736,8 +528,6 @@ private fun PlayerV2Landscape(
     playerThumbnailShadowElevation: Float,
     hidePlayerThumbnail: Boolean,
     minimalPlayerDesign: Boolean,
-    bluetoothDeviceName: String?,
-    onShowAudioDeviceBottomSheet: () -> Unit,
     adaptivePrimary: Color,
     adaptiveSecondary: Color,
     adaptiveSurface: Color,
@@ -1157,35 +947,45 @@ private fun PlayerV2Landscape(
                         }
                     }
 
-                    // Bottom utility bar: Lyrics, Device, Queue
+                    // Bottom utility bar: Queue on left, Lyrics in center, Loop on right
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(vertical = if (minimalPlayerDesign) 2.dp else 4.dp),
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(onClick = { onPlayerStateChange(PlayerInternalState.LYRICS) }) {
-                            Icon(
-                                painter = painterResource(R.drawable.lyrics),
-                                contentDescription = stringResource(R.string.lyrics),
-                                tint = adaptiveSecondary,
-                                modifier = Modifier.size(if (minimalPlayerDesign) 22.dp else 24.dp)
-                            )
-                        }
-
-                        IconButton(onClick = onShowAudioDeviceBottomSheet) {
-                            Icon(
-                                painter = painterResource(R.drawable.volume_up),
-                                contentDescription = stringResource(R.string.audio_output),
-                                tint = adaptiveSecondary,
-                                modifier = Modifier.size(if (minimalPlayerDesign) 22.dp else 24.dp)
-                            )
-                        }
-
-                        IconButton(onClick = { onPlayerStateChange(PlayerInternalState.QUEUE) }) {
+                        val isQueueActive = playerState == PlayerInternalState.QUEUE
+                        IconButton(onClick = { onPlayerStateChange(if (isQueueActive) PlayerInternalState.COVER else PlayerInternalState.QUEUE) }) {
                             Icon(
                                 painter = painterResource(R.drawable.queue_music),
                                 contentDescription = stringResource(R.string.queue),
-                                tint = adaptiveSecondary,
+                                tint = if (isQueueActive) adaptivePrimary else adaptiveSecondary,
+                                modifier = Modifier.size(if (minimalPlayerDesign) 22.dp else 24.dp)
+                            )
+                        }
+
+                        val isLyricsActive = playerState == PlayerInternalState.LYRICS
+                        IconButton(onClick = { onPlayerStateChange(if (isLyricsActive) PlayerInternalState.COVER else PlayerInternalState.LYRICS) }) {
+                            Icon(
+                                painter = painterResource(R.drawable.lyrics),
+                                contentDescription = stringResource(R.string.lyrics),
+                                tint = if (isLyricsActive) adaptivePrimary else adaptiveSecondary,
+                                modifier = Modifier.size(if (minimalPlayerDesign) 22.dp else 24.dp)
+                            )
+                        }
+
+                        IconButton(
+                            onClick = { playerConnection.player.toggleRepeatMode() },
+                            enabled = !isListenTogetherGuest
+                        ) {
+                            Icon(
+                                painter = painterResource(
+                                    when (repeatMode) {
+                                        Player.REPEAT_MODE_ONE -> R.drawable.repeat_one
+                                        else -> R.drawable.repeat
+                                    }
+                                ),
+                                contentDescription = null,
+                                tint = if (repeatMode != Player.REPEAT_MODE_OFF) adaptivePrimary else adaptiveSecondary.copy(alpha = 0.6f),
                                 modifier = Modifier.size(if (minimalPlayerDesign) 22.dp else 24.dp)
                             )
                         }
@@ -1219,13 +1019,19 @@ private fun PlayerV2Landscape(
 
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             IconButton(
-                                onClick = onShowAudioDeviceBottomSheet,
+                                onClick = { playerConnection.player.toggleRepeatMode() },
+                                enabled = !isListenTogetherGuest,
                                 modifier = Modifier.size(34.dp)
                             ) {
                                 Icon(
-                                    painter = painterResource(R.drawable.volume_up),
+                                    painter = painterResource(
+                                        when (repeatMode) {
+                                            Player.REPEAT_MODE_ONE -> R.drawable.repeat_one
+                                            else -> R.drawable.repeat
+                                        }
+                                    ),
                                     contentDescription = null,
-                                    tint = adaptiveSecondary
+                                    tint = if (repeatMode != Player.REPEAT_MODE_OFF) adaptivePrimary else adaptiveSecondary.copy(alpha = 0.6f)
                                 )
                             }
 
@@ -1457,8 +1263,6 @@ private fun PlayerV2Portrait(
     playerThumbnailShadowElevation: Float,
     hidePlayerThumbnail: Boolean,
     minimalPlayerDesign: Boolean,
-    bluetoothDeviceName: String?,
-    onShowAudioDeviceBottomSheet: () -> Unit,
     adaptivePrimary: Color,
     adaptiveSecondary: Color,
     adaptiveSurface: Color,
@@ -2221,6 +2025,7 @@ private fun PlayerV2Portrait(
                         }
                     }
 
+                    // Bottom utility bar: Queue on left, Lyrics in center, Loop on right
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -2231,6 +2036,20 @@ private fun PlayerV2Portrait(
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        val isQueueActive = playerState == PlayerInternalState.QUEUE
+                        IconButton(
+                            onClick = {
+                                onPlayerStateChange(if (isQueueActive) PlayerInternalState.COVER else PlayerInternalState.QUEUE)
+                            }
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.queue_music),
+                                contentDescription = stringResource(R.string.queue),
+                                tint = if (isQueueActive) adaptivePrimary else adaptiveSecondary,
+                                modifier = Modifier.size(if (minimalPlayerDesign) 24.dp else 28.dp)
+                            )
+                        }
+
                         val isLyricsActive = playerState == PlayerInternalState.LYRICS
                         IconButton(
                             onClick = {
@@ -2245,41 +2064,20 @@ private fun PlayerV2Portrait(
                             )
                         }
 
-                        Box(contentAlignment = Alignment.Center) {
-                            IconButton(
-                                onClick = onShowAudioDeviceBottomSheet,
-                                modifier = Modifier.background(Color.Transparent, RoundedCornerShape(12.dp))
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.volume_up),
-                                    contentDescription = stringResource(R.string.audio_output),
-                                    tint = adaptiveSecondary,
-                                    modifier = Modifier.size(if (minimalPlayerDesign) 24.dp else 28.dp)
-                                )
-                            }
-                            if (bluetoothDeviceName != null) {
-                                Text(
-                                    text = bluetoothDeviceName,
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                    color = adaptiveSecondary.copy(alpha = 0.8f),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.widthIn(max = 84.dp)
-                                )
-                            }
-                        }
-
-                        val isQueueActive = playerState == PlayerInternalState.QUEUE
+                        val repeatMode by playerConnection.repeatMode.collectAsState()
                         IconButton(
-                            onClick = {
-                                onPlayerStateChange(if (isQueueActive) PlayerInternalState.COVER else PlayerInternalState.QUEUE)
-                            }
+                            onClick = { playerConnection.player.toggleRepeatMode() },
+                            enabled = !isListenTogetherGuest
                         ) {
                             Icon(
-                                painter = painterResource(R.drawable.queue_music),
-                                contentDescription = stringResource(R.string.queue),
-                                tint = if (isQueueActive) adaptivePrimary else adaptiveSecondary,
+                                painter = painterResource(
+                                    when (repeatMode) {
+                                        Player.REPEAT_MODE_ONE -> R.drawable.repeat_one
+                                        else -> R.drawable.repeat
+                                    }
+                                ),
+                                contentDescription = null,
+                                tint = if (repeatMode != Player.REPEAT_MODE_OFF) adaptivePrimary else adaptiveSecondary.copy(alpha = 0.6f),
                                 modifier = Modifier.size(if (minimalPlayerDesign) 24.dp else 28.dp)
                             )
                         }
