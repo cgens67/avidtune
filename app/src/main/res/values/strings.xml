@@ -1369,7 +1369,7 @@
     
     <!-- Share Lyrics Studio -->
     <string name="lyrics_share_tab_image">Image card</string>
-    <string name="lyrics_share_tab_text">Text Quote</string>
+    <string name="lyrics_share_tab_text">Text quote</string>
     <string name="lyrics_share_cat_themes">Themes</string>
     <string name="lyrics_share_cat_canvas">Canvas</string>
     <string name="lyrics_share_cat_style">Style</string>
