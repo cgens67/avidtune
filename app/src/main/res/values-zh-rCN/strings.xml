@@ -1342,5 +1342,55 @@
     <string name="export_all_logs_chooser">导出所有日志</string>
     <string name="share_exception">分享异常</string>
     <string name="exception_tag">异常</string>
+    
+    <!-- Share Lyrics Studio -->
+    <string name="lyrics_share_tab_image">图片卡片</string>
+    <string name="lyrics_share_tab_text">文本摘录</string>
+    <string name="lyrics_share_cat_themes">主题配色</string>
+    <string name="lyrics_share_cat_canvas">画布背景</string>
+    <string name="lyrics_share_cat_style">卡片样式</string>
+    <string name="lyrics_share_cat_typography">排版字体</string>
+    <string name="lyrics_share_cat_branding">品牌标识</string>
+
+    <string name="lyrics_share_style_rounded">圆角</string>
+    <string name="lyrics_share_style_circle">圆形</string>
+    <string name="lyrics_share_style_square">方形</string>
+
+    <string name="lyrics_share_font_normal">常规</string>
+    <string name="lyrics_share_font_italic">斜体</string>
+    <string name="lyrics_share_font_condensed">紧凑</string>
+
+    <string name="lyrics_share_weight_regular">常规</string>
+    <string name="lyrics_share_weight_bold">粗体</string>
+    <string name="lyrics_share_weight_extrabold">特粗</string>
+
+    <string name="lyrics_share_bg_solid">纯色</string>
+    <string name="lyrics_share_bg_gradient">渐变</string>
+    <string name="lyrics_share_bg_pattern">图案</string>
+
+    <string name="lyrics_share_pos_bottom_left">左下角</string>
+    <string name="lyrics_share_pos_bottom_right">右下角</string>
+    <string name="lyrics_share_pos_top_left">左上角</string>
+    <string name="lyrics_share_pos_top_right">右上角</string>
+
+    <string name="lyrics_share_size_small">小</string>
+    <string name="lyrics_share_size_medium">中</string>
+    <string name="lyrics_share_size_large">大</string>
+
+    <string name="lyrics_share_accent_line">显示强调分割线</string>
+    <string name="lyrics_share_line_spacing">行距</string>
+    <string name="lyrics_share_element_spacing">元素间距</string>
+    <string name="lyrics_share_corner_radius">圆角大小</string>
+    <string name="lyrics_share_padding">内边距</string>
+    <string name="lyrics_share_border">外边框</string>
+    <string name="lyrics_share_border_width">边框粗细</string>
+    <string name="lyrics_share_text_shadow">文字立体阴影</string>
+    <string name="lyrics_share_show_cover">显示封面</string>
+    <string name="lyrics_share_show_title">显示歌曲标题</string>
+    <string name="lyrics_share_show_artist">显示艺术家姓名</string>
+    <string name="lyrics_share_show_logo">显示应用Logo</string>
+    <string name="lyrics_share_logo_position">Logo位置</string>
+    <string name="lyrics_share_logo_size">Logo大小</string>
+    <string name="lyrics_share_pattern_opacity">图案不透明度</string>
 
 </resources>
