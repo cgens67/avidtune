@@ -15,7 +15,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -27,6 +27,8 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -39,7 +41,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
@@ -56,6 +57,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.core.graphics.drawable.toBitmap
 import androidx.palette.graphics.Palette
 import coil.ImageLoader
@@ -69,9 +71,25 @@ import kotlinx.coroutines.withContext
 import kotlin.math.min
 
 private enum class ShareMode { IMAGE, TEXT }
-private enum class CustomizerSection { PRESETS, CANVAS, STYLE, TYPOGRAPHY }
+private enum class CustomizerSection { THEMES, STYLE, CANVAS, TYPOGRAPHY }
 
 private fun Color.isDarkColor(): Boolean = this.luminance() < 0.5f
+
+private fun createGradientFrom(color: Color): List<Color> {
+    val isDark = color.isDarkColor()
+    val factor = if (isDark) 1.5f else 0.75f
+    val c2 = Color(
+        red = (color.red * factor + if (isDark) 0.1f else 0f).coerceIn(0f, 1f),
+        green = (color.green * factor).coerceIn(0f, 1f),
+        blue = (color.blue * factor + if (isDark) 0.15f else 0f).coerceIn(0f, 1f)
+    )
+    val c3 = Color(
+        red = (color.red * if (isDark) 0.45f else 0.4f).coerceIn(0f, 1f),
+        green = (color.green * if (isDark) 0.45f else 0.45f).coerceIn(0f, 1f),
+        blue = (color.blue * if (isDark) 0.55f else 0.55f).coerceIn(0f, 1f)
+    )
+    return listOf(color, c2, c3)
+}
 
 @Composable
 fun ShareLyricsDialog(
@@ -90,7 +108,7 @@ fun ShareLyricsDialog(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     var shareMode by remember { mutableStateOf(ShareMode.IMAGE) }
-    var activeSection by remember { mutableStateOf(CustomizerSection.PRESETS) }
+    var activeSection by remember { mutableStateOf(CustomizerSection.THEMES) }
     var isGenerating by remember { mutableStateOf(false) }
 
     val coverUrl = mediaMetadata?.thumbnailUrl
@@ -106,7 +124,6 @@ fun ShareLyricsDialog(
         )
     }
 
-    // Extract dynamic palette from album cover
     LaunchedEffect(coverUrl) {
         if (!coverUrl.isNullOrEmpty()) {
             withContext(Dispatchers.IO) {
@@ -202,11 +219,11 @@ fun ShareLyricsDialog(
                 }
             }
 
-            // Mode Selector: Image vs Text
+            // Segmented Mode Selector
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 10.dp),
+                    .padding(vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)
             ) {
                 ToggleButton(
@@ -218,11 +235,7 @@ fun ShareLyricsDialog(
                     modifier = Modifier.weight(1f),
                     shapes = ButtonGroupDefaults.connectedLeadingButtonShapes()
                 ) {
-                    Icon(
-                        painter = painterResource(R.drawable.image),
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    Icon(painterResource(R.drawable.image), null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.share_as_image), fontWeight = FontWeight.SemiBold)
                 }
@@ -236,11 +249,7 @@ fun ShareLyricsDialog(
                     modifier = Modifier.weight(1f),
                     shapes = ButtonGroupDefaults.connectedTrailingButtonShapes()
                 ) {
-                    Icon(
-                        painter = painterResource(R.drawable.media3_icon_share),
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    Icon(painterResource(R.drawable.media3_icon_share), null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.share_as_text), fontWeight = FontWeight.SemiBold)
                 }
@@ -288,7 +297,7 @@ fun ShareLyricsDialog(
                                 Box(
                                     modifier = Modifier
                                         .size(previewSize)
-                                        .scale(0.98f),
+                                        .clip(RoundedCornerShape(customization.cornerRadius.dp)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     LyricsImageCardPreview(
@@ -301,21 +310,24 @@ fun ShareLyricsDialog(
                             }
                         }
 
-                        // Studio Section Selector (Pills)
+                        // Horizontally scrollable category pills
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
                                 .padding(vertical = 8.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             FilterChip(
-                                selected = activeSection == CustomizerSection.PRESETS,
+                                selected = activeSection == CustomizerSection.THEMES,
                                 onClick = {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    activeSection = CustomizerSection.PRESETS
+                                    activeSection = CustomizerSection.THEMES
                                 },
-                                label = { Text(stringResource(R.string.presets)) },
-                                modifier = Modifier.weight(1f),
+                                label = { Text(stringResource(R.string.presets), maxLines = 1) },
+                                leadingIcon = {
+                                    Icon(painterResource(R.drawable.palette), null, modifier = Modifier.size(16.dp))
+                                },
                                 shape = RoundedCornerShape(16.dp)
                             )
                             FilterChip(
@@ -324,8 +336,10 @@ fun ShareLyricsDialog(
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     activeSection = CustomizerSection.STYLE
                                 },
-                                label = { Text(stringResource(R.string.details)) },
-                                modifier = Modifier.weight(1f),
+                                label = { Text(stringResource(R.string.details), maxLines = 1) },
+                                leadingIcon = {
+                                    Icon(painterResource(R.drawable.tune), null, modifier = Modifier.size(16.dp))
+                                },
                                 shape = RoundedCornerShape(16.dp)
                             )
                             FilterChip(
@@ -334,8 +348,10 @@ fun ShareLyricsDialog(
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     activeSection = CustomizerSection.CANVAS
                                 },
-                                label = { Text(stringResource(R.string.player_background_style)) },
-                                modifier = Modifier.weight(1f),
+                                label = { Text("Canvas", maxLines = 1) },
+                                leadingIcon = {
+                                    Icon(painterResource(R.drawable.gradient), null, modifier = Modifier.size(16.dp))
+                                },
                                 shape = RoundedCornerShape(16.dp)
                             )
                             FilterChip(
@@ -344,13 +360,15 @@ fun ShareLyricsDialog(
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     activeSection = CustomizerSection.TYPOGRAPHY
                                 },
-                                label = { Text(stringResource(R.string.font_system)) },
-                                modifier = Modifier.weight(1f),
+                                label = { Text(stringResource(R.string.font_system), maxLines = 1) },
+                                leadingIcon = {
+                                    Icon(painterResource(R.drawable.text_fields), null, modifier = Modifier.size(16.dp))
+                                },
                                 shape = RoundedCornerShape(16.dp)
                             )
                         }
 
-                        // Section Controls Card
+                        // Customizer Options Container
                         Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -360,26 +378,29 @@ fun ShareLyricsDialog(
                         ) {
                             Box(modifier = Modifier.padding(16.dp)) {
                                 when (activeSection) {
-                                    CustomizerSection.PRESETS -> {
-                                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    CustomizerSection.THEMES -> {
+                                        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                                             if (paletteColors.isNotEmpty()) {
                                                 Text(
                                                     text = stringResource(R.string.from_cover),
                                                     style = MaterialTheme.typography.labelMedium,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
-                                                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                                LazyRow(
+                                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                                    contentPadding = PaddingValues(horizontal = 2.dp)
+                                                ) {
                                                     items(paletteColors) { color ->
                                                         PaletteSwatch(
                                                             color = color,
-                                                            isSelected = customization.backgroundColor == color,
+                                                            isSelected = customization.backgroundColor == color && customization.backgroundStyle != BackgroundStyle.GRADIENT,
                                                             onClick = {
-                                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                                val newGrad = if (customization.backgroundStyle == BackgroundStyle.GRADIENT) createGradientFrom(color) else null
                                                                 customization = customization.copy(
                                                                     backgroundColor = color,
+                                                                    gradientColors = newGrad,
                                                                     textColor = if (color.isDarkColor()) Color.White else Color.Black,
                                                                     secondaryTextColor = if (color.isDarkColor()) Color.White.copy(alpha = 0.7f) else Color.Black.copy(alpha = 0.7f),
-                                                                    backgroundStyle = BackgroundStyle.SOLID,
                                                                     isDark = color.isDarkColor()
                                                                 )
                                                             }
@@ -393,7 +414,10 @@ fun ShareLyricsDialog(
                                                 style = MaterialTheme.typography.labelMedium,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
-                                            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                            LazyRow(
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                contentPadding = PaddingValues(horizontal = 2.dp)
+                                            ) {
                                                 items(colorPresets) { preset ->
                                                     BottomSheetColorCustomizationItem(
                                                         customization = preset.customization,
@@ -401,7 +425,6 @@ fun ShareLyricsDialog(
                                                         isSelected = customization.backgroundColor == preset.customization.backgroundColor &&
                                                                 customization.backgroundStyle == preset.customization.backgroundStyle,
                                                         onClick = {
-                                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                                             customization = preset.customization.copy(
                                                                 cornerRadius = customization.cornerRadius,
                                                                 padding = customization.padding
@@ -457,6 +480,14 @@ fun ShareLyricsDialog(
                                                     )
                                                 }
                                             )
+
+                                            ExpressiveSliderRow(
+                                                label = "Line Spacing",
+                                                value = customization.lyricsLineSpacing,
+                                                range = 1.0f..1.8f,
+                                                onValueChange = { customization = customization.copy(lyricsLineSpacing = it) },
+                                                format = String.format("%.1f", customization.lyricsLineSpacing)
+                                            )
                                         }
                                     }
 
@@ -471,7 +502,17 @@ fun ShareLyricsDialog(
                                                 ).forEach { (style, name) ->
                                                     FilterChip(
                                                         selected = customization.backgroundStyle == style,
-                                                        onClick = { customization = customization.copy(backgroundStyle = style) },
+                                                        onClick = {
+                                                            val grad = if (style == BackgroundStyle.GRADIENT) {
+                                                                customization.gradientColors?.takeIf { it.size >= 2 } ?: createGradientFrom(customization.backgroundColor)
+                                                            } else null
+
+                                                            customization = customization.copy(
+                                                                backgroundStyle = style,
+                                                                gradientColors = grad,
+                                                                patternOpacity = if (style == BackgroundStyle.PATTERN) 0.18f else customization.patternOpacity
+                                                            )
+                                                        },
                                                         label = { Text(name, fontSize = 12.sp) },
                                                         modifier = Modifier.weight(1f)
                                                     )
@@ -486,11 +527,40 @@ fun ShareLyricsDialog(
                                                 format = "${customization.cornerRadius.toInt()}dp"
                                             )
 
+                                            ExpressiveSliderRow(
+                                                label = "Padding",
+                                                value = customization.padding,
+                                                range = 14f..48f,
+                                                onValueChange = { customization = customization.copy(padding = it) },
+                                                format = "${customization.padding.toInt()}dp"
+                                            )
+
                                             ExpressiveToggleRow(
                                                 title = "Border",
                                                 checked = customization.borderEnabled,
-                                                onCheckedChange = { customization = customization.copy(borderEnabled = it) }
+                                                onCheckedChange = {
+                                                    val autoBorderColor = if (customization.backgroundColor.isDarkColor()) {
+                                                        Color.White.copy(alpha = 0.6f)
+                                                    } else {
+                                                        Color.Black.copy(alpha = 0.6f)
+                                                    }
+                                                    customization = customization.copy(
+                                                        borderEnabled = it,
+                                                        borderColor = autoBorderColor,
+                                                        borderWidth = if (customization.borderWidth <= 0f) 2f else customization.borderWidth
+                                                    )
+                                                }
                                             )
+
+                                            AnimatedVisibility(visible = customization.borderEnabled) {
+                                                ExpressiveSliderRow(
+                                                    label = "Border Width",
+                                                    value = customization.borderWidth,
+                                                    range = 1f..8f,
+                                                    onValueChange = { customization = customization.copy(borderWidth = it) },
+                                                    format = "${customization.borderWidth.toInt()}dp"
+                                                )
+                                            }
                                         }
                                     }
 
@@ -519,6 +589,12 @@ fun ShareLyricsDialog(
                                             )
 
                                             ExpressiveToggleRow(
+                                                title = "Show Cover Art",
+                                                checked = customization.showCoverArt,
+                                                onCheckedChange = { customization = customization.copy(showCoverArt = it) }
+                                            )
+
+                                            ExpressiveToggleRow(
                                                 title = "App Logo",
                                                 checked = customization.showLogo,
                                                 onCheckedChange = { customization = customization.copy(showLogo = it) }
@@ -539,13 +615,13 @@ fun ShareLyricsDialog(
                 Surface(
                     shape = RoundedCornerShape(24.dp),
                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    shadowElevation = 8.dp,
+                    shadowElevation = 6.dp,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 12.dp)
+                        .padding(vertical = 10.dp)
                 ) {
                     Row(
-                        modifier = Modifier.padding(10.dp),
+                        modifier = Modifier.padding(8.dp),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -554,7 +630,7 @@ fun ShareLyricsDialog(
                                 coroutineScope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() }
                             },
                             shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier.weight(0.7f).height(50.dp)
+                            modifier = Modifier.height(52.dp)
                         ) {
                             Text(stringResource(R.string.cancel))
                         }
@@ -628,7 +704,9 @@ fun ShareLyricsDialog(
                             },
                             shape = RoundedCornerShape(16.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                            modifier = Modifier.weight(1.3f).height(50.dp)
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(52.dp)
                         ) {
                             if (isGenerating) {
                                 CircularWavyProgressIndicator(
@@ -636,79 +714,21 @@ fun ShareLyricsDialog(
                                     color = MaterialTheme.colorScheme.onPrimary
                                 )
                                 Spacer(Modifier.width(8.dp))
-                                Text(stringResource(R.string.generating_image))
+                                Text(stringResource(R.string.generating_image), maxLines = 1)
                             } else {
                                 Icon(painterResource(R.drawable.media3_icon_share), null, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(8.dp))
-                                Text(stringResource(R.string.share_lyrics_image), fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = stringResource(R.string.share_as_image),
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1
+                                )
                             }
                         }
                     }
                 }
             }
         }
-    }
-}
-
-@Composable
-fun BottomSheetColorCustomizationItem(
-    customization: ImageCustomization,
-    presetName: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val scale by animateFloatAsState(
-        targetValue = if (isSelected) 1.12f else 1f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "presetScale"
-    )
-
-    Column(
-        modifier = modifier
-            .width(64.dp)
-            .clickable(onClick = onClick),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .scale(scale)
-                .clip(RoundedCornerShape(16.dp))
-                .background(
-                    brush = if (customization.backgroundStyle == BackgroundStyle.GRADIENT && customization.gradientColors != null) {
-                        Brush.linearGradient(customization.gradientColors)
-                    } else {
-                        Brush.linearGradient(listOf(customization.backgroundColor, customization.backgroundColor))
-                    }
-                )
-                .border(
-                    width = if (isSelected) 2.5.dp else 1.dp,
-                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                    shape = RoundedCornerShape(16.dp)
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "Aa",
-                color = customization.textColor,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
-
-        Spacer(modifier = Modifier.height(6.dp))
-
-        Text(
-            text = presetName,
-            style = MaterialTheme.typography.labelSmall,
-            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.width(64.dp)
-        )
     }
 }
 
@@ -818,34 +838,122 @@ private fun PaletteSwatch(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
-    val scale by animateFloatAsState(
-        targetValue = if (isSelected) 1.15f else 1f,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-        label = "swatchScale"
+    val haptic = LocalHapticFeedback.current
+    val circleSize by animateDpAsState(
+        targetValue = if (isSelected) 44.dp else 36.dp,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow),
+        label = "swatchSize"
     )
 
     Box(
         modifier = Modifier
-            .size(44.dp)
-            .scale(scale)
-            .clip(CircleShape)
-            .background(color)
-            .clickable(onClick = onClick)
-            .border(
-                width = if (isSelected) 3.dp else 1.dp,
-                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.4f),
-                shape = CircleShape
-            ),
+            .size(48.dp)
+            .zIndex(if (isSelected) 1f else 0f),
         contentAlignment = Alignment.Center
     ) {
-        if (isSelected) {
-            Icon(
-                painter = painterResource(R.drawable.check),
-                contentDescription = null,
-                tint = if (color.isDarkColor()) Color.White else Color.Black,
-                modifier = Modifier.size(18.dp)
-            )
+        Box(
+            modifier = Modifier
+                .size(circleSize)
+                .clip(CircleShape)
+                .background(color)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onClick()
+                }
+                .border(
+                    width = if (isSelected) 3.dp else 1.dp,
+                    color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.4f),
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            if (isSelected) {
+                Icon(
+                    painter = painterResource(R.drawable.check),
+                    contentDescription = null,
+                    tint = if (color.isDarkColor()) Color.White else Color.Black,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
         }
+    }
+}
+
+@Composable
+fun BottomSheetColorCustomizationItem(
+    customization: ImageCustomization,
+    presetName: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val haptic = LocalHapticFeedback.current
+    val swatchSize by animateDpAsState(
+        targetValue = if (isSelected) 48.dp else 42.dp,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "presetSize"
+    )
+
+    Column(
+        modifier = modifier
+            .width(64.dp)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onClick()
+            },
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(52.dp)
+                .zIndex(if (isSelected) 1f else 0f),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(swatchSize)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(
+                        brush = if (customization.backgroundStyle == BackgroundStyle.GRADIENT && customization.gradientColors != null) {
+                            Brush.linearGradient(customization.gradientColors)
+                        } else {
+                            Brush.linearGradient(listOf(customization.backgroundColor, customization.backgroundColor))
+                        }
+                    )
+                    .border(
+                        width = if (isSelected) 2.5.dp else 1.dp,
+                        color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray.copy(alpha = 0.3f),
+                        shape = RoundedCornerShape(14.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Aa",
+                    color = customization.textColor,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            text = presetName,
+            style = MaterialTheme.typography.labelSmall,
+            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.width(64.dp)
+        )
     }
 }
 
