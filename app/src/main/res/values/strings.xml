@@ -1344,7 +1344,7 @@
     <string name="enable_binilyrics">Enable BiniLyrics</string>
     
     <!-- Debug & Error Log Viewer Strings -->
-    <string name="debug_and_error_logs">Debug &amp; Error Logs</string>
+    <string name="debug_and_error_logs">Debug and error logs</string>
     <string name="debug_logs_subtitle">Inspect exceptions and crash traces</string>
     <string name="search_logs_placeholder">Filter errors, exceptions…</string>
     <string name="log_level_all">ALL</string>
