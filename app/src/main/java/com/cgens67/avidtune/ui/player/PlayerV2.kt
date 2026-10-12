@@ -1295,7 +1295,10 @@ private fun PlayerV2Portrait(
             }
     ) {
         val overlayAlpha by animateFloatAsState(
-            targetValue = if (playerState == PlayerInternalState.LYRICS || playerState == PlayerInternalState.QUEUE) {
+            targetValue = if (
+                playerBackground == PlayerBackgroundStyle.APPLE_MUSIC &&
+                (playerState == PlayerInternalState.LYRICS || playerState == PlayerInternalState.QUEUE)
+            ) {
                 0.75f
             } else {
                 0f
