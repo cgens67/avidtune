@@ -31,7 +31,6 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Surface
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
@@ -415,74 +414,62 @@ fun QueueV2(
                         }
 
                         val content: @Composable () -> Unit = {
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = if (isActive) {
-                                    adaptivePrimary.copy(alpha = 0.22f)
-                                } else {
-                                    adaptivePrimary.copy(alpha = 0.08f)
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 12.dp, vertical = 2.dp)
-                            ) {
-                                MediaMetadataListItem(
-                                    mediaMetadata = window.mediaItem.metadata!!,
-                                    isSelected = false,
-                                    isActive = isActive,
-                                    isPlaying = isPlaying && isActive,
-                                    trailingContent = {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            IconButton(
-                                                onClick = {
-                                                    menuState.show {
-                                                        PlayerMenu(
-                                                            mediaMetadata = window.mediaItem.metadata!!,
-                                                            navController = navController,
-                                                            playerBottomSheetState = playerBottomSheetState,
-                                                            isQueueTrigger = true,
-                                                            onShowDetailsDialog = {
-                                                                window.mediaItem.mediaId.let { mediaId ->
-                                                                    bottomSheetPageState.show {
-                                                                        ShowMediaInfo(mediaId) {
-                                                                            bottomSheetPageState.dismiss()
-                                                                        }
+                            MediaMetadataListItem(
+                                mediaMetadata = window.mediaItem.metadata!!,
+                                isSelected = false,
+                                isActive = isActive,
+                                isPlaying = isPlaying && isActive,
+                                trailingContent = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        IconButton(
+                                            onClick = {
+                                                menuState.show {
+                                                    PlayerMenu(
+                                                        mediaMetadata = window.mediaItem.metadata!!,
+                                                        navController = navController,
+                                                        playerBottomSheetState = playerBottomSheetState,
+                                                        isQueueTrigger = true,
+                                                        onShowDetailsDialog = {
+                                                            window.mediaItem.mediaId.let { mediaId ->
+                                                                bottomSheetPageState.show {
+                                                                    ShowMediaInfo(mediaId) {
+                                                                        bottomSheetPageState.dismiss()
                                                                     }
                                                                 }
-                                                            },
-                                                            onDismiss = menuState::dismiss
-                                                        )
-                                                    }
-                                                }
-                                            ) {
-                                                Icon(
-                                                    painter = painterResource(R.drawable.more_vert),
-                                                    contentDescription = stringResource(R.string.more_options)
-                                                )
-                                            }
-
-                                            if (!isQueueEffectivelyLocked) {
-                                                IconButton(
-                                                    onClick = { },
-                                                    modifier = Modifier.draggableHandle()
-                                                ) {
-                                                    Icon(
-                                                        painter = painterResource(R.drawable.drag_handle),
-                                                        contentDescription = stringResource(R.string.drag_to_reorder)
+                                                            }
+                                                        },
+                                                        onDismiss = menuState::dismiss
                                                     )
                                                 }
                                             }
+                                        ) {
+                                            Icon(
+                                                painter = painterResource(R.drawable.more_vert),
+                                                contentDescription = stringResource(R.string.more_options)
+                                            )
                                         }
-                                    },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .clickable(enabled = !isGuest) {
-                                            playerConnection.player.seekToDefaultPosition(window.firstPeriodIndex)
-                                            playerConnection.player.playWhenReady = true
+
+                                        if (!isQueueEffectivelyLocked) {
+                                            IconButton(
+                                                onClick = { },
+                                                modifier = Modifier.draggableHandle()
+                                            ) {
+                                                Icon(
+                                                    painter = painterResource(R.drawable.drag_handle),
+                                                    contentDescription = stringResource(R.string.drag_to_reorder)
+                                                )
+                                            }
                                         }
-                                )
-                            }
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable(enabled = !isGuest) {
+                                        playerConnection.player.seekToDefaultPosition(window.firstPeriodIndex)
+                                        playerConnection.player.playWhenReady = true
+                                    }
+                            )
                         }
 
                         if (isQueueEffectivelyLocked) {
