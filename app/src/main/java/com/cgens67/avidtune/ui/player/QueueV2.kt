@@ -414,62 +414,74 @@ fun QueueV2(
                         }
 
                         val content: @Composable () -> Unit = {
-                            MediaMetadataListItem(
-                                mediaMetadata = window.mediaItem.metadata!!,
-                                isSelected = false,
-                                isActive = isActive,
-                                isPlaying = isPlaying && isActive,
-                                trailingContent = {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        IconButton(
-                                            onClick = {
-                                                menuState.show {
-                                                    PlayerMenu(
-                                                        mediaMetadata = window.mediaItem.metadata!!,
-                                                        navController = navController,
-                                                        playerBottomSheetState = playerBottomSheetState,
-                                                        isQueueTrigger = true,
-                                                        onShowDetailsDialog = {
-                                                            window.mediaItem.mediaId.let { mediaId ->
-                                                                bottomSheetPageState.show {
-                                                                    ShowMediaInfo(mediaId) {
-                                                                        bottomSheetPageState.dismiss()
-                                                                    }
-                                                                }
-                                                            }
-                                                        },
-                                                        onDismiss = menuState::dismiss
-                                                    )
-                                                }
-                                            }
-                                        ) {
-                                            Icon(
-                                                painter = painterResource(R.drawable.more_vert),
-                                                contentDescription = stringResource(R.string.more_options)
-                                            )
-                                        }
-
-                                        if (!isQueueEffectivelyLocked) {
-                                            IconButton(
-                                                onClick = { },
-                                                modifier = Modifier.draggableHandle()
-                                            ) {
-                                                Icon(
-                                                    painter = painterResource(R.drawable.drag_handle),
-                                                    contentDescription = stringResource(R.string.drag_to_reorder)
-                                                )
-                                            }
-                                        }
-                                    }
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (isActive) {
+                                    adaptivePrimary.copy(alpha = 0.22f)
+                                } else {
+                                    adaptivePrimary.copy(alpha = 0.08f)
                                 },
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable(enabled = !isGuest) {
-                                        playerConnection.player.seekToDefaultPosition(window.firstPeriodIndex)
-                                        playerConnection.player.playWhenReady = true
-                                    }
-                            )
+                                    .padding(horizontal = 12.dp, vertical = 2.dp)
+                            ) {
+                                MediaMetadataListItem(
+                                    mediaMetadata = window.mediaItem.metadata!!,
+                                    isSelected = false,
+                                    isActive = isActive,
+                                    isPlaying = isPlaying && isActive,
+                                    trailingContent = {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            IconButton(
+                                                onClick = {
+                                                    menuState.show {
+                                                        PlayerMenu(
+                                                            mediaMetadata = window.mediaItem.metadata!!,
+                                                            navController = navController,
+                                                            playerBottomSheetState = playerBottomSheetState,
+                                                            isQueueTrigger = true,
+                                                            onShowDetailsDialog = {
+                                                                window.mediaItem.mediaId.let { mediaId ->
+                                                                    bottomSheetPageState.show {
+                                                                        ShowMediaInfo(mediaId) {
+                                                                            bottomSheetPageState.dismiss()
+                                                                        }
+                                                                    }
+                                                                }
+                                                            },
+                                                            onDismiss = menuState::dismiss
+                                                        )
+                                                    }
+                                                }
+                                            ) {
+                                                Icon(
+                                                    painter = painterResource(R.drawable.more_vert),
+                                                    contentDescription = stringResource(R.string.more_options)
+                                                )
+                                            }
+
+                                            if (!isQueueEffectivelyLocked) {
+                                                IconButton(
+                                                    onClick = { },
+                                                    modifier = Modifier.draggableHandle()
+                                                ) {
+                                                    Icon(
+                                                        painter = painterResource(R.drawable.drag_handle),
+                                                        contentDescription = stringResource(R.string.drag_to_reorder)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .clickable(enabled = !isGuest) {
+                                            playerConnection.player.seekToDefaultPosition(window.firstPeriodIndex)
+                                            playerConnection.player.playWhenReady = true
+                                        }
+                                )
+                            }
                         }
 
                         if (isQueueEffectivelyLocked) {
