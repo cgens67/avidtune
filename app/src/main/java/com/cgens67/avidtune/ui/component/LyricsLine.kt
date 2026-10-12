@@ -178,15 +178,15 @@ fun LyricsLine(
         modifier = itemModifier,
         horizontalAlignment = agentAlignment
     ) {
-        val inactiveAlpha = if (entry.isBackground) 0.08f else 0.2f
+        val inactiveAlpha = if (entry.isBackground) 0.25f else 0.40f
         val activeAlpha = 1f
-        val focusedAlpha = if (entry.isBackground) 0.5f else 0.3f
+        val focusedAlpha = if (entry.isBackground) 0.60f else 0.50f
         val targetAlpha = if (!isSynced || entry.isBackground || isActive) {
             activeAlpha
         } else if (isAutoScrollActive) {
             when (distanceFromCurrent) {
                 0 -> focusedAlpha
-                1 -> 0.2f; 2 -> 0.2f; 3 -> 0.15f; 4 -> 0.1f; else -> 0.08f
+                1 -> 0.40f; 2 -> 0.35f; 3 -> 0.30f; 4 -> 0.25f; else -> 0.20f
             }
         } else inactiveAlpha
 
@@ -207,6 +207,11 @@ fun LyricsLine(
             lineHeightStyle = LineHeightStyle(
                 alignment = LineHeightStyle.Alignment.Center,
                 trim = LineHeightStyle.Trim.Both
+            ),
+            shadow = Shadow(
+                color = Color.Black.copy(alpha = 0.65f),
+                offset = Offset(0f, 2f),
+                blurRadius = 6f
             )
         )
 
