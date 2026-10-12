@@ -13,11 +13,9 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -28,7 +26,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -41,6 +38,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
@@ -71,22 +69,22 @@ import kotlinx.coroutines.withContext
 import kotlin.math.min
 
 private enum class ShareMode { IMAGE, TEXT }
-private enum class CustomizerSection { THEMES, STYLE, CANVAS, TYPOGRAPHY }
+private enum class CustomizerSection { THEMES, CANVAS, STYLE, TYPOGRAPHY, BRANDING }
 
 private fun Color.isDarkColor(): Boolean = this.luminance() < 0.5f
 
 private fun createGradientFrom(color: Color): List<Color> {
     val isDark = color.isDarkColor()
-    val factor = if (isDark) 1.5f else 0.75f
+    val factor = if (isDark) 1.55f else 0.72f
     val c2 = Color(
-        red = (color.red * factor + if (isDark) 0.1f else 0f).coerceIn(0f, 1f),
+        red = (color.red * factor + if (isDark) 0.08f else 0f).coerceIn(0f, 1f),
         green = (color.green * factor).coerceIn(0f, 1f),
-        blue = (color.blue * factor + if (isDark) 0.15f else 0f).coerceIn(0f, 1f)
+        blue = (color.blue * factor + if (isDark) 0.12f else 0f).coerceIn(0f, 1f)
     )
     val c3 = Color(
-        red = (color.red * if (isDark) 0.45f else 0.4f).coerceIn(0f, 1f),
-        green = (color.green * if (isDark) 0.45f else 0.45f).coerceIn(0f, 1f),
-        blue = (color.blue * if (isDark) 0.55f else 0.55f).coerceIn(0f, 1f)
+        red = (color.red * if (isDark) 0.42f else 0.48f).coerceIn(0f, 1f),
+        green = (color.green * if (isDark) 0.42f else 0.52f).coerceIn(0f, 1f),
+        blue = (color.blue * if (isDark) 0.52f else 0.62f).coerceIn(0f, 1f)
     )
     return listOf(color, c2, c3)
 }
@@ -119,7 +117,8 @@ fun ShareLyricsDialog(
             colorPresets.first().customization.copy(
                 cornerRadius = 24f,
                 padding = 24f,
-                fontStyle = FontStyle.EXTRA_BOLD
+                fontStyle = FontStyle.EXTRA_BOLD,
+                patternOpacity = 0.18f
             )
         )
     }
@@ -189,7 +188,7 @@ fun ShareLyricsDialog(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 8.dp),
+                    .padding(vertical = 6.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -237,7 +236,7 @@ fun ShareLyricsDialog(
                 ) {
                     Icon(painterResource(R.drawable.image), null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.share_as_image), fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.lyrics_share_tab_image), fontWeight = FontWeight.SemiBold)
                 }
 
                 ToggleButton(
@@ -251,7 +250,7 @@ fun ShareLyricsDialog(
                 ) {
                     Icon(painterResource(R.drawable.media3_icon_share), null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.share_as_text), fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.lyrics_share_tab_text), fontWeight = FontWeight.SemiBold)
                 }
             }
 
@@ -297,7 +296,7 @@ fun ShareLyricsDialog(
                                 Box(
                                     modifier = Modifier
                                         .size(previewSize)
-                                        .clip(RoundedCornerShape(customization.cornerRadius.dp)),
+                                        .scale(0.98f),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     LyricsImageCardPreview(
@@ -310,12 +309,12 @@ fun ShareLyricsDialog(
                             }
                         }
 
-                        // Horizontally scrollable category pills
+                        // Scrollable Category Selector Pills
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .horizontalScroll(rememberScrollState())
-                                .padding(vertical = 8.dp),
+                                .padding(vertical = 6.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             FilterChip(
@@ -324,22 +323,8 @@ fun ShareLyricsDialog(
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     activeSection = CustomizerSection.THEMES
                                 },
-                                label = { Text(stringResource(R.string.presets), maxLines = 1) },
-                                leadingIcon = {
-                                    Icon(painterResource(R.drawable.palette), null, modifier = Modifier.size(16.dp))
-                                },
-                                shape = RoundedCornerShape(16.dp)
-                            )
-                            FilterChip(
-                                selected = activeSection == CustomizerSection.STYLE,
-                                onClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    activeSection = CustomizerSection.STYLE
-                                },
-                                label = { Text(stringResource(R.string.details), maxLines = 1) },
-                                leadingIcon = {
-                                    Icon(painterResource(R.drawable.tune), null, modifier = Modifier.size(16.dp))
-                                },
+                                label = { Text(stringResource(R.string.lyrics_share_cat_themes), maxLines = 1) },
+                                leadingIcon = { Icon(painterResource(R.drawable.palette), null, modifier = Modifier.size(16.dp)) },
                                 shape = RoundedCornerShape(16.dp)
                             )
                             FilterChip(
@@ -348,10 +333,18 @@ fun ShareLyricsDialog(
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     activeSection = CustomizerSection.CANVAS
                                 },
-                                label = { Text("Canvas", maxLines = 1) },
-                                leadingIcon = {
-                                    Icon(painterResource(R.drawable.gradient), null, modifier = Modifier.size(16.dp))
+                                label = { Text(stringResource(R.string.lyrics_share_cat_canvas), maxLines = 1) },
+                                leadingIcon = { Icon(painterResource(R.drawable.gradient), null, modifier = Modifier.size(16.dp)) },
+                                shape = RoundedCornerShape(16.dp)
+                            )
+                            FilterChip(
+                                selected = activeSection == CustomizerSection.STYLE,
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    activeSection = CustomizerSection.STYLE
                                 },
+                                label = { Text(stringResource(R.string.lyrics_share_cat_style), maxLines = 1) },
+                                leadingIcon = { Icon(painterResource(R.drawable.tune), null, modifier = Modifier.size(16.dp)) },
                                 shape = RoundedCornerShape(16.dp)
                             )
                             FilterChip(
@@ -360,10 +353,18 @@ fun ShareLyricsDialog(
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     activeSection = CustomizerSection.TYPOGRAPHY
                                 },
-                                label = { Text(stringResource(R.string.font_system), maxLines = 1) },
-                                leadingIcon = {
-                                    Icon(painterResource(R.drawable.text_fields), null, modifier = Modifier.size(16.dp))
+                                label = { Text(stringResource(R.string.lyrics_share_cat_typography), maxLines = 1) },
+                                leadingIcon = { Icon(painterResource(R.drawable.text_fields), null, modifier = Modifier.size(16.dp)) },
+                                shape = RoundedCornerShape(16.dp)
+                            )
+                            FilterChip(
+                                selected = activeSection == CustomizerSection.BRANDING,
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    activeSection = CustomizerSection.BRANDING
                                 },
+                                label = { Text(stringResource(R.string.lyrics_share_cat_branding), maxLines = 1) },
+                                leadingIcon = { Icon(painterResource(R.drawable.avidtune_monochrome), null, modifier = Modifier.size(16.dp)) },
                                 shape = RoundedCornerShape(16.dp)
                             )
                         }
@@ -387,7 +388,7 @@ fun ShareLyricsDialog(
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                                 LazyRow(
-                                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                                                     contentPadding = PaddingValues(horizontal = 2.dp)
                                                 ) {
                                                     items(paletteColors) { color ->
@@ -436,70 +437,15 @@ fun ShareLyricsDialog(
                                         }
                                     }
 
-                                    CustomizerSection.STYLE -> {
-                                        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                                            Text(stringResource(R.string.cover_art), style = MaterialTheme.typography.labelMedium)
-                                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                                listOf(
-                                                    CoverArtStyle.ROUNDED to "Rounded",
-                                                    CoverArtStyle.CIRCLE to "Circle",
-                                                    CoverArtStyle.SQUARE to "Square"
-                                                ).forEach { (style, name) ->
-                                                    FilterChip(
-                                                        selected = customization.coverArtStyle == style,
-                                                        onClick = { customization = customization.copy(coverArtStyle = style) },
-                                                        label = { Text(name, fontSize = 12.sp) },
-                                                        modifier = Modifier.weight(1f)
-                                                    )
-                                                }
-                                            }
-
-                                            Text(stringResource(R.string.lyrics), style = MaterialTheme.typography.labelMedium)
-                                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                                listOf(
-                                                    LyricsStyle.NORMAL to "Normal",
-                                                    LyricsStyle.ITALIC to "Italic",
-                                                    LyricsStyle.CONDENSED to "Condensed"
-                                                ).forEach { (style, name) ->
-                                                    FilterChip(
-                                                        selected = customization.lyricsStyle == style,
-                                                        onClick = { customization = customization.copy(lyricsStyle = style) },
-                                                        label = { Text(name, fontSize = 12.sp) },
-                                                        modifier = Modifier.weight(1f)
-                                                    )
-                                                }
-                                            }
-
-                                            ExpressiveToggleRow(
-                                                title = "Show Accent Line",
-                                                checked = customization.showAccentLine,
-                                                onCheckedChange = {
-                                                    customization = customization.copy(
-                                                        showAccentLine = it,
-                                                        accentColor = if (it && customization.accentColor == null) customization.textColor else customization.accentColor
-                                                    )
-                                                }
-                                            )
-
-                                            ExpressiveSliderRow(
-                                                label = "Line Spacing",
-                                                value = customization.lyricsLineSpacing,
-                                                range = 1.0f..1.8f,
-                                                onValueChange = { customization = customization.copy(lyricsLineSpacing = it) },
-                                                format = String.format("%.1f", customization.lyricsLineSpacing)
-                                            )
-                                        }
-                                    }
-
                                     CustomizerSection.CANVAS -> {
                                         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                                             Text(stringResource(R.string.player_background_style), style = MaterialTheme.typography.labelMedium)
                                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                                 listOf(
-                                                    BackgroundStyle.SOLID to "Solid",
-                                                    BackgroundStyle.GRADIENT to "Gradient",
-                                                    BackgroundStyle.PATTERN to "Pattern"
-                                                ).forEach { (style, name) ->
+                                                    BackgroundStyle.SOLID to R.string.lyrics_share_bg_solid,
+                                                    BackgroundStyle.GRADIENT to R.string.lyrics_share_bg_gradient,
+                                                    BackgroundStyle.PATTERN to R.string.lyrics_share_bg_pattern
+                                                ).forEach { (style, nameRes) ->
                                                     FilterChip(
                                                         selected = customization.backgroundStyle == style,
                                                         onClick = {
@@ -510,17 +456,27 @@ fun ShareLyricsDialog(
                                                             customization = customization.copy(
                                                                 backgroundStyle = style,
                                                                 gradientColors = grad,
-                                                                patternOpacity = if (style == BackgroundStyle.PATTERN) 0.18f else customization.patternOpacity
+                                                                patternOpacity = if (style == BackgroundStyle.PATTERN) 0.20f else customization.patternOpacity
                                                             )
                                                         },
-                                                        label = { Text(name, fontSize = 12.sp) },
+                                                        label = { Text(stringResource(nameRes), fontSize = 12.sp) },
                                                         modifier = Modifier.weight(1f)
                                                     )
                                                 }
                                             }
 
+                                            if (customization.backgroundStyle == BackgroundStyle.PATTERN) {
+                                                ExpressiveSliderRow(
+                                                    label = stringResource(R.string.lyrics_share_pattern_opacity),
+                                                    value = customization.patternOpacity,
+                                                    range = 0.05f..0.45f,
+                                                    onValueChange = { customization = customization.copy(patternOpacity = it) },
+                                                    format = "${(customization.patternOpacity * 100).toInt()}%"
+                                                )
+                                            }
+
                                             ExpressiveSliderRow(
-                                                label = "Corner Radius",
+                                                label = stringResource(R.string.lyrics_share_corner_radius),
                                                 value = customization.cornerRadius,
                                                 range = 0f..40f,
                                                 onValueChange = { customization = customization.copy(cornerRadius = it) },
@@ -528,7 +484,7 @@ fun ShareLyricsDialog(
                                             )
 
                                             ExpressiveSliderRow(
-                                                label = "Padding",
+                                                label = stringResource(R.string.lyrics_share_padding),
                                                 value = customization.padding,
                                                 range = 14f..48f,
                                                 onValueChange = { customization = customization.copy(padding = it) },
@@ -536,7 +492,7 @@ fun ShareLyricsDialog(
                                             )
 
                                             ExpressiveToggleRow(
-                                                title = "Border",
+                                                title = stringResource(R.string.lyrics_share_border),
                                                 checked = customization.borderEnabled,
                                                 onCheckedChange = {
                                                     val autoBorderColor = if (customization.backgroundColor.isDarkColor()) {
@@ -554,7 +510,7 @@ fun ShareLyricsDialog(
 
                                             AnimatedVisibility(visible = customization.borderEnabled) {
                                                 ExpressiveSliderRow(
-                                                    label = "Border Width",
+                                                    label = stringResource(R.string.lyrics_share_border_width),
                                                     value = customization.borderWidth,
                                                     range = 1f..8f,
                                                     onValueChange = { customization = customization.copy(borderWidth = it) },
@@ -564,41 +520,172 @@ fun ShareLyricsDialog(
                                         }
                                     }
 
-                                    CustomizerSection.TYPOGRAPHY -> {
+                                    CustomizerSection.STYLE -> {
                                         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                                            Text("Alignment", style = MaterialTheme.typography.labelMedium)
+                                            Text(stringResource(R.string.cover_art), style = MaterialTheme.typography.labelMedium)
                                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                                 listOf(
-                                                    TextAlignment.LEFT to stringResource(R.string.left),
-                                                    TextAlignment.CENTER to stringResource(R.string.center),
-                                                    TextAlignment.RIGHT to stringResource(R.string.right)
-                                                ).forEach { (align, name) ->
+                                                    CoverArtStyle.ROUNDED to R.string.lyrics_share_style_rounded,
+                                                    CoverArtStyle.CIRCLE to R.string.lyrics_share_style_circle,
+                                                    CoverArtStyle.SQUARE to R.string.lyrics_share_style_square
+                                                ).forEach { (style, nameRes) ->
                                                     FilterChip(
-                                                        selected = customization.textAlignment == align,
-                                                        onClick = { customization = customization.copy(textAlignment = align) },
-                                                        label = { Text(name, fontSize = 12.sp) },
+                                                        selected = customization.coverArtStyle == style,
+                                                        onClick = { customization = customization.copy(coverArtStyle = style) },
+                                                        label = { Text(stringResource(nameRes), fontSize = 12.sp) },
+                                                        modifier = Modifier.weight(1f)
+                                                    )
+                                                }
+                                            }
+
+                                            Text(stringResource(R.string.lyrics), style = MaterialTheme.typography.labelMedium)
+                                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                listOf(
+                                                    LyricsStyle.NORMAL to R.string.lyrics_share_font_normal,
+                                                    LyricsStyle.ITALIC to R.string.lyrics_share_font_italic,
+                                                    LyricsStyle.CONDENSED to R.string.lyrics_share_font_condensed
+                                                ).forEach { (style, nameRes) ->
+                                                    FilterChip(
+                                                        selected = customization.lyricsStyle == style,
+                                                        onClick = { customization = customization.copy(lyricsStyle = style) },
+                                                        label = { Text(stringResource(nameRes), fontSize = 12.sp) },
                                                         modifier = Modifier.weight(1f)
                                                     )
                                                 }
                                             }
 
                                             ExpressiveToggleRow(
-                                                title = "Text Shadow",
-                                                checked = customization.textShadowEnabled,
-                                                onCheckedChange = { customization = customization.copy(textShadowEnabled = it) }
+                                                title = stringResource(R.string.lyrics_share_accent_line),
+                                                checked = customization.showAccentLine,
+                                                onCheckedChange = {
+                                                    customization = customization.copy(
+                                                        showAccentLine = it,
+                                                        accentColor = if (it && customization.accentColor == null) customization.textColor else customization.accentColor
+                                                    )
+                                                }
+                                            )
+
+                                            ExpressiveSliderRow(
+                                                label = stringResource(R.string.lyrics_share_element_spacing),
+                                                value = customization.spacingBetweenElements,
+                                                range = 8f..32f,
+                                                onValueChange = { customization = customization.copy(spacingBetweenElements = it) },
+                                                format = "${customization.spacingBetweenElements.toInt()}dp"
+                                            )
+                                        }
+                                    }
+
+                                    CustomizerSection.TYPOGRAPHY -> {
+                                        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                                            Text(stringResource(R.string.lyrics_share_cat_typography), style = MaterialTheme.typography.labelMedium)
+                                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                listOf(
+                                                    FontStyle.REGULAR to R.string.lyrics_share_weight_regular,
+                                                    FontStyle.BOLD to R.string.lyrics_share_weight_bold,
+                                                    FontStyle.EXTRA_BOLD to R.string.lyrics_share_weight_extrabold
+                                                ).forEach { (weight, nameRes) ->
+                                                    FilterChip(
+                                                        selected = customization.fontStyle == weight,
+                                                        onClick = { customization = customization.copy(fontStyle = weight) },
+                                                        label = { Text(stringResource(nameRes), fontSize = 12.sp) },
+                                                        modifier = Modifier.weight(1f)
+                                                    )
+                                                }
+                                            }
+
+                                            Text(stringResource(R.string.player_text_alignment), style = MaterialTheme.typography.labelMedium)
+                                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                listOf(
+                                                    TextAlignment.LEFT to R.string.left,
+                                                    TextAlignment.CENTER to R.string.center,
+                                                    TextAlignment.RIGHT to R.string.right
+                                                ).forEach { (align, nameRes) ->
+                                                    FilterChip(
+                                                        selected = customization.textAlignment == align,
+                                                        onClick = { customization = customization.copy(textAlignment = align) },
+                                                        label = { Text(stringResource(nameRes), fontSize = 12.sp) },
+                                                        modifier = Modifier.weight(1f)
+                                                    )
+                                                }
+                                            }
+
+                                            ExpressiveSliderRow(
+                                                label = stringResource(R.string.lyrics_share_line_spacing),
+                                                value = customization.lyricsLineSpacing,
+                                                range = 1.0f..1.8f,
+                                                onValueChange = { customization = customization.copy(lyricsLineSpacing = it) },
+                                                format = String.format("%.1f", customization.lyricsLineSpacing)
                                             )
 
                                             ExpressiveToggleRow(
-                                                title = "Show Cover Art",
+                                                title = stringResource(R.string.lyrics_share_text_shadow),
+                                                checked = customization.textShadowEnabled,
+                                                onCheckedChange = { customization = customization.copy(textShadowEnabled = it) }
+                                            )
+                                        }
+                                    }
+
+                                    CustomizerSection.BRANDING -> {
+                                        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                                            ExpressiveToggleRow(
+                                                title = stringResource(R.string.lyrics_share_show_logo),
+                                                checked = customization.showLogo,
+                                                onCheckedChange = { customization = customization.copy(showLogo = it) }
+                                            )
+
+                                            if (customization.showLogo) {
+                                                Text(stringResource(R.string.lyrics_share_logo_position), style = MaterialTheme.typography.labelMedium)
+                                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                    listOf(
+                                                        LogoPosition.BOTTOM_LEFT to R.string.lyrics_share_pos_bottom_left,
+                                                        LogoPosition.BOTTOM_RIGHT to R.string.lyrics_share_pos_bottom_right
+                                                    ).forEach { (pos, nameRes) ->
+                                                        FilterChip(
+                                                            selected = customization.logoPosition == pos,
+                                                            onClick = { customization = customization.copy(logoPosition = pos) },
+                                                            label = { Text(stringResource(nameRes), fontSize = 12.sp) },
+                                                            modifier = Modifier.weight(1f)
+                                                        )
+                                                    }
+                                                }
+
+                                                Text(stringResource(R.string.lyrics_share_logo_size), style = MaterialTheme.typography.labelMedium)
+                                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                    listOf(
+                                                        LogoSize.SMALL to R.string.lyrics_share_size_small,
+                                                        LogoSize.MEDIUM to R.string.lyrics_share_size_medium,
+                                                        LogoSize.LARGE to R.string.lyrics_share_size_large
+                                                    ).forEach { (size, nameRes) ->
+                                                        FilterChip(
+                                                            selected = customization.logoSize == size,
+                                                            onClick = { customization = customization.copy(logoSize = size) },
+                                                            label = { Text(stringResource(nameRes), fontSize = 12.sp) },
+                                                            modifier = Modifier.weight(1f)
+                                                        )
+                                                    }
+                                                }
+                                            }
+
+                                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+                                            ExpressiveToggleRow(
+                                                title = stringResource(R.string.lyrics_share_show_cover),
                                                 checked = customization.showCoverArt,
                                                 onCheckedChange = { customization = customization.copy(showCoverArt = it) }
                                             )
 
-                                            ExpressiveToggleRow(
-                                                title = "App Logo",
-                                                checked = customization.showLogo,
-                                                onCheckedChange = { customization = customization.copy(showLogo = it) }
-                                            )
+                                            if (customization.showCoverArt) {
+                                                ExpressiveToggleRow(
+                                                    title = stringResource(R.string.lyrics_share_show_title),
+                                                    checked = customization.showSongTitle,
+                                                    onCheckedChange = { customization = customization.copy(showSongTitle = it) }
+                                                )
+                                                ExpressiveToggleRow(
+                                                    title = stringResource(R.string.lyrics_share_show_artist),
+                                                    checked = customization.showArtistName,
+                                                    onCheckedChange = { customization = customization.copy(showArtistName = it) }
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -847,7 +934,7 @@ private fun PaletteSwatch(
 
     Box(
         modifier = Modifier
-            .size(48.dp)
+            .size(50.dp)
             .zIndex(if (isSelected) 1f else 0f),
         contentAlignment = Alignment.Center
     ) {
@@ -856,10 +943,7 @@ private fun PaletteSwatch(
                 .size(circleSize)
                 .clip(CircleShape)
                 .background(color)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) {
+                .clickable {
                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     onClick()
                 }
@@ -898,15 +982,7 @@ fun BottomSheetColorCustomizationItem(
     )
 
     Column(
-        modifier = modifier
-            .width(64.dp)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) {
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                onClick()
-            },
+        modifier = modifier.width(64.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(
@@ -918,7 +994,7 @@ fun BottomSheetColorCustomizationItem(
             Box(
                 modifier = Modifier
                     .size(swatchSize)
-                    .clip(RoundedCornerShape(14.dp))
+                    .clip(RoundedCornerShape(16.dp))
                     .background(
                         brush = if (customization.backgroundStyle == BackgroundStyle.GRADIENT && customization.gradientColors != null) {
                             Brush.linearGradient(customization.gradientColors)
@@ -926,10 +1002,14 @@ fun BottomSheetColorCustomizationItem(
                             Brush.linearGradient(listOf(customization.backgroundColor, customization.backgroundColor))
                         }
                     )
+                    .clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onClick()
+                    }
                     .border(
                         width = if (isSelected) 2.5.dp else 1.dp,
                         color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray.copy(alpha = 0.3f),
-                        shape = RoundedCornerShape(14.dp)
+                        shape = RoundedCornerShape(16.dp)
                     ),
                 contentAlignment = Alignment.Center
             ) {
