@@ -45,6 +45,7 @@ constructor(
     val isTranslated = MutableStateFlow(false)
     val canTranslate = MutableStateFlow(false)
     val isExplicit = MutableStateFlow(false)
+    val explicitSongIds = MutableStateFlow<Set<String>>(emptySet())
 
     private var isFetchingDescription = false
 
@@ -62,6 +63,7 @@ constructor(
                     otherVersions.value = it.otherVersions
                     isExplicit.value = it.songs.any { song -> song.explicit } ||
                         it.otherVersions.any { version -> version.id == albumId && version.explicit }
+                    explicitSongIds.value = it.songs.filter { song -> song.explicit }.map { song -> song.id }.toSet()
                     database.transaction {
                         if (album == null) {
                             insert(it)
