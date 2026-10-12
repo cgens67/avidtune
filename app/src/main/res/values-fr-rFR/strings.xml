@@ -1341,5 +1341,55 @@
     <string name="export_all_logs_chooser">Exporter tous les journaux</string>
     <string name="share_exception">Partager l’exception</string>
     <string name="exception_tag">Exception</string>
+    
+    <!-- Share Lyrics Studio -->
+    <string name="lyrics_share_tab_image">Carte image</string>
+    <string name="lyrics_share_tab_text">Citation texte</string>
+    <string name="lyrics_share_cat_themes">Thèmes</string>
+    <string name="lyrics_share_cat_canvas">Canevas</string>
+    <string name="lyrics_share_cat_style">Style</string>
+    <string name="lyrics_share_cat_typography">Typographie</string>
+    <string name="lyrics_share_cat_branding">Marque</string>
+
+    <string name="lyrics_share_style_rounded">Arrondi</string>
+    <string name="lyrics_share_style_circle">Cercle</string>
+    <string name="lyrics_share_style_square">Carré</string>
+
+    <string name="lyrics_share_font_normal">Normal</string>
+    <string name="lyrics_share_font_italic">Italique</string>
+    <string name="lyrics_share_font_condensed">Condensé</string>
+
+    <string name="lyrics_share_weight_regular">Normal</string>
+    <string name="lyrics_share_weight_bold">Gras</string>
+    <string name="lyrics_share_weight_extrabold">Extra gras</string>
+
+    <string name="lyrics_share_bg_solid">Uni</string>
+    <string name="lyrics_share_bg_gradient">Dégradé</string>
+    <string name="lyrics_share_bg_pattern">Motif</string>
+
+    <string name="lyrics_share_pos_bottom_left">Bas gauche</string>
+    <string name="lyrics_share_pos_bottom_right">Bas droite</string>
+    <string name="lyrics_share_pos_top_left">Haut gauche</string>
+    <string name="lyrics_share_pos_top_right">Haut droite</string>
+
+    <string name="lyrics_share_size_small">Petit</string>
+    <string name="lyrics_share_size_medium">Moyen</string>
+    <string name="lyrics_share_size_large">Grand</string>
+
+    <string name="lyrics_share_accent_line">Ligne d\'accentuation</string>
+    <string name="lyrics_share_line_spacing">Interligne</string>
+    <string name="lyrics_share_element_spacing">Espacement des éléments</string>
+    <string name="lyrics_share_corner_radius">Rayon des coins</string>
+    <string name="lyrics_share_padding">Marge interne</string>
+    <string name="lyrics_share_border">Bordure</string>
+    <string name="lyrics_share_border_width">Épaisseur de la bordure</string>
+    <string name="lyrics_share_text_shadow">Ombre du texte</string>
+    <string name="lyrics_share_show_cover">Afficher la pochette</string>
+    <string name="lyrics_share_show_title">Afficher le titre</string>
+    <string name="lyrics_share_show_artist">Afficher l\'artiste</string>
+    <string name="lyrics_share_show_logo">Afficher le logo</string>
+    <string name="lyrics_share_logo_position">Position du logo</string>
+    <string name="lyrics_share_logo_size">Taille du logo</string>
+    <string name="lyrics_share_pattern_opacity">Opacité du motif</string>
 
 </resources>
