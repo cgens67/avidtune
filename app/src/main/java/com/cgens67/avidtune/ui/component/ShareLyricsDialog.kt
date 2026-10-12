@@ -6,7 +6,6 @@
 
 package com.cgens67.avidtune.ui.component
 
-import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -14,7 +13,6 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -25,13 +23,10 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -47,6 +42,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
@@ -74,6 +70,8 @@ import kotlin.math.min
 
 private enum class ShareMode { IMAGE, TEXT }
 private enum class CustomizerSection { PRESETS, CANVAS, STYLE, TYPOGRAPHY }
+
+private fun Color.isDarkColor(): Boolean = this.luminance() < 0.5f
 
 @Composable
 fun ShareLyricsDialog(
@@ -131,13 +129,12 @@ fun ShareLyricsDialog(
                             withContext(Dispatchers.Main) {
                                 paletteColors.clear()
                                 paletteColors.addAll(colors)
-                                // Set first extracted vibrant color as active
                                 val primaryCoverColor = colors.first()
                                 customization = customization.copy(
                                     backgroundColor = primaryCoverColor,
-                                    textColor = if (primaryCoverColor.isDark()) Color.White else Color.Black,
-                                    secondaryTextColor = if (primaryCoverColor.isDark()) Color.White.copy(alpha = 0.7f) else Color.Black.copy(alpha = 0.7f),
-                                    isDark = primaryCoverColor.isDark()
+                                    textColor = if (primaryCoverColor.isDarkColor()) Color.White else Color.Black,
+                                    secondaryTextColor = if (primaryCoverColor.isDarkColor()) Color.White.copy(alpha = 0.7f) else Color.Black.copy(alpha = 0.7f),
+                                    isDark = primaryCoverColor.isDarkColor()
                                 )
                             }
                         }
@@ -171,7 +168,7 @@ fun ShareLyricsDialog(
                 .padding(horizontal = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Top Bar
+            // Header Bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -277,7 +274,7 @@ fun ShareLyricsDialog(
                             .verticalScroll(rememberScrollState()),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // Interactive Live Card Preview
+                        // Live Card Preview
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -353,7 +350,7 @@ fun ShareLyricsDialog(
                             )
                         }
 
-                        // Section Controls
+                        // Section Controls Card
                         Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -380,10 +377,10 @@ fun ShareLyricsDialog(
                                                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                                                 customization = customization.copy(
                                                                     backgroundColor = color,
-                                                                    textColor = if (color.isDark()) Color.White else Color.Black,
-                                                                    secondaryTextColor = if (color.isDark()) Color.White.copy(alpha = 0.7f) else Color.Black.copy(alpha = 0.7f),
+                                                                    textColor = if (color.isDarkColor()) Color.White else Color.Black,
+                                                                    secondaryTextColor = if (color.isDarkColor()) Color.White.copy(alpha = 0.7f) else Color.Black.copy(alpha = 0.7f),
                                                                     backgroundStyle = BackgroundStyle.SOLID,
-                                                                    isDark = color.isDark()
+                                                                    isDark = color.isDarkColor()
                                                                 )
                                                             }
                                                         )
@@ -421,14 +418,14 @@ fun ShareLyricsDialog(
                                             Text(stringResource(R.string.cover_art), style = MaterialTheme.typography.labelMedium)
                                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                                 listOf(
-                                                    CoverArtStyle.ROUNDED to R.string.rounded,
-                                                    CoverArtStyle.CIRCLE to R.string.circle,
-                                                    CoverArtStyle.SQUARE to R.string.square
-                                                ).forEach { (style, nameRes) ->
+                                                    CoverArtStyle.ROUNDED to "Rounded",
+                                                    CoverArtStyle.CIRCLE to "Circle",
+                                                    CoverArtStyle.SQUARE to "Square"
+                                                ).forEach { (style, name) ->
                                                     FilterChip(
                                                         selected = customization.coverArtStyle == style,
                                                         onClick = { customization = customization.copy(coverArtStyle = style) },
-                                                        label = { Text(stringResource(nameRes), fontSize = 12.sp) },
+                                                        label = { Text(name, fontSize = 12.sp) },
                                                         modifier = Modifier.weight(1f)
                                                     )
                                                 }
@@ -437,21 +434,21 @@ fun ShareLyricsDialog(
                                             Text(stringResource(R.string.lyrics), style = MaterialTheme.typography.labelMedium)
                                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                                 listOf(
-                                                    LyricsStyle.NORMAL to R.string.default_,
-                                                    LyricsStyle.ITALIC to R.string.font_style_italic,
-                                                    LyricsStyle.CONDENSED to R.string.font_style_condensed
-                                                ).forEach { (style, nameRes) ->
+                                                    LyricsStyle.NORMAL to "Normal",
+                                                    LyricsStyle.ITALIC to "Italic",
+                                                    LyricsStyle.CONDENSED to "Condensed"
+                                                ).forEach { (style, name) ->
                                                     FilterChip(
                                                         selected = customization.lyricsStyle == style,
                                                         onClick = { customization = customization.copy(lyricsStyle = style) },
-                                                        label = { Text(stringResource(nameRes), fontSize = 12.sp) },
+                                                        label = { Text(name, fontSize = 12.sp) },
                                                         modifier = Modifier.weight(1f)
                                                     )
                                                 }
                                             }
 
                                             ExpressiveToggleRow(
-                                                title = stringResource(R.string.accent_line),
+                                                title = "Show Accent Line",
                                                 checked = customization.showAccentLine,
                                                 onCheckedChange = {
                                                     customization = customization.copy(
@@ -468,21 +465,21 @@ fun ShareLyricsDialog(
                                             Text(stringResource(R.string.player_background_style), style = MaterialTheme.typography.labelMedium)
                                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                                 listOf(
-                                                    BackgroundStyle.SOLID to R.string.solid,
-                                                    BackgroundStyle.GRADIENT to R.string.gradient,
-                                                    BackgroundStyle.PATTERN to R.string.pattern
-                                                ).forEach { (style, nameRes) ->
+                                                    BackgroundStyle.SOLID to "Solid",
+                                                    BackgroundStyle.GRADIENT to "Gradient",
+                                                    BackgroundStyle.PATTERN to "Pattern"
+                                                ).forEach { (style, name) ->
                                                     FilterChip(
                                                         selected = customization.backgroundStyle == style,
                                                         onClick = { customization = customization.copy(backgroundStyle = style) },
-                                                        label = { Text(stringResource(nameRes), fontSize = 12.sp) },
+                                                        label = { Text(name, fontSize = 12.sp) },
                                                         modifier = Modifier.weight(1f)
                                                     )
                                                 }
                                             }
 
                                             ExpressiveSliderRow(
-                                                label = stringResource(R.string.corner_radius),
+                                                label = "Corner Radius",
                                                 value = customization.cornerRadius,
                                                 range = 0f..40f,
                                                 onValueChange = { customization = customization.copy(cornerRadius = it) },
@@ -490,7 +487,7 @@ fun ShareLyricsDialog(
                                             )
 
                                             ExpressiveToggleRow(
-                                                title = stringResource(R.string.border),
+                                                title = "Border",
                                                 checked = customization.borderEnabled,
                                                 onCheckedChange = { customization = customization.copy(borderEnabled = it) }
                                             )
@@ -499,30 +496,30 @@ fun ShareLyricsDialog(
 
                                     CustomizerSection.TYPOGRAPHY -> {
                                         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                                            Text(stringResource(R.string.alignment), style = MaterialTheme.typography.labelMedium)
+                                            Text("Alignment", style = MaterialTheme.typography.labelMedium)
                                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                                 listOf(
-                                                    TextAlignment.LEFT to R.string.left,
-                                                    TextAlignment.CENTER to R.string.center,
-                                                    TextAlignment.RIGHT to R.string.right
-                                                ).forEach { (align, nameRes) ->
+                                                    TextAlignment.LEFT to stringResource(R.string.left),
+                                                    TextAlignment.CENTER to stringResource(R.string.center),
+                                                    TextAlignment.RIGHT to stringResource(R.string.right)
+                                                ).forEach { (align, name) ->
                                                     FilterChip(
                                                         selected = customization.textAlignment == align,
                                                         onClick = { customization = customization.copy(textAlignment = align) },
-                                                        label = { Text(stringResource(nameRes), fontSize = 12.sp) },
+                                                        label = { Text(name, fontSize = 12.sp) },
                                                         modifier = Modifier.weight(1f)
                                                     )
                                                 }
                                             }
 
                                             ExpressiveToggleRow(
-                                                title = stringResource(R.string.text_shadow),
+                                                title = "Text Shadow",
                                                 checked = customization.textShadowEnabled,
                                                 onCheckedChange = { customization = customization.copy(textShadowEnabled = it) }
                                             )
 
                                             ExpressiveToggleRow(
-                                                title = stringResource(R.string.app_logo),
+                                                title = "App Logo",
                                                 checked = customization.showLogo,
                                                 onCheckedChange = { customization = customization.copy(showLogo = it) }
                                             )
@@ -537,7 +534,7 @@ fun ShareLyricsDialog(
                 }
             }
 
-            // Bottom Floating Action Buttons
+            // Bottom Actions Bar
             if (shareMode == ShareMode.IMAGE) {
                 Surface(
                     shape = RoundedCornerShape(24.dp),
@@ -650,6 +647,68 @@ fun ShareLyricsDialog(
                 }
             }
         }
+    }
+}
+
+@Composable
+fun BottomSheetColorCustomizationItem(
+    customization: ImageCustomization,
+    presetName: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val scale by animateFloatAsState(
+        targetValue = if (isSelected) 1.12f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "presetScale"
+    )
+
+    Column(
+        modifier = modifier
+            .width(64.dp)
+            .clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .scale(scale)
+                .clip(RoundedCornerShape(16.dp))
+                .background(
+                    brush = if (customization.backgroundStyle == BackgroundStyle.GRADIENT && customization.gradientColors != null) {
+                        Brush.linearGradient(customization.gradientColors)
+                    } else {
+                        Brush.linearGradient(listOf(customization.backgroundColor, customization.backgroundColor))
+                    }
+                )
+                .border(
+                    width = if (isSelected) 2.5.dp else 1.dp,
+                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(16.dp)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Aa",
+                color = customization.textColor,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Text(
+            text = presetName,
+            style = MaterialTheme.typography.labelSmall,
+            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.width(64.dp)
+        )
     }
 }
 
@@ -783,7 +842,7 @@ private fun PaletteSwatch(
             Icon(
                 painter = painterResource(R.drawable.check),
                 contentDescription = null,
-                tint = if (color.isDark()) Color.White else Color.Black,
+                tint = if (color.isDarkColor()) Color.White else Color.Black,
                 modifier = Modifier.size(18.dp)
             )
         }
