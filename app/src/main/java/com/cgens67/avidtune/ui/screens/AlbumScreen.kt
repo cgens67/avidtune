@@ -214,6 +214,7 @@ fun AlbumScreen(
     val isTranslated by viewModel.isTranslated.collectAsState()
     val canTranslate by viewModel.canTranslate.collectAsState()
     val isExplicit by viewModel.isExplicit.collectAsState()
+    val explicitSongIds by viewModel.explicitSongIds.collectAsState()
 
     val wrappedSongs = albumWithSongs?.songs?.map { item -> ItemWrapper(item) }?.toMutableList()
     var selection by remember { mutableStateOf(false) }
@@ -432,12 +433,15 @@ fun AlbumScreen(
                 items = wrappedSongs,
                 key = { song -> song.item.id },
             ) { songWrapper ->
+                val isSongExplicit = songWrapper.item.id in explicitSongIds ||
+                    songWrapper.item.song.title.contains("explicit", ignoreCase = true)
                 SongListItem(
                     song = songWrapper.item,
                     albumIndex = wrappedSongs.indexOf(songWrapper) + 1,
                     isActive = songWrapper.item.id == mediaMetadata?.id,
                     isPlaying = isPlaying,
                     showInLibraryIcon = true,
+                    isExplicit = isSongExplicit,
                     trailingContent = {
                         IconButton(
                             onClick = {
