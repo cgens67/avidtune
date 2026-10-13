@@ -1,12 +1,21 @@
 package com.cgens67.avidtune.ui.component
 
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -14,14 +23,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -31,7 +46,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.cgens67.avidtune.LocalDatabase
@@ -88,9 +105,36 @@ fun LyricsV2(
     val rawLyricsEntity by playerConnection.currentLyrics.collectAsState(initial = null)
     val activeLyricsEntity = rawLyricsEntity?.takeIf { it.id == songId } ?: currentLyricsEntity
 
+    // Sharing and line selection states
+    var isSelectionModeActive by remember(songId) { mutableStateOf(false) }
+    val selectedIndices = remember(songId) { mutableStateListOf<Int>() }
+    var showMaxSelectionToast by remember { mutableStateOf(false) }
+    val maxSelectionLimit = 5
+    var showShareDialog by remember { mutableStateOf(false) }
+    var shareDialogData by remember { mutableStateOf<Triple<String, String, String>?>(null) }
+
+    BackHandler(enabled = isSelectionModeActive) {
+        isSelectionModeActive = false
+        selectedIndices.clear()
+    }
+
+    LaunchedEffect(showMaxSelectionToast) {
+        if (showMaxSelectionToast) {
+            Toast.makeText(
+                context,
+                context.getString(R.string.max_selection_limit, maxSelectionLimit),
+                Toast.LENGTH_SHORT
+            ).show()
+            showMaxSelectionToast = false
+        }
+    }
+
     LaunchedEffect(songId) {
         val metadata = mediaMetadata ?: return@LaunchedEffect
         val id = songId ?: return@LaunchedEffect
+
+        isSelectionModeActive = false
+        selectedIndices.clear()
 
         if (lyricsCache.containsKey(id)) {
             currentLyricsEntity = lyricsCache[id]
@@ -110,7 +154,6 @@ fun LyricsV2(
                     null
                 }
 
-                // Fallback to database song metadata if in-memory metadata is missing artist or duration
                 val dbSong = try { database.song(id).firstOrNull() } catch (e: Throwable) { null }
                 val resolvedDuration = if (metadata.duration > 0) {
                     if (metadata.duration > 10000) metadata.duration / 1000 else metadata.duration
@@ -141,7 +184,6 @@ fun LyricsV2(
                         lyricsCache = lyricsCache + (id to existingLyrics)
                     }
 
-                    // If existing lyrics do not have a provider tag, upgrade them in background
                     if (!text.startsWith("[provider:")) {
                         try {
                             val entryPoint = EntryPointAccessors.fromApplication(
@@ -170,7 +212,6 @@ fun LyricsV2(
                         }
                     }
                 } else {
-                    // Fetch from LyricsHelper (queries AvidLyrics, LyricsPlus, Paxsenix, etc.)
                     try {
                         val entryPoint = EntryPointAccessors.fromApplication(
                             context.applicationContext,
@@ -340,7 +381,7 @@ fun LyricsV2(
 
     // Auto-scroll to current lyric line
     LaunchedEffect(currentMainLineIndex) {
-        if (!isSynced || !scrollLyrics || currentMainLineIndex == -1) return@LaunchedEffect
+        if (!isSynced || !scrollLyrics || currentMainLineIndex == -1 || isSelectionModeActive) return@LaunchedEffect
         if (currentMainLineIndex != previousMainLineIndex) {
             previousMainLineIndex = currentMainLineIndex
 
@@ -401,6 +442,7 @@ fun LyricsV2(
                 modifier = Modifier.fillMaxSize()
             ) {
                 itemsIndexed(lines, key = { idx, item -> "$idx-${item.time}" }) { index, item ->
+                    val isSelected = selectedIndices.contains(index)
                     val isAssociatedBg = item.isBackground &&
                             currentMainLineIndex >= 0 &&
                             index > currentMainLineIndex &&
@@ -419,7 +461,20 @@ fun LyricsV2(
                         textSize = 28f,
                         lineSpacing = 6f,
                         onClick = {
-                            if (isSynced && changeLyrics) {
+                            if (isSelectionModeActive) {
+                                if (isSelected) {
+                                    selectedIndices.remove(index)
+                                    if (selectedIndices.isEmpty()) {
+                                        isSelectionModeActive = false
+                                    }
+                                } else {
+                                    if (selectedIndices.size < maxSelectionLimit) {
+                                        selectedIndices.add(index)
+                                    } else {
+                                        showMaxSelectionToast = true
+                                    }
+                                }
+                            } else if (isSynced && changeLyrics) {
                                 var targetTime = item.time - lyricsOffsetMs
                                 if (sponsorBlockEnabled) {
                                     for (segment in currentSkipSegments) {
@@ -434,10 +489,19 @@ fun LyricsV2(
                                 }
                             }
                         },
-                        onLongClick = {},
-                        isSelected = false,
-                        isSelectionModeActive = false,
-                        isAutoScrollActive = true,
+                        onLongClick = {
+                            if (!isSelectionModeActive) {
+                                isSelectionModeActive = true
+                                selectedIndices.add(index)
+                            } else if (!isSelected && selectedIndices.size < maxSelectionLimit) {
+                                selectedIndices.add(index)
+                            } else if (!isSelected) {
+                                showMaxSelectionToast = true
+                            }
+                        },
+                        isSelected = isSelected,
+                        isSelectionModeActive = isSelectionModeActive,
+                        isAutoScrollActive = !isSelectionModeActive,
                         animateLyrics = animateLyrics,
                         lyricsOffset = lyricsOffsetMs,
                         currentSkipSegments = currentSkipSegments,
@@ -461,5 +525,100 @@ fun LyricsV2(
                 }
             }
         }
+
+        // Floating Action Bar for Selection Mode (Share Lyrics)
+        AnimatedVisibility(
+            visible = isSelectionModeActive,
+            enter = fadeIn(tween(300)) + slideInVertically(tween(300)) { it },
+            exit = fadeOut(tween(300)) + slideOutVertically(tween(300)) { it },
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 24.dp)
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.95f),
+                    tonalElevation = 4.dp,
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clickable {
+                            isSelectionModeActive = false
+                            selectedIndices.clear()
+                        }
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.close),
+                            contentDescription = stringResource(R.string.cancel),
+                            tint = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+
+                if (selectedIndices.isNotEmpty()) {
+                    Surface(
+                        shape = RoundedCornerShape(28.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.95f),
+                        tonalElevation = 4.dp,
+                        modifier = Modifier
+                            .clickable {
+                                val sortedIndices = selectedIndices.sorted()
+                                val selectedLyricsText = sortedIndices
+                                    .mapNotNull { lines.getOrNull(it)?.text }
+                                    .filter { it.isNotBlank() }
+                                    .joinToString("\n")
+
+                                if (selectedLyricsText.isNotBlank()) {
+                                    shareDialogData = Triple(
+                                        selectedLyricsText,
+                                        mediaMetadata?.title ?: "",
+                                        mediaMetadata?.artists?.joinToString { it.name } ?: ""
+                                    )
+                                    showShareDialog = true
+                                }
+                                isSelectionModeActive = false
+                                selectedIndices.clear()
+                            }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.media3_icon_share),
+                                contentDescription = stringResource(R.string.share_selected),
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = stringResource(R.string.share),
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showShareDialog && shareDialogData != null) {
+        ShareLyricsDialog(
+            lyricsText = shareDialogData!!.first,
+            songTitle = shareDialogData!!.second,
+            artists = shareDialogData!!.third,
+            mediaMetadata = mediaMetadata,
+            onDismiss = {
+                showShareDialog = false
+                shareDialogData = null
+            }
+        )
     }
 }
