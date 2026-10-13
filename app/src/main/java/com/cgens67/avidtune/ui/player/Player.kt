@@ -210,7 +210,7 @@ fun BottomSheetPlayer(
 
     val (playerVersion) = rememberEnumPreference(
         PlayerVersionKey,
-        defaultValue = PlayerVersion.V2
+        defaultValue = PlayerVersion.V1
     )
 
     val playerBackground by rememberEnumPreference(
