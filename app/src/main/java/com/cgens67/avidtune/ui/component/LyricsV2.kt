@@ -41,15 +41,21 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import com.cgens67.avidtune.LocalDatabase
 import com.cgens67.avidtune.LocalPlayerConnection
@@ -113,6 +119,8 @@ fun LyricsV2(
     var showShareDialog by remember { mutableStateOf(false) }
     var shareDialogData by remember { mutableStateOf<Triple<String, String, String>?>(null) }
 
+    var isAutoScrollEnabled by rememberSaveable { mutableStateOf(true) }
+
     BackHandler(enabled = isSelectionModeActive) {
         isSelectionModeActive = false
         selectedIndices.clear()
@@ -135,6 +143,7 @@ fun LyricsV2(
 
         isSelectionModeActive = false
         selectedIndices.clear()
+        isAutoScrollEnabled = true
 
         if (lyricsCache.containsKey(id)) {
             currentLyricsEntity = lyricsCache[id]
@@ -380,8 +389,8 @@ fun LyricsV2(
     }
 
     // Auto-scroll to current lyric line
-    LaunchedEffect(currentMainLineIndex) {
-        if (!isSynced || !scrollLyrics || currentMainLineIndex == -1 || isSelectionModeActive) return@LaunchedEffect
+    LaunchedEffect(currentMainLineIndex, isAutoScrollEnabled) {
+        if (!isSynced || !scrollLyrics || currentMainLineIndex == -1 || isSelectionModeActive || !isAutoScrollEnabled) return@LaunchedEffect
         if (currentMainLineIndex != previousMainLineIndex) {
             previousMainLineIndex = currentMainLineIndex
 
@@ -396,8 +405,32 @@ fun LyricsV2(
     LaunchedEffect(songId) {
         currentMainLineIndex = -1
         previousMainLineIndex = -1
+        isAutoScrollEnabled = true
         if (lines.isNotEmpty()) {
             lazyListState.scrollToItem(0)
+        }
+    }
+
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                if (source == NestedScrollSource.UserInput) {
+                    isAutoScrollEnabled = false
+                }
+                return super.onPostScroll(consumed, available, source)
+            }
+
+            override suspend fun onPostFling(
+                consumed: Velocity,
+                available: Velocity
+            ): Velocity {
+                isAutoScrollEnabled = false
+                return super.onPostFling(consumed, available)
+            }
         }
     }
 
@@ -439,7 +472,9 @@ fun LyricsV2(
             LazyColumn(
                 state = lazyListState,
                 contentPadding = PaddingValues(top = 100.dp, bottom = 120.dp, start = 8.dp, end = 8.dp),
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .nestedScroll(nestedScrollConnection)
             ) {
                 itemsIndexed(lines, key = { idx, item -> "$idx-${item.time}" }) { index, item ->
                     val isSelected = selectedIndices.contains(index)
@@ -483,6 +518,7 @@ fun LyricsV2(
                                         }
                                     }
                                 }
+                                isAutoScrollEnabled = true
                                 playerConnection.player.seekTo(targetTime.coerceAtLeast(0L))
                                 coroutineScope.launch {
                                     scrollToCenter(index)
@@ -501,7 +537,7 @@ fun LyricsV2(
                         },
                         isSelected = isSelected,
                         isSelectionModeActive = isSelectionModeActive,
-                        isAutoScrollActive = !isSelectionModeActive,
+                        isAutoScrollActive = isAutoScrollEnabled && !isSelectionModeActive,
                         animateLyrics = animateLyrics,
                         lyricsOffset = lyricsOffsetMs,
                         currentSkipSegments = currentSkipSegments,
@@ -526,7 +562,26 @@ fun LyricsV2(
             }
         }
 
-        // Floating Action Bar for Selection Mode (Share Lyrics)
+        // Auto-scroll Floating Pill
+        AnimatedVisibility(
+            visible = !isAutoScrollEnabled && isSynced && !isSelectionModeActive,
+            enter = slideInVertically { it } + fadeIn(),
+            exit = slideOutVertically { it } + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 24.dp)
+        ) {
+            AutoScrollFloatingPill(
+                onClick = {
+                    coroutineScope.launch {
+                        scrollToCenter(currentMainLineIndex)
+                    }
+                    isAutoScrollEnabled = true
+                }
+            )
+        }
+
+        // Floating Action Bar for Selection Mode (Cancel & Share Dock)
         AnimatedVisibility(
             visible = isSelectionModeActive,
             enter = fadeIn(tween(300)) + slideInVertically(tween(300)) { it },
@@ -535,77 +590,31 @@ fun LyricsV2(
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 24.dp)
         ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.95f),
-                    tonalElevation = 4.dp,
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clickable {
-                            isSelectionModeActive = false
-                            selectedIndices.clear()
-                        }
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.close),
-                            contentDescription = stringResource(R.string.cancel),
-                            tint = MaterialTheme.colorScheme.onErrorContainer,
-                            modifier = Modifier.size(24.dp)
+            LyricsSelectionActionDock(
+                selectedCount = selectedIndices.size,
+                onCancel = {
+                    isSelectionModeActive = false
+                    selectedIndices.clear()
+                },
+                onShare = {
+                    val sortedIndices = selectedIndices.sorted()
+                    val selectedLyricsText = sortedIndices
+                        .mapNotNull { lines.getOrNull(it)?.text }
+                        .filter { it.isNotBlank() }
+                        .joinToString("\n")
+
+                    if (selectedLyricsText.isNotBlank()) {
+                        shareDialogData = Triple(
+                            selectedLyricsText,
+                            mediaMetadata?.title ?: "",
+                            mediaMetadata?.artists?.joinToString { it.name } ?: ""
                         )
+                        showShareDialog = true
                     }
+                    isSelectionModeActive = false
+                    selectedIndices.clear()
                 }
-
-                if (selectedIndices.isNotEmpty()) {
-                    Surface(
-                        shape = RoundedCornerShape(28.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.95f),
-                        tonalElevation = 4.dp,
-                        modifier = Modifier
-                            .clickable {
-                                val sortedIndices = selectedIndices.sorted()
-                                val selectedLyricsText = sortedIndices
-                                    .mapNotNull { lines.getOrNull(it)?.text }
-                                    .filter { it.isNotBlank() }
-                                    .joinToString("\n")
-
-                                if (selectedLyricsText.isNotBlank()) {
-                                    shareDialogData = Triple(
-                                        selectedLyricsText,
-                                        mediaMetadata?.title ?: "",
-                                        mediaMetadata?.artists?.joinToString { it.name } ?: ""
-                                    )
-                                    showShareDialog = true
-                                }
-                                isSelectionModeActive = false
-                                selectedIndices.clear()
-                            }
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.media3_icon_share),
-                                contentDescription = stringResource(R.string.share_selected),
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Text(
-                                text = stringResource(R.string.share),
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-                }
-            }
+            )
         }
     }
 
