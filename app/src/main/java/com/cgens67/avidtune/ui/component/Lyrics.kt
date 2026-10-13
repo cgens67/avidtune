@@ -33,8 +33,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -1781,26 +1779,10 @@ fun Lyrics(
             }
         }
 
-        // 1. Auto-scroll Floating Pill with fluid bouncy spring entrance & scale
         AnimatedVisibility(
             visible = !isAutoScrollEnabled && isSynced && !isSelectionModeActive,
-            enter = fadeIn(tween(250)) +
-                    slideInVertically(
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessMediumLow
-                        )
-                    ) { it * 2 } +
-                    scaleIn(
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessMediumLow
-                        ),
-                        initialScale = 0.8f
-                    ),
-            exit = fadeOut(tween(200)) +
-                   slideOutVertically(tween(200)) { it } +
-                   scaleOut(tween(200), targetScale = 0.8f),
+            enter = slideInVertically { it } + fadeIn(),
+            exit = slideOutVertically { it } + fadeOut(),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 220.dp)
@@ -1815,54 +1797,40 @@ fun Lyrics(
             )
         }
 
-        // 2. Selection & Share Dock with fluid spring entrance & exit (outer `if` removed so exit animation runs)
-        AnimatedVisibility(
-            visible = isFullscreen && isSelectionModeActive,
-            enter = fadeIn(tween(250)) +
-                    slideInVertically(
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessMediumLow
-                        )
-                    ) { it * 2 } +
-                    scaleIn(
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessMediumLow
-                        ),
-                        initialScale = 0.8f
-                    ),
-            exit = fadeOut(tween(200)) +
-                   slideOutVertically(tween(200)) { it } +
-                   scaleOut(tween(200), targetScale = 0.8f),
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 180.dp)
-        ) {
-            LyricsSelectionActionDock(
-                selectedCount = selectedIndices.size,
-                onCancel = {
-                    isSelectionModeActive = false
-                    selectedIndices.clear()
-                },
-                onShare = {
-                    val sortedIndices = selectedIndices.sorted()
-                    val selectedLyricsText = sortedIndices
-                        .mapNotNull { displayedLines.getOrNull(it)?.text }
-                        .joinToString("\n")
+        if (isFullscreen && isSelectionModeActive) {
+            AnimatedVisibility(
+                visible = isSelectionModeActive,
+                enter = fadeIn(tween(300)) + slideInVertically(tween(300)) { it },
+                exit = fadeOut(tween(300)) + slideOutVertically(tween(300)) { it },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 180.dp)
+            ) {
+                LyricsSelectionActionDock(
+                    selectedCount = selectedIndices.size,
+                    onCancel = {
+                        isSelectionModeActive = false
+                        selectedIndices.clear()
+                    },
+                    onShare = {
+                        val sortedIndices = selectedIndices.sorted()
+                        val selectedLyricsText = sortedIndices
+                            .mapNotNull { displayedLines.getOrNull(it)?.text }
+                            .joinToString("\n")
 
-                    if (selectedLyricsText.isNotBlank()) {
-                        shareDialogData = Triple(
-                            selectedLyricsText,
-                            currentMetadata?.title ?: "",
-                            currentMetadata?.artists?.joinToString { it.name } ?: ""
-                        )
-                        showShareDialog = true
+                        if (selectedLyricsText.isNotBlank()) {
+                            shareDialogData = Triple(
+                                selectedLyricsText,
+                                currentMetadata?.title ?: "",
+                                currentMetadata?.artists?.joinToString { it.name } ?: ""
+                            )
+                            showShareDialog = true
+                        }
+                        isSelectionModeActive = false
+                        selectedIndices.clear()
                     }
-                    isSelectionModeActive = false
-                    selectedIndices.clear()
-                }
-            )
+                )
+            }
         }
     }
 
