@@ -92,7 +92,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -190,8 +189,10 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.saket.squiggles.SquigglySlider
+import kotlin.math.abs
 import kotlin.math.absoluteValue
 import kotlin.math.exp
+import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.time.Duration.Companion.seconds
@@ -787,36 +788,28 @@ fun Lyrics(
         }
     }
 
-    suspend fun performSmoothPageScroll(targetIndex: Int, duration: Int = 1500) {
-        if (isAnimating) return
-        isAnimating = true
-        try {
-            val itemInfo = lazyListState.layoutInfo.visibleItemsInfo
-                .firstOrNull { it.index == targetIndex }
-            if (itemInfo != null) {
-                val viewportHeight = lazyListState.layoutInfo.viewportEndOffset -
-                        lazyListState.layoutInfo.viewportStartOffset
-                val center = lazyListState.layoutInfo.viewportStartOffset + (viewportHeight / 2)
-                val itemCenter = itemInfo.offset + itemInfo.size / 2
-                val offset = itemCenter - center
-                if (kotlin.math.abs(offset) > 10) {
-                    if (animateLyrics) {
-                        lazyListState.animateScrollBy(
-                            value = offset.toFloat(),
-                            animationSpec = tween(durationMillis = duration)
-                        )
-                    } else {
-                        lazyListState.animateScrollBy(
-                            value = offset.toFloat(),
-                            animationSpec = tween(durationMillis = 1)
-                        )
-                    }
-                }
-            } else {
-                lazyListState.scrollToItem(targetIndex)
+    suspend fun scrollToCenter(targetIndex: Int, animate: Boolean = true) {
+        if (targetIndex !in lines.indices) return
+        val viewportHeight = lazyListState.layoutInfo.viewportEndOffset - lazyListState.layoutInfo.viewportStartOffset
+        val center = lazyListState.layoutInfo.viewportStartOffset + (viewportHeight / 2)
+        var itemInfo = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == targetIndex }
+
+        if (itemInfo == null) {
+            val centerOffset = if (viewportHeight > 0) -(viewportHeight / 2) else 0
+            lazyListState.scrollToItem(targetIndex, centerOffset)
+            delay(20)
+            itemInfo = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == targetIndex }
+        }
+
+        if (itemInfo != null) {
+            val itemCenter = itemInfo.offset + itemInfo.size / 2
+            val offset = itemCenter - center
+            if (kotlin.math.abs(offset) > 10) {
+                lazyListState.animateScrollBy(
+                    value = offset.toFloat(),
+                    animationSpec = if (animate && animateLyrics) tween(800, easing = FastOutSlowInEasing) else tween(1)
+                )
             }
-        } finally {
-            isAnimating = false
         }
     }
 
@@ -831,17 +824,17 @@ fun Lyrics(
             if ((currentMainLineIndex == 0 && shouldScrollToFirstLine) || !initialScrollDone) {
                 shouldScrollToFirstLine = false
                 val initialCenterIndex = kotlin.math.max(0, currentMainLineIndex)
-                performSmoothPageScroll(initialCenterIndex, 800)
+                scrollToCenter(initialCenterIndex, animate = true)
                 if (!isAppMinimized) {
                     initialScrollDone = true
                 }
             } else if (currentMainLineIndex != -1) {
                 if (isSeeking) {
                     val seekCenterIndex = kotlin.math.max(0, currentMainLineIndex - 1)
-                    performSmoothPageScroll(seekCenterIndex, 500)
+                    scrollToCenter(seekCenterIndex, animate = true)
                 } else if ((lastPreviewTime == 0L || currentMainLineIndex != previousMainLineIndex) && scrollLyrics) {
                     if (currentMainLineIndex != previousMainLineIndex) {
-                        performSmoothPageScroll(currentMainLineIndex, 1500)
+                        scrollToCenter(currentMainLineIndex, animate = true)
                     }
                 }
             }
@@ -1248,7 +1241,7 @@ fun Lyrics(
                                             }
                                             playerConnection.player.seekTo(targetVideoTime)
                                             scope.launch {
-                                                performSmoothPageScroll(index, 1500)
+                                                scrollToCenter(index)
                                             }
                                             lastPreviewTime = 0L
                                         }
@@ -1779,6 +1772,7 @@ fun Lyrics(
             }
         }
 
+        // Auto-scroll Floating Pill (Matching LyricsV2 Animation & Mechanics)
         AnimatedVisibility(
             visible = !isAutoScrollEnabled && isSynced && !isSelectionModeActive,
             enter = slideInVertically { it } + fadeIn(),
@@ -1790,47 +1784,47 @@ fun Lyrics(
             AutoScrollFloatingPill(
                 onClick = {
                     scope.launch {
-                        performSmoothPageScroll(currentLineIndex, 1500)
+                        scrollToCenter(currentMainLineIndex)
                     }
                     isAutoScrollEnabled = true
                 }
             )
         }
 
-        if (isFullscreen && isSelectionModeActive) {
-            AnimatedVisibility(
-                visible = isSelectionModeActive,
-                enter = fadeIn(tween(300)) + slideInVertically(tween(300)) { it },
-                exit = fadeOut(tween(300)) + slideOutVertically(tween(300)) { it },
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 180.dp)
-            ) {
-                LyricsSelectionActionDock(
-                    selectedCount = selectedIndices.size,
-                    onCancel = {
-                        isSelectionModeActive = false
-                        selectedIndices.clear()
-                    },
-                    onShare = {
-                        val sortedIndices = selectedIndices.sorted()
-                        val selectedLyricsText = sortedIndices
-                            .mapNotNull { displayedLines.getOrNull(it)?.text }
-                            .joinToString("\n")
+        // Floating Action Bar for Selection Mode (Cancel & Share Dock)
+        AnimatedVisibility(
+            visible = isSelectionModeActive,
+            enter = fadeIn(tween(300)) + slideInVertically(tween(300)) { it },
+            exit = fadeOut(tween(300)) + slideOutVertically(tween(300)) { it },
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 220.dp)
+        ) {
+            LyricsSelectionActionDock(
+                selectedCount = selectedIndices.size,
+                onCancel = {
+                    isSelectionModeActive = false
+                    selectedIndices.clear()
+                },
+                onShare = {
+                    val sortedIndices = selectedIndices.sorted()
+                    val selectedLyricsText = sortedIndices
+                        .mapNotNull { displayedLines.getOrNull(it)?.text }
+                        .filter { it.isNotBlank() }
+                        .joinToString("\n")
 
-                        if (selectedLyricsText.isNotBlank()) {
-                            shareDialogData = Triple(
-                                selectedLyricsText,
-                                currentMetadata?.title ?: "",
-                                currentMetadata?.artists?.joinToString { it.name } ?: ""
-                            )
-                            showShareDialog = true
-                        }
-                        isSelectionModeActive = false
-                        selectedIndices.clear()
+                    if (selectedLyricsText.isNotBlank()) {
+                        shareDialogData = Triple(
+                            selectedLyricsText,
+                            currentMetadata?.title ?: "",
+                            currentMetadata?.artists?.joinToString { it.name } ?: ""
+                        )
+                        showShareDialog = true
                     }
-                )
-            }
+                    isSelectionModeActive = false
+                    selectedIndices.clear()
+                }
+            )
         }
     }
 
@@ -1931,7 +1925,6 @@ fun GapIndicator(
         }
     }
 }
-
 
 private fun calculateAutoSwipeThreshold(swipeSensitivity: Float): Int {
     return (600 / (1f + exp(-(-11.44748 * swipeSensitivity + 9.04945)))).roundToInt()
