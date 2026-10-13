@@ -569,16 +569,18 @@ fun LyricsV2(
             exit = slideOutVertically { it } + fadeOut(),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 24.dp)
+                .padding(bottom = 8.dp)
         ) {
-            AutoScrollFloatingPill(
-                onClick = {
-                    coroutineScope.launch {
-                        scrollToCenter(currentMainLineIndex)
+            Box(modifier = Modifier.padding(16.dp)) {
+                AutoScrollFloatingPill(
+                    onClick = {
+                        coroutineScope.launch {
+                            scrollToCenter(currentMainLineIndex)
+                        }
+                        isAutoScrollEnabled = true
                     }
-                    isAutoScrollEnabled = true
-                }
-            )
+                )
+            }
         }
 
         // Floating Action Bar for Selection Mode (Cancel & Share Dock)
@@ -588,33 +590,35 @@ fun LyricsV2(
             exit = fadeOut(tween(300)) + slideOutVertically(tween(300)) { it },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 24.dp)
+                .padding(bottom = 8.dp)
         ) {
-            LyricsSelectionActionDock(
-                selectedCount = selectedIndices.size,
-                onCancel = {
-                    isSelectionModeActive = false
-                    selectedIndices.clear()
-                },
-                onShare = {
-                    val sortedIndices = selectedIndices.sorted()
-                    val selectedLyricsText = sortedIndices
-                        .mapNotNull { lines.getOrNull(it)?.text }
-                        .filter { it.isNotBlank() }
-                        .joinToString("\n")
+            Box(modifier = Modifier.padding(16.dp)) {
+                LyricsSelectionActionDock(
+                    selectedCount = selectedIndices.size,
+                    onCancel = {
+                        isSelectionModeActive = false
+                        selectedIndices.clear()
+                    },
+                    onShare = {
+                        val sortedIndices = selectedIndices.sorted()
+                        val selectedLyricsText = sortedIndices
+                            .mapNotNull { lines.getOrNull(it)?.text }
+                            .filter { it.isNotBlank() }
+                            .joinToString("\n")
 
-                    if (selectedLyricsText.isNotBlank()) {
-                        shareDialogData = Triple(
-                            selectedLyricsText,
-                            mediaMetadata?.title ?: "",
-                            mediaMetadata?.artists?.joinToString { it.name } ?: ""
-                        )
-                        showShareDialog = true
+                        if (selectedLyricsText.isNotBlank()) {
+                            shareDialogData = Triple(
+                                selectedLyricsText,
+                                mediaMetadata?.title ?: "",
+                                mediaMetadata?.artists?.joinToString { it.name } ?: ""
+                            )
+                            showShareDialog = true
+                        }
+                        isSelectionModeActive = false
+                        selectedIndices.clear()
                     }
-                    isSelectionModeActive = false
-                    selectedIndices.clear()
-                }
-            )
+                )
+            }
         }
     }
 
