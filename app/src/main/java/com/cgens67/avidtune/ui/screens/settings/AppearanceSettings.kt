@@ -95,6 +95,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -200,7 +201,7 @@ fun AppearanceSettings(
 
     val (playerVersion, onPlayerVersionChange) = rememberEnumPreference(
         PlayerVersionKey,
-        defaultValue = PlayerVersion.V2
+        defaultValue = PlayerVersion.V1
     )
 
     val (playerButtonsStyle, onPlayerButtonsStyleChange) = rememberEnumPreference(
