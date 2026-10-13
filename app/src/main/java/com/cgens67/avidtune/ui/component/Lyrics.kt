@@ -789,28 +789,36 @@ fun Lyrics(
         }
     }
 
-    suspend fun scrollToCenter(targetIndex: Int, animate: Boolean = true) {
-        if (targetIndex !in lines.indices) return
-        val viewportHeight = lazyListState.layoutInfo.viewportEndOffset - lazyListState.layoutInfo.viewportStartOffset
-        val center = lazyListState.layoutInfo.viewportStartOffset + (viewportHeight / 2)
-        var itemInfo = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == targetIndex }
-
-        if (itemInfo == null) {
-            val centerOffset = if (viewportHeight > 0) -(viewportHeight / 2) else 0
-            lazyListState.scrollToItem(targetIndex, centerOffset)
-            delay(20)
-            itemInfo = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == targetIndex }
-        }
-
-        if (itemInfo != null) {
-            val itemCenter = itemInfo.offset + itemInfo.size / 2
-            val offset = itemCenter - center
-            if (kotlin.math.abs(offset) > 10) {
-                lazyListState.animateScrollBy(
-                    value = offset.toFloat(),
-                    animationSpec = if (animate && animateLyrics) tween(800, easing = FastOutSlowInEasing) else tween(1)
-                )
+    suspend fun performSmoothPageScroll(targetIndex: Int, duration: Int = 1500) {
+        if (isAnimating) return
+        isAnimating = true
+        try {
+            val itemInfo = lazyListState.layoutInfo.visibleItemsInfo
+                .firstOrNull { it.index == targetIndex }
+            if (itemInfo != null) {
+                val viewportHeight = lazyListState.layoutInfo.viewportEndOffset -
+                        lazyListState.layoutInfo.viewportStartOffset
+                val center = lazyListState.layoutInfo.viewportStartOffset + (viewportHeight / 2)
+                val itemCenter = itemInfo.offset + itemInfo.size / 2
+                val offset = itemCenter - center
+                if (kotlin.math.abs(offset) > 10) {
+                    if (animateLyrics) {
+                        lazyListState.animateScrollBy(
+                            value = offset.toFloat(),
+                            animationSpec = tween(durationMillis = duration)
+                        )
+                    } else {
+                        lazyListState.animateScrollBy(
+                            value = offset.toFloat(),
+                            animationSpec = tween(durationMillis = 1)
+                        )
+                    }
+                }
+            } else {
+                lazyListState.scrollToItem(targetIndex)
             }
+        } finally {
+            isAnimating = false
         }
     }
 
@@ -825,17 +833,17 @@ fun Lyrics(
             if ((currentMainLineIndex == 0 && shouldScrollToFirstLine) || !initialScrollDone) {
                 shouldScrollToFirstLine = false
                 val initialCenterIndex = kotlin.math.max(0, currentMainLineIndex)
-                scrollToCenter(initialCenterIndex, animate = true)
+                performSmoothPageScroll(initialCenterIndex, 800)
                 if (!isAppMinimized) {
                     initialScrollDone = true
                 }
             } else if (currentMainLineIndex != -1) {
                 if (isSeeking) {
                     val seekCenterIndex = kotlin.math.max(0, currentMainLineIndex - 1)
-                    scrollToCenter(seekCenterIndex, animate = true)
+                    performSmoothPageScroll(seekCenterIndex, 500)
                 } else if ((lastPreviewTime == 0L || currentMainLineIndex != previousMainLineIndex) && scrollLyrics) {
                     if (currentMainLineIndex != previousMainLineIndex) {
-                        scrollToCenter(currentMainLineIndex, animate = true)
+                        performSmoothPageScroll(currentMainLineIndex, 1500)
                     }
                 }
             }
@@ -1242,7 +1250,7 @@ fun Lyrics(
                                             }
                                             playerConnection.player.seekTo(targetVideoTime)
                                             scope.launch {
-                                                scrollToCenter(index)
+                                                performSmoothPageScroll(index, 1500)
                                             }
                                             lastPreviewTime = 0L
                                         }
@@ -1780,15 +1788,16 @@ fun Lyrics(
             exit = slideOutVertically { it } + fadeOut(),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 220.dp)
+                .padding(bottom = 188.dp)
         ) {
             AutoScrollFloatingPill(
                 onClick = {
                     scope.launch {
-                        scrollToCenter(currentMainLineIndex)
+                        performSmoothPageScroll(currentLineIndex, 1500)
                     }
                     isAutoScrollEnabled = true
-                }
+                },
+                modifier = Modifier.padding(32.dp)
             )
         }
 
@@ -1799,7 +1808,7 @@ fun Lyrics(
             exit = fadeOut(tween(300)) + slideOutVertically(tween(300)) { it },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 220.dp)
+                .padding(bottom = 148.dp)
         ) {
             LyricsSelectionActionDock(
                 selectedCount = selectedIndices.size,
@@ -1824,7 +1833,8 @@ fun Lyrics(
                     }
                     isSelectionModeActive = false
                     selectedIndices.clear()
-                }
+                },
+                modifier = Modifier.padding(32.dp)
             )
         }
     }
@@ -1926,6 +1936,7 @@ fun GapIndicator(
         }
     }
 }
+
 
 private fun calculateAutoSwipeThreshold(swipeSensitivity: Float): Int {
     return (600 / (1f + exp(-(-11.44748 * swipeSensitivity + 9.04945)))).roundToInt()
