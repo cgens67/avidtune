@@ -1779,43 +1779,21 @@ fun Lyrics(
         }
 
         AnimatedVisibility(
-            visible = !isAutoScrollEnabled && isSynced,
+            visible = !isAutoScrollEnabled && isSynced && !isSelectionModeActive,
             enter = slideInVertically { it } + fadeIn(),
             exit = slideOutVertically { it } + fadeOut(),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 220.dp)
         ) {
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
-                tonalElevation = 4.dp,
-                modifier = Modifier
-                    .clickable {
-                        scope.launch {
-                            performSmoothPageScroll(currentLineIndex, 1500)
-                        }
-                        isAutoScrollEnabled = true
+            AutoScrollFloatingPill(
+                onClick = {
+                    scope.launch {
+                        performSmoothPageScroll(currentLineIndex, 1500)
                     }
-                    .padding(12.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.sync),
-                        contentDescription = stringResource(R.string.auto_scroll),
-                        modifier = Modifier.size(20.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = stringResource(R.string.auto_scroll),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    isAutoScrollEnabled = true
                 }
-            }
+            )
         }
 
         if (isFullscreen && isSelectionModeActive) {
@@ -1827,60 +1805,32 @@ fun Lyrics(
                     .align(Alignment.BottomCenter)
                     .padding(bottom = 180.dp)
             ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f),
-                        tonalElevation = 4.dp,
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clickable {
-                                isSelectionModeActive = false
-                                selectedIndices.clear()
-                            }
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.close),
-                                contentDescription = stringResource(R.string.cancel),
-                                tint = MaterialTheme.colorScheme.onErrorContainer,
-                                modifier = Modifier.size(24.dp)
+                LyricsSelectionActionDock(
+                    selectedCount = selectedIndices.size,
+                    onCancel = {
+                        isSelectionModeActive = false
+                        selectedIndices.clear()
+                    },
+                    onShare = {
+                        val sortedIndices = selectedIndices.sorted()
+                        val selectedLyricsText = sortedIndices
+                            .mapNotNull { displayedLines.getOrNull(it)?.text }
+                            .joinToString("\n")
+
+                        if (selectedLyricsText.isNotBlank()) {
+                            shareDialogData = Triple(
+                                selectedLyricsText,
+                                currentMetadata?.title ?: "",
+                                currentMetadata?.artists?.joinToString { it.name } ?: ""
                             )
+                            showShareDialog = true
                         }
+                        isSelectionModeActive = false
+                        selectedIndices.clear()
                     }
-
-                    if (selectedIndices.isNotEmpty()) {
-                        Surface(
-                            shape = RoundedCornerShape(28.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
-                            tonalElevation = 4.dp,
-                            modifier = Modifier
-                                .clickable {
-                                    val sortedIndices = selectedIndices.sorted()
-                                    val selectedLyricsText = sortedIndices
-                                        .mapNotNull { displayedLines.getOrNull(it)?.text }
-                                        .joinToString("\n")
-
-                                    if (selectedLyricsText.isNotBlank()) {
-                                        shareDialogData = Triple(
-                                            selectedLyricsText,
-                                            currentMetadata?.title ?: "",
-                                            currentMetadata?.artists?.joinToString { it.name } ?: ""
-                                        )
-                                        showShareDialog = true
-                                    }
-                                    isSelectionModeActive = false
-                                    selectedIndices.clear()
-                                }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
+                )
+            }
+        }                 ) {
                                 Icon(
                                     painter = painterResource(id = R.drawable.media3_icon_share),
                                     contentDescription = stringResource(R.string.share_selected),
@@ -2007,3 +1957,179 @@ private fun calculateAutoSwipeThreshold(swipeSensitivity: Float): Int {
 
 val LyricsPreviewTime = 2.seconds
 const val ANIMATE_SCROLL_DURATION = 300L
+
+@Composable
+fun AutoScrollFloatingPill(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.94f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "autoScrollScale"
+    )
+
+    Surface(
+        onClick = onClick,
+        interactionSource = interactionSource,
+        shape = CircleShape,
+        color = Color(0xFF1E1E24).copy(alpha = 0.85f),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+        shadowElevation = 16.dp,
+        modifier = modifier
+            .scale(scale)
+            .height(44.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.sync),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+
+            Text(
+                text = stringResource(R.string.auto_scroll),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+
+            Box(
+                modifier = Modifier
+                    .size(5.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.4f))
+            )
+
+            Text(
+                text = "Paused",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Medium,
+                color = Color.White.copy(alpha = 0.6f)
+            )
+        }
+    }
+}
+
+@Composable
+fun LyricsSelectionActionDock(
+    selectedCount: Int,
+    onCancel: () -> Unit,
+    onShare: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(26.dp),
+        color = Color(0xFF18181E).copy(alpha = 0.88f),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+        shadowElevation = 20.dp,
+        modifier = modifier
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // Cancel Button
+            val cancelInteraction = remember { MutableInteractionSource() }
+            val cancelPressed by cancelInteraction.collectIsPressedAsState()
+            val cancelScale by animateFloatAsState(
+                targetValue = if (cancelPressed) 0.93f else 1f,
+                animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                label = "cancelScale"
+            )
+
+            Surface(
+                onClick = onCancel,
+                interactionSource = cancelInteraction,
+                shape = CircleShape,
+                color = Color.White.copy(alpha = 0.12f),
+                modifier = Modifier
+                    .scale(cancelScale)
+                    .size(42.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        painter = painterResource(R.drawable.close),
+                        contentDescription = stringResource(R.string.cancel),
+                        tint = Color.White.copy(alpha = 0.85f),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            // Count Badge Indicator
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color.White.copy(alpha = 0.08f),
+                modifier = Modifier.height(34.dp)
+            ) {
+                Box(
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "$selectedCount selected",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White.copy(alpha = 0.75f)
+                    )
+                }
+            }
+
+            // Share Pill Button
+            val shareInteraction = remember { MutableInteractionSource() }
+            val sharePressed by shareInteraction.collectIsPressedAsState()
+            val shareScale by animateFloatAsState(
+                targetValue = if (sharePressed) 0.94f else 1f,
+                animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                label = "shareScale"
+            )
+
+            Surface(
+                onClick = onShare,
+                enabled = selectedCount > 0,
+                interactionSource = shareInteraction,
+                shape = RoundedCornerShape(18.dp),
+                color = if (selectedCount > 0) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.15f),
+                modifier = Modifier
+                    .scale(shareScale)
+                    .height(42.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.share),
+                        contentDescription = null,
+                        tint = if (selectedCount > 0) MaterialTheme.colorScheme.onPrimary else Color.White.copy(alpha = 0.4f),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = stringResource(R.string.share),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = if (selectedCount > 0) MaterialTheme.colorScheme.onPrimary else Color.White.copy(alpha = 0.4f)
+                    )
+                }
+            }
+        }
+    }
+}
