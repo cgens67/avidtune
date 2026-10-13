@@ -1830,26 +1830,7 @@ fun Lyrics(
                     }
                 )
             }
-        }                 ) {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.media3_icon_share),
-                                    contentDescription = stringResource(R.string.share_selected),
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Text(
-                                    text = stringResource(R.string.share),
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
-                    }
-                }
-            }
         }
-
     }
 
     if (showProgressDialog) {
