@@ -10,9 +10,13 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -20,6 +24,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,7 +35,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -48,33 +54,24 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -84,31 +81,20 @@ import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.lerp
 import androidx.datastore.preferences.core.edit
 import androidx.navigation.NavController
-import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.AppFont
 import com.cgens67.avidtune.constants.AppFontKey
@@ -116,7 +102,6 @@ import com.cgens67.avidtune.constants.AppTextSize
 import com.cgens67.avidtune.constants.AppTextSizeKey
 import com.cgens67.avidtune.constants.ArtistCanvasProviderOrderKey
 import com.cgens67.avidtune.constants.ChipSortTypeKey
-import com.cgens67.avidtune.constants.CustomThemeColorKey
 import com.cgens67.avidtune.constants.DarkModeKey
 import com.cgens67.avidtune.constants.DefaultOpenTabKey
 import com.cgens67.avidtune.constants.DynamicThemeKey
@@ -146,7 +131,6 @@ import com.cgens67.avidtune.constants.UseSystemFontKey
 import com.cgens67.avidtune.ui.component.AvatarSelector
 import com.cgens67.avidtune.ui.component.DefaultDialog
 import com.cgens67.avidtune.ui.component.EnumListPreference
-import com.cgens67.avidtune.ui.component.IconButton
 import com.cgens67.avidtune.ui.component.LanguagePreference
 import com.cgens67.avidtune.ui.component.ListPreference
 import com.cgens67.avidtune.ui.component.PlayerSliderTrack
@@ -155,22 +139,14 @@ import com.cgens67.avidtune.ui.component.SettingsGeneralCategory
 import com.cgens67.avidtune.ui.component.SettingsPage
 import com.cgens67.avidtune.ui.component.SwitchPreference
 import com.cgens67.avidtune.ui.component.ThumbnailCornerRadiusSelectorButton
-import com.cgens67.avidtune.ui.theme.DefaultThemeColor
-import com.cgens67.avidtune.ui.theme.ThemeSeedPalette
-import com.cgens67.avidtune.ui.theme.ThemeSeedPaletteCodec
 import com.cgens67.avidtune.ui.theme.googleSansBold
 import com.cgens67.avidtune.ui.theme.sfProDisplayBold
 import com.cgens67.avidtune.ui.theme.spaceGroteskBold
-import com.cgens67.avidtune.ui.utils.backToMain
 import com.cgens67.avidtune.utils.dataStore
 import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
-import com.google.material.color.hct.Hct
-import com.google.material.color.scheme.SchemeTonalSpot
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import me.saket.squiggles.SquigglySlider
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -375,6 +351,11 @@ fun AppearanceSettings(
                             value = sliderValue,
                             valueRange = 0f..1f,
                             onValueChange = { sliderValue = it },
+                            squigglesSpec = SquigglySlider.SquigglesSpec(
+                                amplitude = 3.dp,
+                                strokeWidth = 2.5.dp,
+                                wavelength = 24.dp
+                            ),
                             modifier = Modifier.weight(1f)
                         )
                         Text(
@@ -414,6 +395,7 @@ fun AppearanceSettings(
                             track = { sliderState ->
                                 PlayerSliderTrack(
                                     sliderState = sliderState,
+                                    trackHeight = 3.dp,
                                     colors = SliderDefaults.colors()
                                 )
                             },
@@ -447,16 +429,48 @@ fun AppearanceSettings(
                             }
                             .padding(16.dp)
                     ) {
-                        var sliderValue by remember { mutableFloatStateOf(0.5f) }
+                        val trackInteractionSource = remember { MutableInteractionSource() }
+                        val isTrackDragged by trackInteractionSource.collectIsDraggedAsState()
+                        val isTrackPressed by trackInteractionSource.collectIsPressedAsState()
+                        val isTrackActive = isTrackDragged || isTrackPressed
+
+                        val infiniteTransition = rememberInfiniteTransition(label = "expandingPreview")
+                        val previewPhase by infiniteTransition.animateFloat(
+                            initialValue = 0f,
+                            targetValue = 1f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(durationMillis = 1400, easing = FastOutSlowInEasing),
+                                repeatMode = RepeatMode.Reverse
+                            ),
+                            label = "previewPhase"
+                        )
+
+                        val animatedTrackHeight = if (isTrackActive) {
+                            11.dp
+                        } else {
+                            lerp(3.dp, 11.dp, previewPhase)
+                        }
+
+                        val trackHeight by animateDpAsState(
+                            targetValue = animatedTrackHeight,
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioNoBouncy,
+                                stiffness = Spring.StiffnessMedium
+                            ),
+                            label = "trackHeight"
+                        )
+
+                        var sliderValue by remember { mutableFloatStateOf(0.6f) }
                         Slider(
                             value = sliderValue,
                             valueRange = 0f..1f,
                             onValueChange = { sliderValue = it },
+                            interactionSource = trackInteractionSource,
                             thumb = { Spacer(modifier = Modifier.size(0.dp)) },
                             track = { sliderState ->
                                 PlayerSliderTrack(
                                     sliderState = sliderState,
-                                    trackHeight = 8.dp,
+                                    trackHeight = trackHeight,
                                     colors = SliderDefaults.colors()
                                 )
                             },
