@@ -130,6 +130,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -1732,9 +1733,9 @@ fun Lyrics(
                             valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
                             onValueChange = { sliderPosition = it.toLong() },
                             onValueChangeFinished = {
-                                sliderPosition?.let {
-                                    playerConnection.player.seekTo(it)
-                                    position = it
+                                sliderPosition?.let { pos ->
+                                    playerConnection.player.seekTo(pos)
+                                    position = pos
                                 }
                                 sliderPosition = null
                             },
@@ -1995,20 +1996,6 @@ fun AutoScrollFloatingPill(
                 fontWeight = FontWeight.Bold,
                 color = Color.White
             )
-
-            Box(
-                modifier = Modifier
-                    .size(5.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.4f))
-            )
-
-            Text(
-                text = "Paused",
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Medium,
-                color = Color.White.copy(alpha = 0.6f)
-            )
         }
     }
 }
@@ -2071,7 +2058,7 @@ fun LyricsSelectionActionDock(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "$selectedCount selected",
+                        text = pluralStringResource(R.plurals.n_selected, selectedCount, selectedCount),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = Color.White.copy(alpha = 0.75f)
