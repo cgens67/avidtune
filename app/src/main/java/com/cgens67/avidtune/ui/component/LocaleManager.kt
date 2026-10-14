@@ -174,9 +174,7 @@ class LocaleManager private constructor(private val context: Context) {
             "id" to LanguageMetadata("🇮🇩", CompletionStatus.BETA, "v0.9.4"),
             "uk" to LanguageMetadata("🇺🇦", CompletionStatus.BETA, "v0.9.4"),
             "he" to LanguageMetadata("🇮🇱", CompletionStatus.BETA, "v0.9.4"),
-            "ms" to LanguageMetadata("🇲🇾", CompletionStatus.INCOMPLETE, "v1.3.0"), // FIXED
-            
-            // New languages
+            "ms" to LanguageMetadata("🇲🇾", CompletionStatus.INCOMPLETE, "v1.3.0"),
             "bn" to LanguageMetadata("🇧🇩", CompletionStatus.INCOMPLETE, "v1.4.0"),
             "ur" to LanguageMetadata("🇵🇰", CompletionStatus.INCOMPLETE, "v1.4.0"),
             "tl" to LanguageMetadata("🇵🇭", CompletionStatus.INCOMPLETE, "v1.4.0")
@@ -231,7 +229,6 @@ class LocaleManager private constructor(private val context: Context) {
     }
 
     private fun detectAvailableLanguages(): List<String> {
-        // Return STRICTLY the languages defined in your curated LANGUAGE_METADATA map
         return LANGUAGE_METADATA.keys.toList()
     }
 
@@ -254,9 +251,6 @@ class LocaleManager private constructor(private val context: Context) {
         }
     }
 
-    /**
-     * Converts a locale code to Locale
-     */
     private fun parseLocaleCode(code: String): Locale {
         return when {
             code == "zh-rCN" || code == "zh-CN" -> Locale.SIMPLIFIED_CHINESE
@@ -307,13 +301,10 @@ class LocaleManager private constructor(private val context: Context) {
                     val displayName = locale.getDisplayLanguage(Locale.ENGLISH)
                         .replaceFirstChar { it.uppercase() }
                     
-                    // Directly use our mapped Native Name to prevent System guesswork
-                    // Map "he" back to "iw" for proper lookup in LanguageCodeToName if needed
                     val lookupCode = if (localeCode == "he") "iw" else localeCode
                     val nativeName = LanguageCodeToName[lookupCode]
                         ?: locale.getDisplayLanguage(locale).replaceFirstChar { it.uppercase() }
 
-                    // Get metadata (flag and status)
                     val metadata = LANGUAGE_METADATA[localeCode]
                         ?: LanguageMetadata("🌍", CompletionStatus.COMPLETE, "v0.9.4")
 
@@ -380,7 +371,6 @@ class LocaleManager private constructor(private val context: Context) {
             Timber.tag(TAG)
                 .d("Language updated: $languageCode (effective: $effectiveLanguageCode)")
                 
-            // Give UI time to show success state (Check mark)
             delay(400)
             
             true
@@ -448,7 +438,6 @@ class LocaleManager private constructor(private val context: Context) {
 
     fun restartApp(context: Context) {
         try {
-            // Gracefully restart the UI activity without stopping the MusicService so audio doesn't pause or crash.
             var currentContext = context
             while (currentContext is android.content.ContextWrapper) {
                 if (currentContext is Activity) {
@@ -461,7 +450,6 @@ class LocaleManager private constructor(private val context: Context) {
                 currentContext = currentContext.baseContext
             }
 
-            // Fallback if context is not an Activity
             val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
             intent?.let {
                 it.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -546,7 +534,6 @@ fun LanguageSelector(
             ) {}
         }
     ) {
-        // Consumes ALL vertical overscroll (both up and down) to prevent the sheet from dragging and snapping back
         val nestedScrollConnection = remember {
             object : NestedScrollConnection {
                 override fun onPostScroll(
@@ -919,13 +906,21 @@ private fun LanguageItem(
 
             // Status badge
             if (language.completionStatus != CompletionStatus.COMPLETE) {
-                val statusColor = language.completionStatus.color()
+                val statusColor = if (isSelected) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    language.completionStatus.color()
+                }
                 val labelRes = language.completionStatus.labelRes
 
                 if (labelRes != null) {
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = statusColor.copy(alpha = 0.12f),
+                        color = if (isSelected) {
+                            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.12f)
+                        } else {
+                            statusColor.copy(alpha = 0.12f)
+                        },
                         modifier = Modifier.padding(end = 12.dp)
                     ) {
                         Text(
@@ -939,13 +934,14 @@ private fun LanguageItem(
                 }
             }
 
-            // Radio button
+            // Radio button: uses onPrimaryContainer when selected so it contrasts with primaryContainer
+            // even when a #000000 monochrome palette makes primary white on light primaryContainer.
             RadioButton(
                 selected = isSelected,
                 onClick = null,
                 enabled = isEnabled,
                 colors = RadioButtonDefaults.colors(
-                    selectedColor = MaterialTheme.colorScheme.primary,
+                    selectedColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             )
