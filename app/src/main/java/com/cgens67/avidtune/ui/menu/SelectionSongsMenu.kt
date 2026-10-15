@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,7 +29,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -101,7 +99,6 @@ fun SelectionMediaMetadataMenu(
     val coroutineScope = rememberCoroutineScope()
     val playerConnection = LocalPlayerConnection.current ?: return
 
-    // Fallback to currently playing track if opened with an empty list
     val effectiveSongs = remember(songSelection, playerConnection.mediaMetadata) {
         if (songSelection.isNotEmpty()) songSelection
         else listOfNotNull(playerConnection.mediaMetadata.value)
@@ -190,7 +187,6 @@ fun SelectionMediaMetadataMenu(
         )
     }
 
-    // Header: Preview when 1 song, or Badge row when multiple
     if (isSingleSong) {
         Row(
             modifier = Modifier
@@ -278,7 +274,7 @@ fun SelectionMediaMetadataMenu(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = stringResource(R.string.selected),
+                    text = pluralStringResource(R.plurals.n_selected, effectiveSongs.size, effectiveSongs.size),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -298,7 +294,6 @@ fun SelectionMediaMetadataMenu(
             bottom = 8.dp + WindowInsets.systemBars.asPaddingValues().calculateBottomPadding(),
         ),
     ) {
-        // Expressive Action Grid
         item {
             NewActionGrid(
                 actions = buildList {
@@ -420,7 +415,6 @@ fun SelectionMediaMetadataMenu(
             )
         }
 
-        // Group 1: Queue Playback Additions
         item {
             MenuGroup(
                 items = listOf(
@@ -460,7 +454,6 @@ fun SelectionMediaMetadataMenu(
 
         item { Spacer(modifier = Modifier.height(10.dp)) }
 
-        // Group 2: Queue Removal (if applicable)
         if (currentItems.isNotEmpty()) {
             item {
                 MenuGroup(
@@ -468,8 +461,7 @@ fun SelectionMediaMetadataMenu(
                         MenuItemData(
                             title = {
                                 Text(
-                                    text = if (isSingleSong) stringResource(R.string.remove_from_queue)
-                                    else stringResource(R.string.delete),
+                                    text = stringResource(R.string.delete),
                                     color = MaterialTheme.colorScheme.error
                                 )
                             },
@@ -500,11 +492,9 @@ fun SelectionMediaMetadataMenu(
             item { Spacer(modifier = Modifier.height(10.dp)) }
         }
 
-        // Group 3: Downloads & Favorites
         item {
             MenuGroup(
                 items = buildList {
-                    // Download Option
                     add(
                         when (downloadState) {
                             Download.STATE_COMPLETED -> {
@@ -563,7 +553,6 @@ fun SelectionMediaMetadataMenu(
                         }
                     )
 
-                    // Favorite / Like All Option
                     if (!isSingleSong) {
                         val allLiked = effectiveSongs.all { it.liked }
                         add(
@@ -709,7 +698,6 @@ fun SelectionSongMenu(
         )
     }
 
-    // Header Preview
     if (isSingleSong) {
         Row(
             modifier = Modifier
@@ -792,7 +780,7 @@ fun SelectionSongMenu(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = stringResource(R.string.selected),
+                    text = pluralStringResource(R.plurals.n_selected, effectiveSongs.size, effectiveSongs.size),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -933,7 +921,6 @@ fun SelectionSongMenu(
             )
         }
 
-        // Group 1: Playback
         item {
             MenuGroup(
                 items = listOf(
@@ -973,7 +960,6 @@ fun SelectionSongMenu(
 
         item { Spacer(modifier = Modifier.height(10.dp)) }
 
-        // Group 2: Playlist Position Removal (if in playlist)
         if (!songPosition.isNullOrEmpty()) {
             item {
                 MenuGroup(
@@ -1013,11 +999,9 @@ fun SelectionSongMenu(
             item { Spacer(modifier = Modifier.height(10.dp)) }
         }
 
-        // Group 3: Library & Downloads
         item {
             MenuGroup(
                 items = buildList {
-                    // Library Toggle
                     add(
                         MenuItemData(
                             title = {
@@ -1055,7 +1039,6 @@ fun SelectionSongMenu(
                         )
                     )
 
-                    // Download Toggle
                     add(
                         when (downloadState) {
                             Download.STATE_COMPLETED -> {
@@ -1113,7 +1096,6 @@ fun SelectionSongMenu(
                         }
                     )
 
-                    // Like All / Dislike All
                     if (!isSingleSong) {
                         add(
                             MenuItemData(
