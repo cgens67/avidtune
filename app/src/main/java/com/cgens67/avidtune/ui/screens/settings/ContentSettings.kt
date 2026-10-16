@@ -60,6 +60,7 @@ import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.ContentCountryKey
 import com.cgens67.avidtune.constants.ContentLanguageKey
 import com.cgens67.avidtune.constants.CountryCodeToName
+import com.cgens67.avidtune.constants.EnableAvidDescriptionsKey
 import com.cgens67.avidtune.constants.EnableAvidLyricsKey
 import com.cgens67.avidtune.constants.EnableKugouKey
 import com.cgens67.avidtune.constants.EnableLrcLibKey
@@ -144,6 +145,10 @@ fun ContentSettings(
     val (quickPicks, onQuickPicksChange) = rememberEnumPreference(
         key = QuickPicksKey,
         defaultValue = QuickPicks.QUICK_PICKS
+    )
+    val (enableAvidDescriptions, onEnableAvidDescriptionsChange) = rememberPreference(
+        key = EnableAvidDescriptionsKey,
+        defaultValue = true
     )
     val (enableAvidLyrics, onEnableAvidLyricsChange) = rememberPreference(
         key = EnableAvidLyricsKey,
@@ -293,6 +298,20 @@ fun ContentSettings(
                         )
                     }
                 }}
+            )
+        )
+
+        // Descriptions provider settings
+        SettingsGeneralCategory(
+            title = "Descriptions",
+            items = listOf(
+                {SwitchPreference(
+                    title = { Text("AvidDescriptions") },
+                    description = "Load curated artist and album descriptions from AvidTune repository",
+                    icon = { Icon(painterResource(R.drawable.info), null) },
+                    checked = enableAvidDescriptions,
+                    onCheckedChange = onEnableAvidDescriptionsChange
+                )}
             )
         )
 
@@ -460,7 +479,6 @@ fun ReorderLyricsProvidersBottomSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val coroutineScope = rememberCoroutineScope()
 
-    // Consumes ALL vertical overscroll to prevent the sheet from dragging and snapping back
     val nestedScrollConnection = remember {
         object : NestedScrollConnection {
             override fun onPostScroll(
@@ -557,7 +575,6 @@ fun ReorderLyricsProvidersBottomSheet(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.padding(16.dp)
                             ) {
-                                // Priority Number Badge
                                 Box(
                                     modifier = Modifier
                                         .size(28.dp)
@@ -579,7 +596,6 @@ fun ReorderLyricsProvidersBottomSheet(
                                 
                                 Spacer(Modifier.width(16.dp))
                                 
-                                // Provider Name
                                 Text(
                                     text = item,
                                     style = MaterialTheme.typography.bodyLarge,
@@ -587,7 +603,6 @@ fun ReorderLyricsProvidersBottomSheet(
                                     modifier = Modifier.weight(1f)
                                 )
                                 
-                                // Drag Handle
                                 Icon(
                                     painter = painterResource(R.drawable.drag_handle),
                                     contentDescription = "Drag",
