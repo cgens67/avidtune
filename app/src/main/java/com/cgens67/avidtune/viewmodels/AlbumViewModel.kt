@@ -9,6 +9,7 @@ import com.cgens67.innertube.models.AlbumItem
 import com.cgens67.avidtune.db.MusicDatabase
 import com.cgens67.avidtune.ui.component.LocaleManager
 import com.cgens67.avidtune.utils.AppleMusicAboutAlbum
+import com.cgens67.avidtune.utils.AvidDescriptionProvider
 import com.cgens67.avidtune.utils.TranslationHelper
 import com.cgens67.avidtune.utils.Wikipedia
 import com.cgens67.avidtune.utils.reportException
@@ -122,36 +123,54 @@ constructor(
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val targetLang = resolveTargetLanguage(context)
-                val storefront = runCatching { YouTube.locale.gl.lowercase() }
-                    .getOrNull()
-                    ?.takeIf { it.length == 2 && it != "system" }
-                    ?: Locale.getDefault().country.lowercase().takeIf { it.length == 2 }
-                    ?: "us"
+                var desc: String? = null
 
-                // 1. Try Apple Music with user's storefront & locale
-                var desc = AppleMusicAboutAlbum.fetchAlbumDescription(albumTitle, artistName, storefront, targetLang)
-
-                // 2. Try Wikipedia in user's locale
-                val wikiLang = targetLang.substringBefore("-").lowercase()
-                if (desc == null && !wikiLang.startsWith("en")) {
-                    desc = Wikipedia.fetchAlbumInfo(albumTitle, artistName, wikiLang)
+                // 1. Try AvidDescriptions first
+                if (AvidDescriptionProvider.isEnabled(context)) {
+                    val pId = playlistId.value.takeIf { it.isNotBlank() }
+                        ?: database.album(albumId).first()?.album?.playlistId
+                    desc = AvidDescriptionProvider.getAlbumDescription(
+                        albumId = albumId,
+                        playlistId = pId,
+                        albumTitle = albumTitle,
+                        artistName = artistName
+                    )
                 }
 
-                // 3. Try Apple Music in English (US) if localized version wasn't found
+                // 2. Fall back to Apple Music & Wikipedia
                 if (desc == null) {
-                    desc = AppleMusicAboutAlbum.fetchAlbumDescription(albumTitle, artistName, "us", "en-US")
-                }
+                    val targetLang = resolveTargetLanguage(context)
+                    val storefront = runCatching { YouTube.locale.gl.lowercase() }
+                        .getOrNull()
+                        ?.takeIf { it.length == 2 && it != "system" }
+                        ?: Locale.getDefault().country.lowercase().takeIf { it.length == 2 }
+                        ?: "us"
 
-                // 4. Try Wikipedia in English
-                if (desc == null) {
-                    desc = Wikipedia.fetchAlbumInfo(albumTitle, artistName, "en")
+                    // Try Apple Music with user's storefront & locale
+                    desc = AppleMusicAboutAlbum.fetchAlbumDescription(albumTitle, artistName, storefront, targetLang)
+
+                    // Try Wikipedia in user's locale
+                    val wikiLang = targetLang.substringBefore("-").lowercase()
+                    if (desc == null && !wikiLang.startsWith("en")) {
+                        desc = Wikipedia.fetchAlbumInfo(albumTitle, artistName, wikiLang)
+                    }
+
+                    // Try Apple Music in English (US) if localized version wasn't found
+                    if (desc == null) {
+                        desc = AppleMusicAboutAlbum.fetchAlbumDescription(albumTitle, artistName, "us", "en-US")
+                    }
+
+                    // Try Wikipedia in English
+                    if (desc == null) {
+                        desc = Wikipedia.fetchAlbumInfo(albumTitle, artistName, "en")
+                    }
                 }
 
                 if (desc != null) {
                     originalDescription.value = desc
                     canTranslate.value = true
 
+                    val targetLang = resolveTargetLanguage(context)
                     val detectedLang = runCatching { TranslationHelper.detectLanguage(desc.take(200)) }.getOrNull()?.lowercase()
                     val targetBase = targetLang.substringBefore("-").lowercase()
 
