@@ -22,18 +22,10 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.updateTransition
-import androidx.compose.animation.expandHorizontally
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.shrinkHorizontally
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -68,7 +60,6 @@ import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -76,12 +67,9 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.ToggleButton
-import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
@@ -102,7 +90,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -216,11 +203,17 @@ fun AlbumScreen(
     val isExplicit by viewModel.isExplicit.collectAsState()
     val explicitSongIds by viewModel.explicitSongIds.collectAsState()
 
-    val wrappedSongs = albumWithSongs?.songs?.map { item -> ItemWrapper(item) }?.toMutableList()
+    val songsList = albumWithSongs?.songs.orEmpty()
+    val wrappedSongs = remember(songsList) {
+        songsList.map { item -> ItemWrapper(item, initialSelected = false) }
+    }
     var selection by remember { mutableStateOf(false) }
 
     if (selection) {
-        BackHandler { selection = false }
+        BackHandler {
+            selection = false
+            wrappedSongs.forEach { it.isSelected = false }
+        }
     }
 
     val downloadUtil = LocalDownloadUtil.current
@@ -280,7 +273,6 @@ fun AlbumScreen(
     val albumData = albumWithSongs
     val isCurrentAlbum = mediaMetadata?.album?.id == albumData?.album?.id
 
-    // Gradient colors extracted from album artwork
     var gradientColors by remember { mutableStateOf<List<Color>>(emptyList()) }
     val fallbackColor = MaterialTheme.colorScheme.surface.toArgb()
     val surfaceColor = MaterialTheme.colorScheme.surface
@@ -333,6 +325,12 @@ fun AlbumScreen(
                     0f
                 }
             }
+        }
+    }
+
+    val transparentAppBar by remember {
+        derivedStateOf {
+            lazyListState.firstVisibleItemIndex == 0 && lazyListState.firstVisibleItemScrollOffset < 200
         }
     }
 
@@ -428,7 +426,7 @@ fun AlbumScreen(
     }
 
     val albumSongsAndOtherVersions: LazyListScope.() -> Unit = {
-        if (!wrappedSongs.isNullOrEmpty()) {
+        if (wrappedSongs.isNotEmpty()) {
             items(
                 items = wrappedSongs,
                 key = { song -> song.item.id },
@@ -541,7 +539,6 @@ fun AlbumScreen(
             .fillMaxSize()
             .background(surfaceColor)
     ) {
-        // Gradient background layer
         if (gradientColors.isNotEmpty() && gradientAlpha > 0f) {
             Box(
                 modifier = Modifier
@@ -747,9 +744,7 @@ fun AlbumScreen(
 
         if (albumData != null && albumData.songs.isNotEmpty()) {
             if (isLandscape) {
-                Row(
-                    modifier = Modifier.fillMaxSize()
-                ) {
+                Row(modifier = Modifier.fillMaxSize()) {
                     Column(
                         modifier = Modifier
                             .weight(0.42f)
@@ -870,7 +865,7 @@ fun AlbumScreen(
         TopAppBar(
             title = {
                 if (selection) {
-                    val count = wrappedSongs?.count { it.isSelected } ?: 0
+                    val count = wrappedSongs.count { it.isSelected }
                     Text(
                         text = pluralStringResource(R.plurals.n_song, count, count),
                         style = MaterialTheme.typography.titleLarge
@@ -878,50 +873,50 @@ fun AlbumScreen(
                 }
             },
             navigationIcon = {
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    modifier = Modifier.padding(start = 8.dp)
-                ) {
-                    com.cgens67.avidtune.ui.component.IconButton(
+                if (selection) {
+                    IconButton(
                         onClick = {
-                            if (selection) {
-                                selection = false
-                            } else {
-                                navController.navigateUp()
-                            }
-                        },
-                        onLongClick = {
-                            if (!selection) {
-                                navController.backToMain()
-                            }
-                        },
+                            selection = false
+                            wrappedSongs.forEach { it.isSelected = false }
+                        }
                     ) {
                         Icon(
-                            painter = painterResource(
-                                if (selection) R.drawable.close else R.drawable.arrow_back
-                            ),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            painter = painterResource(R.drawable.close),
+                            contentDescription = stringResource(R.string.close),
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
+                    }
+                } else {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.padding(start = 8.dp)
+                    ) {
+                        com.cgens67.avidtune.ui.component.IconButton(
+                            onClick = { navController.navigateUp() },
+                            onLongClick = { navController.backToMain() },
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.arrow_back),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             },
             actions = {
                 if (selection) {
-                    val count = wrappedSongs?.count { it.isSelected } ?: 0
+                    val count = wrappedSongs.count { it.isSelected }
                     IconButton(
                         onClick = {
-                            if (count == wrappedSongs?.size) {
-                                wrappedSongs.forEach { it.isSelected = false }
-                            } else {
-                                wrappedSongs?.forEach { it.isSelected = true }
-                            }
+                            val selectAll = count != wrappedSongs.size
+                            wrappedSongs.forEach { it.isSelected = selectAll }
                         },
                     ) {
                         Icon(
                             painter = painterResource(
-                                if (count == wrappedSongs?.size) R.drawable.deselect else R.drawable.select_all
+                                if (count == wrappedSongs.size) R.drawable.deselect else R.drawable.select_all
                             ),
                             contentDescription = null
                         )
@@ -931,10 +926,12 @@ fun AlbumScreen(
                         onClick = {
                             menuState.show {
                                 SelectionSongMenu(
-                                    songSelection = wrappedSongs?.filter { it.isSelected }!!
-                                        .map { it.item },
+                                    songSelection = wrappedSongs.filter { it.isSelected }.map { it.item },
                                     onDismiss = menuState::dismiss,
-                                    clearAction = { selection = false }
+                                    clearAction = {
+                                        selection = false
+                                        wrappedSongs.forEach { it.isSelected = false }
+                                    }
                                 )
                             }
                         },
@@ -971,10 +968,24 @@ fun AlbumScreen(
                     }
                 }
             },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color.Transparent,
-                scrolledContainerColor = Color.Transparent
-            )
+            colors = if (selection) {
+                TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
+                    actionIconContentColor = MaterialTheme.colorScheme.onSurface
+                )
+            } else if (transparentAppBar) {
+                TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent
+                )
+            } else {
+                TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                    scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+                )
+            }
         )
     }
 }
