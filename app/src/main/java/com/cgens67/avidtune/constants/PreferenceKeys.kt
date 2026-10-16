@@ -63,6 +63,7 @@ const val SYSTEM_DEFAULT = "SYSTEM_DEFAULT"
 val ContentLanguageKey = stringPreferencesKey("contentLanguage")
 val ContentCountryKey = stringPreferencesKey("contentCountry")
 val EnableAvidLyricsKey = booleanPreferencesKey("enableAvidLyrics")
+val EnableAvidDescriptionsKey = booleanPreferencesKey("enableAvidDescriptions")
 val EnableLyricsPlusKey = booleanPreferencesKey("enableLyricsPlus")
 val EnableKugouKey = booleanPreferencesKey("enableKugou")
 val EnableLrcLibKey = booleanPreferencesKey("enableLrclib")
