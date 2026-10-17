@@ -589,7 +589,6 @@ fun ArtistScreen(
                                 } else if (!artistDescription.isNullOrBlank()) {
                                     var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
                                     val description = artistDescription!!
-                                    val showActionsRow = (canTranslate || isTranslated) || (isDescriptionExpanded && !descriptionProvider.isNullOrBlank())
 
                                     Column(
                                         modifier = Modifier
@@ -612,55 +611,53 @@ fun ArtistScreen(
                                             overflow = TextOverflow.Ellipsis
                                         )
 
-                                        if (showActionsRow) {
-                                            Spacer(modifier = Modifier.height(10.dp))
+                                        Spacer(modifier = Modifier.height(10.dp))
 
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.SpaceBetween
-                                            ) {
-                                                // Left: Translate action (if available)
-                                                if (canTranslate || isTranslated) {
-                                                    Row(
-                                                        modifier = Modifier
-                                                            .clip(RoundedCornerShape(8.dp))
-                                                            .clickable { viewModel.toggleDescriptionTranslation() }
-                                                            .padding(vertical = 4.dp, horizontal = 2.dp),
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                                    ) {
-                                                        Icon(
-                                                            painter = painterResource(R.drawable.translate),
-                                                            contentDescription = null,
-                                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                            modifier = Modifier.size(16.dp)
-                                                        )
-                                                        Text(
-                                                            text = if (isTranslated) stringResource(R.string.show_original) else stringResource(R.string.Translate),
-                                                            style = MaterialTheme.typography.labelMedium,
-                                                            fontWeight = FontWeight.SemiBold,
-                                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                        )
-                                                    }
-                                                } else {
-                                                    Spacer(modifier = Modifier.width(1.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            // Left: Translate action (if available)
+                                            if (canTranslate || isTranslated) {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .clip(RoundedCornerShape(8.dp))
+                                                        .clickable { viewModel.toggleDescriptionTranslation() }
+                                                        .padding(vertical = 4.dp, horizontal = 2.dp),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                ) {
+                                                    Icon(
+                                                        painter = painterResource(R.drawable.translate),
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                    Text(
+                                                        text = if (isTranslated) stringResource(R.string.show_original) else stringResource(R.string.Translate),
+                                                        style = MaterialTheme.typography.labelMedium,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
                                                 }
+                                            } else {
+                                                Spacer(modifier = Modifier.width(1.dp))
+                                            }
 
-                                                // Right: Provider pill without "Fetched by" (only shown when expanded)
-                                                if (isDescriptionExpanded && !descriptionProvider.isNullOrBlank()) {
-                                                    Surface(
-                                                        shape = RoundedCornerShape(50),
-                                                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f),
-                                                    ) {
-                                                        Text(
-                                                            text = descriptionProvider!!,
-                                                            style = MaterialTheme.typography.labelMedium,
-                                                            fontWeight = FontWeight.SemiBold,
-                                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
-                                                        )
-                                                    }
+                                            // Right: Provider pill without "Fetched by"
+                                            if (!descriptionProvider.isNullOrBlank()) {
+                                                Surface(
+                                                    shape = RoundedCornerShape(50),
+                                                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f),
+                                                ) {
+                                                    Text(
+                                                        text = descriptionProvider!!,
+                                                        style = MaterialTheme.typography.labelMedium,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                                                    )
                                                 }
                                             }
                                         }
