@@ -1427,7 +1427,6 @@ private fun AlbumHeaderContent(
                                     painter = painterResource(
                                         when (descriptionProvider) {
                                             "Wikipedia" -> R.drawable.language
-                                            "Apple Music" -> R.drawable.apple
                                             else -> R.drawable.info
                                         }
                                     ),
