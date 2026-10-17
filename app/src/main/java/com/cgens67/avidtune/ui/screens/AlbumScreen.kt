@@ -22,6 +22,12 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.updateTransition
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -326,12 +332,6 @@ fun AlbumScreen(
                     0f
                 }
             }
-        }
-    }
-
-    val transparentAppBar by remember {
-        derivedStateOf {
-            lazyListState.firstVisibleItemIndex == 0 && lazyListState.firstVisibleItemScrollOffset < 200
         }
     }
 
@@ -914,29 +914,76 @@ fun AlbumScreen(
                 }
             },
             actions = {
-                if (selection) {
-                    val count = wrappedSongs.count { it.isSelected }
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        modifier = Modifier.padding(end = 6.dp)
-                    ) {
-                        IconButton(
-                            onClick = {
-                                val selectAll = count != wrappedSongs.size
-                                wrappedSongs.forEach { it.isSelected = selectAll }
-                            },
+                val enterTransition = fadeIn(tween(350)) + 
+                    expandHorizontally(spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)) + 
+                    scaleIn(initialScale = 0.3f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow))
+                    
+                val exitTransition = fadeOut(tween(200)) + 
+                    shrinkHorizontally(spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)) + 
+                    scaleOut(targetScale = 0.3f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow))
+
+                AnimatedVisibility(
+                    visible = selection,
+                    enter = enterTransition,
+                    exit = exitTransition
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val count = wrappedSongs.count { it.isSelected }
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.padding(end = 6.dp)
                         ) {
-                            Icon(
-                                painter = painterResource(
-                                    if (count == wrappedSongs.size) R.drawable.deselect else R.drawable.select_all
-                                ),
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            IconButton(
+                                onClick = {
+                                    val selectAll = count != wrappedSongs.size
+                                    wrappedSongs.forEach { it.isSelected = selectAll }
+                                },
+                            ) {
+                                Icon(
+                                    painter = painterResource(
+                                        if (count == wrappedSongs.size) R.drawable.deselect else R.drawable.select_all
+                                    ),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.padding(end = 8.dp)
+                        ) {
+                            IconButton(
+                                onClick = {
+                                    menuState.show {
+                                        SelectionSongMenu(
+                                            songSelection = wrappedSongs.filter { it.isSelected }.map { it.item },
+                                            onDismiss = menuState::dismiss,
+                                            clearAction = {
+                                                selection = false
+                                                wrappedSongs.forEach { it.isSelected = false }
+                                            }
+                                        )
+                                    }
+                                },
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.more_vert),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
+                }
 
+                AnimatedVisibility(
+                    visible = !selection,
+                    enter = enterTransition,
+                    exit = exitTransition
+                ) {
                     Surface(
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -944,36 +991,16 @@ fun AlbumScreen(
                     ) {
                         IconButton(
                             onClick = {
-                                menuState.show {
-                                    SelectionSongMenu(
-                                        songSelection = wrappedSongs.filter { it.isSelected }.map { it.item },
-                                        onDismiss = menuState::dismiss,
-                                        clearAction = {
-                                            selection = false
-                                            wrappedSongs.forEach { it.isSelected = false }
-                                        }
-                                    )
+                                albumData?.let {
+                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                    val clip = ClipData.newPlainText("Album Link", "https://music.youtube.com/playlist?list=${it.album.playlistId}")
+                                    clipboard.setPrimaryClip(clip)
+                                    Toast.makeText(context, R.string.link_copied, Toast.LENGTH_SHORT).show()
                                 }
                             },
                         ) {
                             Icon(
-                                painter = painterResource(R.drawable.more_vert),
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                } else {
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        modifier = Modifier.padding(end = 8.dp)
-                    ) {
-                        IconButton(
-                            onClick = onMoreOptionsClick,
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.more_vert),
+                                painter = painterResource(R.drawable.link),
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -981,24 +1008,13 @@ fun AlbumScreen(
                     }
                 }
             },
-            colors = if (selection) {
-                TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
-                    actionIconContentColor = MaterialTheme.colorScheme.onSurface
-                )
-            } else if (transparentAppBar) {
-                TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    scrolledContainerColor = Color.Transparent
-                )
-            } else {
-                TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-                    scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
-                )
-            }
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = Color.Transparent,
+                scrolledContainerColor = Color.Transparent,
+                titleContentColor = MaterialTheme.colorScheme.onSurface,
+                navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
+                actionIconContentColor = MaterialTheme.colorScheme.onSurface
+            )
         )
     }
 }
