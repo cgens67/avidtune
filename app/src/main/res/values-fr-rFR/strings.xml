@@ -1391,5 +1391,15 @@
     <string name="lyrics_share_logo_position">Position du logo</string>
     <string name="lyrics_share_logo_size">Taille du logo</string>
     <string name="lyrics_share_pattern_opacity">Opacité du motif</string>
+    
+    <!-- Descriptions Settings -->
+    <string name="descriptions_title">Activer les descriptions</string>
+    <string name="descriptions_desc">Afficher les descriptions d\'artistes et d\'albums depuis des sources en ligne</string>
+    <string name="avid_descriptions_desc">Récupérer les descriptions depuis AvidDescriptions</string>
+    <string name="apple_music_desc">Récupérer les notes éditoriales depuis Apple Music</string>
+    <string name="wikipedia_desc">Récupérer les résumés depuis Wikipédia</string>
+    <string name="ytm_desc">Récupérer les biographies et descriptions depuis YouTube Music</string>
+    <string name="description_provider_priority">Priorité des fournisseurs de description</string>
+    <string name="description_provider_priority_desc">Faites glisser pour ajuster l\'ordre des sources de description</string>
 
 </resources>
