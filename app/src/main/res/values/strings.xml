@@ -1417,4 +1417,14 @@
     <string name="lyrics_share_logo_size">Logo size</string>
     <string name="lyrics_share_pattern_opacity">Pattern opacity</string>
     
+    <!-- Descriptions Settings -->
+    <string name="descriptions_title">Enable descriptions</string>
+    <string name="descriptions_desc">Show artist and album descriptions from online sources</string>
+    <string name="avid_descriptions_desc">Fetch descriptions from AvidDescriptions</string>
+    <string name="apple_music_desc">Fetch editorial notes from Apple Music</string>
+    <string name="wikipedia_desc">Fetch summaries from Wikipedia</string>
+    <string name="ytm_desc">Fetch artist bios and descriptions from YouTube Music</string>
+    <string name="description_provider_priority">Description provider priority</string>
+    <string name="description_provider_priority_desc">Drag to adjust the order of description sources</string>
+    
 </resources>
