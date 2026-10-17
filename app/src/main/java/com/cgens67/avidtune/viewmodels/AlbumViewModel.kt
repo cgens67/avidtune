@@ -125,20 +125,11 @@ constructor(
             try {
                 var desc: String? = null
 
-                // 1. Try AvidDescriptions first
-                if (AvidDescriptionProvider.isEnabled(context)) {
+                if (AvidDescriptionProvider.isMasterEnabled(context)) {
+                    val order = AvidDescriptionProvider.getOrderedProviders(context)
                     val pId = playlistId.value.takeIf { it.isNotBlank() }
                         ?: database.album(albumId).first()?.album?.playlistId
-                    desc = AvidDescriptionProvider.getAlbumDescription(
-                        albumId = albumId,
-                        playlistId = pId,
-                        albumTitle = albumTitle,
-                        artistName = artistName
-                    )
-                }
 
-                // 2. Fall back to Apple Music & Wikipedia
-                if (desc == null) {
                     val targetLang = resolveTargetLanguage(context)
                     val storefront = runCatching { YouTube.locale.gl.lowercase() }
                         .getOrNull()
@@ -146,23 +137,39 @@ constructor(
                         ?: Locale.getDefault().country.lowercase().takeIf { it.length == 2 }
                         ?: "us"
 
-                    // Try Apple Music with user's storefront & locale
-                    desc = AppleMusicAboutAlbum.fetchAlbumDescription(albumTitle, artistName, storefront, targetLang)
-
-                    // Try Wikipedia in user's locale
-                    val wikiLang = targetLang.substringBefore("-").lowercase()
-                    if (desc == null && !wikiLang.startsWith("en")) {
-                        desc = Wikipedia.fetchAlbumInfo(albumTitle, artistName, wikiLang)
-                    }
-
-                    // Try Apple Music in English (US) if localized version wasn't found
-                    if (desc == null) {
-                        desc = AppleMusicAboutAlbum.fetchAlbumDescription(albumTitle, artistName, "us", "en-US")
-                    }
-
-                    // Try Wikipedia in English
-                    if (desc == null) {
-                        desc = Wikipedia.fetchAlbumInfo(albumTitle, artistName, "en")
+                    for (provider in order) {
+                        if (desc != null) break
+                        when (provider) {
+                            "AvidDescriptions" -> {
+                                if (AvidDescriptionProvider.isAvidEnabled(context)) {
+                                    desc = AvidDescriptionProvider.getAlbumDescription(
+                                        albumId = albumId,
+                                        playlistId = pId,
+                                        albumTitle = albumTitle,
+                                        artistName = artistName
+                                    )
+                                }
+                            }
+                            "Apple Music" -> {
+                                if (AvidDescriptionProvider.isAppleMusicEnabled(context)) {
+                                    desc = AppleMusicAboutAlbum.fetchAlbumDescription(albumTitle, artistName, storefront, targetLang)
+                                    if (desc == null) {
+                                        desc = AppleMusicAboutAlbum.fetchAlbumDescription(albumTitle, artistName, "us", "en-US")
+                                    }
+                                }
+                            }
+                            "Wikipedia" -> {
+                                if (AvidDescriptionProvider.isWikipediaEnabled(context)) {
+                                    val wikiLang = targetLang.substringBefore("-").lowercase()
+                                    if (!wikiLang.startsWith("en")) {
+                                        desc = Wikipedia.fetchAlbumInfo(albumTitle, artistName, wikiLang)
+                                    }
+                                    if (desc == null) {
+                                        desc = Wikipedia.fetchAlbumInfo(albumTitle, artistName, "en")
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
