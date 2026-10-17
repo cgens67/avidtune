@@ -13,6 +13,7 @@ import com.cgens67.avidtune.db.MusicDatabase
 import com.cgens67.avidtune.ui.component.LocaleManager
 import com.cgens67.avidtune.utils.AvidDescriptionProvider
 import com.cgens67.avidtune.utils.TranslationHelper
+import com.cgens67.avidtune.utils.Wikipedia
 import com.cgens67.avidtune.utils.reportException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -54,19 +55,39 @@ class ArtistViewModel @Inject constructor(
                 .onSuccess {
                     artistPage = it
 
-                    // 1. Try AvidDescriptions first
-                    val customDesc = if (AvidDescriptionProvider.isEnabled(context)) {
-                        withContext(Dispatchers.IO) {
-                            AvidDescriptionProvider.getArtistDescription(
-                                artistId = artistId,
-                                channelId = it.artist.channelId,
-                                artistName = it.artist.title
-                            )
-                        }
-                    } else null
+                    var resolvedDesc: String? = null
 
-                    // 2. Fallback to YouTube Music description
-                    val rawDesc = customDesc ?: it.description?.substringBefore("From Wikipedia")?.trim()
+                    if (AvidDescriptionProvider.isMasterEnabled(context)) {
+                        val order = AvidDescriptionProvider.getOrderedProviders(context)
+                        for (provider in order) {
+                            if (resolvedDesc != null) break
+                            when (provider) {
+                                "AvidDescriptions" -> {
+                                    if (AvidDescriptionProvider.isAvidEnabled(context)) {
+                                        resolvedDesc = withContext(Dispatchers.IO) {
+                                            AvidDescriptionProvider.getArtistDescription(
+                                                artistId = artistId,
+                                                channelId = it.artist.channelId,
+                                                artistName = it.artist.title
+                                            )
+                                        }
+                                    }
+                                }
+                                "YouTube Music" -> {
+                                    if (AvidDescriptionProvider.isYouTubeMusicEnabled(context)) {
+                                        resolvedDesc = it.description?.substringBefore("From Wikipedia")?.trim()?.takeIf { d -> d.isNotBlank() }
+                                    }
+                                }
+                                "Wikipedia" -> {
+                                    if (AvidDescriptionProvider.isWikipediaEnabled(context)) {
+                                        resolvedDesc = it.description?.trim()?.takeIf { d -> d.isNotBlank() }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    val rawDesc = resolvedDesc ?: it.description?.substringBefore("From Wikipedia")?.trim()
                     if (!rawDesc.isNullOrBlank()) {
                         originalDescription.value = rawDesc
                         canTranslate.value = true
@@ -76,10 +97,9 @@ class ArtistViewModel @Inject constructor(
                     }
                 }.onFailure {
                     reportException(it)
-                    // If YouTube API fails, attempt AvidDescriptions via cached library info
                     viewModelScope.launch(Dispatchers.IO) {
                         val fallbackName = libraryArtist.value?.artist?.name.orEmpty()
-                        val customDesc = if (fallbackName.isNotBlank() && AvidDescriptionProvider.isEnabled(context)) {
+                        val customDesc = if (fallbackName.isNotBlank() && AvidDescriptionProvider.isMasterEnabled(context) && AvidDescriptionProvider.isAvidEnabled(context)) {
                             AvidDescriptionProvider.getArtistDescription(
                                 artistId = artistId,
                                 channelId = libraryArtist.value?.artist?.channelId,
