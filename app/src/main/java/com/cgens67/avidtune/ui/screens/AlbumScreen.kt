@@ -862,87 +862,81 @@ fun AlbumScreen(
             }
         }
 
-        // Top App Bar
+        // Top App Bar - Completely transparent with floating pill shapes
         TopAppBar(
             title = {
                 if (selection) {
                     val count = wrappedSongs.count { it.isSelected }
-                    Text(
-                        text = pluralStringResource(R.plurals.n_song, count, count),
-                        style = MaterialTheme.typography.titleLarge
-                    )
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = pluralStringResource(R.plurals.n_song, count, count),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                        )
+                    }
                 }
             },
             navigationIcon = {
-                if (selection) {
-                    IconButton(
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.padding(start = 8.dp)
+                ) {
+                    com.cgens67.avidtune.ui.component.IconButton(
                         onClick = {
-                            selection = false
-                            wrappedSongs.forEach { it.isSelected = false }
-                        }
+                            if (selection) {
+                                selection = false
+                                wrappedSongs.forEach { it.isSelected = false }
+                            } else {
+                                navController.navigateUp()
+                            }
+                        },
+                        onLongClick = {
+                            if (!selection) {
+                                navController.backToMain()
+                            }
+                        },
                     ) {
                         Icon(
-                            painter = painterResource(R.drawable.close),
-                            contentDescription = stringResource(R.string.close),
-                            tint = MaterialTheme.colorScheme.onSurface
+                            painter = painterResource(
+                                if (selection) R.drawable.close else R.drawable.arrow_back
+                            ),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                    }
-                } else {
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        modifier = Modifier.padding(start = 8.dp)
-                    ) {
-                        com.cgens67.avidtune.ui.component.IconButton(
-                            onClick = { navController.navigateUp() },
-                            onLongClick = { navController.backToMain() },
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.arrow_back),
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
                     }
                 }
             },
             actions = {
                 if (selection) {
                     val count = wrappedSongs.count { it.isSelected }
-                    IconButton(
-                        onClick = {
-                            val selectAll = count != wrappedSongs.size
-                            wrappedSongs.forEach { it.isSelected = selectAll }
-                        },
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.padding(end = 6.dp)
                     ) {
-                        Icon(
-                            painter = painterResource(
-                                if (count == wrappedSongs.size) R.drawable.deselect else R.drawable.select_all
-                            ),
-                            contentDescription = null
-                        )
+                        IconButton(
+                            onClick = {
+                                val selectAll = count != wrappedSongs.size
+                                wrappedSongs.forEach { it.isSelected = selectAll }
+                            },
+                        ) {
+                            Icon(
+                                painter = painterResource(
+                                    if (count == wrappedSongs.size) R.drawable.deselect else R.drawable.select_all
+                                ),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
 
-                    IconButton(
-                        onClick = {
-                            menuState.show {
-                                SelectionSongMenu(
-                                    songSelection = wrappedSongs.filter { it.isSelected }.map { it.item },
-                                    onDismiss = menuState::dismiss,
-                                    clearAction = {
-                                        selection = false
-                                        wrappedSongs.forEach { it.isSelected = false }
-                                    }
-                                )
-                            }
-                        },
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.more_vert),
-                            contentDescription = null
-                        )
-                    }
-                } else {
                     Surface(
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -950,26 +944,30 @@ fun AlbumScreen(
                     ) {
                         IconButton(
                             onClick = {
-                                val link = albumData?.album?.playlistId?.let { "https://music.youtube.com/playlist?list=$it" }
-                                    ?: albumData?.album?.id?.let { "https://music.youtube.com/browse/$it" }
-                                if (link != null) {
-                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    val clip = ClipData.newPlainText("Album Link", link)
-                                    clipboard.setPrimaryClip(clip)
-                                    Toast.makeText(context, R.string.link_copied, Toast.LENGTH_SHORT).show()
+                                menuState.show {
+                                    SelectionSongMenu(
+                                        songSelection = wrappedSongs.filter { it.isSelected }.map { it.item },
+                                        onDismiss = menuState::dismiss,
+                                        clearAction = {
+                                            selection = false
+                                            wrappedSongs.forEach { it.isSelected = false }
+                                        }
+                                    )
                                 }
                             },
                         ) {
                             Icon(
-                                painterResource(R.drawable.link),
+                                painter = painterResource(R.drawable.more_vert),
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
-                }
-            },
-            colors = if (selection) {
+                } else {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+      colors = if (selection) {
                 TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
                     titleContentColor = MaterialTheme.colorScheme.onSurface,
