@@ -611,65 +611,52 @@ fun ArtistScreen(
                                             overflow = TextOverflow.Ellipsis
                                         )
 
-                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Spacer(modifier = Modifier.height(10.dp))
 
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            horizontalArrangement = Arrangement.SpaceBetween
                                         ) {
-                                            if (!descriptionProvider.isNullOrBlank()) {
-                                                Surface(
-                                                    shape = RoundedCornerShape(12.dp),
-                                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                                                ) {
-                                                    Row(
-                                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                                    ) {
-                                                        Icon(
-                                                            painter = painterResource(
-                                                                when (descriptionProvider) {
-                                                                    "Wikipedia" -> R.drawable.language
-                                                                    "YouTube Music" -> R.drawable.play
-                                                                    else -> R.drawable.info
-                                                                }
-                                                            ),
-                                                            contentDescription = null,
-                                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                                                            modifier = Modifier.size(12.dp)
-                                                        )
-                                                        Text(
-                                                            text = stringResource(R.string.fetched_by, descriptionProvider!!),
-                                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                                                            fontWeight = FontWeight.Medium,
-                                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                                                        )
-                                                    }
-                                                }
-                                            }
-
+                                            // Left: Translate action (if available)
                                             if (canTranslate || isTranslated) {
                                                 Row(
                                                     modifier = Modifier
                                                         .clip(RoundedCornerShape(8.dp))
                                                         .clickable { viewModel.toggleDescriptionTranslation() }
-                                                        .padding(vertical = 4.dp, horizontal = 4.dp),
+                                                        .padding(vertical = 4.dp, horizontal = 2.dp),
                                                     verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                                                 ) {
                                                     Icon(
                                                         painter = painterResource(R.drawable.translate),
                                                         contentDescription = null,
                                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        modifier = Modifier.size(14.dp)
+                                                        modifier = Modifier.size(16.dp)
                                                     )
                                                     Text(
                                                         text = if (isTranslated) stringResource(R.string.show_original) else stringResource(R.string.Translate),
-                                                        style = MaterialTheme.typography.labelSmall,
+                                                        style = MaterialTheme.typography.labelMedium,
                                                         fontWeight = FontWeight.SemiBold,
                                                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                }
+                                            } else {
+                                                Spacer(modifier = Modifier.width(1.dp))
+                                            }
+
+                                            // Right: Provider pill without "Fetched by"
+                                            if (!descriptionProvider.isNullOrBlank()) {
+                                                Surface(
+                                                    shape = RoundedCornerShape(50),
+                                                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f),
+                                                ) {
+                                                    Text(
+                                                        text = descriptionProvider!!,
+                                                        style = MaterialTheme.typography.labelMedium,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
                                                     )
                                                 }
                                             }
@@ -682,7 +669,7 @@ fun ArtistScreen(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(top = 8.dp, bottom = 16.dp),
+                                    .padding(top = 12.dp, bottom = 16.dp),
                                 horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
                             ) {
                                 // Subscribe Button
@@ -801,7 +788,11 @@ fun ArtistScreen(
                                             playerConnection.playQueue(YouTubeQueue(shuffleEndpoint))
                                         },
                                         modifier = Modifier.weight(1f).semantics { role = Role.Button },
-                                        shapes = ButtonGroupDefaults.connectedTrailingButtonShapes(),
+                                        shapes = if (artistPage.artist.radioEndpoint != null) {
+                                            ButtonGroupDefaults.connectedTrailingButtonShapes()
+                                        } else {
+                                            ButtonGroupDefaults.connectedTrailingButtonShapes()
+                                        },
                                         colors = ToggleButtonDefaults.toggleButtonColors(
                                             containerColor = MaterialTheme.colorScheme.surfaceVariant,
                                             contentColor = MaterialTheme.colorScheme.onSurfaceVariant
