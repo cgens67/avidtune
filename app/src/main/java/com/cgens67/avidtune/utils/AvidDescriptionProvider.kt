@@ -1,7 +1,12 @@
 package com.cgens67.avidtune.utils
 
 import android.content.Context
+import com.cgens67.avidtune.constants.EnableAppleMusicDescriptionsKey
 import com.cgens67.avidtune.constants.EnableAvidDescriptionsKey
+import com.cgens67.avidtune.constants.EnableDescriptionsKey
+import com.cgens67.avidtune.constants.EnableWikipediaDescriptionsKey
+import com.cgens67.avidtune.constants.EnableYouTubeMusicDescriptionsKey
+import com.cgens67.avidtune.constants.DescriptionProviderOrderKey
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
@@ -16,6 +21,8 @@ object AvidDescriptionProvider {
     private const val GITHUB_REPO = "avidtune-descriptions"
     private const val GITHUB_BRANCH = "main"
 
+    val defaultProviders = listOf("AvidDescriptions", "Apple Music", "Wikipedia", "YouTube Music")
+
     private val client by lazy {
         HttpClient(CIO) {
             install(HttpTimeout) {
@@ -26,8 +33,27 @@ object AvidDescriptionProvider {
         }
     }
 
-    suspend fun isEnabled(context: Context): Boolean =
+    suspend fun isMasterEnabled(context: Context): Boolean =
+        context.dataStore.data.first()[EnableDescriptionsKey] ?: true
+
+    suspend fun isAvidEnabled(context: Context): Boolean =
         context.dataStore.data.first()[EnableAvidDescriptionsKey] ?: true
+
+    suspend fun isAppleMusicEnabled(context: Context): Boolean =
+        context.dataStore.data.first()[EnableAppleMusicDescriptionsKey] ?: true
+
+    suspend fun isWikipediaEnabled(context: Context): Boolean =
+        context.dataStore.data.first()[EnableWikipediaDescriptionsKey] ?: true
+
+    suspend fun isYouTubeMusicEnabled(context: Context): Boolean =
+        context.dataStore.data.first()[EnableYouTubeMusicDescriptionsKey] ?: true
+
+    suspend fun getOrderedProviders(context: Context): List<String> {
+        val saved = context.dataStore.data.first()[DescriptionProviderOrderKey] ?: return defaultProviders
+        val savedList = saved.split(",").filter { it.isNotBlank() }
+        val missing = defaultProviders.filter { it !in savedList }
+        return savedList + missing
+    }
 
     private fun normalize(str: String): String {
         val clean = str.substringBefore("(").substringBefore("[").trim()
@@ -37,11 +63,13 @@ object AvidDescriptionProvider {
     }
 
     /**
-     * Resolves album description with the following priority order:
-     * 1. albums/artists/{artist}/{playlistId}.txt
-     * 2. albums/artists/{artist}/{albumTitle}.txt
+     * Resolves album description with the requested path hierarchy:
+     * 1. albums/artists/{artist}/{playlistId}.txt (e.g. albums/artists/michael_jackson/OLAK5uy_l1U925dsiDi2DqlG-KCbODG6BaibpxbQE.txt)
+     * 2. albums/artists/{artist}/{album_title}.txt (e.g. albums/artists/michael_jackson/thriller.txt)
      * 3. albums/artists/{artist}/{albumId}.txt
-     * 4. Fallbacks without artist subfolder (albums/{id}.txt, albums/{title}.txt)
+     * 4. albums/{playlistId}.txt
+     * 5. albums/{album_title}.txt
+     * 6. albums/{albumId}.txt
      */
     suspend fun getAlbumDescription(
         albumId: String,
@@ -70,7 +98,7 @@ object AvidDescriptionProvider {
             }
         }
 
-        // Global fallback paths
+        // Global fallback without artist folder
         if (!playlistId.isNullOrBlank()) {
             paths.add("albums/$playlistId.txt")
         }
@@ -93,17 +121,16 @@ object AvidDescriptionProvider {
                     }
                 }
             } catch (_: Exception) {
-                // Try next path
             }
         }
         null
     }.getOrNull()
 
     /**
-     * Resolves artist description with priority:
-     * 1. artists/{channelId}.txt (e.g. UCoIOOL7QKuBhQHVKL8y7BEQ.txt)
+     * Resolves artist description with the requested path hierarchy:
+     * 1. artists/{channelId}.txt (e.g. artists/UCoIOOL7QKuBhQHVKL8y7BEQ.txt)
      * 2. artists/{artistId}.txt
-     * 3. artists/{artistName}.txt (e.g. michael_jackson.txt)
+     * 3. artists/{artistName}.txt (e.g. artists/michael_jackson.txt)
      */
     suspend fun getArtistDescription(
         artistId: String,
@@ -135,7 +162,6 @@ object AvidDescriptionProvider {
                     }
                 }
             } catch (_: Exception) {
-                // Try next path
             }
         }
         null
