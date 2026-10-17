@@ -43,6 +43,7 @@ constructor(
 
     val originalDescription = MutableStateFlow<String?>(null)
     val albumDescription = MutableStateFlow<String?>(null)
+    val descriptionProvider = MutableStateFlow<String?>(null)
     val isTranslated = MutableStateFlow(false)
     val canTranslate = MutableStateFlow(false)
     val isExplicit = MutableStateFlow(false)
@@ -123,51 +124,61 @@ constructor(
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                if (!AvidDescriptionProvider.isMasterEnabled(context)) {
+                    originalDescription.value = null
+                    albumDescription.value = null
+                    descriptionProvider.value = null
+                    canTranslate.value = false
+                    return@launch
+                }
+
                 var desc: String? = null
+                var providerName: String? = null
 
-                if (AvidDescriptionProvider.isMasterEnabled(context)) {
-                    val order = AvidDescriptionProvider.getOrderedProviders(context)
-                    val pId = playlistId.value.takeIf { it.isNotBlank() }
-                        ?: database.album(albumId).first()?.album?.playlistId
+                val order = AvidDescriptionProvider.getOrderedProviders(context)
+                val pId = playlistId.value.takeIf { it.isNotBlank() }
+                    ?: database.album(albumId).first()?.album?.playlistId
 
-                    val targetLang = resolveTargetLanguage(context)
-                    val storefront = runCatching { YouTube.locale.gl.lowercase() }
-                        .getOrNull()
-                        ?.takeIf { it.length == 2 && it != "system" }
-                        ?: Locale.getDefault().country.lowercase().takeIf { it.length == 2 }
-                        ?: "us"
+                val targetLang = resolveTargetLanguage(context)
+                val storefront = runCatching { YouTube.locale.gl.lowercase() }
+                    .getOrNull()
+                    ?.takeIf { it.length == 2 && it != "system" }
+                    ?: Locale.getDefault().country.lowercase().takeIf { it.length == 2 }
+                    ?: "us"
 
-                    for (provider in order) {
-                        if (desc != null) break
-                        when (provider) {
-                            "AvidDescriptions" -> {
-                                if (AvidDescriptionProvider.isAvidEnabled(context)) {
-                                    desc = AvidDescriptionProvider.getAlbumDescription(
-                                        albumId = albumId,
-                                        playlistId = pId,
-                                        albumTitle = albumTitle,
-                                        artistName = artistName
-                                    )
-                                }
+                for (provider in order) {
+                    if (desc != null) break
+                    when (provider) {
+                        "AvidDescriptions" -> {
+                            if (AvidDescriptionProvider.isAvidEnabled(context)) {
+                                desc = AvidDescriptionProvider.getAlbumDescription(
+                                    albumId = albumId,
+                                    playlistId = pId,
+                                    albumTitle = albumTitle,
+                                    artistName = artistName
+                                )
+                                if (desc != null) providerName = "AvidDescriptions"
                             }
-                            "Apple Music" -> {
-                                if (AvidDescriptionProvider.isAppleMusicEnabled(context)) {
-                                    desc = AppleMusicAboutAlbum.fetchAlbumDescription(albumTitle, artistName, storefront, targetLang)
-                                    if (desc == null) {
-                                        desc = AppleMusicAboutAlbum.fetchAlbumDescription(albumTitle, artistName, "us", "en-US")
-                                    }
+                        }
+                        "Apple Music" -> {
+                            if (AvidDescriptionProvider.isAppleMusicEnabled(context)) {
+                                desc = AppleMusicAboutAlbum.fetchAlbumDescription(albumTitle, artistName, storefront, targetLang)
+                                if (desc == null) {
+                                    desc = AppleMusicAboutAlbum.fetchAlbumDescription(albumTitle, artistName, "us", "en-US")
                                 }
+                                if (desc != null) providerName = "Apple Music"
                             }
-                            "Wikipedia" -> {
-                                if (AvidDescriptionProvider.isWikipediaEnabled(context)) {
-                                    val wikiLang = targetLang.substringBefore("-").lowercase()
-                                    if (!wikiLang.startsWith("en")) {
-                                        desc = Wikipedia.fetchAlbumInfo(albumTitle, artistName, wikiLang)
-                                    }
-                                    if (desc == null) {
-                                        desc = Wikipedia.fetchAlbumInfo(albumTitle, artistName, "en")
-                                    }
+                        }
+                        "Wikipedia" -> {
+                            if (AvidDescriptionProvider.isWikipediaEnabled(context)) {
+                                val wikiLang = targetLang.substringBefore("-").lowercase()
+                                if (!wikiLang.startsWith("en")) {
+                                    desc = Wikipedia.fetchAlbumInfo(albumTitle, artistName, wikiLang)
                                 }
+                                if (desc == null) {
+                                    desc = Wikipedia.fetchAlbumInfo(albumTitle, artistName, "en")
+                                }
+                                if (desc != null) providerName = "Wikipedia"
                             }
                         }
                     }
@@ -175,9 +186,9 @@ constructor(
 
                 if (desc != null) {
                     originalDescription.value = desc
+                    descriptionProvider.value = providerName
                     canTranslate.value = true
 
-                    val targetLang = resolveTargetLanguage(context)
                     val detectedLang = runCatching { TranslationHelper.detectLanguage(desc.take(200)) }.getOrNull()?.lowercase()
                     val targetBase = targetLang.substringBefore("-").lowercase()
 
@@ -200,6 +211,11 @@ constructor(
                         albumDescription.value = desc
                         isTranslated.value = false
                     }
+                } else {
+                    originalDescription.value = null
+                    albumDescription.value = null
+                    descriptionProvider.value = null
+                    canTranslate.value = false
                 }
             } finally {
                 isFetchingDescription = false
