@@ -41,6 +41,7 @@ class ArtistViewModel @Inject constructor(
 
     val originalDescription = MutableStateFlow<String?>(null)
     val artistDescription = MutableStateFlow<String?>(null)
+    val descriptionProvider = MutableStateFlow<String?>(null)
     val isTranslated = MutableStateFlow(false)
     val canTranslate = MutableStateFlow(false)
     val isDescriptionLoading = MutableStateFlow(true)
@@ -56,6 +57,7 @@ class ArtistViewModel @Inject constructor(
                     artistPage = it
 
                     var resolvedDesc: String? = null
+                    var resolvedProvider: String? = null
 
                     if (AvidDescriptionProvider.isMasterEnabled(context)) {
                         val order = AvidDescriptionProvider.getOrderedProviders(context)
@@ -64,42 +66,69 @@ class ArtistViewModel @Inject constructor(
                             when (provider) {
                                 "AvidDescriptions" -> {
                                     if (AvidDescriptionProvider.isAvidEnabled(context)) {
-                                        resolvedDesc = withContext(Dispatchers.IO) {
+                                        val d = withContext(Dispatchers.IO) {
                                             AvidDescriptionProvider.getArtistDescription(
                                                 artistId = artistId,
                                                 channelId = it.artist.channelId,
                                                 artistName = it.artist.title
                                             )
                                         }
+                                        if (!d.isNullOrBlank()) {
+                                            resolvedDesc = d
+                                            resolvedProvider = "AvidDescriptions"
+                                        }
                                     }
                                 }
                                 "YouTube Music" -> {
                                     if (AvidDescriptionProvider.isYouTubeMusicEnabled(context)) {
-                                        resolvedDesc = it.description?.substringBefore("From Wikipedia")?.trim()?.takeIf { d -> d.isNotBlank() }
+                                        val d = it.description?.substringBefore("From Wikipedia")?.trim()?.takeIf { s -> s.isNotBlank() }
+                                        if (!d.isNullOrBlank()) {
+                                            resolvedDesc = d
+                                            resolvedProvider = "YouTube Music"
+                                        }
                                     }
                                 }
                                 "Wikipedia" -> {
                                     if (AvidDescriptionProvider.isWikipediaEnabled(context)) {
-                                        resolvedDesc = it.description?.trim()?.takeIf { d -> d.isNotBlank() }
+                                        if (it.description?.contains("From Wikipedia", ignoreCase = true) == true) {
+                                            val d = it.description?.substringBefore("From Wikipedia")?.trim()?.ifBlank { it.description?.trim() }
+                                            if (!d.isNullOrBlank()) {
+                                                resolvedDesc = d
+                                                resolvedProvider = "Wikipedia"
+                                            }
+                                        } else {
+                                            val wikiDesc = withContext(Dispatchers.IO) {
+                                                Wikipedia.fetchArtistInfo(it.artist.title)
+                                            }
+                                            if (!wikiDesc.isNullOrBlank()) {
+                                                resolvedDesc = wikiDesc
+                                                resolvedProvider = "Wikipedia"
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
                     }
 
-                    val rawDesc = resolvedDesc ?: it.description?.substringBefore("From Wikipedia")?.trim()
-                    if (!rawDesc.isNullOrBlank()) {
-                        originalDescription.value = rawDesc
+                    if (!resolvedDesc.isNullOrBlank()) {
+                        originalDescription.value = resolvedDesc
+                        descriptionProvider.value = resolvedProvider
                         canTranslate.value = true
-                        processTranslation(rawDesc)
+                        processTranslation(resolvedDesc)
                     } else {
+                        originalDescription.value = null
+                        artistDescription.value = null
+                        descriptionProvider.value = null
+                        canTranslate.value = false
                         isDescriptionLoading.value = false
                     }
                 }.onFailure {
                     reportException(it)
                     viewModelScope.launch(Dispatchers.IO) {
+                        val isMaster = AvidDescriptionProvider.isMasterEnabled(context)
                         val fallbackName = libraryArtist.value?.artist?.name.orEmpty()
-                        val customDesc = if (fallbackName.isNotBlank() && AvidDescriptionProvider.isMasterEnabled(context) && AvidDescriptionProvider.isAvidEnabled(context)) {
+                        val customDesc = if (isMaster && fallbackName.isNotBlank() && AvidDescriptionProvider.isAvidEnabled(context)) {
                             AvidDescriptionProvider.getArtistDescription(
                                 artistId = artistId,
                                 channelId = libraryArtist.value?.artist?.channelId,
@@ -109,9 +138,14 @@ class ArtistViewModel @Inject constructor(
 
                         if (!customDesc.isNullOrBlank()) {
                             originalDescription.value = customDesc
+                            descriptionProvider.value = "AvidDescriptions"
                             canTranslate.value = true
                             processTranslation(customDesc)
                         } else {
+                            originalDescription.value = null
+                            artistDescription.value = null
+                            descriptionProvider.value = null
+                            canTranslate.value = false
                             isDescriptionLoading.value = false
                         }
                     }
