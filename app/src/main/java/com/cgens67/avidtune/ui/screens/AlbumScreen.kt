@@ -142,6 +142,7 @@ import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.CoverResolution
 import com.cgens67.avidtune.constants.CoverResolutionKey
+import com.cgens67.avidtune.constants.EnableDescriptionsKey
 import com.cgens67.avidtune.db.entities.Album
 import com.cgens67.avidtune.db.entities.AlbumWithSongs
 import com.cgens67.avidtune.extensions.togglePlayPause
@@ -162,6 +163,7 @@ import com.cgens67.avidtune.ui.utils.ItemWrapper
 import com.cgens67.avidtune.ui.utils.backToMain
 import com.cgens67.avidtune.ui.utils.resize
 import com.cgens67.avidtune.utils.rememberEnumPreference
+import com.cgens67.avidtune.utils.rememberPreference
 import com.cgens67.avidtune.viewmodels.AlbumViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -201,10 +203,13 @@ fun AlbumScreen(
         defaultValue = CoverResolution.RES_1080
     )
 
+    val (enableDescriptions) = rememberPreference(EnableDescriptionsKey, defaultValue = true)
+
     val playlistId by viewModel.playlistId.collectAsState()
     val albumWithSongs by viewModel.albumWithSongs.collectAsState()
     val otherVersions by viewModel.otherVersions.collectAsState()
     val albumDescription by viewModel.albumDescription.collectAsState()
+    val descriptionProvider by viewModel.descriptionProvider.collectAsState()
     val isTranslated by viewModel.isTranslated.collectAsState()
     val canTranslate by viewModel.canTranslate.collectAsState()
     val isExplicit by viewModel.isExplicit.collectAsState()
@@ -228,8 +233,10 @@ fun AlbumScreen(
 
     var isDescriptionLoading by remember { mutableStateOf(true) }
 
-    LaunchedEffect(albumWithSongs?.album?.id) {
-        if (albumWithSongs != null) {
+    LaunchedEffect(albumWithSongs?.album?.id, enableDescriptions) {
+        if (!enableDescriptions) {
+            isDescriptionLoading = false
+        } else if (albumWithSongs != null) {
             if (albumDescription == null) {
                 isDescriptionLoading = true
                 delay(8000)
@@ -765,8 +772,10 @@ fun AlbumScreen(
                             isPlaying = isPlaying,
                             isCurrentAlbum = isCurrentAlbum,
                             downloadState = downloadState,
+                            enableDescriptions = enableDescriptions,
                             isDescriptionLoading = isDescriptionLoading,
                             albumDescription = albumDescription,
+                            descriptionProvider = descriptionProvider,
                             isTranslated = isTranslated,
                             canTranslate = canTranslate,
                             isExplicit = isExplicit,
@@ -831,8 +840,10 @@ fun AlbumScreen(
                             isPlaying = isPlaying,
                             isCurrentAlbum = isCurrentAlbum,
                             downloadState = downloadState,
+                            enableDescriptions = enableDescriptions,
                             isDescriptionLoading = isDescriptionLoading,
                             albumDescription = albumDescription,
+                            descriptionProvider = descriptionProvider,
                             isTranslated = isTranslated,
                             canTranslate = canTranslate,
                             isExplicit = isExplicit,
@@ -1028,8 +1039,10 @@ private fun AlbumHeaderContent(
     isPlaying: Boolean,
     isCurrentAlbum: Boolean,
     downloadState: Int,
+    enableDescriptions: Boolean,
     isDescriptionLoading: Boolean,
     albumDescription: String?,
+    descriptionProvider: String?,
     isTranslated: Boolean,
     canTranslate: Boolean,
     isExplicit: Boolean,
@@ -1365,65 +1378,96 @@ private fun AlbumHeaderContent(
             }
         }
 
-        // Description
-        if (isDescriptionLoading) {
-            ShimmerHost(modifier = Modifier.padding(horizontal = horizontalPadding, vertical = 12.dp)) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Spacer(modifier = Modifier.fillMaxWidth().height(12.dp).background(MaterialTheme.colorScheme.onSurface, RoundedCornerShape(6.dp)))
-                    Spacer(modifier = Modifier.fillMaxWidth(0.7f).height(12.dp).background(MaterialTheme.colorScheme.onSurface, RoundedCornerShape(6.dp)))
+        // Description Section: Controlled by EnableDescriptionsKey
+        if (enableDescriptions) {
+            if (isDescriptionLoading) {
+                ShimmerHost(modifier = Modifier.padding(horizontal = horizontalPadding, vertical = 12.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Spacer(modifier = Modifier.fillMaxWidth().height(12.dp).background(MaterialTheme.colorScheme.onSurface, RoundedCornerShape(6.dp)))
+                        Spacer(modifier = Modifier.fillMaxWidth(0.7f).height(12.dp).background(MaterialTheme.colorScheme.onSurface, RoundedCornerShape(6.dp)))
+                    }
                 }
-            }
-        } else {
-            var isDescExpanded by rememberSaveable { mutableStateOf(false) }
-            val fallbackRes = when (releaseType) {
-                AlbumReleaseType.ALBUM -> R.string.album_fallback_description
-                AlbumReleaseType.SINGLE -> R.string.single_fallback_description
-                AlbumReleaseType.EP -> R.string.ep_fallback_description
-            }
-            val staticDesc = stringResource(
-                fallbackRes,
-                cleanAlbumTitle,
-                albumData.artists.joinToString { it.name }
-            )
-            val desc = albumDescription ?: staticDesc
+            } else if (!albumDescription.isNullOrBlank()) {
+                var isDescExpanded by rememberSaveable { mutableStateOf(false) }
+                val desc = albumDescription
 
-            Text(
-                text = desc,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                    .padding(horizontal = horizontalPadding)
-                    .padding(top = 8.dp)
-                    .fillMaxWidth()
-                    .clickable { isDescExpanded = !isDescExpanded }
-                    .animateContentSize(),
-                maxLines = if (isDescExpanded) Int.MAX_VALUE else 3,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            if (canTranslate || isTranslated) {
-                Row(
+                Text(
+                    text = desc,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
                         .padding(horizontal = horizontalPadding)
-                        .padding(top = 4.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { onToggleTranslation() }
-                        .padding(vertical = 4.dp, horizontal = 4.dp),
+                        .padding(top = 8.dp)
+                        .fillMaxWidth()
+                        .clickable { isDescExpanded = !isDescExpanded }
+                        .animateContentSize(),
+                    maxLines = if (isDescExpanded) Int.MAX_VALUE else 3,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = horizontalPadding)
+                        .padding(top = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(
-                        painter = painterResource(R.drawable.translate),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Text(
-                        text = if (isTranslated) stringResource(R.string.show_original) else stringResource(R.string.Translate),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                    if (!descriptionProvider.isNullOrBlank()) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    painter = painterResource(
+                                        when (descriptionProvider) {
+                                            "Wikipedia" -> R.drawable.language
+                                            "Apple Music" -> R.drawable.apple
+                                            else -> R.drawable.info
+                                        }
+                                    ),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Text(
+                                    text = stringResource(R.string.fetched_by, descriptionProvider),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                                )
+                            }
+                        }
+                    }
+
+                    if (canTranslate || isTranslated) {
+                        Row(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { onToggleTranslation() }
+                                .padding(vertical = 4.dp, horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.translate),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Text(
+                                text = if (isTranslated) stringResource(R.string.show_original) else stringResource(R.string.Translate),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
                 }
             }
         }
