@@ -1392,5 +1392,15 @@
     <string name="lyrics_share_logo_position">Logo位置</string>
     <string name="lyrics_share_logo_size">Logo大小</string>
     <string name="lyrics_share_pattern_opacity">图案不透明度</string>
+    
+    <!-- Descriptions Settings -->
+    <string name="descriptions_title">启用简介</string>
+    <string name="descriptions_desc">显示来自在线来源的艺人和专辑简介</string>
+    <string name="avid_descriptions_desc">从 AvidDescriptions 获取简介</string>
+    <string name="apple_music_desc">从 Apple Music 获取编辑附注与简介</string>
+    <string name="wikipedia_desc">从维基百科获取摘要与背景信息</string>
+    <string name="ytm_desc">从 YouTube Music 获取艺人传记和简介</string>
+    <string name="description_provider_priority">简介源优先级</string>
+    <string name="description_provider_priority_desc">拖动以调整简介来源的偏好顺序</string>
 
 </resources>
