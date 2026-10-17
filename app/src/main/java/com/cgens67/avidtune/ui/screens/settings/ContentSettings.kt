@@ -387,7 +387,7 @@ fun ContentSettings(
                             SwitchPreference(
                                 title = { Text("Apple Music") },
                                 description = stringResource(R.string.apple_music_desc),
-                                icon = { Icon(painterResource(R.drawable.apple), null) },
+                                icon = { Icon(painterResource(R.drawable.info), null) },
                                 checked = enableAppleMusicDescriptions,
                                 onCheckedChange = onEnableAppleMusicDescriptionsChange
                             )
