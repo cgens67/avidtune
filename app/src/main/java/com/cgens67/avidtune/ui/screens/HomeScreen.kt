@@ -383,7 +383,7 @@ fun HomeScreen(
                         selected = false,
                         onClick = { navController.navigate("apple_music_trending") },
                         label = { Text(stringResource(R.string.trending)) },
-                        leadingIcon = { Icon(painterResource(R.drawable.apple), null, modifier = Modifier.size(18.dp).offset(y = (-0.9).dp)) },
+                        leadingIcon = { Icon(painterResource(R.drawable.trending_up), null, modifier = Modifier.size(18.dp)) },
                         shape = RoundedCornerShape(16.dp),
                         border = null,
                         colors = FilterChipDefaults.filterChipColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
