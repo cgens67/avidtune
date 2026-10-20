@@ -1320,7 +1320,7 @@
     <string name="sort_important_first">Important first</string>
     <string name="sort_prefix">Sort: %1$s</string>
     
-    <string name="player_design">Player design</string>
+    <string name="player_design">Player design style</string>
     <string name="player_design_classic">Classic (v1)</string>
     <string name="player_design_modern">Modern (v2)</string>
     <string name="slider_expanding">Expanding</string>
