@@ -37,6 +37,7 @@ import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR
+import androidx.media3.datasource.cache.ContentMetadata
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultRenderersFactory
@@ -1238,25 +1239,35 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     private fun createDataSourceFactory(): DataSource.Factory {
         return ResolvingDataSource.Factory(createCacheDataSource()) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")
-            val length = if (dataSpec.length >= 0) dataSpec.length else 1L
 
-            // If cached in downloadCache or playerCache, serve directly from local storage
-            val isCached = downloadCache.isCached(mediaId, dataSpec.position, length) ||
-                    playerCache.isCached(mediaId, dataSpec.position, length)
-
-            if (isCached) {
-                scope.launch(Dispatchers.IO) {
-                    recoverSong(mediaId)
-                }
+            // If URI is already a valid remote URL, no need to resolve again
+            if (dataSpec.uri.scheme == "http" || dataSpec.uri.scheme == "https") {
                 return@Factory dataSpec
             }
 
-            // Always provide the resolved HTTP URL so cache misses never hit an invalid URI
+            // 1. If we have an unexpired resolved stream URL in cache, attach it immediately.
+            // CacheDataSource will still read cached bytes from disk, but if it hits a cache
+            // miss, it will stream from the network instead of failing with an invalid file path.
             songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
                 scope.launch(Dispatchers.IO) {
                     recoverSong(mediaId)
                 }
                 return@Factory dataSpec.withUri(it.first.toUri())
+            }
+
+            // 2. Only bypass network resolution if the song is 100% fully downloaded offline,
+            // meaning CacheDataSource is guaranteed to never request upstream network data.
+            val downloadContentLength = ContentMetadata.getContentLength(downloadCache.getContentMetadata(mediaId))
+            val isFullyDownloaded = downloadContentLength > 0L && downloadCache.isCached(mediaId, 0L, downloadContentLength)
+
+            val playerContentLength = ContentMetadata.getContentLength(playerCache.getContentMetadata(mediaId))
+            val isFullyPlayerCached = playerContentLength > 0L && playerCache.isCached(mediaId, 0L, playerContentLength)
+
+            if (isFullyDownloaded || (!isNetworkConnected.value && isFullyPlayerCached)) {
+                scope.launch(Dispatchers.IO) {
+                    recoverSong(mediaId)
+                }
+                return@Factory dataSpec
             }
             
             val ytLogTag = "YouTube"
