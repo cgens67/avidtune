@@ -1844,6 +1844,7 @@ fun MusicTogetherScreen(
 
 // --- HOST SECTION CARD ---
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun HostSectionCard(
     displayName: String, 
@@ -1904,23 +1905,54 @@ private fun HostSectionCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 18.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(horizontal = 18.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)
             ) {
-                FilterChip(
-                    selected = isOnline,
-                    onClick = { onModeChange(true) },
-                    label = { Text(stringResource(R.string.together_mode_worldwide)) },
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(1f)
-                )
-                FilterChip(
-                    selected = !isOnline,
-                    onClick = { onModeChange(false) },
-                    label = { Text(stringResource(R.string.together_mode_lan)) },
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(1f)
-                )
+                ToggleButton(
+                    checked = isOnline,
+                    onCheckedChange = { if (it) onModeChange(true) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics { role = Role.RadioButton },
+                    shapes = ButtonGroupDefaults.connectedLeadingButtonShapes()
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.language),
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(R.string.together_mode_worldwide),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                ToggleButton(
+                    checked = !isOnline,
+                    onCheckedChange = { if (it) onModeChange(false) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics { role = Role.RadioButton },
+                    shapes = ButtonGroupDefaults.connectedTrailingButtonShapes()
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.wifi_proxy),
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(R.string.together_mode_lan),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
 
             SettingsDivider()
