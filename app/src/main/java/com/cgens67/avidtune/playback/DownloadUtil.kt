@@ -7,6 +7,7 @@ import androidx.core.net.toUri
 import androidx.media3.database.DatabaseProvider
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.cache.CacheDataSource
+import androidx.media3.datasource.cache.ContentMetadata
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.offline.Download
@@ -68,14 +69,19 @@ constructor(
                 ),
         ) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")
-            val length = if (dataSpec.length >= 0) dataSpec.length else 1
 
-            if (playerCache.isCached(mediaId, dataSpec.position, length)) {
+            if (dataSpec.uri.scheme == "http" || dataSpec.uri.scheme == "https") {
                 return@Factory dataSpec
             }
 
             songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
                 return@Factory dataSpec.withUri(it.first.toUri())
+            }
+
+            val playerContentLength = ContentMetadata.getContentLength(playerCache.getContentMetadata(mediaId))
+            val isFullyCached = playerContentLength > 0L && playerCache.isCached(mediaId, 0L, playerContentLength)
+            if (isFullyCached) {
+                return@Factory dataSpec
             }
 
             val playbackData = runBlocking(Dispatchers.IO) {
