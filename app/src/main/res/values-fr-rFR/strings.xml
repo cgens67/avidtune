@@ -1417,6 +1417,6 @@
     <string name="together_status_worldwide_guest">Invité mondial</string>
     <string name="together_status_lan_guest">Invité LAN</string>
     <string name="together_share_pin_worldwide">Partager le code PIN (Connexion depuis le monde entier)</string>
-    <string name="together_worldwide_invite_link">Lien d'invitation mondial</string>
+    <string name="together_worldwide_invite_link">Lien d\'invitation mondial</string>
 
 </resources>
