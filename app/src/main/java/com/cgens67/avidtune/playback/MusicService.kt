@@ -1238,10 +1238,13 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     private fun createDataSourceFactory(): DataSource.Factory {
         return ResolvingDataSource.Factory(createCacheDataSource()) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")
+            val length = if (dataSpec.length >= 0) dataSpec.length else 1L
 
-            // If completely downloaded, serve from offline cache
-            val isDownloaded = downloadCache.isCached(mediaId, dataSpec.position, if (dataSpec.length >= 0) dataSpec.length else 1)
-            if (isDownloaded) {
+            // If completely downloaded OR cached, serve from offline cache
+            val isDownloaded = downloadCache.isCached(mediaId, dataSpec.position, length)
+            val isCached = playerCache.isCached(mediaId, dataSpec.position, length)
+            
+            if (isDownloaded || isCached) {
                 scope.launch(Dispatchers.IO) {
                     recoverSong(mediaId)
                 }
