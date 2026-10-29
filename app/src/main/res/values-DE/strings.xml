@@ -1418,5 +1418,22 @@
     <string name="ytm_desc">Künstlerbiografien und Beschreibungen von YouTube Music abrufen</string>
     <string name="description_provider_priority">Priorität der Beschreibungsanbieter</string>
     <string name="description_provider_priority_desc">Ziehen, um die Reihenfolge der Quellen anzupassen</string>
+    
+        <!-- Music Together Worldwide Extensions -->
+    <string name="together_mode_worldwide">Weltweit (Cloud)</string>
+    <string name="together_mode_lan">Lokal (Gleiches WLAN)</string>
+    <string name="together_desc_worldwide">Weltweit (Internet-Relay)</string>
+    <string name="together_badge_worldwide">Weltweit</string>
+    <string name="together_badge_lan">LAN</string>
+    <string name="together_relay_server">Relay-Server</string>
+    <string name="together_relay_server_url">Relay-Server-URL</string>
+    <string name="together_default_cloud_server">Standard-Cloud-Server</string>
+    <string name="together_start_worldwide_session">Weltweite Sitzung starten</string>
+    <string name="together_status_worldwide_host">Weltweiter Host</string>
+    <string name="together_status_lan_host">LAN-Host</string>
+    <string name="together_status_worldwide_guest">Weltweiter Gast</string>
+    <string name="together_status_lan_guest">LAN-Gast</string>
+    <string name="together_share_pin_worldwide">PIN teilen (Verbindung weltweit möglich)</string>
+    <string name="together_worldwide_invite_link">Weltweiter Einladungslink</string>
 
 </resources>
