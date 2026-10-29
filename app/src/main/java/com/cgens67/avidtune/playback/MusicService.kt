@@ -1240,11 +1240,11 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             val mediaId = dataSpec.key ?: error("No media id")
             val length = if (dataSpec.length >= 0) dataSpec.length else 1L
 
-            // If completely downloaded OR cached, serve from offline cache
-            val isDownloaded = downloadCache.isCached(mediaId, dataSpec.position, length)
-            val isCached = playerCache.isCached(mediaId, dataSpec.position, length)
-            
-            if (isDownloaded || isCached) {
+            // If cached in downloadCache or playerCache, serve directly from local storage
+            val isCached = downloadCache.isCached(mediaId, dataSpec.position, length) ||
+                    playerCache.isCached(mediaId, dataSpec.position, length)
+
+            if (isCached) {
                 scope.launch(Dispatchers.IO) {
                     recoverSong(mediaId)
                 }
