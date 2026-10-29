@@ -1402,5 +1402,22 @@
     <string name="ytm_desc">从 YouTube Music 获取艺人传记和简介</string>
     <string name="description_provider_priority">简介源优先级</string>
     <string name="description_provider_priority_desc">拖动以调整简介来源的偏好顺序</string>
+    
+        <!-- Music Together Worldwide Extensions -->
+    <string name="together_mode_worldwide">全球 (云端)</string>
+    <string name="together_mode_lan">本地 (同一Wi-Fi)</string>
+    <string name="together_desc_worldwide">全球 (网络中继)</string>
+    <string name="together_badge_worldwide">全球</string>
+    <string name="together_badge_lan">局域网</string>
+    <string name="together_relay_server">中继服务器</string>
+    <string name="together_relay_server_url">中继服务器地址</string>
+    <string name="together_default_cloud_server">默认云端服务器</string>
+    <string name="together_start_worldwide_session">启动全球会话</string>
+    <string name="together_status_worldwide_host">全球房主</string>
+    <string name="together_status_lan_host">局域网房主</string>
+    <string name="together_status_worldwide_guest">全球访客</string>
+    <string name="together_status_lan_guest">局域网访客</string>
+    <string name="together_share_pin_worldwide">分享PIN码 (支持全球任意网络连接)</string>
+    <string name="together_worldwide_invite_link">全球邀请链接</string>
 
 </resources>
