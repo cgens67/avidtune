@@ -1427,4 +1427,21 @@
     <string name="description_provider_priority">Description provider priority</string>
     <string name="description_provider_priority_desc">Drag to adjust the order of description sources</string>
     
+        <!-- Music Together Worldwide Extensions -->
+    <string name="together_mode_worldwide">Worldwide (Cloud)</string>
+    <string name="together_mode_lan">Local (Same Wi-Fi)</string>
+    <string name="together_desc_worldwide">Worldwide (Internet Relay)</string>
+    <string name="together_badge_worldwide">Worldwide</string>
+    <string name="together_badge_lan">LAN</string>
+    <string name="together_relay_server">Relay Server</string>
+    <string name="together_relay_server_url">Relay Server URL</string>
+    <string name="together_default_cloud_server">Default Cloud Server</string>
+    <string name="together_start_worldwide_session">Start Worldwide Session</string>
+    <string name="together_status_worldwide_host">Worldwide Host</string>
+    <string name="together_status_lan_host">LAN Host</string>
+    <string name="together_status_worldwide_guest">Worldwide Guest</string>
+    <string name="together_status_lan_guest">LAN Guest</string>
+    <string name="together_share_pin_worldwide">Share PIN (Connect from anywhere in the world)</string>
+    <string name="together_worldwide_invite_link">Worldwide Invite Link</string>
+    
 </resources>
