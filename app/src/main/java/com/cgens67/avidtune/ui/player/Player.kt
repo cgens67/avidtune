@@ -28,6 +28,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
@@ -97,6 +98,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.toArgb
@@ -120,16 +122,11 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
-import androidx.core.graphics.ColorUtils
-import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.Player.STATE_ENDED
 import androidx.media3.common.Player.STATE_READY
-import androidx.media3.exoplayer.offline.Download
-import androidx.media3.exoplayer.offline.DownloadRequest
-import androidx.media3.exoplayer.offline.DownloadService
 import androidx.navigation.NavController
 import androidx.palette.graphics.Palette
 import coil.ImageLoader
@@ -137,9 +134,10 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.cgens67.avidtune.LocalDatabase
 import com.cgens67.avidtune.LocalDownloadUtil
-import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
 import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
+import com.cgens67.avidtune.constants.CoverResolution
+import com.cgens67.avidtune.constants.CoverResolutionKey
 import com.cgens67.avidtune.constants.DarkModeKey
 import com.cgens67.avidtune.constants.DisableBlurKey
 import com.cgens67.avidtune.constants.MinimalPlayerDesignKey
@@ -156,9 +154,7 @@ import com.cgens67.avidtune.constants.QueuePeekHeight
 import com.cgens67.avidtune.constants.SliderStyle
 import com.cgens67.avidtune.constants.SliderStyleKey
 import com.cgens67.avidtune.constants.SwipeThumbnailKey
-import com.cgens67.avidtune.extensions.toggleRepeatMode
 import com.cgens67.avidtune.models.MediaMetadata
-import com.cgens67.avidtune.playback.ExoDownloadService
 import com.cgens67.avidtune.playback.PlayerConnection
 import com.cgens67.avidtune.ui.component.BottomSheet
 import com.cgens67.avidtune.ui.component.BottomSheetState
@@ -170,18 +166,16 @@ import com.cgens67.avidtune.ui.menu.PlayerMenu
 import com.cgens67.avidtune.ui.screens.settings.DarkMode
 import com.cgens67.avidtune.ui.screens.settings.PlayerTextAlignment
 import com.cgens67.avidtune.ui.theme.PlayerColorExtractor
-import com.cgens67.avidtune.ui.utils.resize
 import com.cgens67.avidtune.utils.makeTimeString
 import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.saket.squiggles.SquigglySlider
-import kotlin.math.roundToInt
+import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -199,6 +193,9 @@ fun BottomSheetPlayer(
 
     val clipboardManager = LocalClipboardManager.current
     val playerConnection = LocalPlayerConnection.current ?: return
+
+    val currentSkipSegments by playerConnection.currentSkipSegments.collectAsState()
+    val sponsorBlockEnabled by playerConnection.sponsorBlockEnabled.collectAsState()
 
     val playerTextAlignment by rememberEnumPreference(
         PlayerTextAlignmentKey,
@@ -239,12 +236,6 @@ fun BottomSheetPlayer(
             else MaterialTheme.colorScheme.surfaceContainer
     }
 
-    val backgroundColor = if (useBlackBackground && state.value > state.collapsedBound) {
-        lerp(MaterialTheme.colorScheme.surfaceContainer, Color.Black, state.progress)
-    } else {
-        MaterialTheme.colorScheme.surfaceContainer
-    }
-
     val playbackState by playerConnection.playbackState.collectAsState()
     val isPlaying by playerConnection.isPlaying.collectAsState()
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
@@ -275,12 +266,6 @@ fun BottomSheetPlayer(
             else emptyList()
         )
     }
-
-    val blurRadius by animateDpAsState(
-        targetValue = if (state.isExpanded && playerBackground == PlayerBackgroundStyle.BLUR) 150.dp else 0.dp,
-        animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing),
-        label = "blurRadius"
-    )
 
     val playerButtonsStyle by rememberEnumPreference(
         key = PlayerButtonsStyleKey,
@@ -393,9 +378,6 @@ fun BottomSheetPlayer(
             MaterialTheme.colorScheme.onTertiary
         )
     }
-
-    val download by LocalDownloadUtil.current.getDownload(mediaMetadata?.id ?: "")
-        .collectAsState(initial = null)
 
     var showDetailsDialog by rememberSaveable {
         mutableStateOf(false)
@@ -722,7 +704,9 @@ fun BottomSheetPlayer(
                                         position = pos
                                     }
                                     sliderPosition = null
-                                }
+                                },
+                                currentSkipSegments = currentSkipSegments,
+                                sponsorBlockEnabled = sponsorBlockEnabled
                             )
 
                             Spacer(Modifier.height(4.dp))
@@ -881,7 +865,9 @@ fun BottomSheetPlayer(
                                     position = pos
                                 }
                                 sliderPosition = null
-                            }
+                            },
+                            currentSkipSegments = currentSkipSegments,
+                            sponsorBlockEnabled = sponsorBlockEnabled
                         )
 
                         Spacer(Modifier.height(4.dp))
@@ -1206,8 +1192,17 @@ fun PlayerSliderV4(
     isPlaying: Boolean,
     textBackgroundColor: Color,
     onValueChange: (Long) -> Unit,
-    onValueChangeFinished: () -> Unit
+    onValueChangeFinished: () -> Unit,
+    currentSkipSegments: List<Pair<Long, Long>> = emptyList(),
+    sponsorBlockEnabled: Boolean = false,
 ) {
+    val sponsorFractions = remember(currentSkipSegments, duration, sponsorBlockEnabled) {
+        if (!sponsorBlockEnabled || duration <= 0L) emptyList()
+        else currentSkipSegments.map { (startMs, endMs) ->
+            (startMs.toFloat() / duration).coerceIn(0f, 1f) to (endMs.toFloat() / duration).coerceIn(0f, 1f)
+        }
+    }
+
     when (sliderStyle) {
         SliderStyle.EXPANDING -> {
             val trackInteractionSource = remember { MutableInteractionSource() }
@@ -1236,7 +1231,8 @@ fun PlayerSliderV4(
                             activeTrackColor = textBackgroundColor,
                             inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
                             thumbColor = textBackgroundColor
-                        )
+                        ),
+                        sponsorSegments = sponsorFractions
                     )
                 },
                 modifier = Modifier.padding(horizontal = PlayerHorizontalPadding),
@@ -1248,6 +1244,18 @@ fun PlayerSliderV4(
                 valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
                 onValueChange = { onValueChange(it.toLong()) },
                 onValueChangeFinished = onValueChangeFinished,
+                track = { sliderState ->
+                    PlayerSliderTrack(
+                        sliderState = sliderState,
+                        trackHeight = 4.dp,
+                        colors = SliderDefaults.colors(
+                            activeTrackColor = textBackgroundColor,
+                            inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
+                            thumbColor = textBackgroundColor
+                        ),
+                        sponsorSegments = sponsorFractions
+                    )
+                },
                 colors = SliderDefaults.colors(
                     activeTrackColor = textBackgroundColor,
                     inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
@@ -1257,23 +1265,55 @@ fun PlayerSliderV4(
             )
         }
         SliderStyle.SQUIGGLY -> {
-            SquigglySlider(
-                value = (sliderPosition ?: position).toFloat(),
-                valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
-                onValueChange = { onValueChange(it.toLong()) },
-                onValueChangeFinished = onValueChangeFinished,
-                colors = SliderDefaults.colors(
-                    activeTrackColor = textBackgroundColor,
-                    inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
-                    thumbColor = textBackgroundColor
-                ),
-                modifier = Modifier.padding(horizontal = PlayerHorizontalPadding),
-                squigglesSpec = SquigglySlider.SquigglesSpec(
-                    amplitude = if (isPlaying) (4.dp).coerceAtLeast(2.dp) else 0.dp,
-                    strokeWidth = 3.dp,
-                    wavelength = 36.dp,
-                ),
-            )
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = PlayerHorizontalPadding)
+            ) {
+                SquigglySlider(
+                    value = (sliderPosition ?: position).toFloat(),
+                    valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
+                    onValueChange = { onValueChange(it.toLong()) },
+                    onValueChangeFinished = onValueChangeFinished,
+                    colors = SliderDefaults.colors(
+                        activeTrackColor = textBackgroundColor,
+                        inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
+                        thumbColor = textBackgroundColor
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    squigglesSpec = SquigglySlider.SquigglesSpec(
+                        amplitude = if (isPlaying) (4.dp).coerceAtLeast(2.dp) else 0.dp,
+                        strokeWidth = 3.dp,
+                        wavelength = 36.dp,
+                    ),
+                )
+                if (sponsorFractions.isNotEmpty()) {
+                    Canvas(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(3.dp)
+                            .padding(horizontal = 10.dp)
+                    ) {
+                        val isRtl = layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl
+                        val sliderStart = if (isRtl) Offset(size.width, center.y) else Offset(0f, center.y)
+                        val sliderEnd = if (isRtl) Offset(0f, center.y) else Offset(size.width, center.y)
+                        for ((startFrac, endFrac) in sponsorFractions) {
+                            val x1 = sliderStart.x + (sliderEnd.x - sliderStart.x) * startFrac
+                            val x2 = sliderStart.x + (sliderEnd.x - sliderStart.x) * endFrac
+                            val minSpan = 4.dp.toPx()
+                            val drawX2 = if (abs(x2 - x1) < minSpan) {
+                                if (isRtl) x1 - minSpan else x1 + minSpan
+                            } else x2
+                            drawLine(
+                                color = Color(0xFF00E676).copy(alpha = 0.85f),
+                                start = Offset(x1, center.y),
+                                end = Offset(drawX2, center.y),
+                                strokeWidth = 3.dp.toPx(),
+                                cap = StrokeCap.Round
+                            )
+                        }
+                    }
+                }
+            }
         }
         SliderStyle.SLIM -> {
             Slider(
@@ -1285,11 +1325,13 @@ fun PlayerSliderV4(
                 track = { sliderState ->
                     PlayerSliderTrack(
                         sliderState = sliderState,
+                        trackHeight = 3.dp,
                         colors = SliderDefaults.colors(
                             activeTrackColor = textBackgroundColor,
                             inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
                             thumbColor = textBackgroundColor
-                        )
+                        ),
+                        sponsorSegments = sponsorFractions
                     )
                 },
                 colors = SliderDefaults.colors(
