@@ -221,44 +221,43 @@ fun PlayerV2Slider(
             )
         }
         SliderStyle.DEFAULT -> {
-            Slider(
-                value = displayValue,
-                valueRange = 0f..maxRange,
-                onValueChange = { value ->
-                    if (!isListenTogetherGuest) {
-                        scrubbedValue = value
-                        onValueChange(value.toLong())
-                    }
-                },
-                onValueChangeFinished = {
-                    if (!isListenTogetherGuest) {
-                        val targetPos = scrubbedValue?.toLong()
-                        if (targetPos != null) {
-                            onSeekTo(targetPos)
-                        }
-                        scrubbedValue = null
-                    }
-                },
-                enabled = !isListenTogetherGuest && maxRange > 0f,
-                track = { sliderState ->
-                    PlayerSliderTrack(
-                        sliderState = sliderState,
-                        trackHeight = 4.dp,
-                        colors = PlayerSliderColors.getSliderColors(
-                            activeColor = adaptivePrimary,
-                            playerBackground = playerBackground,
-                            useDarkTheme = useDarkTheme
-                        ),
-                        sponsorSegments = sponsorFractions
-                    )
-                },
-                colors = SliderDefaults.colors(
-                    activeTrackColor = adaptivePrimary,
-                    inactiveTrackColor = adaptivePrimary.copy(alpha = 0.25f),
-                    thumbColor = adaptivePrimary
-                ),
+            Box(
+                contentAlignment = Alignment.Center,
                 modifier = modifier.fillMaxWidth()
-            )
+            ) {
+                Slider(
+                    value = displayValue,
+                    valueRange = 0f..maxRange,
+                    onValueChange = { value ->
+                        if (!isListenTogetherGuest) {
+                            scrubbedValue = value
+                            onValueChange(value.toLong())
+                        }
+                    },
+                    onValueChangeFinished = {
+                        if (!isListenTogetherGuest) {
+                            val targetPos = scrubbedValue?.toLong()
+                            if (targetPos != null) {
+                                onSeekTo(targetPos)
+                            }
+                            scrubbedValue = null
+                        }
+                    },
+                    enabled = !isListenTogetherGuest && maxRange > 0f,
+                    colors = SliderDefaults.colors(
+                        activeTrackColor = adaptivePrimary,
+                        inactiveTrackColor = adaptivePrimary.copy(alpha = 0.25f),
+                        thumbColor = adaptivePrimary
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                SponsorBlockOverlay(
+                    sponsorSegments = sponsorFractions,
+                    activeProgress = currentProgressFrac,
+                    trackHeight = 4.dp,
+                    thumbOffset = 10.dp
+                )
+            }
         }
         SliderStyle.SQUIGGLY -> {
             Box(
@@ -1733,6 +1732,7 @@ private fun PlayerV2Portrait(
                                                         mediaMetadata = mediaMetadata,
                                                         navController = navController,
                                                         playerBottomSheetState = state,
+                                                        isQueueTrigger = true,
                                                         onShowDetailsDialog = {
                                                             mediaMetadata?.id?.let {
                                                                 bottomSheetPageState.show {
