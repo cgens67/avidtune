@@ -86,21 +86,6 @@ private fun DrawScope.drawTrack(
         trackStrokeWidth,
         StrokeCap.Round
     )
-    val sliderValueEnd = Offset(
-        sliderStart.x + (sliderEnd.x - sliderStart.x) * activeRangeEnd,
-        center.y
-    )
-    val sliderValueStart = Offset(
-        sliderStart.x + (sliderEnd.x - sliderStart.x) * activeRangeStart,
-        center.y
-    )
-    drawLine(
-        activeTrackColor,
-        sliderValueStart,
-        sliderValueEnd,
-        trackStrokeWidth,
-        StrokeCap.Round
-    )
 
     if (sponsorSegments.isNotEmpty()) {
         for ((startFrac, endFrac) in sponsorSegments) {
@@ -124,6 +109,22 @@ private fun DrawScope.drawTrack(
             }
         }
     }
+
+    val sliderValueEnd = Offset(
+        sliderStart.x + (sliderEnd.x - sliderStart.x) * activeRangeEnd,
+        center.y
+    )
+    val sliderValueStart = Offset(
+        sliderStart.x + (sliderEnd.x - sliderStart.x) * activeRangeStart,
+        center.y
+    )
+    drawLine(
+        activeTrackColor,
+        sliderValueStart,
+        sliderValueEnd,
+        trackStrokeWidth,
+        StrokeCap.Round
+    )
 
     for (tick in tickFractions) {
         val outsideFraction = tick > activeRangeEnd || tick < activeRangeStart
