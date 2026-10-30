@@ -169,6 +169,7 @@ fun PlayerV2Slider(
             (startMs.toFloat() / duration).coerceIn(0f, 1f) to (endMs.toFloat() / duration).coerceIn(0f, 1f)
         }
     }
+    val currentProgressFrac = if (maxRange > 0f) (displayValue / maxRange).coerceIn(0f, 1f) else 0f
 
     when (sliderStyle) {
         SliderStyle.EXPANDING -> {
@@ -220,42 +221,44 @@ fun PlayerV2Slider(
             )
         }
         SliderStyle.DEFAULT -> {
-            Box(
-                contentAlignment = Alignment.Center,
+            Slider(
+                value = displayValue,
+                valueRange = 0f..maxRange,
+                onValueChange = { value ->
+                    if (!isListenTogetherGuest) {
+                        scrubbedValue = value
+                        onValueChange(value.toLong())
+                    }
+                },
+                onValueChangeFinished = {
+                    if (!isListenTogetherGuest) {
+                        val targetPos = scrubbedValue?.toLong()
+                        if (targetPos != null) {
+                            onSeekTo(targetPos)
+                        }
+                        scrubbedValue = null
+                    }
+                },
+                enabled = !isListenTogetherGuest && maxRange > 0f,
+                track = { sliderState ->
+                    PlayerSliderTrack(
+                        sliderState = sliderState,
+                        trackHeight = 4.dp,
+                        colors = PlayerSliderColors.getSliderColors(
+                            activeColor = adaptivePrimary,
+                            playerBackground = playerBackground,
+                            useDarkTheme = useDarkTheme
+                        ),
+                        sponsorSegments = sponsorFractions
+                    )
+                },
+                colors = SliderDefaults.colors(
+                    activeTrackColor = adaptivePrimary,
+                    inactiveTrackColor = adaptivePrimary.copy(alpha = 0.25f),
+                    thumbColor = adaptivePrimary
+                ),
                 modifier = modifier.fillMaxWidth()
-            ) {
-                Slider(
-                    value = displayValue,
-                    valueRange = 0f..maxRange,
-                    onValueChange = { value ->
-                        if (!isListenTogetherGuest) {
-                            scrubbedValue = value
-                            onValueChange(value.toLong())
-                        }
-                    },
-                    onValueChangeFinished = {
-                        if (!isListenTogetherGuest) {
-                            val targetPos = scrubbedValue?.toLong()
-                            if (targetPos != null) {
-                                onSeekTo(targetPos)
-                            }
-                            scrubbedValue = null
-                        }
-                    },
-                    enabled = !isListenTogetherGuest && maxRange > 0f,
-                    colors = SliderDefaults.colors(
-                        activeTrackColor = adaptivePrimary,
-                        inactiveTrackColor = adaptivePrimary.copy(alpha = 0.25f),
-                        thumbColor = adaptivePrimary
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                SponsorBlockOverlay(
-                    sponsorSegments = sponsorFractions,
-                    trackHeight = 4.dp,
-                    thumbOffset = 10.dp
-                )
-            }
+            )
         }
         SliderStyle.SQUIGGLY -> {
             Box(
@@ -295,6 +298,7 @@ fun PlayerV2Slider(
                 )
                 SponsorBlockOverlay(
                     sponsorSegments = sponsorFractions,
+                    activeProgress = currentProgressFrac,
                     trackHeight = 3.dp,
                     thumbOffset = 10.dp
                 )
@@ -324,10 +328,10 @@ fun PlayerV2Slider(
                 track = { sliderState ->
                     PlayerSliderTrack(
                         sliderState = sliderState,
-                        colors = SliderDefaults.colors(
-                            activeTrackColor = adaptivePrimary,
-                            inactiveTrackColor = adaptivePrimary.copy(alpha = 0.25f),
-                            thumbColor = adaptivePrimary
+                        colors = PlayerSliderColors.getSliderColors(
+                            activeColor = adaptivePrimary,
+                            playerBackground = playerBackground,
+                            useDarkTheme = useDarkTheme
                         ),
                         trackHeight = 3.dp,
                         sponsorSegments = sponsorFractions
