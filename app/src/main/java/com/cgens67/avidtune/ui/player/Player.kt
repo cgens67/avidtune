@@ -1216,32 +1216,31 @@ fun PlayerSliderV4(
             )
         }
         SliderStyle.DEFAULT -> {
-            Slider(
-                value = (sliderPosition ?: position).toFloat(),
-                valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
-                onValueChange = { onValueChange(it.toLong()) },
-                onValueChangeFinished = onValueChangeFinished,
-                track = { sliderState ->
-                    PlayerSliderTrack(
-                        sliderState = sliderState,
-                        trackHeight = 4.dp,
-                        colors = SliderDefaults.colors(
-                            activeTrackColor = textBackgroundColor,
-                            inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
-                            thumbColor = textBackgroundColor
-                        ),
-                        sponsorSegments = sponsorFractions
-                    )
-                },
-                colors = SliderDefaults.colors(
-                    activeTrackColor = textBackgroundColor,
-                    inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
-                    thumbColor = textBackgroundColor
-                ),
+            Box(
+                contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = PlayerHorizontalPadding),
-            )
+                    .padding(horizontal = PlayerHorizontalPadding)
+            ) {
+                Slider(
+                    value = (sliderPosition ?: position).toFloat(),
+                    valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
+                    onValueChange = { onValueChange(it.toLong()) },
+                    onValueChangeFinished = onValueChangeFinished,
+                    colors = SliderDefaults.colors(
+                        activeTrackColor = textBackgroundColor,
+                        inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
+                        thumbColor = textBackgroundColor
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                SponsorBlockOverlay(
+                    sponsorSegments = sponsorFractions,
+                    activeProgress = currentProgressFrac,
+                    trackHeight = 4.dp,
+                    thumbOffset = 10.dp
+                )
+            }
         }
         SliderStyle.SQUIGGLY -> {
             Box(
@@ -1294,11 +1293,6 @@ fun PlayerSliderV4(
                         sponsorSegments = sponsorFractions
                     )
                 },
-                colors = SliderDefaults.colors(
-                    activeTrackColor = textBackgroundColor,
-                    inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
-                    thumbColor = textBackgroundColor
-                ),
                 modifier = Modifier.padding(horizontal = PlayerHorizontalPadding)
             )
         }
