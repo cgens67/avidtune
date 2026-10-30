@@ -1418,5 +1418,19 @@
     <string name="together_status_lan_guest">Invité LAN</string>
     <string name="together_share_pin_worldwide">Partager le code PIN (Connexion depuis le monde entier)</string>
     <string name="together_worldwide_invite_link">Lien d\'invitation mondial</string>
+    
+    <!-- Descriptions des fournisseurs de paroles -->
+    <string name="enable_avid_lyrics_desc">Dépôt communautaire pour AvidTune incluant des paroles synchronisées</string>
+    <string name="enable_lyrics_plus_desc">API TTML communautaire prenant en charge la synchronisation mot à mot et plusieurs voix</string>
+    <string name="enable_better_lyrics_desc">Vaste catalogue prenant en charge les paroles synchronisées et mot à mot</string>
+    <string name="enable_simpmusic_desc">Fournisseur rapide de paroles synchronisées avec minutage mot à mot</string>
+    <string name="enable_paxsenix_desc">Fournisseur fiable pour les paroles synchronisées ligne par ligne</string>
+    <string name="enable_binilyrics_desc">Fournisseur basé sur TTML pour les paroles synchronisées et la romanisation</string>
+    <string name="enable_lrclib_desc">Base de données communautaire ouverte pour les paroles synchronisées ligne par ligne</string>
+    <string name="enable_kugou_desc">Fournisseur chinois ; catalogue étendu mais sans paroles synchronisées mot à mot</string>
+    <string name="enable_netease_desc">Fournisseur chinois avec un vaste catalogue de musique asiatique ; synchronisation ligne par ligne uniquement</string>
+    <string name="enable_genius_desc">Base de données collaborative fournissant des paroles en texte brut non synchronisées</string>
+    <string name="enable_yt_subtitle_desc">Sous-titres extraits des transcriptions de vidéos YouTube</string>
+    <string name="enable_yt_music_lyrics_desc">Paroles statiques officielles du catalogue YouTube Music</string>
 
 </resources>
