@@ -8,6 +8,7 @@ import com.cgens67.avidtune.models.MediaMetadata
 import com.cgens67.avidtune.utils.dataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 import java.util.Collections
 import javax.inject.Inject
@@ -57,19 +58,28 @@ constructor(
         lyricsProviders.forEach { provider ->
             if (provider.isEnabled(context)) {
                 try {
-                    provider
-                        .getLyrics(
+                    val result = withTimeoutOrNull(PROVIDER_TIMEOUT_MS) {
+                        provider.getLyrics(
                             mediaMetadata.id,
                             mediaMetadata.title,
                             mediaMetadata.artists.joinToString { it.name },
                             mediaMetadata.duration,
-                        ).onSuccess { lyrics ->
+                        )
+                    }
+
+                    if (result == null) {
+                        Timber.w("Lyrics provider ${provider.name} timed out after ${PROVIDER_TIMEOUT_MS}ms")
+                    } else {
+                        result.onSuccess { lyrics ->
                             if (lyrics.isNotBlank() && lyrics != LYRICS_NOT_FOUND) {
-                                return LyricsResult(provider.name, lyrics)
+                                val lyricsResult = LyricsResult(provider.name, lyrics)
+                                cache.put(mediaMetadata.id, listOf(lyricsResult))
+                                return lyricsResult
                             }
                         }.onFailure {
                             // Suppress failure and continue to the next provider
                         }
+                    }
                 } catch (e: Throwable) {
                     Timber.e(e, "Error fetching lyrics from ${provider.name}")
                 }
@@ -99,11 +109,13 @@ constructor(
         lyricsProviders.forEach { provider ->
             if (provider.isEnabled(context)) {
                 try {
-                    provider.getAllLyrics(mediaId, songTitle, songArtists, duration) { lyrics ->
-                        if (lyrics.isNotBlank() && lyrics != LYRICS_NOT_FOUND) {
-                            val result = LyricsResult(provider.name, lyrics)
-                            allResult += result
-                            callback(result)
+                    withTimeoutOrNull(PROVIDER_TIMEOUT_MS) {
+                        provider.getAllLyrics(mediaId, songTitle, songArtists, duration) { lyrics ->
+                            if (lyrics.isNotBlank() && lyrics != LYRICS_NOT_FOUND) {
+                                val result = LyricsResult(provider.name, lyrics)
+                                allResult += result
+                                callback(result)
+                            }
                         }
                     }
                 } catch (e: Throwable) {
@@ -116,6 +128,7 @@ constructor(
 
     companion object {
         private const val MAX_CACHE_SIZE = 3
+        private const val PROVIDER_TIMEOUT_MS = 4000L
     }
 }
 
