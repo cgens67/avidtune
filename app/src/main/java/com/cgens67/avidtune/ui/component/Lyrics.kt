@@ -1451,7 +1451,8 @@ fun Lyrics(
                                             playerConnection.player.playWhenReady = true
                                         } else {
                                             if (isPlaying) playerConnection.player.pause() else playerConnection.player.play()
-                                        }}
+                                        }
+                                    }
                             ) {
                                 currentMetadata?.let { metadata ->
                                     AsyncImage(
@@ -1637,39 +1638,41 @@ fun Lyrics(
 
                 when (sliderStyle) {
                     SliderStyle.DEFAULT -> {
-                        Slider(
-                            value = (sliderPosition ?: position).toFloat(),
-                            valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
-                            onValueChange = { sliderPosition = it.toLong() },
-                            onValueChangeFinished = {
-                                sliderPosition?.let {
-                                    playerConnection.player.seekTo(it)
-                                    position = it
-                                }
-                                sliderPosition = null
-                            },
-                            track = { sliderState ->
-                                PlayerSliderTrack(
-                                    sliderState = sliderState,
-                                    trackHeight = 4.dp,
-                                    colors = androidx.compose.material3.SliderDefaults.colors(
-                                        activeTrackColor = textBackgroundColor,
-                                        inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
-                                        thumbColor = textBackgroundColor
-                                    ),
-                                    sponsorSegments = sponsorFractions
-                                )
-                            },
-                            colors = androidx.compose.material3.SliderDefaults.colors(
-                                activeTrackColor = textBackgroundColor,
-                                inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
-                                thumbColor = textBackgroundColor
-                            ),
-                        )
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Slider(
+                                value = (sliderPosition ?: position).toFloat(),
+                                valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
+                                onValueChange = { sliderPosition = it.toLong() },
+                                onValueChangeFinished = {
+                                    sliderPosition?.let {
+                                        playerConnection.player.seekTo(it)
+                                        position = it
+                                    }
+                                    sliderPosition = null
+                                },
+                                colors = androidx.compose.material3.SliderDefaults.colors(
+                                    activeTrackColor = textBackgroundColor,
+                                    inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
+                                    thumbColor = textBackgroundColor
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            SponsorBlockOverlay(
+                                sponsorSegments = sponsorFractions,
+                                trackHeight = 4.dp,
+                                thumbOffset = 10.dp
+                            )
+                        }
                     }
 
                     SliderStyle.SQUIGGLY -> {
-                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth()) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
                             SquigglySlider(
                                 value = (sliderPosition ?: position).toFloat(),
                                 valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
@@ -1693,33 +1696,11 @@ fun Lyrics(
                                 ),
                                 modifier = Modifier.fillMaxWidth()
                             )
-                            if (sponsorFractions.isNotEmpty()) {
-                                Canvas(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(3.dp)
-                                        .padding(horizontal = 10.dp)
-                                ) {
-                                    val isRtl = layoutDirection == LayoutDirection.Rtl
-                                    val sliderStart = if (isRtl) Offset(size.width, center.y) else Offset(0f, center.y)
-                                    val sliderEnd = if (isRtl) Offset(0f, center.y) else Offset(size.width, center.y)
-                                    for ((startFrac, endFrac) in sponsorFractions) {
-                                        val x1 = sliderStart.x + (sliderEnd.x - sliderStart.x) * startFrac
-                                        val x2 = sliderStart.x + (sliderEnd.x - sliderStart.x) * endFrac
-                                        val minSpan = 4.dp.toPx()
-                                        val drawX2 = if (abs(x2 - x1) < minSpan) {
-                                            if (isRtl) x1 - minSpan else x1 + minSpan
-                                        } else x2
-                                        drawLine(
-                                            color = Color(0xFF00E676).copy(alpha = 0.85f),
-                                            start = Offset(x1, center.y),
-                                            end = Offset(drawX2, center.y),
-                                            strokeWidth = 3.dp.toPx(),
-                                            cap = StrokeCap.Round
-                                        )
-                                    }
-                                }
-                            }
+                            SponsorBlockOverlay(
+                                sponsorSegments = sponsorFractions,
+                                trackHeight = 3.dp,
+                                thumbOffset = 10.dp
+                            )
                         }
                     }
 
