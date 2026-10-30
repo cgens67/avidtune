@@ -118,6 +118,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -449,17 +450,6 @@ fun Lyrics(
     val useDarkTheme = remember(darkTheme, isSystemInDarkTheme) {
         if (darkTheme == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON
     }
-
-    var progress by remember { mutableFloatStateOf(0f) }
-    val animatedProgress by animateFloatAsState(
-        targetValue = progress,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessVeryLow,
-            visibilityThreshold = 1 / 1000f,
-        ),
-        label = "animatedProgress"
-    )
 
     var position by rememberSaveable(playbackState) { mutableLongStateOf(playerConnection.player.currentPosition) }
     var duration by rememberSaveable(playbackState) { mutableLongStateOf(playerConnection.player.duration) }
@@ -1016,6 +1006,7 @@ fun Lyrics(
                                     contentScale = ContentScale.Crop,
                                     alignment = Alignment.BottomEnd,
                                     colorFilter = ColorFilter.colorMatrix(saturationMatrix),
+                                    filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .let { if (blurAmount > 0.dp) it.blur(blurAmount) else it }
@@ -1460,8 +1451,7 @@ fun Lyrics(
                                             playerConnection.player.playWhenReady = true
                                         } else {
                                             if (isPlaying) playerConnection.player.pause() else playerConnection.player.play()
-                                        }
-                                    }
+                                        }}
                             ) {
                                 currentMetadata?.let { metadata ->
                                     AsyncImage(
@@ -1638,6 +1628,13 @@ fun Lyrics(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
+                val sponsorFractions = remember(currentSkipSegments, duration, sponsorBlockEnabled) {
+                    if (!sponsorBlockEnabled || duration <= 0L) emptyList()
+                    else currentSkipSegments.map { (startMs, endMs) ->
+                        (startMs.toFloat() / duration).coerceIn(0f, 1f) to (endMs.toFloat() / duration).coerceIn(0f, 1f)
+                    }
+                }
+
                 when (sliderStyle) {
                     SliderStyle.DEFAULT -> {
                         Slider(
@@ -1651,6 +1648,18 @@ fun Lyrics(
                                 }
                                 sliderPosition = null
                             },
+                            track = { sliderState ->
+                                PlayerSliderTrack(
+                                    sliderState = sliderState,
+                                    trackHeight = 4.dp,
+                                    colors = androidx.compose.material3.SliderDefaults.colors(
+                                        activeTrackColor = textBackgroundColor,
+                                        inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
+                                        thumbColor = textBackgroundColor
+                                    ),
+                                    sponsorSegments = sponsorFractions
+                                )
+                            },
                             colors = androidx.compose.material3.SliderDefaults.colors(
                                 activeTrackColor = textBackgroundColor,
                                 inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
@@ -1660,28 +1669,58 @@ fun Lyrics(
                     }
 
                     SliderStyle.SQUIGGLY -> {
-                        SquigglySlider(
-                            value = (sliderPosition ?: position).toFloat(),
-                            valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
-                            onValueChange = { sliderPosition = it.toLong() },
-                            onValueChangeFinished = {
-                                sliderPosition?.let {
-                                    playerConnection.player.seekTo(it)
-                                    position = it
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth()) {
+                            SquigglySlider(
+                                value = (sliderPosition ?: position).toFloat(),
+                                valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
+                                onValueChange = { sliderPosition = it.toLong() },
+                                onValueChangeFinished = {
+                                    sliderPosition?.let {
+                                        playerConnection.player.seekTo(it)
+                                        position = it
+                                    }
+                                    sliderPosition = null
+                                },
+                                colors = androidx.compose.material3.SliderDefaults.colors(
+                                    activeTrackColor = textBackgroundColor,
+                                    inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
+                                    thumbColor = textBackgroundColor
+                                ),
+                                squigglesSpec = SquigglySlider.SquigglesSpec(
+                                    amplitude = if (isPlaying && animateLyrics) (4.dp).coerceAtLeast(2.dp) else 0.dp,
+                                    strokeWidth = 3.dp,
+                                    wavelength = 36.dp,
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            if (sponsorFractions.isNotEmpty()) {
+                                Canvas(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(3.dp)
+                                        .padding(horizontal = 10.dp)
+                                ) {
+                                    val isRtl = layoutDirection == LayoutDirection.Rtl
+                                    val sliderStart = if (isRtl) Offset(size.width, center.y) else Offset(0f, center.y)
+                                    val sliderEnd = if (isRtl) Offset(0f, center.y) else Offset(size.width, center.y)
+                                    for ((startFrac, endFrac) in sponsorFractions) {
+                                        val x1 = sliderStart.x + (sliderEnd.x - sliderStart.x) * startFrac
+                                        val x2 = sliderStart.x + (sliderEnd.x - sliderStart.x) * endFrac
+                                        val minSpan = 4.dp.toPx()
+                                        val drawX2 = if (abs(x2 - x1) < minSpan) {
+                                            if (isRtl) x1 - minSpan else x1 + minSpan
+                                        } else x2
+                                        drawLine(
+                                            color = Color(0xFF00E676).copy(alpha = 0.85f),
+                                            start = Offset(x1, center.y),
+                                            end = Offset(drawX2, center.y),
+                                            strokeWidth = 3.dp.toPx(),
+                                            cap = StrokeCap.Round
+                                        )
+                                    }
                                 }
-                                sliderPosition = null
-                            },
-                            colors = androidx.compose.material3.SliderDefaults.colors(
-                                activeTrackColor = textBackgroundColor,
-                                inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
-                                thumbColor = textBackgroundColor
-                            ),
-                            squigglesSpec = SquigglySlider.SquigglesSpec(
-                                amplitude = if (isPlaying && animateLyrics) (4.dp).coerceAtLeast(2.dp) else 0.dp,
-                                strokeWidth = 3.dp,
-                                wavelength = 36.dp,
-                            ),
-                        )
+                            }
+                        }
                     }
 
                     SliderStyle.SLIM -> {
@@ -1705,7 +1744,8 @@ fun Lyrics(
                                         activeTrackColor = textBackgroundColor,
                                         inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
                                         thumbColor = textBackgroundColor
-                                    )
+                                    ),
+                                    sponsorSegments = sponsorFractions
                                 )
                             },
                             colors = androidx.compose.material3.SliderDefaults.colors(
@@ -1749,7 +1789,8 @@ fun Lyrics(
                                         activeTrackColor = textBackgroundColor,
                                         inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
                                         thumbColor = textBackgroundColor
-                                    )
+                                    ),
+                                    sponsorSegments = sponsorFractions
                                 )
                             }
                         )
@@ -1937,7 +1978,6 @@ fun GapIndicator(
         }
     }
 }
-
 
 private fun calculateAutoSwipeThreshold(swipeSensitivity: Float): Int {
     return (600 / (1f + exp(-(-11.44748 * swipeSensitivity + 9.04945)))).roundToInt()
