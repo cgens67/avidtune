@@ -155,9 +155,9 @@ fun PlayerV2Slider(
     useDarkTheme: Boolean,
     onValueChange: (Long) -> Unit,
     onSeekTo: (Long) -> Unit,
-    modifier: Modifier = Modifier,
     currentSkipSegments: List<Pair<Long, Long>> = emptyList(),
     sponsorBlockEnabled: Boolean = false,
+    modifier: Modifier = Modifier
 ) {
     var scrubbedValue by remember { mutableStateOf<Float?>(null) }
     val maxRange = if (duration == C.TIME_UNSET || duration <= 0L) 0f else duration.toFloat()
@@ -220,44 +220,42 @@ fun PlayerV2Slider(
             )
         }
         SliderStyle.DEFAULT -> {
-            Slider(
-                value = displayValue,
-                valueRange = 0f..maxRange,
-                onValueChange = { value ->
-                    if (!isListenTogetherGuest) {
-                        scrubbedValue = value
-                        onValueChange(value.toLong())
-                    }
-                },
-                onValueChangeFinished = {
-                    if (!isListenTogetherGuest) {
-                        val targetPos = scrubbedValue?.toLong()
-                        if (targetPos != null) {
-                            onSeekTo(targetPos)
-                        }
-                        scrubbedValue = null
-                    }
-                },
-                enabled = !isListenTogetherGuest && maxRange > 0f,
-                track = { sliderState ->
-                    PlayerSliderTrack(
-                        sliderState = sliderState,
-                        trackHeight = 4.dp,
-                        colors = SliderDefaults.colors(
-                            activeTrackColor = adaptivePrimary,
-                            inactiveTrackColor = adaptivePrimary.copy(alpha = 0.25f),
-                            thumbColor = adaptivePrimary
-                        ),
-                        sponsorSegments = sponsorFractions
-                    )
-                },
-                colors = SliderDefaults.colors(
-                    activeTrackColor = adaptivePrimary,
-                    inactiveTrackColor = adaptivePrimary.copy(alpha = 0.25f),
-                    thumbColor = adaptivePrimary
-                ),
+            Box(
+                contentAlignment = Alignment.Center,
                 modifier = modifier.fillMaxWidth()
-            )
+            ) {
+                Slider(
+                    value = displayValue,
+                    valueRange = 0f..maxRange,
+                    onValueChange = { value ->
+                        if (!isListenTogetherGuest) {
+                            scrubbedValue = value
+                            onValueChange(value.toLong())
+                        }
+                    },
+                    onValueChangeFinished = {
+                        if (!isListenTogetherGuest) {
+                            val targetPos = scrubbedValue?.toLong()
+                            if (targetPos != null) {
+                                onSeekTo(targetPos)
+                            }
+                            scrubbedValue = null
+                        }
+                    },
+                    enabled = !isListenTogetherGuest && maxRange > 0f,
+                    colors = SliderDefaults.colors(
+                        activeTrackColor = adaptivePrimary,
+                        inactiveTrackColor = adaptivePrimary.copy(alpha = 0.25f),
+                        thumbColor = adaptivePrimary
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                SponsorBlockOverlay(
+                    sponsorSegments = sponsorFractions,
+                    trackHeight = 4.dp,
+                    thumbOffset = 10.dp
+                )
+            }
         }
         SliderStyle.SQUIGGLY -> {
             Box(
@@ -295,33 +293,11 @@ fun PlayerV2Slider(
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
-                if (sponsorFractions.isNotEmpty()) {
-                    Canvas(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(3.dp)
-                            .padding(horizontal = 10.dp)
-                    ) {
-                        val isRtl = layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl
-                        val sliderStart = if (isRtl) Offset(size.width, center.y) else Offset(0f, center.y)
-                        val sliderEnd = if (isRtl) Offset(0f, center.y) else Offset(size.width, center.y)
-                        for ((startFrac, endFrac) in sponsorFractions) {
-                            val x1 = sliderStart.x + (sliderEnd.x - sliderStart.x) * startFrac
-                            val x2 = sliderStart.x + (sliderEnd.x - sliderStart.x) * endFrac
-                            val minSpan = 4.dp.toPx()
-                            val drawX2 = if (abs(x2 - x1) < minSpan) {
-                                if (isRtl) x1 - minSpan else x1 + minSpan
-                            } else x2
-                            drawLine(
-                                color = Color(0xFF00E676).copy(alpha = 0.85f),
-                                start = Offset(x1, center.y),
-                                end = Offset(drawX2, center.y),
-                                strokeWidth = 3.dp.toPx(),
-                                cap = StrokeCap.Round
-                            )
-                        }
-                    }
-                }
+                SponsorBlockOverlay(
+                    sponsorSegments = sponsorFractions,
+                    trackHeight = 3.dp,
+                    thumbOffset = 10.dp
+                )
             }
         }
         SliderStyle.SLIM -> {
@@ -650,7 +626,6 @@ private fun PlayerV2Landscape(
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (currentUiState == PlayerInternalState.COVER) {
-                // Left Side: Hero Album Artwork
                 Box(
                     modifier = Modifier
                         .weight(0.95f)
@@ -679,7 +654,6 @@ private fun PlayerV2Landscape(
                             )
                     ) {
                         if (isAppleMusicBg) {
-                            // Hidden when Apple Music background style is active
                         } else if (hidePlayerThumbnail) {
                             Box(
                                 modifier = Modifier.fillMaxSize(),
@@ -709,7 +683,6 @@ private fun PlayerV2Landscape(
                     }
                 }
 
-                // Right Side: Title, Actions, Slider, Controls, Utility Bar
                 Column(
                     modifier = Modifier
                         .weight(1.05f)
@@ -719,7 +692,6 @@ private fun PlayerV2Landscape(
                     verticalArrangement = Arrangement.SpaceBetween,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Top Action Bar in Right Pane
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -784,7 +756,6 @@ private fun PlayerV2Landscape(
                         }
                     }
 
-                    // Title and Artist Info
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.Start
@@ -820,7 +791,6 @@ private fun PlayerV2Landscape(
                         )
                     }
 
-                    // Slider & Time
                     Column(modifier = Modifier.fillMaxWidth()) {
                         PlayerV2Slider(
                             sliderStyle = sliderStyle,
@@ -857,7 +827,6 @@ private fun PlayerV2Landscape(
                         }
                     }
 
-                    // 5-Button Transport Controls: Shuffle, Previous, Play/Pause, Next, Repeat
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly,
@@ -960,7 +929,6 @@ private fun PlayerV2Landscape(
                         }
                     }
 
-                    // Volume slider row (hidden if minimal player design is enabled)
                     if (!minimalPlayerDesign) {
                         var volumeSliderPosition by remember { mutableStateOf<Float?>(null) }
                         val currentEffectiveVolume = volumeSliderPosition ?: (if (isMuted) 0f else playerVolume)
@@ -1018,7 +986,6 @@ private fun PlayerV2Landscape(
                         }
                     }
 
-                    // Bottom utility bar: Queue on left, Lyrics in center, Loop on right
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(vertical = if (minimalPlayerDesign) 2.dp else 4.dp),
                         horizontalArrangement = Arrangement.SpaceEvenly,
@@ -1063,7 +1030,6 @@ private fun PlayerV2Landscape(
                     }
                 }
             } else {
-                // Split layout for LYRICS or QUEUE in landscape
                 Column(
                     modifier = Modifier
                         .weight(if (minimalPlayerDesign) 0.8f else 0.85f)
@@ -1462,7 +1428,6 @@ private fun PlayerV2Portrait(
                                     )
                             ) {
                                 if (isAppleMusicBg) {
-                                    // Hidden when Apple Music background style is active
                                 } else if (hidePlayerThumbnail) {
                                     Box(
                                         modifier = Modifier.fillMaxSize(),
@@ -2123,7 +2088,6 @@ private fun PlayerV2Portrait(
                         }
                     }
 
-                    // Bottom utility bar: Queue on left, Lyrics in center, Loop on right
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
