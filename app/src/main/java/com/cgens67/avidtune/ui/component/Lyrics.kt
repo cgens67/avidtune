@@ -1638,37 +1638,40 @@ fun Lyrics(
 
                 when (sliderStyle) {
                     SliderStyle.DEFAULT -> {
-                        Box(
-                            contentAlignment = Alignment.Center,
+                        Slider(
+                            value = (sliderPosition ?: position).toFloat(),
+                            valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
+                            onValueChange = { sliderPosition = it.toLong() },
+                            onValueChangeFinished = {
+                                sliderPosition?.let {
+                                    playerConnection.player.seekTo(it)
+                                    position = it
+                                }
+                                sliderPosition = null
+                            },
+                            track = { sliderState ->
+                                PlayerSliderTrack(
+                                    sliderState = sliderState,
+                                    trackHeight = 4.dp,
+                                    colors = androidx.compose.material3.SliderDefaults.colors(
+                                        activeTrackColor = textBackgroundColor,
+                                        inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
+                                        thumbColor = textBackgroundColor
+                                    ),
+                                    sponsorSegments = sponsorFractions
+                                )
+                            },
+                            colors = androidx.compose.material3.SliderDefaults.colors(
+                                activeTrackColor = textBackgroundColor,
+                                inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
+                                thumbColor = textBackgroundColor
+                            ),
                             modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Slider(
-                                value = (sliderPosition ?: position).toFloat(),
-                                valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
-                                onValueChange = { sliderPosition = it.toLong() },
-                                onValueChangeFinished = {
-                                    sliderPosition?.let {
-                                        playerConnection.player.seekTo(it)
-                                        position = it
-                                    }
-                                    sliderPosition = null
-                                },
-                                colors = androidx.compose.material3.SliderDefaults.colors(
-                                    activeTrackColor = textBackgroundColor,
-                                    inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
-                                    thumbColor = textBackgroundColor
-                                ),
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            SponsorBlockOverlay(
-                                sponsorSegments = sponsorFractions,
-                                trackHeight = 4.dp,
-                                thumbOffset = 10.dp
-                            )
-                        }
+                        )
                     }
 
                     SliderStyle.SQUIGGLY -> {
+                        val currentProgressFrac = if (duration > 0) ((sliderPosition ?: position).toFloat() / duration).coerceIn(0f, 1f) else 0f
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier.fillMaxWidth()
@@ -1698,6 +1701,7 @@ fun Lyrics(
                             )
                             SponsorBlockOverlay(
                                 sponsorSegments = sponsorFractions,
+                                activeProgress = currentProgressFrac,
                                 trackHeight = 3.dp,
                                 thumbOffset = 10.dp
                             )
