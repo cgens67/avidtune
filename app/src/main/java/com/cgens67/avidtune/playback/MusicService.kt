@@ -36,7 +36,6 @@ import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.cache.CacheDataSource
-import androidx.media3.datasource.cache.CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR
 import androidx.media3.datasource.cache.ContentMetadata
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.datasource.okhttp.OkHttpDataSource
@@ -50,10 +49,7 @@ import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.ShuffleOrder.DefaultShuffleOrder
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
-import androidx.media3.extractor.ExtractorsFactory
-import androidx.media3.extractor.mkv.MatroskaExtractor
-import androidx.media3.extractor.mp4.FragmentedMp4Extractor
-import androidx.media3.extractor.mp4.Mp4Extractor
+import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.session.CommandButton
 import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaController
@@ -160,8 +156,6 @@ import java.time.LocalDateTime
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.seconds
-import com.cgens67.avidtune.constants.AudioFadingKey
-import com.cgens67.avidtune.constants.StopMusicOnTaskClearKey
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 @AndroidEntryPoint
@@ -1138,10 +1132,22 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         super.onPlayerError(error)
         Log.e(TAG, "Player error: ${error.errorCodeName}, message: ${error.message}", error)
         
-        // Clear cached stream URL and VisitorData so retry/next track fetches fresh credentials
-        player.currentMediaItem?.mediaId?.let { songUrlCache.remove(it) }
+        // Evict cached stream URL, corrupted cache block on disk, and VisitorData so retry/next track fetches clean data
+        player.currentMediaItem?.mediaId?.let { id ->
+            songUrlCache.remove(id)
+            runCatching { playerCache.removeResource(id) }
+        }
         runBlocking {
             dataStore.edit { it.remove(com.cgens67.avidtune.constants.VisitorDataKey) }
+        }
+
+        // Auto-retry transient EOF/truncated streams once after clearing the corrupted cache span
+        val isEofError = error.cause is java.io.EOFException || error.cause?.cause is java.io.EOFException
+        if (isEofError && consecutivePlaybackErr < 2 && isNetworkConnected.value) {
+            consecutivePlaybackErr++
+            player.prepare()
+            player.play()
+            return
         }
 
         val isConnectionError = (error.cause?.cause is PlaybackException) &&
@@ -1160,6 +1166,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     private val songUrlCache = java.util.concurrent.ConcurrentHashMap<String, Pair<String, Long>>()
 
     private fun createCacheDataSource(): DataSource.Factory {
+        val userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
         val upstreamFactory = DefaultDataSource.Factory(
             this,
             OkHttpDataSource.Factory(
@@ -1169,69 +1176,29 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                     .connectTimeout(30, TimeUnit.SECONDS)
                     .readTimeout(30, TimeUnit.SECONDS)
                     .build()
-            )
+            ).setUserAgent(userAgent)
         )
 
-        return DataSource.Factory {
-            val downloadCacheDataSource = CacheDataSource.Factory()
-                .setCache(downloadCache)
-                .setUpstreamDataSourceFactory(upstreamFactory)
-                .setCacheWriteDataSinkFactory(null)
-                .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
-                .createDataSource()
+        // Chain downloadCache on top of playerCache.
+        // If present in downloadCache, it reads from disk without network.
+        // If not in downloadCache, it streams into and reads from playerCache.
+        val playerCacheDataSourceFactory = CacheDataSource.Factory()
+            .setCache(playerCache)
+            .setUpstreamDataSourceFactory(upstreamFactory)
+            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
 
-            val playerCacheDataSource = CacheDataSource.Factory()
-                .setCache(playerCache)
-                .setUpstreamDataSourceFactory(upstreamFactory)
-                .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
-                .createDataSource()
-
-            object : DataSource {
-                private var activeDataSource: DataSource? = null
-
-                override fun addTransferListener(transferListener: androidx.media3.datasource.TransferListener) {
-                    downloadCacheDataSource.addTransferListener(transferListener)
-                    playerCacheDataSource.addTransferListener(transferListener)
-                }
-
-                override fun open(dataSpec: androidx.media3.datasource.DataSpec): Long {
-                    val mediaId = dataSpec.key ?: dataSpec.uri.toString()
-                    val length = if (dataSpec.length >= 0) dataSpec.length else 1L
-                    val isDownloaded = downloadCache.isCached(mediaId, dataSpec.position, length)
-                    
-                    activeDataSource = if (isDownloaded) {
-                        downloadCacheDataSource
-                    } else {
-                        playerCacheDataSource
-                    }
-                    return activeDataSource!!.open(dataSpec)
-                }
-
-                override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
-                    return activeDataSource?.read(buffer, offset, length) ?: C.RESULT_END_OF_INPUT
-                }
-
-                override fun getUri(): android.net.Uri? {
-                    return activeDataSource?.uri
-                }
-
-                override fun getResponseHeaders(): Map<String, List<String>> {
-                    return activeDataSource?.responseHeaders ?: emptyMap()
-                }
-
-                override fun close() {
-                    activeDataSource?.close()
-                }
-            }
-        }
+        return CacheDataSource.Factory()
+            .setCache(downloadCache)
+            .setUpstreamDataSourceFactory(playerCacheDataSourceFactory)
+            .setCacheWriteDataSinkFactory(null)
+            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
     }
 
     private fun createMediaSourceFactory() =
         DefaultMediaSourceFactory(
             createDataSourceFactory(),
-            ExtractorsFactory {
-                arrayOf(MatroskaExtractor(), FragmentedMp4Extractor(), Mp4Extractor())
-            }
+            DefaultExtractorsFactory()
+                .setConstantBitrateSeekingEnabled(true)
         ).setLoadErrorHandlingPolicy(
             DefaultLoadErrorHandlingPolicy(3)
         )
@@ -1245,9 +1212,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 return@Factory dataSpec
             }
 
-            // 1. If we have an unexpired resolved stream URL in cache, attach it immediately.
-            // CacheDataSource will still read cached bytes from disk, but if it hits a cache
-            // miss, it will stream from the network instead of failing with an invalid file path.
+            // 1. If we have an unexpired resolved stream URL in memory, use it immediately
             songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
                 scope.launch(Dispatchers.IO) {
                     recoverSong(mediaId)
@@ -1255,8 +1220,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 return@Factory dataSpec.withUri(it.first.toUri())
             }
 
-            // 2. Only bypass network resolution if the song is 100% fully downloaded offline,
-            // meaning CacheDataSource is guaranteed to never request upstream network data.
+            // 2. Only skip network resolution if the song is 100% fully downloaded offline
             val downloadContentLength = ContentMetadata.getContentLength(downloadCache.getContentMetadata(mediaId))
             val isFullyDownloaded = downloadContentLength > 0L && downloadCache.isCached(mediaId, 0L, downloadContentLength)
 
@@ -1330,7 +1294,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             } catch (e: Exception) {
                 Timber.tag(ytLogTag).e(e, "YouTube playback error, trying JossRed as fallback")
                 
-                // FIX: Invalidate stale VisitorData on 403 / IO_UNSPECIFIED errors
+                // Invalidate stale VisitorData on 403 / IO_UNSPECIFIED errors
                 runBlocking {
                     dataStore.edit { it.remove(com.cgens67.avidtune.constants.VisitorDataKey) }
                 }
