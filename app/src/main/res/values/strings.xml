@@ -1444,4 +1444,18 @@
     <string name="together_share_pin_worldwide">Share PIN (Connect from anywhere in the world)</string>
     <string name="together_worldwide_invite_link">Worldwide Invite Link</string>
     
+    <!-- Lyrics Providers Descriptions -->
+    <string name="enable_avid_lyrics_desc">Curated community repository for AvidTune; includes synchronized lyrics</string>
+    <string name="enable_lyrics_plus_desc">Community TTML API supporting word-by-word sync and multi-singer vocals</string>
+    <string name="enable_better_lyrics_desc">Extensive catalog supporting synchronized and word-by-word lyrics</string>
+    <string name="enable_simpmusic_desc">Fast synchronized lyrics provider with word-level timing</string>
+    <string name="enable_paxsenix_desc">Reliable provider for line-by-line synchronized lyrics</string>
+    <string name="enable_binilyrics_desc">TTML-based provider for synchronized lyrics and Romanization</string>
+    <string name="enable_lrclib_desc">Community-driven open database for line-by-line synchronized lyrics</string>
+    <string name="enable_kugou_desc">Chinese lyrics provider; extensive catalog but no timed word-by-word lyrics</string>
+    <string name="enable_netease_desc">Chinese lyrics provider with broad Asian music catalog; line-synced only</string>
+    <string name="enable_genius_desc">Crowdsourced database providing plain, unsynchronized lyrics with annotations</string>
+    <string name="enable_yt_subtitle_desc">Subtitles and closed captions extracted from YouTube video transcripts</string>
+    <string name="enable_yt_music_lyrics_desc">Official static lyrics from YouTube Music catalog</string>
+    
 </resources>
