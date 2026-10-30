@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
@@ -53,6 +54,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.cgens67.avidtune.NotificationPermissionPreference
@@ -467,60 +469,70 @@ fun ContentSettings(
             items = listOf(
                 {SwitchPreference(
                     title = { Text(stringResource(R.string.enable_avid_lyrics)) },
+                    description = stringResource(R.string.enable_avid_lyrics_desc),
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = enableAvidLyrics,
                     onCheckedChange = onEnableAvidLyricsChange,
                 )},
                 {SwitchPreference(
                     title = { Text(stringResource(R.string.enable_lyrics_plus)) },
+                    description = stringResource(R.string.enable_lyrics_plus_desc),
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = enableLyricsPlus,
                     onCheckedChange = onEnableLyricsPlusChange,
                 )},
                 {SwitchPreference(
                     title = { Text(stringResource(R.string.enable_better_lyrics)) },
+                    description = stringResource(R.string.enable_better_lyrics_desc),
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = enableBetterLyrics,
                     onCheckedChange = onEnableBetterLyricsChange,
                 )},
                 {SwitchPreference(
                     title = { Text(stringResource(R.string.enable_simpmusic)) },
+                    description = stringResource(R.string.enable_simpmusic_desc),
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = enableSimpMusic,
                     onCheckedChange = onEnableSimpMusicChange,
                 )},
                 {SwitchPreference(
                     title = { Text(stringResource(R.string.enable_paxsenix)) },
+                    description = stringResource(R.string.enable_paxsenix_desc),
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = enablePaxsenix,
                     onCheckedChange = onEnablePaxsenixChange,
                 )},
                 {SwitchPreference(
                     title = { Text(stringResource(R.string.enable_binilyrics)) },
+                    description = stringResource(R.string.enable_binilyrics_desc),
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = enableBiniLyrics,
                     onCheckedChange = onEnableBiniLyricsChange,
                 )},
                 {SwitchPreference(
                     title = { Text(stringResource(R.string.enable_lrclib)) },
+                    description = stringResource(R.string.enable_lrclib_desc),
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = enableLrclib,
                     onCheckedChange = onEnableLrclibChange,
                 )},
                 {SwitchPreference(
                     title = { Text(stringResource(R.string.enable_kugou)) },
+                    description = stringResource(R.string.enable_kugou_desc),
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = enableKugou,
                     onCheckedChange = onEnableKugouChange,
                 )},
                 {SwitchPreference(
                     title = { Text(stringResource(R.string.enable_netease)) },
+                    description = stringResource(R.string.enable_netease_desc),
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = enableNetEase,
                     onCheckedChange = onEnableNetEaseChange,
                 )},
                 {SwitchPreference(
                     title = { Text(stringResource(R.string.enable_genius)) },
+                    description = stringResource(R.string.enable_genius_desc),
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = enableGenius,
                     onCheckedChange = onEnableGeniusChange,
@@ -577,6 +589,36 @@ fun ContentSettings(
                 )},
             )
         )
+    }
+}
+
+@Composable
+private fun getLyricsProviderDescription(providerName: String): String? {
+    return when (providerName) {
+        "AvidLyrics" -> stringResource(R.string.enable_avid_lyrics_desc)
+        "LyricsPlus" -> stringResource(R.string.enable_lyrics_plus_desc)
+        "BetterLyrics" -> stringResource(R.string.enable_better_lyrics_desc)
+        "SimpMusic" -> stringResource(R.string.enable_simpmusic_desc)
+        "Paxsenix" -> stringResource(R.string.enable_paxsenix_desc)
+        "BiniLyrics" -> stringResource(R.string.enable_binilyrics_desc)
+        "LrcLib" -> stringResource(R.string.enable_lrclib_desc)
+        "Kugou" -> stringResource(R.string.enable_kugou_desc)
+        "NetEase" -> stringResource(R.string.enable_netease_desc)
+        "Genius" -> stringResource(R.string.enable_genius_desc)
+        "YouTube Subtitle" -> stringResource(R.string.enable_yt_subtitle_desc)
+        "YouTube Music" -> stringResource(R.string.enable_yt_music_lyrics_desc)
+        else -> null
+    }
+}
+
+@Composable
+private fun getDescriptionProviderDescription(providerName: String): String? {
+    return when (providerName) {
+        "AvidDescriptions" -> stringResource(R.string.avid_descriptions_desc)
+        "Apple Music" -> stringResource(R.string.apple_music_desc)
+        "Wikipedia" -> stringResource(R.string.wikipedia_desc)
+        "YouTube Music" -> stringResource(R.string.ytm_desc)
+        else -> null
     }
 }
 
@@ -671,7 +713,7 @@ fun ReorderDescriptionProvidersBottomSheet(
                 contentPadding = PaddingValues(bottom = 80.dp, top = 8.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 400.dp)
+                    .heightIn(max = 500.dp)
             ) {
                 items(list, key = { it }) { item ->
                     ReorderableItem(reorderableState, key = item) { isDragging ->
@@ -712,12 +754,24 @@ fun ReorderDescriptionProvidersBottomSheet(
 
                                 Spacer(Modifier.width(16.dp))
 
-                                Text(
-                                    text = item,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = if (index == 0) FontWeight.Bold else FontWeight.Normal,
-                                    modifier = Modifier.weight(1f)
-                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = item,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = if (index == 0) FontWeight.Bold else FontWeight.SemiBold
+                                    )
+                                    val desc = getDescriptionProviderDescription(item)
+                                    if (!desc.isNullOrBlank()) {
+                                        Spacer(Modifier.height(2.dp))
+                                        Text(
+                                            text = desc,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
 
                                 Icon(
                                     painter = painterResource(R.drawable.drag_handle),
@@ -827,7 +881,7 @@ fun ReorderLyricsProvidersBottomSheet(
                 contentPadding = PaddingValues(bottom = 80.dp, top = 8.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 400.dp)
+                    .heightIn(max = 500.dp)
             ) {
                 items(list, key = { it }) { item ->
                     ReorderableItem(reorderableState, key = item) { isDragging ->
@@ -868,12 +922,24 @@ fun ReorderLyricsProvidersBottomSheet(
 
                                 Spacer(Modifier.width(16.dp))
 
-                                Text(
-                                    text = item,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = if (index == 0) FontWeight.Bold else FontWeight.Normal,
-                                    modifier = Modifier.weight(1f)
-                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = item,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = if (index == 0) FontWeight.Bold else FontWeight.SemiBold
+                                    )
+                                    val desc = getLyricsProviderDescription(item)
+                                    if (!desc.isNullOrBlank()) {
+                                        Spacer(Modifier.height(2.dp))
+                                        Text(
+                                            text = desc,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
 
                                 Icon(
                                     painter = painterResource(R.drawable.drag_handle),
