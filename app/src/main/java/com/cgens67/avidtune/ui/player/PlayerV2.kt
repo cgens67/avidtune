@@ -15,6 +15,7 @@ import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
@@ -44,9 +45,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
@@ -86,6 +90,7 @@ import com.cgens67.avidtune.utils.rememberPreference
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import me.saket.squiggles.SquigglySlider
+import kotlin.math.abs
 
 enum class PlayerInternalState { COVER, LYRICS, QUEUE }
 
@@ -150,11 +155,20 @@ fun PlayerV2Slider(
     useDarkTheme: Boolean,
     onValueChange: (Long) -> Unit,
     onSeekTo: (Long) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    currentSkipSegments: List<Pair<Long, Long>> = emptyList(),
+    sponsorBlockEnabled: Boolean = false,
 ) {
     var scrubbedValue by remember { mutableStateOf<Float?>(null) }
     val maxRange = if (duration == C.TIME_UNSET || duration <= 0L) 0f else duration.toFloat()
     val displayValue = (scrubbedValue ?: currentPos.toFloat()).coerceIn(0f, if (maxRange > 0f) maxRange else 1f)
+
+    val sponsorFractions = remember(currentSkipSegments, duration, sponsorBlockEnabled) {
+        if (!sponsorBlockEnabled || duration <= 0L) emptyList()
+        else currentSkipSegments.map { (startMs, endMs) ->
+            (startMs.toFloat() / duration).coerceIn(0f, 1f) to (endMs.toFloat() / duration).coerceIn(0f, 1f)
+        }
+    }
 
     when (sliderStyle) {
         SliderStyle.EXPANDING -> {
@@ -198,7 +212,8 @@ fun PlayerV2Slider(
                             activeColor = adaptivePrimary.copy(alpha = 0.8f),
                             playerBackground = playerBackground,
                             useDarkTheme = useDarkTheme
-                        )
+                        ),
+                        sponsorSegments = sponsorFractions
                     )
                 },
                 modifier = modifier.fillMaxWidth()
@@ -224,6 +239,18 @@ fun PlayerV2Slider(
                     }
                 },
                 enabled = !isListenTogetherGuest && maxRange > 0f,
+                track = { sliderState ->
+                    PlayerSliderTrack(
+                        sliderState = sliderState,
+                        trackHeight = 4.dp,
+                        colors = SliderDefaults.colors(
+                            activeTrackColor = adaptivePrimary,
+                            inactiveTrackColor = adaptivePrimary.copy(alpha = 0.25f),
+                            thumbColor = adaptivePrimary
+                        ),
+                        sponsorSegments = sponsorFractions
+                    )
+                },
                 colors = SliderDefaults.colors(
                     activeTrackColor = adaptivePrimary,
                     inactiveTrackColor = adaptivePrimary.copy(alpha = 0.25f),
@@ -233,37 +260,69 @@ fun PlayerV2Slider(
             )
         }
         SliderStyle.SQUIGGLY -> {
-            SquigglySlider(
-                value = displayValue,
-                valueRange = 0f..maxRange,
-                onValueChange = { value ->
-                    if (!isListenTogetherGuest) {
-                        scrubbedValue = value
-                        onValueChange(value.toLong())
-                    }
-                },
-                onValueChangeFinished = {
-                    if (!isListenTogetherGuest) {
-                        val targetPos = scrubbedValue?.toLong()
-                        if (targetPos != null) {
-                            onSeekTo(targetPos)
-                        }
-                        scrubbedValue = null
-                    }
-                },
-                enabled = !isListenTogetherGuest && maxRange > 0f,
-                colors = SliderDefaults.colors(
-                    activeTrackColor = adaptivePrimary,
-                    inactiveTrackColor = adaptivePrimary.copy(alpha = 0.25f),
-                    thumbColor = adaptivePrimary
-                ),
-                squigglesSpec = SquigglySlider.SquigglesSpec(
-                    amplitude = if (isPlaying) (4.dp).coerceAtLeast(2.dp) else 0.dp,
-                    strokeWidth = 3.dp,
-                    wavelength = 36.dp,
-                ),
+            Box(
+                contentAlignment = Alignment.Center,
                 modifier = modifier.fillMaxWidth()
-            )
+            ) {
+                SquigglySlider(
+                    value = displayValue,
+                    valueRange = 0f..maxRange,
+                    onValueChange = { value ->
+                        if (!isListenTogetherGuest) {
+                            scrubbedValue = value
+                            onValueChange(value.toLong())
+                        }
+                    },
+                    onValueChangeFinished = {
+                        if (!isListenTogetherGuest) {
+                            val targetPos = scrubbedValue?.toLong()
+                            if (targetPos != null) {
+                                onSeekTo(targetPos)
+                            }
+                            scrubbedValue = null
+                        }
+                    },
+                    enabled = !isListenTogetherGuest && maxRange > 0f,
+                    colors = SliderDefaults.colors(
+                        activeTrackColor = adaptivePrimary,
+                        inactiveTrackColor = adaptivePrimary.copy(alpha = 0.25f),
+                        thumbColor = adaptivePrimary
+                    ),
+                    squigglesSpec = SquigglySlider.SquigglesSpec(
+                        amplitude = if (isPlaying) (4.dp).coerceAtLeast(2.dp) else 0.dp,
+                        strokeWidth = 3.dp,
+                        wavelength = 36.dp,
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (sponsorFractions.isNotEmpty()) {
+                    Canvas(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(3.dp)
+                            .padding(horizontal = 10.dp)
+                    ) {
+                        val isRtl = layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl
+                        val sliderStart = if (isRtl) Offset(size.width, center.y) else Offset(0f, center.y)
+                        val sliderEnd = if (isRtl) Offset(0f, center.y) else Offset(size.width, center.y)
+                        for ((startFrac, endFrac) in sponsorFractions) {
+                            val x1 = sliderStart.x + (sliderEnd.x - sliderStart.x) * startFrac
+                            val x2 = sliderStart.x + (sliderEnd.x - sliderStart.x) * endFrac
+                            val minSpan = 4.dp.toPx()
+                            val drawX2 = if (abs(x2 - x1) < minSpan) {
+                                if (isRtl) x1 - minSpan else x1 + minSpan
+                            } else x2
+                            drawLine(
+                                color = Color(0xFF00E676).copy(alpha = 0.85f),
+                                start = Offset(x1, center.y),
+                                end = Offset(drawX2, center.y),
+                                strokeWidth = 3.dp.toPx(),
+                                cap = StrokeCap.Round
+                            )
+                        }
+                    }
+                }
+            }
         }
         SliderStyle.SLIM -> {
             Slider(
@@ -294,7 +353,8 @@ fun PlayerV2Slider(
                             inactiveTrackColor = adaptivePrimary.copy(alpha = 0.25f),
                             thumbColor = adaptivePrimary
                         ),
-                        trackHeight = 3.dp
+                        trackHeight = 3.dp,
+                        sponsorSegments = sponsorFractions
                     )
                 },
                 modifier = modifier.fillMaxWidth()
@@ -321,6 +381,9 @@ fun PlayerV2(
     val menuState = LocalMenuState.current
     val bottomSheetPageState = LocalBottomSheetPageState.current
     var playerState by remember { mutableStateOf(PlayerInternalState.COVER) }
+
+    val currentSkipSegments by playerConnection.currentSkipSegments.collectAsState()
+    val sponsorBlockEnabled by playerConnection.sponsorBlockEnabled.collectAsState()
 
     val togetherSessionState by playerConnection.service.togetherSessionState.collectAsState()
     val isListenTogetherGuest = (togetherSessionState as? TogetherSessionState.Joined)?.role is TogetherRole.Guest
@@ -456,6 +519,8 @@ fun PlayerV2(
             adaptivePrimary = adaptivePrimary,
             adaptiveSecondary = adaptiveSecondary,
             adaptiveSurface = adaptiveSurface,
+            currentSkipSegments = currentSkipSegments,
+            sponsorBlockEnabled = sponsorBlockEnabled,
             modifier = modifier
         )
     } else {
@@ -495,6 +560,8 @@ fun PlayerV2(
             adaptivePrimary = adaptivePrimary,
             adaptiveSecondary = adaptiveSecondary,
             adaptiveSurface = adaptiveSurface,
+            currentSkipSegments = currentSkipSegments,
+            sponsorBlockEnabled = sponsorBlockEnabled,
             modifier = modifier
         )
     }
@@ -531,6 +598,8 @@ private fun PlayerV2Landscape(
     adaptivePrimary: Color,
     adaptiveSecondary: Color,
     adaptiveSurface: Color,
+    currentSkipSegments: List<Pair<Long, Long>> = emptyList(),
+    sponsorBlockEnabled: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val playerConnection = LocalPlayerConnection.current ?: return
@@ -763,7 +832,9 @@ private fun PlayerV2Landscape(
                             playerBackground = playerBackground,
                             useDarkTheme = isSystemInDarkTheme(),
                             onValueChange = onSliderPositionChange,
-                            onSeekTo = onSeekTo
+                            onSeekTo = onSeekTo,
+                            currentSkipSegments = currentSkipSegments,
+                            sponsorBlockEnabled = sponsorBlockEnabled
                         )
                         Row(
                             modifier = Modifier
@@ -1121,7 +1192,9 @@ private fun PlayerV2Landscape(
                             playerBackground = playerBackground,
                             useDarkTheme = isSystemInDarkTheme(),
                             onValueChange = onSliderPositionChange,
-                            onSeekTo = onSeekTo
+                            onSeekTo = onSeekTo,
+                            currentSkipSegments = currentSkipSegments,
+                            sponsorBlockEnabled = sponsorBlockEnabled
                         )
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -1266,6 +1339,8 @@ private fun PlayerV2Portrait(
     adaptivePrimary: Color,
     adaptiveSecondary: Color,
     adaptiveSurface: Color,
+    currentSkipSegments: List<Pair<Long, Long>> = emptyList(),
+    sponsorBlockEnabled: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val playerConnection = LocalPlayerConnection.current ?: return
@@ -1805,7 +1880,9 @@ private fun PlayerV2Portrait(
                             playerBackground = playerBackground,
                             useDarkTheme = isSystemInDarkTheme(),
                             onValueChange = onSliderPositionChange,
-                            onSeekTo = onSeekTo
+                            onSeekTo = onSeekTo,
+                            currentSkipSegments = currentSkipSegments,
+                            sponsorBlockEnabled = sponsorBlockEnabled
                         )
 
                         Row(
