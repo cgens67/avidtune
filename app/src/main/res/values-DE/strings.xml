@@ -1435,5 +1435,19 @@
     <string name="together_status_lan_guest">LAN-Gast</string>
     <string name="together_share_pin_worldwide">PIN teilen (Verbindung weltweit möglich)</string>
     <string name="together_worldwide_invite_link">Weltweiter Einladungslink</string>
+    
+    <!-- Beschreibungen der Songtext-Quellen -->
+    <string name="enable_avid_lyrics_desc">Kuratierte Community-Quelle für AvidTune mit synchronisierten Songtexten</string>
+    <string name="enable_lyrics_plus_desc">Community-TTML-Quelle mit Wort-für-Wort-Synchronisation und Mehrstimmigkeit</string>
+    <string name="enable_better_lyrics_desc">Umfangreicher Katalog mit synchronisierten und Wort-für-Wort-Songtexten</string>
+    <string name="enable_simpmusic_desc">Schneller Anbieter für synchronisierte Songtexte mit Wort-Timing</string>
+    <string name="enable_paxsenix_desc">Zuverlässiger Anbieter für zeilenweise synchronisierte Songtexte</string>
+    <string name="enable_binilyrics_desc">TTML-basierte Quelle für synchronisierte Songtexte und Romanisierung</string>
+    <string name="enable_lrclib_desc">Offene Community-Datenbank für zeilensynchrone Songtexte</string>
+    <string name="enable_kugou_desc">Chinesischer Anbieter; riesiger Katalog, jedoch ohne Wort-für-Wort-Timing</string>
+    <string name="enable_netease_desc">Chinesischer Anbieter mit großer asiatischer Musikauswahl; nur zeilensynchron</string>
+    <string name="enable_genius_desc">Crowdsourced-Datenbank für ungesyncte Nur-Text-Songtexte mit Anmerkungen</string>
+    <string name="enable_yt_subtitle_desc">Untertitel aus Transkripten von YouTube-Videos</string>
+    <string name="enable_yt_music_lyrics_desc">Offizielle statische Songtexte aus dem YouTube Music-Katalog</string>
 
 </resources>
