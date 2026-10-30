@@ -50,6 +50,8 @@ constructor(
     private val connectivityManager = context.getSystemService<ConnectivityManager>()!!
     private val audioQuality by enumPreference(context, AudioQualityKey, AudioQuality.AUTO)
     private val songUrlCache = ConcurrentHashMap<String, Pair<String, Long>>()
+    private val userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+
     private val dataSourceFactory =
         ResolvingDataSource.Factory(
             CacheDataSource
@@ -65,7 +67,7 @@ constructor(
                             .connectTimeout(30, TimeUnit.SECONDS)
                             .readTimeout(30, TimeUnit.SECONDS)
                             .build(),
-                    ),
+                    ).setUserAgent(userAgent)
                 ),
         ) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")
@@ -116,6 +118,7 @@ constructor(
             
             dataSpec.withUri(streamUrl.toUri())
         }
+
     val downloadNotificationHelper =
         DownloadNotificationHelper(context, ExoDownloadService.CHANNEL_ID)
     val downloadManager: DownloadManager =
