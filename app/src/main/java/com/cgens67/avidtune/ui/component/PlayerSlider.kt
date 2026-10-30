@@ -3,6 +3,7 @@ package com.cgens67.avidtune.ui.component
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SliderColors
 import androidx.compose.material3.SliderDefaults
@@ -78,7 +79,6 @@ private fun DrawScope.drawTrack(
     val tickSize = 2.0.dp.toPx()
     val trackStrokeWidth = trackHeight.toPx()
 
-    // Inactive track line
     drawLine(
         inactiveTrackColor,
         sliderStart,
@@ -86,8 +86,6 @@ private fun DrawScope.drawTrack(
         trackStrokeWidth,
         StrokeCap.Round
     )
-
-    // Active track line
     val sliderValueEnd = Offset(
         sliderStart.x + (sliderEnd.x - sliderStart.x) * activeRangeEnd,
         center.y
@@ -104,7 +102,6 @@ private fun DrawScope.drawTrack(
         StrokeCap.Round
     )
 
-    // SponsorBlock segments overlay
     if (sponsorSegments.isNotEmpty()) {
         for ((startFrac, endFrac) in sponsorSegments) {
             val clampedStart = startFrac.coerceIn(0f, 1f)
@@ -144,3 +141,44 @@ private fun stepsToTickFractions(steps: Int): FloatArray {
 
 private fun calcFraction(a: Float, b: Float, pos: Float) =
     (if (b - a == 0f) 0f else (pos - a) / (b - a)).coerceIn(0f, 1f)
+
+@Composable
+fun SponsorBlockOverlay(
+    sponsorSegments: List<Pair<Float, Float>>,
+    trackHeight: Dp = 4.dp,
+    thumbOffset: Dp = 10.dp,
+    color: Color = Color(0xFF00E676).copy(alpha = 0.85f),
+    modifier: Modifier = Modifier
+) {
+    if (sponsorSegments.isEmpty()) return
+    Canvas(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(trackHeight)
+            .padding(horizontal = thumbOffset)
+    ) {
+        val isRtl = layoutDirection == LayoutDirection.Rtl
+        val sliderStart = if (isRtl) Offset(size.width, center.y) else Offset(0f, center.y)
+        val sliderEnd = if (isRtl) Offset(0f, center.y) else Offset(size.width, center.y)
+        for ((startFrac, endFrac) in sponsorSegments) {
+            val clampedStart = startFrac.coerceIn(0f, 1f)
+            val clampedEnd = endFrac.coerceIn(0f, 1f)
+            if (clampedEnd >= clampedStart) {
+                val segX1 = sliderStart.x + (sliderEnd.x - sliderStart.x) * clampedStart
+                val segX2 = sliderStart.x + (sliderEnd.x - sliderStart.x) * clampedEnd
+                val minSpan = trackHeight.toPx().coerceAtLeast(3.dp.toPx())
+                val drawSegX2 = if (abs(segX2 - segX1) < minSpan) {
+                    if (isRtl) segX1 - minSpan else segX1 + minSpan
+                } else segX2
+
+                drawLine(
+                    color = color,
+                    start = Offset(segX1, center.y),
+                    end = Offset(drawSegX2, center.y),
+                    strokeWidth = trackHeight.toPx(),
+                    cap = StrokeCap.Round
+                )
+            }
+        }
+    }
+}
