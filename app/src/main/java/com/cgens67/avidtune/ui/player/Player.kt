@@ -1178,6 +1178,7 @@ fun PlayerSliderV4(
             (startMs.toFloat() / duration).coerceIn(0f, 1f) to (endMs.toFloat() / duration).coerceIn(0f, 1f)
         }
     }
+    val currentProgressFrac = if (duration > 0) ((sliderPosition ?: position).toFloat() / duration).coerceIn(0f, 1f) else 0f
 
     when (sliderStyle) {
         SliderStyle.EXPANDING -> {
@@ -1215,37 +1216,32 @@ fun PlayerSliderV4(
             )
         }
         SliderStyle.DEFAULT -> {
-            Box(
-                contentAlignment = Alignment.Center,
+            Slider(
+                value = (sliderPosition ?: position).toFloat(),
+                valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
+                onValueChange = { onValueChange(it.toLong()) },
+                onValueChangeFinished = onValueChangeFinished,
+                track = { sliderState ->
+                    PlayerSliderTrack(
+                        sliderState = sliderState,
+                        trackHeight = 4.dp,
+                        colors = SliderDefaults.colors(
+                            activeTrackColor = textBackgroundColor,
+                            inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
+                            thumbColor = textBackgroundColor
+                        ),
+                        sponsorSegments = sponsorFractions
+                    )
+                },
+                colors = SliderDefaults.colors(
+                    activeTrackColor = textBackgroundColor,
+                    inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
+                    thumbColor = textBackgroundColor
+                ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = PlayerHorizontalPadding)
-            ) {
-                Slider(
-                    value = (sliderPosition ?: position).toFloat(),
-                    valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
-                    onValueChange = { onValueChange(it.toLong()) },
-                    onValueChangeFinished = onValueChangeFinished,
-                    track = { sliderState ->
-                        PlayerSliderTrack(
-                            sliderState = sliderState,
-                            trackHeight = 4.dp,
-                            colors = SliderDefaults.colors(
-                                activeTrackColor = textBackgroundColor,
-                                inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
-                                thumbColor = textBackgroundColor
-                            ),
-                            sponsorSegments = sponsorFractions
-                        )
-                    },
-                    colors = SliderDefaults.colors(
-                        activeTrackColor = textBackgroundColor,
-                        inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
-                        thumbColor = textBackgroundColor
-                    ),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
+                    .padding(horizontal = PlayerHorizontalPadding),
+            )
         }
         SliderStyle.SQUIGGLY -> {
             Box(
@@ -1254,11 +1250,6 @@ fun PlayerSliderV4(
                     .fillMaxWidth()
                     .padding(horizontal = PlayerHorizontalPadding)
             ) {
-                SponsorBlockOverlay(
-                    sponsorSegments = sponsorFractions,
-                    trackHeight = 3.dp,
-                    thumbOffset = 10.dp
-                )
                 SquigglySlider(
                     value = (sliderPosition ?: position).toFloat(),
                     valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
@@ -1269,12 +1260,18 @@ fun PlayerSliderV4(
                         inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
                         thumbColor = textBackgroundColor
                     ),
-                    modifier = Modifier.fillMaxWidth(),
                     squigglesSpec = SquigglySlider.SquigglesSpec(
                         amplitude = if (isPlaying) (4.dp).coerceAtLeast(2.dp) else 0.dp,
                         strokeWidth = 3.dp,
                         wavelength = 36.dp,
                     ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                SponsorBlockOverlay(
+                    sponsorSegments = sponsorFractions,
+                    activeProgress = currentProgressFrac,
+                    trackHeight = 3.dp,
+                    thumbOffset = 10.dp
                 )
             }
         }
