@@ -1428,10 +1428,10 @@
     <string name="enable_paxsenix_desc">稳定可靠的行同步时间轴歌词源</string>
     <string name="enable_binilyrics_desc">基于 TTML 格式的同步歌词与罗马音源</string>
     <string name="enable_lrclib_desc">社区驱动的开源行同步 LRC 歌词数据库</string>
-    <string name="enable_kugou_desc">国内酷狗音乐歌词源；曲库极全但不支持逐字时间轴</string>
-    <string name="enable_netease_desc">国内网易云音乐歌词源；亚洲音乐覆盖面广，仅支持行同步</string>
+    <string name="enable_kugou_desc">中国酷狗音乐歌词源；曲库极全但不支持逐字时间轴</string>
+    <string name="enable_netease_desc">中国网易云音乐歌词源；亚洲音乐覆盖面广，仅支持行同步</string>
     <string name="enable_genius_desc">全球最大的众包歌词平台，仅提供无时间轴纯文本歌词</string>
     <string name="enable_yt_subtitle_desc">从 YouTube 视频字幕及原声转录中提取的同步歌词</string>
     <string name="enable_yt_music_lyrics_desc">来自 YouTube Music 官方曲库的静态歌词</string>
-
+    
 </resources>
