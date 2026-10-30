@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -24,7 +25,9 @@ fun PlayerSliderTrack(
     sliderState: SliderState,
     modifier: Modifier = Modifier,
     colors: SliderColors = SliderDefaults.colors(),
-    trackHeight: Dp = 10.dp
+    trackHeight: Dp = 10.dp,
+    sponsorSegments: List<Pair<Float, Float>> = emptyList(),
+    sponsorColor: Color = Color(0xFF00E676).copy(alpha = 0.85f),
 ) {
     val inactiveTrackColor = colors.inactiveTrackColor
     val activeTrackColor = colors.activeTrackColor
@@ -48,7 +51,9 @@ fun PlayerSliderTrack(
             activeTrackColor,
             inactiveTickColor,
             activeTickColor,
-            trackHeight
+            trackHeight,
+            sponsorSegments,
+            sponsorColor
         )
     }
 }
@@ -61,7 +66,9 @@ private fun DrawScope.drawTrack(
     activeTrackColor: Color,
     inactiveTickColor: Color,
     activeTickColor: Color,
-    trackHeight: Dp = 2.dp
+    trackHeight: Dp = 2.dp,
+    sponsorSegments: List<Pair<Float, Float>> = emptyList(),
+    sponsorColor: Color = Color(0xFF00E676).copy(alpha = 0.85f),
 ) {
     val isRtl = layoutDirection == LayoutDirection.Rtl
     val sliderLeft = Offset(0f, center.y)
@@ -70,6 +77,8 @@ private fun DrawScope.drawTrack(
     val sliderEnd = if (isRtl) sliderLeft else sliderRight
     val tickSize = 2.0.dp.toPx()
     val trackStrokeWidth = trackHeight.toPx()
+
+    // Inactive track line
     drawLine(
         inactiveTrackColor,
         sliderStart,
@@ -77,14 +86,14 @@ private fun DrawScope.drawTrack(
         trackStrokeWidth,
         StrokeCap.Round
     )
+
+    // Active track line
     val sliderValueEnd = Offset(
-        sliderStart.x +
-                (sliderEnd.x - sliderStart.x) * activeRangeEnd,
+        sliderStart.x + (sliderEnd.x - sliderStart.x) * activeRangeEnd,
         center.y
     )
     val sliderValueStart = Offset(
-        sliderStart.x +
-                (sliderEnd.x - sliderStart.x) * activeRangeStart,
+        sliderStart.x + (sliderEnd.x - sliderStart.x) * activeRangeStart,
         center.y
     )
     drawLine(
@@ -94,6 +103,31 @@ private fun DrawScope.drawTrack(
         trackStrokeWidth,
         StrokeCap.Round
     )
+
+    // SponsorBlock segments overlay
+    if (sponsorSegments.isNotEmpty()) {
+        for ((startFrac, endFrac) in sponsorSegments) {
+            val clampedStart = startFrac.coerceIn(0f, 1f)
+            val clampedEnd = endFrac.coerceIn(0f, 1f)
+            if (clampedEnd >= clampedStart) {
+                val segX1 = sliderStart.x + (sliderEnd.x - sliderStart.x) * clampedStart
+                val segX2 = sliderStart.x + (sliderEnd.x - sliderStart.x) * clampedEnd
+                val minSpan = trackStrokeWidth.coerceAtLeast(3.dp.toPx())
+                val drawSegX2 = if (abs(segX2 - segX1) < minSpan) {
+                    if (isRtl) segX1 - minSpan else segX1 + minSpan
+                } else segX2
+
+                drawLine(
+                    color = sponsorColor,
+                    start = Offset(segX1, center.y),
+                    end = Offset(drawSegX2, center.y),
+                    strokeWidth = trackStrokeWidth,
+                    cap = StrokeCap.Round
+                )
+            }
+        }
+    }
+
     for (tick in tickFractions) {
         val outsideFraction = tick > activeRangeEnd || tick < activeRangeStart
         drawCircle(
