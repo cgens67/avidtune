@@ -75,8 +75,6 @@ import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import timber.log.Timber
 import java.io.FilterInputStream
 import java.io.InputStream
@@ -2437,7 +2435,7 @@ object YouTube {
         }
 
     suspend fun getMediaInfo(videoId: String): Result<MediaInfo> =
-        runCatching { innerTube.getMediaInfo(videoId) }
+        innerTube.getMediaInfo(videoId)
 
     @JvmInline
     value class SearchFilter(val value: String) {
