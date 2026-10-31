@@ -131,10 +131,13 @@ dependencies {
     implementation(libs.squigglyslider)
 
     implementation(libs.room.runtime)
+    implementation(libs.room.runtime.android)
+    implementation(libs.room.ktx)
+    ksp(libs.room.compiler)
+
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.blurry)
     implementation(libs.material.ripple)
-    implementation(libs.room.runtime.android)
     implementation(libs.material.icons.extended)
     implementation(libs.glance.appwidget)
     implementation(libs.glance.material3)
@@ -143,8 +146,6 @@ dependencies {
     implementation(libs.constraintlayout)
     implementation(libs.itextg)
     implementation(libs.mpandroidchart)
-    ksp(libs.room.compiler)
-    implementation(libs.room.ktx)
 
     implementation(libs.apache.lang3)
 
