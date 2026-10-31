@@ -37,7 +37,8 @@ data class SongItem(
     val libraryRemoveToken: String? = null,
     val historyRemoveToken: String? = null,
     val isEpisode: Boolean = false,
-    val uploadEntityId: String? = null
+    val uploadEntityId: String? = null,
+    val views: String? = null // Needed by Items.kt
 ) : YTItem() {
     val isVideoSong: Boolean
         get() = musicVideoType != null && musicVideoType != MUSIC_VIDEO_TYPE_ATV
@@ -141,6 +142,7 @@ data class EpisodeItem(
     val libraryRemoveToken: String? = null,
     val markAsPlayedToken: String? = null,
     val markAsUnplayedToken: String? = null,
+    val views: String? = null // Needed by Items.kt
 ) : YTItem() {
     override val shareLink: String
         get() = "https://music.youtube.com/watch?v=$id"
@@ -157,6 +159,7 @@ data class EpisodeItem(
         isEpisode = true,
         libraryAddToken = libraryAddToken,
         libraryRemoveToken = libraryRemoveToken,
+        views = views
     )
 }
 

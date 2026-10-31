@@ -39,7 +39,7 @@ data class SearchSummaryPage(
             this
         }
 
-    fun filterVideoSongs(disableVideos: Boolean) =
+    fun filterMusicVideos(disableVideos: Boolean) =
         if (disableVideos) {
             SearchSummaryPage(
                 summaries.mapNotNull { s ->
