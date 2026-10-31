@@ -2,9 +2,9 @@
 
 plugins {
     id("com.android.application")
-    kotlin("android")
-    kotlin("plugin.serialization") version "2.1.0"
-    kotlin("kapt")
+    id("org.jetbrains.kotlin.android")
+    alias(libs.plugins.kotlin.serialization)
+    id("org.jetbrains.kotlin.kapt")
     alias(libs.plugins.hilt)
     alias(libs.plugins.kotlin.ksp)
     alias(libs.plugins.compose.compiler)
@@ -12,8 +12,7 @@ plugins {
 
 android {
     namespace = "com.cgens67.avidtune"
-    //noinspection GradleDependency
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.cgens67.avidtune"
@@ -94,7 +93,6 @@ android {
         includeInApk = false
         includeInBundle = false
     }
-
 }
 
 ksp {
@@ -174,10 +172,10 @@ dependencies {
     implementation(libs.ktor.serialization.json)
     
     // WebSockets & Server components required for Music Together feature
-    implementation("io.ktor:ktor-client-websockets:3.0.3")
-    implementation("io.ktor:ktor-server-core:3.0.3")
-    implementation("io.ktor:ktor-server-cio:3.0.3")
-    implementation("io.ktor:ktor-server-websockets:3.0.3")
+    implementation("io.ktor:ktor-client-websockets:${libs.versions.ktor.get()}")
+    implementation("io.ktor:ktor-server-core:${libs.versions.ktor.get()}")
+    implementation("io.ktor:ktor-server-cio:${libs.versions.ktor.get()}")
+    implementation("io.ktor:ktor-server-websockets:${libs.versions.ktor.get()}")
 
     coreLibraryDesugaring(libs.desugaring)
 
