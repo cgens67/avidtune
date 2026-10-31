@@ -24,12 +24,15 @@ kotlin {
 
 dependencies {
     api(libs.innertubex)
+    implementation(libs.newpipe.extractor)
+    
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.okhttp)
     implementation(libs.ktor.client.content.negotiation)
     implementation(libs.ktor.serialization.json)
     implementation(libs.ktor.client.encoding)
     implementation(libs.timber)
+    
     testImplementation(libs.junit)
     testImplementation(libs.ktor.client.mock)
 
