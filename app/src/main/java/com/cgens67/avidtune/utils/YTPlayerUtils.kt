@@ -45,10 +45,10 @@ object YTPlayerUtils {
         val sessionId = if (isLoggedIn) YouTube.dataSyncId else YouTube.visitorData
         val poToken = PoTokenGenerator().getWebClientPoToken(videoId, sessionId ?: "")?.playerRequestPoToken
         
-        // Use IOS client first as it returns direct, unencrypted stream URLs without needing signature ciphers
+        // Try IOS client first
         var playerResponse = YouTube.player(videoId, playlistId, YouTubeClient.IOS, null, poToken).getOrNull()
         
-        // Fallback to WEB_REMIX if IOS is blocked
+        // Fallback to WEB_REMIX if needed
         if (playerResponse?.playabilityStatus?.status != "OK") {
             playerResponse = YouTube.player(videoId, playlistId, YouTubeClient.WEB_REMIX, null, poToken).getOrNull()
         }
@@ -121,7 +121,8 @@ object YTPlayerUtils {
         connectivityManager: ConnectivityManager,
     ): List<PlayerResponse.StreamingData.Format> {
         val formats = playerResponse.streamingData?.adaptiveFormats
-            ?.filter { it.isAudio && it.isOriginal }
+            ?.filter { it.isAudio }
+            ?: playerResponse.streamingData?.formats
             ?: return emptyList()
 
         val isMetered = connectivityManager.isActiveNetworkMetered
