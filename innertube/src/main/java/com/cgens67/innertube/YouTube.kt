@@ -2442,7 +2442,9 @@ object YouTube {
         }
 
     suspend fun getMediaInfo(videoId: String): Result<MediaInfo> =
-        runCatching { innerTube.getMediaInfo(videoId) }
+        runCatching {
+            innerTube.getMediaInfo(videoId).getOrThrow()
+        }
 
     @JvmInline
     value class SearchFilter(val value: String) {

@@ -3,35 +3,15 @@ package com.cgens67.avidtune.utils
 import android.net.ConnectivityManager
 import androidx.media3.common.PlaybackException
 import com.cgens67.innertube.models.response.PlayerResponse
-import com.cgens67.innertube.pages.NewPipeUtils
 import com.cgens67.avidtune.constants.AudioQuality
 import com.cgens67.innertube.YouTube
 import com.cgens67.innertube.models.YouTubeClient
-import com.cgens67.innertube.models.YouTubeClient.Companion.ANDROID_NO_SDK
-import com.cgens67.innertube.models.YouTubeClient.Companion.WEB_REMIX
-import com.cgens67.innertube.strategy.ContentAwareFallbackStrategy
-import com.cgens67.innertube.strategy.ContentHints
 import com.cgens67.avidtune.utils.potoken.PoTokenGenerator
 import okhttp3.OkHttpClient
-import okhttp3.Request
 import timber.log.Timber
 
 object YTPlayerUtils {
     private const val logTag = "YTPlayerUtils"
-
-    private val httpClient = OkHttpClient.Builder()
-        .proxy(YouTube.proxy)
-        .proxyAuthenticator { _, response ->
-            YouTube.proxyAuth?.let { auth ->
-                response.request.newBuilder()
-                    .header("Proxy-Authorization", auth)
-                    .build()
-            } ?: response.request
-        }
-        .build()
-        
-    private val MAIN_CLIENT: YouTubeClient = WEB_REMIX
-    private val fallbackStrategy = ContentAwareFallbackStrategy()
 
     data class PlaybackData(
         val audioConfig: PlayerResponse.PlayerConfig.AudioConfig?,
@@ -48,107 +28,37 @@ object YTPlayerUtils {
         audioQuality: AudioQuality,
         connectivityManager: ConnectivityManager,
     ): Result<PlaybackData> = runCatching {
-        Timber.tag(logTag).d("Fetching player response for videoId: $videoId, playlistId: $playlistId")
-        val signatureTimestamp = getSignatureTimestampOrNull(videoId)
+        Timber.tag(logTag).d("Fetching player response for videoId: $videoId")
         
         val isLoggedIn = YouTube.cookie != null
         val sessionId = if (isLoggedIn) YouTube.dataSyncId else YouTube.visitorData
         val poToken = PoTokenGenerator().getWebClientPoToken(videoId, sessionId ?: "")?.playerRequestPoToken
         
-        var mainPlayerResponse =
-            YouTube.player(videoId, playlistId, MAIN_CLIENT, signatureTimestamp, poToken).getOrNull()
-
-        if (mainPlayerResponse?.playabilityStatus?.status == "UNPLAYABLE") {
-            mainPlayerResponse = YouTube.player(videoId, playlistId, ANDROID_NO_SDK, signatureTimestamp).getOrNull()
-        }
+        var playerResponse = YouTube.player(videoId, playlistId, YouTubeClient.WEB_REMIX, null, poToken).getOrNull()
         
-        val hints = ContentHints(
-            isExplicit = mainPlayerResponse?.playabilityStatus?.reason?.contains("explicit", true),
-            isKidsContent = mainPlayerResponse?.playabilityStatus?.reason?.contains("kids", true),
-            isLive = mainPlayerResponse?.videoDetails?.lengthSeconds == "0",
-        )
-        val STREAM_FALLBACK_CLIENTS = fallbackStrategy.resolveClients(hints).toTypedArray()
-
-        if (mainPlayerResponse == null) {
-            throw Exception("Failed to get main player response")
+        if (playerResponse?.playabilityStatus?.status != "OK") {
+            playerResponse = YouTube.player(videoId, playlistId, YouTubeClient.IOS).getOrNull()
         }
 
-        val audioConfig = mainPlayerResponse.playerConfig?.audioConfig
-        val videoDetails = mainPlayerResponse.videoDetails
-        val playbackTracking = mainPlayerResponse.playbackTracking
-        var format: PlayerResponse.StreamingData.Format? = null
-        var streamUrl: String? = null
-        var streamExpiresInSeconds: Int? = null
-        var streamPlayerResponse: PlayerResponse? = null
-
-        for (clientIndex in (-1 until STREAM_FALLBACK_CLIENTS.size)) {
-            format = null
-            streamUrl = null
-            streamExpiresInSeconds = null
-
-            val client: YouTubeClient
-            if (clientIndex == -1) {
-                client = MAIN_CLIENT
-                streamPlayerResponse = mainPlayerResponse
-            } else {
-                client = STREAM_FALLBACK_CLIENTS[clientIndex]
-
-                if (client.loginRequired && !isLoggedIn) {
-                    continue
-                }
-
-                streamPlayerResponse =
-                    YouTube.player(videoId, playlistId, client, signatureTimestamp, poToken).getOrNull()
-            }
-
-            if (streamPlayerResponse?.playabilityStatus?.status == "OK") {
-                val tempStreamPlayerResponse = YouTube.newPipePlayer(videoId, streamPlayerResponse)
-                streamPlayerResponse = tempStreamPlayerResponse ?: streamPlayerResponse
-
-                val candidateFormats = findCandidateFormats(streamPlayerResponse, audioQuality, connectivityManager)
-                for (candidate in candidateFormats) {
-                    val candidateUrl = findUrlOrNull(candidate, videoId)
-                    if (candidateUrl != null) {
-                        format = candidate
-                        streamUrl = candidateUrl
-                        break
-                    }
-                }
-
-                if (format == null || streamUrl == null) continue
-
-                streamExpiresInSeconds = streamPlayerResponse.streamingData?.expiresInSeconds
-                if (streamExpiresInSeconds == null) continue
-
-                if (clientIndex == STREAM_FALLBACK_CLIENTS.size - 1) break
-
-                if (validateStatus(streamUrl)) break
-            }
-        }
-
-        if (streamPlayerResponse == null) {
-            throw Exception("Bad stream player response")
-        }
-
-        if (streamPlayerResponse.playabilityStatus.status != "OK") {
+        if (playerResponse == null || playerResponse.playabilityStatus.status != "OK") {
             throw PlaybackException(
-                streamPlayerResponse.playabilityStatus.reason,
+                playerResponse?.playabilityStatus?.reason ?: "Unplayable stream",
                 null,
                 PlaybackException.ERROR_CODE_REMOTE_ERROR
             )
         }
 
-        if (streamExpiresInSeconds == null) throw Exception("Missing stream expire time")
-        if (format == null) throw Exception("Could not find format")
-        if (streamUrl == null) throw Exception("Could not find stream url")
-
+        val candidateFormats = findCandidateFormats(playerResponse, audioQuality, connectivityManager)
+        val format = candidateFormats.firstOrNull { !it.url.isNullOrBlank() }
+            ?: throw Exception("Could not find suitable format")
+        
         PlaybackData(
-            audioConfig,
-            videoDetails,
-            playbackTracking,
-            format,
-            streamUrl,
-            streamExpiresInSeconds,
+            audioConfig = playerResponse.playerConfig?.audioConfig,
+            videoDetails = playerResponse.videoDetails,
+            playbackTracking = playerResponse.playbackTracking,
+            format = format,
+            streamUrl = format.url!!,
+            streamExpiresInSeconds = playerResponse.streamingData?.expiresInSeconds ?: 43200,
         )
     }
 
@@ -158,69 +68,17 @@ object YTPlayerUtils {
     ): Result<PlayerResponse> {
         val sessionId = if (YouTube.cookie != null) YouTube.dataSyncId else YouTube.visitorData
         val poToken = PoTokenGenerator().getWebClientPoToken(videoId, sessionId ?: "")?.playerRequestPoToken
-        return YouTube.player(videoId, playlistId, client = WEB_REMIX, poToken = poToken)
+        return YouTube.player(videoId, playlistId, YouTubeClient.WEB_REMIX, null, poToken)
     }
 
     suspend fun getAudioStreamsForExport(
         videoId: String,
         playlistId: String? = null
     ): Result<List<Pair<PlayerResponse.StreamingData.Format, String>>> = runCatching {
-        val signatureTimestamp = getSignatureTimestampOrNull(videoId)
-        val isLoggedIn = YouTube.cookie != null
-        val sessionId = if (isLoggedIn) YouTube.dataSyncId else YouTube.visitorData
-        val poToken = PoTokenGenerator().getWebClientPoToken(videoId, sessionId ?: "")?.playerRequestPoToken
-
-        var mainPlayerResponse =
-            YouTube.player(videoId, playlistId, MAIN_CLIENT, signatureTimestamp, poToken).getOrNull()
-
-        if (mainPlayerResponse?.playabilityStatus?.status == "UNPLAYABLE") {
-            mainPlayerResponse = YouTube.player(videoId, playlistId, ANDROID_NO_SDK, signatureTimestamp).getOrNull()
-        }
-
-        val hints = ContentHints(
-            isExplicit = mainPlayerResponse?.playabilityStatus?.reason?.contains("explicit", true),
-            isKidsContent = mainPlayerResponse?.playabilityStatus?.reason?.contains("kids", true),
-            isLive = mainPlayerResponse?.videoDetails?.lengthSeconds == "0",
-        )
-        val streamFallbackClients = fallbackStrategy.resolveClients(hints).toTypedArray()
-
-        val validStreams = mutableListOf<Pair<PlayerResponse.StreamingData.Format, String>>()
-
-        for (clientIndex in (-1 until streamFallbackClients.size)) {
-            val client: YouTubeClient
-            var streamPlayerResponse: PlayerResponse?
-            if (clientIndex == -1) {
-                client = MAIN_CLIENT
-                streamPlayerResponse = mainPlayerResponse
-            } else {
-                client = streamFallbackClients[clientIndex]
-                if (client.loginRequired && !isLoggedIn) continue
-                streamPlayerResponse = YouTube.player(videoId, playlistId, client, signatureTimestamp, poToken).getOrNull()
-            }
-
-            if (streamPlayerResponse?.playabilityStatus?.status == "OK") {
-                val tempResponse = YouTube.newPipePlayer(videoId, streamPlayerResponse)
-                val finalResponse = tempResponse ?: streamPlayerResponse
-
-                val audioFormats = finalResponse.streamingData?.adaptiveFormats
-                    ?.filter { it.isAudio } ?: emptyList()
-
-                for (format in audioFormats) {
-                    val url = findUrlOrNull(format, videoId) ?: continue
-                    if (validStreams.none { it.first.itag == format.itag }) {
-                        validStreams.add(format to url)
-                    }
-                }
-
-                if (validStreams.isNotEmpty()) break
-            }
-        }
-
-        if (validStreams.isEmpty()) {
-            throw Exception("No valid audio streams found via InnerTube")
-        }
-
-        validStreams
+        val playerResponse = YouTube.player(videoId, playlistId, YouTubeClient.WEB_REMIX).getOrThrow()
+        val audioFormats = playerResponse.streamingData?.adaptiveFormats?.filter { it.isAudio } ?: emptyList()
+        audioFormats.mapNotNull { format -> format.url?.let { url -> format to url } }
+            .ifEmpty { throw Exception("No valid audio streams found") }
     }
 
     private fun findCandidateFormats(
@@ -242,32 +100,5 @@ object YTPlayerUtils {
             }
             (format.bitrate * qualityMultiplier) + (if (format.mimeType.startsWith("audio/webm")) 10240 else 0)
         }
-    }
-
-    private fun validateStatus(url: String): Boolean {
-        try {
-            val requestBuilder = Request.Builder().head().url(url)
-            val response = httpClient.newCall(requestBuilder.build()).execute()
-            return response.isSuccessful
-        } catch (e: Exception) {
-            reportException(e)
-        }
-        return false
-    }
-
-    private fun getSignatureTimestampOrNull(
-        videoId: String
-    ): Int? {
-        return NewPipeUtils.getSignatureTimestamp(videoId).getOrNull()
-    }
-
-    private fun findUrlOrNull(
-        format: PlayerResponse.StreamingData.Format,
-        videoId: String
-    ): String? {
-        if (!format.url.isNullOrBlank()) {
-            return format.url
-        }
-        return NewPipeUtils.getStreamUrl(format, videoId).getOrNull()
     }
 }
