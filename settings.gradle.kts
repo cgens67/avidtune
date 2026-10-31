@@ -6,15 +6,22 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        // Use the www subdomain to circumvent JitPack's 403 CI blocks
-        maven { url = uri("https://www.jitpack.io") }
+        maven { 
+            url = uri("https://www.jitpack.io") 
+            content {
+                includeGroup("com.github.MetrolistGroup.innertubex")
+                includeGroup("com.github.MetrolistGroup.quackjs")
+                includeGroup("com.github.MetrolistGroup")
+                includeGroup("com.github.PhilJay")
+                includeGroup("com.github.yalantis")
+            }
+        }
     }
 }
 
 plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version("0.10.0")
 }
-
 
 rootProject.name = "AvidTune"
 include(":app")

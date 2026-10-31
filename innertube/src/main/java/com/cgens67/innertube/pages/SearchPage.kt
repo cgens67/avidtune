@@ -11,7 +11,6 @@ import com.cgens67.innertube.models.PlaylistItem
 import com.cgens67.innertube.models.PodcastItem
 import com.cgens67.innertube.models.SongItem
 import com.cgens67.innertube.models.YTItem
-import com.cgens67.innertube.models.oddElements
 import com.cgens67.innertube.models.splitBySeparator
 import com.cgens67.innertube.utils.parseTime
 
@@ -21,7 +20,10 @@ data class SearchResult(
 )
 
 object SearchPage {
-    fun toYTItem(renderer: MusicResponsiveListItemRenderer): YTItem? {
+    fun toYTItem(
+        renderer: MusicResponsiveListItemRenderer,
+        fallbackArtists: List<Artist> = emptyList(),
+    ): YTItem? {
         val secondaryLine =
             renderer.flexColumns
                 .getOrNull(1)
@@ -29,7 +31,7 @@ object SearchPage {
                 ?.text
                 ?.runs
                 ?.splitBySeparator()
-                ?: return null
+                .orEmpty()
         return when {
             renderer.isEpisode -> {
                 val libraryTokens = PageHelper.extractLibraryTokensFromMenuItems(renderer.menu?.menuRenderer?.items)
@@ -55,8 +57,6 @@ object SearchPage {
                 val publishDateText = if (podcastSectionIndex > 0)
                     secondaryLine.getOrNull(podcastSectionIndex - 1)?.firstOrNull()?.text
                 else null
-                
-                val views = PageHelper.extractViews(secondaryLine.flatten())
 
                 EpisodeItem(
                     id = renderer.playlistItemData?.videoId
@@ -100,7 +100,6 @@ object SearchPage {
                         ?: renderer.navigationEndpoint?.watchEndpoint,
                     libraryAddToken = libraryTokens.addToken,
                     libraryRemoveToken = libraryTokens.removeToken,
-                    views = views
                 )
             }
             renderer.isSong -> {
@@ -108,8 +107,8 @@ object SearchPage {
                 val metadataRuns = renderer.flexColumns
                     .drop(1)
                     .flatMap { it.musicResponsiveListItemFlexColumnRenderer.text?.runs.orEmpty() }
-                val artists = PageHelper.extractArtists(metadataRuns)
-                val views = PageHelper.extractViews(metadataRuns)
+                val artists = PageHelper.extractArtists(metadataRuns).ifEmpty { fallbackArtists }
+                val albumRun = PageHelper.extractRuns(renderer.flexColumns, "MUSIC_PAGE_TYPE_ALBUM").firstOrNull()
 
                 SongItem(
                     id = renderer.playlistItemData?.videoId
@@ -130,12 +129,12 @@ object SearchPage {
                             ?.runs
                             ?.firstOrNull()
                             ?.text ?: return null,
-                    artists = artists.ifEmpty { return null },
+                    artists = artists,
                     album =
-                        secondaryLine.getOrNull(1)?.firstOrNull()?.takeIf { it.navigationEndpoint?.browseEndpoint != null }?.let {
+                        albumRun?.let {
                             Album(
                                 name = it.text,
-                                id = it.navigationEndpoint?.browseEndpoint?.browseId!!,
+                                id = it.navigationEndpoint?.browseEndpoint?.browseId ?: return@let null,
                             )
                         },
                     duration = PageHelper.extractDuration(metadataRuns),
@@ -147,8 +146,7 @@ object SearchPage {
                         } != null,
                     libraryAddToken = libraryTokens.addToken,
                     libraryRemoveToken = libraryTokens.removeToken,
-                    isEpisode = renderer.isEpisode,
-                    views = views
+                    isEpisode = renderer.isEpisode
                 )
             }
             renderer.isArtist -> {
@@ -173,8 +171,8 @@ object SearchPage {
                             ?.navigationEndpoint
                             ?.watchPlaylistEndpoint ?: return null,
                     radioEndpoint =
-                        renderer.menu?.menuRenderer?.items
-                            ?.find { it.menuNavigationItemRenderer?.icon?.iconType == "MIX" }
+                        renderer.menu.menuRenderer.items
+                            .find { it.menuNavigationItemRenderer?.icon?.iconType == "MIX" }
                             ?.menuNavigationItemRenderer
                             ?.navigationEndpoint
                             ?.watchPlaylistEndpoint ?: return null,
@@ -219,7 +217,7 @@ object SearchPage {
                             ?.content
                             ?.musicPlayButtonRenderer
                             ?.playNavigationEndpoint
-                            ?.watchPlaylistEndpoint
+                            ?.anyWatchEndpoint
                             ?.playlistId
                             ?: return null,
                     title =
@@ -230,13 +228,7 @@ object SearchPage {
                             ?.runs
                             ?.firstOrNull()
                             ?.text ?: return null,
-                    artists =
-                        secondaryLine.getOrNull(1)?.oddElements()?.map {
-                            Artist(
-                                name = it.text,
-                                id = it.navigationEndpoint?.browseEndpoint?.browseId,
-                            )
-                        } ?: return null,
+                    artists = PageHelper.extractArtists(secondaryLine.getOrNull(1)),
                     year =
                         secondaryLine
                             .getOrNull(2)
@@ -266,12 +258,16 @@ object SearchPage {
                             ?.firstOrNull()
                             ?.text ?: return null,
                     author =
-                        secondaryLine.firstOrNull()?.firstOrNull()?.let {
-                            Artist(
-                                name = it.text,
-                                id = it.navigationEndpoint?.browseEndpoint?.browseId,
-                            )
-                        } ?: return null,
+                        PageHelper
+                            .extractArtists(
+                                renderer.flexColumns
+                                    .drop(1)
+                                    .flatMap {
+                                        it.musicResponsiveListItemFlexColumnRenderer.text
+                                            ?.runs
+                                            .orEmpty()
+                                    },
+                            ).firstOrNull() ?: PlaylistPage.ownerFromByline(secondaryLine.dropLast(1).lastOrNull()),
                     songCountText =
                         renderer.flexColumns
                             .getOrNull(1)
@@ -297,8 +293,8 @@ object SearchPage {
                             ?.navigationEndpoint
                             ?.watchPlaylistEndpoint ?: return null,
                     radioEndpoint =
-                        renderer.menu?.menuRenderer?.items
-                            ?.find { it.menuNavigationItemRenderer?.icon?.iconType == "MIX" }
+                        renderer.menu.menuRenderer.items
+                            .find { it.menuNavigationItemRenderer?.icon?.iconType == "MIX" }
                             ?.menuNavigationItemRenderer
                             ?.navigationEndpoint
                             ?.watchPlaylistEndpoint ?: return null,
@@ -320,12 +316,11 @@ object SearchPage {
                             ?.firstOrNull()
                             ?.text ?: return null,
                     author =
-                        secondaryLine.firstOrNull()?.firstOrNull()?.let {
-                            Artist(
-                                name = it.text,
-                                id = it.navigationEndpoint?.browseEndpoint?.browseId,
-                            )
-                        },
+                        PageHelper.extractArtists(
+                            renderer.flexColumns
+                                .drop(1)
+                                .flatMap { it.musicResponsiveListItemFlexColumnRenderer.text?.runs.orEmpty() },
+                        ).firstOrNull(),
                     episodeCountText =
                         renderer.flexColumns
                             .getOrNull(1)

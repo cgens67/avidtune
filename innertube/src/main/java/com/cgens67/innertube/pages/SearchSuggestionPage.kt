@@ -2,7 +2,6 @@ package com.cgens67.innertube.pages
 
 import com.cgens67.innertube.models.Album
 import com.cgens67.innertube.models.AlbumItem
-import com.cgens67.innertube.models.Artist
 import com.cgens67.innertube.models.ArtistItem
 import com.cgens67.innertube.models.EpisodeItem
 import com.cgens67.innertube.models.MusicResponsiveListItemRenderer
@@ -10,7 +9,6 @@ import com.cgens67.innertube.models.PlaylistItem
 import com.cgens67.innertube.models.PodcastItem
 import com.cgens67.innertube.models.SongItem
 import com.cgens67.innertube.models.YTItem
-import com.cgens67.innertube.models.oddElements
 import com.cgens67.innertube.models.splitBySeparator
 import com.cgens67.innertube.utils.parseTime
 
@@ -35,12 +33,7 @@ object SearchSuggestionPage {
                             ?.runs
                             ?.firstOrNull()
                             ?.text ?: return null,
-                    author = secondaryLine?.getOrNull(0)?.firstOrNull()?.let {
-                        Artist(
-                            name = it.text,
-                            id = it.navigationEndpoint?.browseEndpoint?.browseId,
-                        )
-                    },
+                    author = PodcastPage.extractPodcastByline(secondaryLine?.getOrNull(0)).firstOrNull(),
                     episodeCountText = secondaryLine?.lastOrNull()?.firstOrNull()?.text,
                     thumbnail = renderer.thumbnail?.getThumbnailUrl() ?: return null,
                     playEndpoint = renderer.overlay
@@ -70,9 +63,6 @@ object SearchSuggestionPage {
                 val isUnfilteredSearch = firstSubtitle == "Episode"
                 val dateIndex = if (isUnfilteredSearch) 1 else 0
                 val podcastIndex = if (isUnfilteredSearch) 2 else 1
-                
-                val views = PageHelper.extractViews(secondaryLine?.flatten())
-
                 EpisodeItem(
                     id = renderer.videoId ?: return null,
                     title =
@@ -103,7 +93,6 @@ object SearchSuggestionPage {
                         ?.watchEndpoint,
                     libraryAddToken = null,
                     libraryRemoveToken = null,
-                    views = views
                 )
             }
             renderer.isPlaylist -> {
@@ -125,32 +114,30 @@ object SearchSuggestionPage {
                             ?.runs
                             ?.firstOrNull()
                             ?.text ?: return null,
-                    author = secondaryLine?.firstOrNull()?.firstOrNull()?.let {
-                        Artist(
-                            name = it.text,
-                            id = it.navigationEndpoint?.browseEndpoint?.browseId,
-                        )
-                    } ?: return null,
+                    author = PlaylistPage.ownerFromByline(secondaryLine?.firstOrNull()),
                     songCountText = secondaryLine?.lastOrNull()?.firstOrNull()?.text,
                     thumbnail = renderer.thumbnail?.getThumbnailUrl() ?: return null,
-                    playEndpoint = renderer.overlay
-                        ?.musicItemThumbnailOverlayRenderer
-                        ?.content
-                        ?.musicPlayButtonRenderer
-                        ?.playNavigationEndpoint
-                        ?.watchPlaylistEndpoint ?: return null,
-                    shuffleEndpoint = renderer.menu
-                        ?.menuRenderer
-                        ?.items
-                        ?.find { it.menuNavigationItemRenderer?.icon?.iconType == "MUSIC_SHUFFLE" }
-                        ?.menuNavigationItemRenderer
-                        ?.navigationEndpoint
-                        ?.watchPlaylistEndpoint ?: return null,
-                    radioEndpoint = renderer.menu?.menuRenderer?.items
-                        ?.find { it.menuNavigationItemRenderer?.icon?.iconType == "MIX" }
-                        ?.menuNavigationItemRenderer
-                        ?.navigationEndpoint
-                        ?.watchPlaylistEndpoint ?: return null,
+                    playEndpoint =
+                        renderer.overlay
+                            ?.musicItemThumbnailOverlayRenderer
+                            ?.content
+                            ?.musicPlayButtonRenderer
+                            ?.playNavigationEndpoint
+                            ?.watchPlaylistEndpoint ?: return null,
+                    shuffleEndpoint =
+                        renderer.menu
+                            ?.menuRenderer
+                            ?.items
+                            ?.find { it.menuNavigationItemRenderer?.icon?.iconType == "MUSIC_SHUFFLE" }
+                            ?.menuNavigationItemRenderer
+                            ?.navigationEndpoint
+                            ?.watchPlaylistEndpoint ?: return null,
+                    radioEndpoint =
+                        renderer.menu.menuRenderer.items
+                            .find { it.menuNavigationItemRenderer?.icon?.iconType == "MIX" }
+                            ?.menuNavigationItemRenderer
+                            ?.navigationEndpoint
+                            ?.watchPlaylistEndpoint ?: return null,
                 )
             }
             renderer.isSong -> {
@@ -158,15 +145,6 @@ object SearchSuggestionPage {
                     .drop(1)
                     .flatMap { it.musicResponsiveListItemFlexColumnRenderer.text?.runs.orEmpty() }
                 val artists = PageHelper.extractArtists(metadataRuns)
-                val views = PageHelper.extractViews(metadataRuns)
-
-                val secondaryLine =
-                    renderer.flexColumns
-                        .getOrNull(1)
-                        ?.musicResponsiveListItemFlexColumnRenderer
-                        ?.text
-                        ?.runs
-                        ?.splitBySeparator()
                 SongItem(
                     id = renderer.videoId ?: return null,
                     title =
@@ -177,24 +155,18 @@ object SearchSuggestionPage {
                             ?.runs
                             ?.firstOrNull()
                             ?.text ?: return null,
-                    artists = artists.ifEmpty { return null },
+                    artists = artists,
                     album =
                         renderer.flexColumns
-                            .getOrNull(
-                                2,
-                            )?.musicResponsiveListItemFlexColumnRenderer
+                            .getOrNull(2)
+                            ?.musicResponsiveListItemFlexColumnRenderer
                             ?.text
                             ?.runs
                             ?.firstOrNull()
                             ?.let {
                                 Album(
                                     name = it.text,
-                                    id = it.navigationEndpoint?.browseEndpoint?.browseId ?: return null,
-                                )
-                            } ?: secondaryLine?.getOrNull(1)?.firstOrNull()?.takeIf { it.navigationEndpoint?.browseEndpoint != null }?.let {
-                                Album(
-                                    name = it.text,
-                                    id = it.navigationEndpoint?.browseEndpoint?.browseId!!,
+                                    id = it.navigationEndpoint?.browseEndpoint?.browseId ?: return@let null,
                                 )
                             },
                     duration = PageHelper.extractDuration(metadataRuns),
@@ -204,7 +176,6 @@ object SearchSuggestionPage {
                         renderer.badges?.find {
                             it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
                         } != null,
-                    views = views
                 )
             }
             renderer.isArtist -> {
@@ -227,13 +198,15 @@ object SearchSuggestionPage {
                             ?.find { it.menuNavigationItemRenderer?.icon?.iconType == "MUSIC_SHUFFLE" }
                             ?.menuNavigationItemRenderer
                             ?.navigationEndpoint
-                            ?.watchPlaylistEndpoint ?: return null,
+                            ?.watchPlaylistEndpoint,
                     radioEndpoint =
-                        renderer.menu?.menuRenderer?.items
+                        renderer.menu
+                            ?.menuRenderer
+                            ?.items
                             ?.find { it.menuNavigationItemRenderer?.icon?.iconType == "MIX" }
                             ?.menuNavigationItemRenderer
                             ?.navigationEndpoint
-                            ?.watchPlaylistEndpoint ?: return null,
+                            ?.watchPlaylistEndpoint,
                 )
             }
             renderer.isUserChannel -> {
@@ -263,7 +236,6 @@ object SearchSuggestionPage {
                         ?.menuNavigationItemRenderer
                         ?.navigationEndpoint
                         ?.watchPlaylistEndpoint,
-                    isProfile = true,
                 )
             }
             renderer.isAlbum -> {
@@ -294,13 +266,7 @@ object SearchSuggestionPage {
                             ?.runs
                             ?.firstOrNull()
                             ?.text ?: return null,
-                    artists =
-                        secondaryLine.getOrNull(1)?.oddElements()?.map {
-                            Artist(
-                                name = it.text,
-                                id = it.navigationEndpoint?.browseEndpoint?.browseId,
-                            )
-                        } ?: return null,
+                    artists = PageHelper.extractArtists(secondaryLine.getOrNull(1)),
                     year =
                         secondaryLine
                             .lastOrNull()
