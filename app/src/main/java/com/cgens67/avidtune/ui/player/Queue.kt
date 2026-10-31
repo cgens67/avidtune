@@ -399,12 +399,22 @@ fun Queue(
                                             isPlaying = isPlaying && isActive,
                                             trailingContent = {
                                                 IconButton(onClick = {
+                                                    val targetSongs = if (selection && selectedSongs.isNotEmpty()) {
+                                                        selectedSongs.toList()
+                                                    } else {
+                                                        listOf(window.mediaItem.metadata!!)
+                                                    }
+                                                    val targetItems = if (selection && selectedItems.isNotEmpty()) {
+                                                        selectedItems.toList()
+                                                    } else {
+                                                        listOf(currentItem)
+                                                    }
                                                     menuState.show {
                                                         SelectionMediaMetadataMenu(
-                                                            songSelection = selectedSongs,
+                                                            songSelection = targetSongs,
+                                                            currentItems = targetItems,
                                                             onDismiss = { menuState.dismiss() },
-                                                            clearAction = { clearSelection() },
-                                                            currentItems = selectedItems
+                                                            clearAction = { clearSelection() }
                                                         )
                                                     }
                                                 }) {

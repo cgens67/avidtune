@@ -4,8 +4,9 @@ import androidx.compose.runtime.mutableStateOf
 
 class ItemWrapper<T>(
     val item: T,
+    initialSelected: Boolean = false,
 ) {
-    private val _isSelected = mutableStateOf(true)
+    private val _isSelected = mutableStateOf(initialSelected)
 
     var isSelected: Boolean
         get() = _isSelected.value

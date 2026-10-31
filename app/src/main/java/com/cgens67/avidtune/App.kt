@@ -56,7 +56,7 @@ class App : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         instance = this;
-        Timber.plant(Timber.DebugTree())
+        Timber.plant(com.cgens67.avidtune.utils.MemoryLogTree())
 
         Paxsenix.init(this)
 

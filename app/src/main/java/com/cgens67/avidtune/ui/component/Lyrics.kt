@@ -3,7 +3,16 @@ package com.cgens67.avidtune.ui.component
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.res.Configuration
+import android.graphics.LinearGradient
+import android.graphics.Paint
+import android.graphics.Rect
+import android.graphics.RectF
+import android.graphics.Shader
+import android.graphics.Typeface
 import android.os.Build
+import android.text.Layout
+import android.text.StaticLayout
+import android.text.TextPaint
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.annotation.RequiresApi
@@ -13,6 +22,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
@@ -32,6 +42,12 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -41,13 +57,11 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -55,43 +69,30 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -109,7 +110,6 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
@@ -118,12 +118,8 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.graphics.drawscope.clipRect
-import androidx.compose.ui.graphics.drawscope.scale
-import androidx.compose.ui.graphics.drawscope.translate
-import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -135,40 +131,34 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.drawText
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.zIndex
+import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.C
 import androidx.media3.common.Player
-import androidx.palette.graphics.Palette
+import androidx.navigation.NavController
 import coil.ImageLoader
 import coil.compose.AsyncImage
-import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.cgens67.avidtune.LocalDatabase
 import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.AnimateLyricsKey
-import com.cgens67.avidtune.constants.AppleMusicLyricsBlurKey
 import com.cgens67.avidtune.constants.DarkModeKey
 import com.cgens67.avidtune.constants.DisableBlurKey
 import com.cgens67.avidtune.constants.LyricsClickKey
@@ -185,13 +175,13 @@ import com.cgens67.avidtune.lyrics.LyricsEntry
 import com.cgens67.avidtune.lyrics.LyricsResult
 import com.cgens67.avidtune.lyrics.LyricsUtils.findCurrentLineIndex
 import com.cgens67.avidtune.lyrics.LyricsUtils.parseLyrics
-import com.cgens67.avidtune.lyrics.WordTimestamp
 import com.cgens67.avidtune.playback.PlayerConnection
 import com.cgens67.avidtune.ui.menu.LyricsMenu
 import com.cgens67.avidtune.ui.screens.settings.DarkMode
 import com.cgens67.avidtune.ui.screens.settings.LyricsPosition
 import com.cgens67.avidtune.ui.utils.fadingEdge
 import com.cgens67.avidtune.utils.ComposeToImage
+import com.cgens67.avidtune.utils.TranslationHelper
 import com.cgens67.avidtune.utils.makeTimeString
 import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
@@ -202,34 +192,21 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.saket.squiggles.SquigglySlider
+import kotlin.math.abs
 import kotlin.math.absoluteValue
 import kotlin.math.exp
-import kotlin.math.min
+import kotlin.math.max
 import kotlin.math.roundToInt
+import kotlin.math.sin
 import kotlin.time.Duration.Companion.seconds
-import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.TextUnit
-import androidx.core.graphics.drawable.toBitmap
-import android.text.Layout
-import android.text.StaticLayout
-import android.text.TextPaint
-import android.graphics.Typeface
-import android.graphics.Rect
-import android.graphics.RectF
-import android.graphics.Shader
-import android.graphics.LinearGradient
-import android.graphics.Paint
-import androidx.compose.foundation.gestures.animateScrollBy
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.runtime.derivedStateOf
-import androidx.navigation.NavController
 
 @RequiresApi(Build.VERSION_CODES.M)
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class,
+@OptIn(
+    ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class,
     ExperimentalMaterial3ExpressiveApi::class
 )
-@SuppressLint("UnusedBoxWithConstraintsScope", "StringFormatInvalid",
+@SuppressLint(
+    "UnusedBoxWithConstraintsScope", "StringFormatInvalid",
     "LocalContextGetResourceValueCall"
 )
 @Composable
@@ -255,7 +232,6 @@ fun Lyrics(
 
     val isFullscreen = onNavigateBack != null
     val sliderStyle by rememberEnumPreference(SliderStyleKey, SliderStyle.DEFAULT)
-    val landscapeOffset = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val lyricsTextPosition by rememberEnumPreference(LyricsTextPositionKey, LyricsPosition.CENTER)
     val changeLyrics by rememberPreference(LyricsClickKey, true)
     val scrollLyrics by rememberPreference(LyricsScrollKey, true)
@@ -382,10 +358,26 @@ fun Lyrics(
                 }
                 
                 val textToTranslate = itemsToTranslate.joinToString("\n")
-                val translatedText = com.cgens67.avidtune.utils.TranslationHelper.translate(textToTranslate)
+
+                val targetLang = if (isZhConversion) {
+                    "zh-CN"
+                } else {
+                    val effectiveCode = runCatching {
+                        LocaleManager.getInstance(context).getEffectiveLanguageCode()
+                    }.getOrNull()
+                    val locale = java.util.Locale.getDefault()
+                    val code = when {
+                        !effectiveCode.isNullOrBlank() && effectiveCode != "system" && effectiveCode != "SYSTEM_DEFAULT" && effectiveCode != "system_default" -> effectiveCode
+                        locale.language.isNotBlank() -> locale.toLanguageTag()
+                        else -> "en"
+                    }
+                    TranslationHelper.normalizeTargetLanguage(code)
+                }
+
+                val translatedText = TranslationHelper.translate(textToTranslate, targetLang)
                 
                 if (translatedText != null) {
-                    val translatedSplit = translatedText.split("\n")
+                    val translatedSplit = translatedText.replace("\r", "").split("\n")
                     val newEntries = lines.toMutableList()
                     
                     var transIdx = 0
@@ -428,9 +420,8 @@ fun Lyrics(
         } else {
             scope.launch {
                 val linesToRomanize = lines.map { it.text }
-                val romanizedResult = com.cgens67.avidtune.utils.TranslationHelper.romanize(linesToRomanize)
+                val romanizedResult = TranslationHelper.romanize(linesToRomanize)
 
-                // romanizedResult is a List<String> aligned with 'lines'
                 val finalRomanizedLines = mutableListOf<String>()
                 for (i in lines.indices) {
                     if (lines[i].text.isNotBlank()) {
@@ -460,18 +451,6 @@ fun Lyrics(
         if (darkTheme == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON
     }
 
-    var progress by remember { mutableFloatStateOf(0f) }
-    val animatedProgress by
-    animateFloatAsState(
-        targetValue = progress,
-        animationSpec =
-            spring(
-                dampingRatio = Spring.DampingRatioNoBouncy,
-                stiffness = Spring.StiffnessVeryLow,
-                visibilityThreshold = 1 / 1000f,
-            ),
-    )
-
     var position by rememberSaveable(playbackState) { mutableLongStateOf(playerConnection.player.currentPosition) }
     var duration by rememberSaveable(playbackState) { mutableLongStateOf(playerConnection.player.duration) }
 
@@ -492,7 +471,6 @@ fun Lyrics(
 
     var gradientColors by remember { mutableStateOf<List<Color>>(emptyList()) }
     val gradientColorsCache = remember { mutableMapOf<String, List<Color>>() }
-    val fallbackColor = MaterialTheme.colorScheme.surface.toArgb()
 
     LaunchedEffect(currentMetadata?.id, playerBackground) {
         if ((playerBackground == PlayerBackgroundStyle.GRADIENT || playerBackground == PlayerBackgroundStyle.APPLE_MUSIC) && currentMetadata?.thumbnailUrl != null) {
@@ -504,7 +482,6 @@ fun Lyrics(
 
             withContext(Dispatchers.IO) {
                 try {
-
                     val fallbackColors = listOf(primaryColor, secondaryColor, tertiaryColor)
                     gradientColorsCache[currentMetadata.id] = fallbackColors
                     withContext(Dispatchers.Main) { gradientColors = fallbackColors }
@@ -546,7 +523,6 @@ fun Lyrics(
 
                         val text = existingLyrics.lyrics.trim()
                         if (!text.startsWith("[provider:")) {
-                            // Old format, trigger a background upgrade
                             scope.launch(Dispatchers.IO) {
                                 try {
                                     val entryPoint = EntryPointAccessors.fromApplication(
@@ -568,7 +544,6 @@ fun Lyrics(
                                             }
                                         } catch (e: Throwable) {}
 
-                                        // Update state to show provider credit
                                         currentLyricsEntity = upgradedEntity
                                         val upgradedCache = lyricsCache.toMutableMap().apply {
                                             put(songId, upgradedEntity)
@@ -576,7 +551,6 @@ fun Lyrics(
                                         lyricsCache = upgradedCache
                                     }
                                 } catch (e: Throwable) {
-                                    // Ignore errors during background upgrade
                                 }
                             }
                         }
@@ -647,19 +621,25 @@ fun Lyrics(
         if (lines.isNotEmpty() && originalLyrics != LYRICS_NOT_FOUND) {
             val textOnly = lines.mapNotNull { it.text }.filter { it.isNotBlank() }.joinToString("\n").take(500)
             if (textOnly.isNotBlank()) {
-                val detectedLang = com.cgens67.avidtune.utils.TranslationHelper.detectLanguage(textOnly)
-                val systemLocale = java.util.Locale.getDefault()
-                val systemLang = systemLocale.language.lowercase()
-                val langTag = systemLocale.toLanguageTag().lowercase()
-                
-                val isSystemZhCn = langTag.contains("zh-cn") || langTag.contains("zh-hans") || (langTag == "zh")
+                val detectedLang = TranslationHelper.detectLanguage(textOnly)
+                val effectiveCode = runCatching {
+                    LocaleManager.getInstance(context).getEffectiveLanguageCode()
+                }.getOrNull()
+                val locale = java.util.Locale.getDefault()
+                val userLang = when {
+                    !effectiveCode.isNullOrBlank() && effectiveCode != "system" && effectiveCode != "SYSTEM_DEFAULT" && effectiveCode != "system_default" -> effectiveCode
+                    locale.language.isNotBlank() -> locale.language
+                    else -> "en"
+                }.lowercase()
+                val userBase = userLang.substringBefore('-')
+                val isUserZhCn = userLang.contains("zh-cn") || userLang.contains("zh-hans") || (userLang == "zh")
                 
                 if (detectedLang != null && detectedLang != "und") {
                     val detectedLower = detectedLang.lowercase()
-                    if (isSystemZhCn && (detectedLower == "zh-tw" || detectedLower == "zh-hant")) {
+                    if (isUserZhCn && (detectedLower == "zh-tw" || detectedLower == "zh-hant")) {
                         translationPromptText = context.getString(R.string.translate_zh_tw_prompt)
                         showTranslatePrompt = true
-                    } else if (!detectedLower.startsWith(systemLang)) {
+                    } else if (!detectedLower.startsWith(userBase)) {
                         translationPromptText = context.getString(R.string.translate_lyrics_prompt)
                         showTranslatePrompt = true
                     }
@@ -784,7 +764,6 @@ fun Lyrics(
             currentLineIndex = rawIndex
 
             var mainIdx = rawIndex
-            // Navigate back to find the closest main line (ignoring background lines)
             while (mainIdx >= 0 && lines.getOrNull(mainIdx)?.isBackground == true) {
                 mainIdx--
             }
@@ -995,7 +974,6 @@ fun Lyrics(
                                 
                                 val blurAmount = if (!disableBlur) 32.dp else 0.dp
 
-                                // Layer 1 (Anchor)
                                 AsyncImage(
                                     model = imageRequest,
                                     contentDescription = null,
@@ -1007,7 +985,6 @@ fun Lyrics(
                                         .graphicsLayer { rotationZ = anchorRotation }
                                 )
 
-                                // Layer 2 (Fast)
                                 AsyncImage(
                                     model = imageRequest,
                                     contentDescription = null,
@@ -1023,13 +1000,13 @@ fun Lyrics(
                                         }
                                 )
 
-                                // Layer 3 (Slow)
                                 AsyncImage(
                                     model = imageRequest,
                                     contentDescription = null,
                                     contentScale = ContentScale.Crop,
                                     alignment = Alignment.BottomEnd,
                                     colorFilter = ColorFilter.colorMatrix(saturationMatrix),
+                                    filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .let { if (blurAmount > 0.dp) it.blur(blurAmount) else it }
@@ -1039,7 +1016,6 @@ fun Lyrics(
                                         }
                                 )
                                 
-                                // Depth & Contrast Overlays
                                 Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.2f)))
                                 Box(
                                     modifier = Modifier
@@ -1653,6 +1629,13 @@ fun Lyrics(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
+                val sponsorFractions = remember(currentSkipSegments, duration, sponsorBlockEnabled) {
+                    if (!sponsorBlockEnabled || duration <= 0L) emptyList()
+                    else currentSkipSegments.map { (startMs, endMs) ->
+                        (startMs.toFloat() / duration).coerceIn(0f, 1f) to (endMs.toFloat() / duration).coerceIn(0f, 1f)
+                    }
+                }
+
                 when (sliderStyle) {
                     SliderStyle.DEFAULT -> {
                         Slider(
@@ -1666,37 +1649,63 @@ fun Lyrics(
                                 }
                                 sliderPosition = null
                             },
-                            colors = androidx.compose.material3.SliderDefaults.colors(
-                                activeTrackColor = textBackgroundColor,
-                                inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
-                                thumbColor = textBackgroundColor
-                            ),
-                        )
-                    }
-
-                    SliderStyle.SQUIGGLY -> {
-                        SquigglySlider(
-                            value = (sliderPosition ?: position).toFloat(),
-                            valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
-                            onValueChange = { sliderPosition = it.toLong() },
-                            onValueChangeFinished = {
-                                sliderPosition?.let {
-                                    playerConnection.player.seekTo(it)
-                                    position = it
-                                }
-                                sliderPosition = null
+                            track = { sliderState ->
+                                PlayerSliderTrack(
+                                    sliderState = sliderState,
+                                    trackHeight = 4.dp,
+                                    colors = androidx.compose.material3.SliderDefaults.colors(
+                                        activeTrackColor = textBackgroundColor,
+                                        inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
+                                        thumbColor = textBackgroundColor
+                                    ),
+                                    sponsorSegments = sponsorFractions
+                                )
                             },
                             colors = androidx.compose.material3.SliderDefaults.colors(
                                 activeTrackColor = textBackgroundColor,
                                 inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
                                 thumbColor = textBackgroundColor
                             ),
-                            squigglesSpec = SquigglySlider.SquigglesSpec(
-                                amplitude = if (isPlaying && animateLyrics) (4.dp).coerceAtLeast(2.dp) else 0.dp,
-                                strokeWidth = 3.dp,
-                                wavelength = 36.dp,
-                            ),
+                            modifier = Modifier.fillMaxWidth()
                         )
+                    }
+
+                    SliderStyle.SQUIGGLY -> {
+                        val currentProgressFrac = if (duration > 0) ((sliderPosition ?: position).toFloat() / duration).coerceIn(0f, 1f) else 0f
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            SquigglySlider(
+                                value = (sliderPosition ?: position).toFloat(),
+                                valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
+                                onValueChange = { sliderPosition = it.toLong() },
+                                onValueChangeFinished = {
+                                    sliderPosition?.let {
+                                        playerConnection.player.seekTo(it)
+                                        position = it
+                                    }
+                                    sliderPosition = null
+                                },
+                                colors = androidx.compose.material3.SliderDefaults.colors(
+                                    activeTrackColor = textBackgroundColor,
+                                    inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
+                                    thumbColor = textBackgroundColor
+                                ),
+                                squigglesSpec = SquigglySlider.SquigglesSpec(
+                                    amplitude = if (isPlaying && animateLyrics) (4.dp).coerceAtLeast(2.dp) else 0.dp,
+                                    strokeWidth = 3.dp,
+                                    wavelength = 36.dp,
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            SponsorBlockOverlay(
+                                sponsorSegments = sponsorFractions,
+                                activeProgress = currentProgressFrac,
+                                trackHeight = 3.dp,
+                                thumbOffset = 10.dp
+                            )
+                        }
                     }
 
                     SliderStyle.SLIM -> {
@@ -1712,10 +1721,63 @@ fun Lyrics(
                                 sliderPosition = null
                             },
                             thumb = { Spacer(modifier = Modifier.size(0.dp)) },
+                            track = { sliderState ->
+                                PlayerSliderTrack(
+                                    sliderState = sliderState,
+                                    trackHeight = 3.dp,
+                                    colors = androidx.compose.material3.SliderDefaults.colors(
+                                        activeTrackColor = textBackgroundColor,
+                                        inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
+                                        thumbColor = textBackgroundColor
+                                    ),
+                                    sponsorSegments = sponsorFractions
+                                )
+                            },
                             colors = androidx.compose.material3.SliderDefaults.colors(
                                 activeTrackColor = textBackgroundColor,
-                                inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f)
+                                inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
+                                thumbColor = textBackgroundColor
                             )
+                        )
+                    }
+
+                    SliderStyle.EXPANDING -> {
+                        val trackInteractionSource = remember { MutableInteractionSource() }
+                        val isTrackDragged by trackInteractionSource.collectIsDraggedAsState()
+                        val isTrackPressed by trackInteractionSource.collectIsPressedAsState()
+                        val isTrackActive = isTrackDragged || isTrackPressed
+
+                        val trackHeight by animateDpAsState(
+                            targetValue = if (isTrackActive) 12.dp else 6.dp,
+                            animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
+                            label = "trackScale"
+                        )
+
+                        Slider(
+                            value = (sliderPosition ?: position).toFloat(),
+                            valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
+                            onValueChange = { sliderPosition = it.toLong() },
+                            onValueChangeFinished = {
+                                sliderPosition?.let { pos ->
+                                    playerConnection.player.seekTo(pos)
+                                    position = pos
+                                }
+                                sliderPosition = null
+                            },
+                            interactionSource = trackInteractionSource,
+                            thumb = { Spacer(modifier = Modifier.size(0.dp)) },
+                            track = { sliderState ->
+                                PlayerSliderTrack(
+                                    sliderState = sliderState,
+                                    trackHeight = trackHeight,
+                                    colors = androidx.compose.material3.SliderDefaults.colors(
+                                        activeTrackColor = textBackgroundColor,
+                                        inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
+                                        thumbColor = textBackgroundColor
+                                    ),
+                                    sponsorSegments = sponsorFractions
+                                )
+                            }
                         )
                     }
                 }
@@ -1746,132 +1808,66 @@ fun Lyrics(
             }
         }
 
+        // Auto-scroll Floating Pill (Matching LyricsV2 Animation & Mechanics)
         AnimatedVisibility(
-            visible = !isAutoScrollEnabled && isSynced,
+            visible = !isAutoScrollEnabled && isSynced && !isSelectionModeActive,
             enter = slideInVertically { it } + fadeIn(),
             exit = slideOutVertically { it } + fadeOut(),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 220.dp)
+                .padding(bottom = 188.dp)
         ) {
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
-                tonalElevation = 4.dp,
-                modifier = Modifier
-                    .clickable {
-                        scope.launch {
-                            performSmoothPageScroll(currentLineIndex, 1500)
-                        }
-                        isAutoScrollEnabled = true
+            AutoScrollFloatingPill(
+                onClick = {
+                    scope.launch {
+                        performSmoothPageScroll(currentLineIndex, 1500)
                     }
-                    .padding(12.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.sync),
-                        contentDescription = stringResource(R.string.auto_scroll),
-                        modifier = Modifier.size(20.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = stringResource(R.string.auto_scroll),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
+                    isAutoScrollEnabled = true
+                },
+                modifier = Modifier.padding(32.dp)
+            )
         }
 
-        if (isFullscreen && isSelectionModeActive) {
-            AnimatedVisibility(
-                visible = isSelectionModeActive,
-                enter = fadeIn(tween(300)) + slideInVertically(tween(300)) { it },
-                exit = fadeOut(tween(300)) + slideOutVertically(tween(300)) { it },
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 180.dp)
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f),
-                        tonalElevation = 4.dp,
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clickable {
-                                isSelectionModeActive = false
-                                selectedIndices.clear()
-                            }
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.close),
-                                contentDescription = stringResource(R.string.cancel),
-                                tint = MaterialTheme.colorScheme.onErrorContainer,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    }
+        // Floating Action Bar for Selection Mode (Cancel & Share Dock)
+        AnimatedVisibility(
+            visible = isSelectionModeActive,
+            enter = fadeIn(tween(300)) + slideInVertically(tween(300)) { it },
+            exit = fadeOut(tween(300)) + slideOutVertically(tween(300)) { it },
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 148.dp)
+        ) {
+            LyricsSelectionActionDock(
+                selectedCount = selectedIndices.size,
+                onCancel = {
+                    isSelectionModeActive = false
+                    selectedIndices.clear()
+                },
+                onShare = {
+                    val sortedIndices = selectedIndices.sorted()
+                    val selectedLyricsText = sortedIndices
+                        .mapNotNull { displayedLines.getOrNull(it)?.text }
+                        .filter { it.isNotBlank() }
+                        .joinToString("\n")
 
-                    if (selectedIndices.isNotEmpty()) {
-                        Surface(
-                            shape = RoundedCornerShape(28.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
-                            tonalElevation = 4.dp,
-                            modifier = Modifier
-                                .clickable {
-                                    val sortedIndices = selectedIndices.sorted()
-                                    val selectedLyricsText = sortedIndices
-                                        .mapNotNull { displayedLines.getOrNull(it)?.text }
-                                        .joinToString("\n")
-
-                                    if (selectedLyricsText.isNotBlank()) {
-                                        shareDialogData = Triple(
-                                            selectedLyricsText,
-                                            currentMetadata?.title ?: "",
-                                            currentMetadata?.artists?.joinToString { it.name } ?: ""
-                                        )
-                                        showShareDialog = true
-                                    }
-                                    isSelectionModeActive = false
-                                    selectedIndices.clear()
-                                }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.media3_icon_share),
-                                    contentDescription = stringResource(R.string.share_selected),
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Text(
-                                    text = stringResource(R.string.share),
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
+                    if (selectedLyricsText.isNotBlank()) {
+                        shareDialogData = Triple(
+                            selectedLyricsText,
+                            currentMetadata?.title ?: "",
+                            currentMetadata?.artists?.joinToString { it.name } ?: ""
+                        )
+                        showShareDialog = true
                     }
-                }
-            }
+                    isSelectionModeActive = false
+                    selectedIndices.clear()
+                },
+                modifier = Modifier.padding(32.dp)
+            )
         }
-
     }
 
     if (showProgressDialog) {
-        BasicAlertDialog(onDismissRequest = { /* No permitir cerrar */ }) {
+        BasicAlertDialog(onDismissRequest = { }) {
             Card(
                 shape = MaterialTheme.shapes.medium,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -1968,131 +1964,171 @@ fun GapIndicator(
     }
 }
 
-@SuppressLint("LocalContextGetResourceValueCall")
-@OptIn(ExperimentalMaterial3Api::class)
+private fun calculateAutoSwipeThreshold(swipeSensitivity: Float): Int {
+    return (600 / (1f + exp(-(-11.44748 * swipeSensitivity + 9.04945)))).roundToInt()
+}
+
+val LyricsPreviewTime = 2.seconds
+const val ANIMATE_SCROLL_DURATION = 300L
+
 @Composable
-private fun ShareLyricsDialog(
-    lyricsText: String,
-    songTitle: String,
-    artists: String,
-    mediaMetadata: com.cgens67.avidtune.models.MediaMetadata?,
-    onDismiss: () -> Unit,
-    onShareAsImage: (String, String, String) -> Unit = { _, _, _ -> }
+fun AutoScrollFloatingPill(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.94f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "autoScrollScale"
+    )
 
-    BasicAlertDialog(onDismissRequest = onDismiss) {
-        Card(
-            shape = RoundedCornerShape(20.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface,
-            ),
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(0.85f)
+    Surface(
+        onClick = onClick,
+        interactionSource = interactionSource,
+        shape = CircleShape,
+        color = Color(0xFF1E1E24).copy(alpha = 0.85f),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+        shadowElevation = 16.dp,
+        modifier = modifier
+            .scale(scale)
+            .height(44.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Text(
-                    text = stringResource(R.string.share_lyrics),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp,
-                    color = MaterialTheme.colorScheme.onSurface
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.sync),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(14.dp)
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+            }
 
-                // Share as text
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            val shareIntent = Intent().apply {
-                                action = Intent.ACTION_SEND
-                                type = "text/plain"
-                                val songLink =
-                                    "https://music.youtube.com/watch?v=${mediaMetadata?.id}"
-                                putExtra(
-                                    Intent.EXTRA_TEXT,
-                                    "\"$lyricsText\"\n\n$songTitle - $artists\n$songLink"
-                                )
-                            }
-                            context.startActivity(
-                                Intent.createChooser(
-                                    shareIntent,
-                                    context.getString(R.string.share_lyrics)
-                                )
-                            )
-                            onDismiss()
-                        }
-                        .padding(vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+            Text(
+                text = stringResource(R.string.auto_scroll),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+        }
+    }
+}
+
+@Composable
+fun LyricsSelectionActionDock(
+    selectedCount: Int,
+    onCancel: () -> Unit,
+    onShare: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(26.dp),
+        color = Color(0xFF18181E).copy(alpha = 0.88f),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+        shadowElevation = 20.dp,
+        modifier = modifier
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // Cancel Button
+            val cancelInteraction = remember { MutableInteractionSource() }
+            val cancelPressed by cancelInteraction.collectIsPressedAsState()
+            val cancelScale by animateFloatAsState(
+                targetValue = if (cancelPressed) 0.93f else 1f,
+                animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                label = "cancelScale"
+            )
+
+            Surface(
+                onClick = onCancel,
+                interactionSource = cancelInteraction,
+                shape = CircleShape,
+                color = Color.White.copy(alpha = 0.12f),
+                modifier = Modifier
+                    .scale(cancelScale)
+                    .size(42.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        painter = painterResource(id = R.drawable.media3_icon_share),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = stringResource(R.string.share_as_text),
-                        fontSize = 16.sp,
-                        color = MaterialTheme.colorScheme.onSurface
+                        painter = painterResource(R.drawable.close),
+                        contentDescription = stringResource(R.string.cancel),
+                        tint = Color.White.copy(alpha = 0.85f),
+                        modifier = Modifier.size(18.dp)
                     )
                 }
+            }
 
-                // Share as image
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            onShareAsImage(lyricsText, songTitle, artists)
-                        }
-                        .padding(vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+            // Count Badge Indicator
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color.White.copy(alpha = 0.08f),
+                modifier = Modifier.height(34.dp)
+            ) {
+                Box(
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.media3_icon_share),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                        text = stringResource(R.string.share_as_image),
-                        fontSize = 16.sp,
-                        color = MaterialTheme.colorScheme.onSurface
+                        text = pluralStringResource(R.plurals.n_selected, selectedCount, selectedCount),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White.copy(alpha = 0.75f)
                     )
                 }
+            }
 
-                // Cancel button
+            // Share Pill Button
+            val shareInteraction = remember { MutableInteractionSource() }
+            val sharePressed by shareInteraction.collectIsPressedAsState()
+            val shareScale by animateFloatAsState(
+                targetValue = if (sharePressed) 0.94f else 1f,
+                animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                label = "shareScale"
+            )
+
+            Surface(
+                onClick = onShare,
+                enabled = selectedCount > 0,
+                interactionSource = shareInteraction,
+                shape = RoundedCornerShape(18.dp),
+                color = if (selectedCount > 0) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.15f),
+                modifier = Modifier
+                    .scale(shareScale)
+                    .height(42.dp)
+            ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp, bottom = 4.dp),
-                    horizontalArrangement = Arrangement.End,
+                    modifier = Modifier.padding(horizontal = 18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    Icon(
+                        painter = painterResource(R.drawable.share),
+                        contentDescription = null,
+                        tint = if (selectedCount > 0) MaterialTheme.colorScheme.onPrimary else Color.White.copy(alpha = 0.4f),
+                        modifier = Modifier.size(16.dp)
+                    )
                     Text(
-                        text = stringResource(R.string.cancel),
-                        fontSize = 16.sp,
-                        color = MaterialTheme.colorScheme.error,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier
-                            .clickable { onDismiss() }
-                            .padding(vertical = 8.dp, horizontal = 12.dp)
+                        text = stringResource(R.string.share),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = if (selectedCount > 0) MaterialTheme.colorScheme.onPrimary else Color.White.copy(alpha = 0.4f)
                     )
                 }
             }
         }
     }
 }
-
-
-/**
- * Calculates the auto-swipe threshold based on swipe sensitivity.
- */
-private fun calculateAutoSwipeThreshold(swipeSensitivity: Float): Int {
-    return (600 / (1f + exp(-(-11.44748 * swipeSensitivity + 9.04945)))).roundToInt()
-}
-
-// Preview time constant
-val LyricsPreviewTime = 2.seconds
-const val ANIMATE_SCROLL_DURATION = 300L

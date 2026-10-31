@@ -37,6 +37,7 @@ enum class SliderStyle {
     DEFAULT,
     SQUIGGLY,
     SLIM,
+    EXPANDING,
 }
 
 enum class AppTextSize {
@@ -46,6 +47,17 @@ enum class AppTextSize {
 enum class AppFont {
     SYSTEM, SF_PRO, GOOGLE_SANS, SPACE_GROTESK
 }
+
+val PlayerVersionKey = stringPreferencesKey("playerVersion")
+
+enum class PlayerVersion {
+    V1,
+    V2,
+}
+
+val ShowPlayerThumbnailShadowKey = booleanPreferencesKey("showPlayerThumbnailShadow")
+val PlayerThumbnailShadowElevationKey = floatPreferencesKey("playerThumbnailShadowElevation")
+val HidePlayerThumbnailKey = booleanPreferencesKey("hidePlayerThumbnail")
 
 const val SYSTEM_DEFAULT = "SYSTEM_DEFAULT"
 val ContentLanguageKey = stringPreferencesKey("contentLanguage")
@@ -57,6 +69,7 @@ val EnableLrcLibKey = booleanPreferencesKey("enableLrclib")
 val EnableBetterLyricsKey = booleanPreferencesKey("enableBetterLyrics")
 val EnableSimpMusicKey = booleanPreferencesKey("enableSimpMusic")
 val EnablePaxsenixKey = booleanPreferencesKey("enablePaxsenix")
+val EnableBiniLyricsKey = booleanPreferencesKey("enableBiniLyrics")
 val EnableNetEaseKey = booleanPreferencesKey("enableNetEase")
 val EnableGeniusKey = booleanPreferencesKey("enableGenius")
 val HideExplicitKey = booleanPreferencesKey("hideExplicit")
@@ -67,6 +80,14 @@ val ProxyEnabledKey = booleanPreferencesKey("proxyEnabled")
 val ProxyUrlKey = stringPreferencesKey("proxyUrl")
 val ProxyTypeKey = stringPreferencesKey("proxyType")
 val YtmSyncKey = booleanPreferencesKey("ytmSync")
+
+// Descriptions Preferences Keys
+val EnableDescriptionsKey = booleanPreferencesKey("enableDescriptions")
+val EnableAvidDescriptionsKey = booleanPreferencesKey("enableAvidDescriptions")
+val EnableAppleMusicDescriptionsKey = booleanPreferencesKey("enableAppleMusicDescriptions")
+val EnableWikipediaDescriptionsKey = booleanPreferencesKey("enableWikipediaDescriptions")
+val EnableYouTubeMusicDescriptionsKey = booleanPreferencesKey("enableYouTubeMusicDescriptions")
+val DescriptionProviderOrderKey = stringPreferencesKey("descriptionProviderOrder")
 
 val AudioQualityKey = stringPreferencesKey("audioQuality")
 
@@ -167,7 +188,6 @@ val AnimateLyricsKey = booleanPreferencesKey("animate_lyrics")
 val AiContentFilterEnabledKey = booleanPreferencesKey("aiContentFilterEnabled")
 val AiContentFilterIncludeModerateKey = booleanPreferencesKey("aiContentFilterIncludeModerate")
 val AiContentFilterLastUpdatedKey = longPreferencesKey("aiContentFilterLastUpdated")
-
 
 val PlayPauseButtonShapeKey = stringPreferencesKey("playPauseButtonShape")
 const val DefaultPlayPauseButtonShape = "Cookie9Sided"
@@ -332,7 +352,6 @@ enum class PlayerBackgroundStyle {
     APPLE_MUSIC,
     LIVE_MESH,
 }
-
 
 enum class PlayerButtonsStyle {
     DEFAULT,

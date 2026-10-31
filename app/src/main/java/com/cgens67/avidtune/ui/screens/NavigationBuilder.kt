@@ -38,6 +38,7 @@ import com.cgens67.avidtune.ui.screens.settings.AccountSettings
 import com.cgens67.avidtune.ui.screens.settings.AppearanceSettings
 import com.cgens67.avidtune.ui.screens.settings.BackupAndRestore
 import com.cgens67.avidtune.ui.screens.settings.ContentSettings
+import com.cgens67.avidtune.ui.screens.settings.DebugLogScreen
 import com.cgens67.avidtune.ui.screens.settings.DiscordLoginScreen
 import com.cgens67.avidtune.ui.screens.settings.DiscordSettings
 import com.cgens67.avidtune.ui.screens.settings.PalettePickerScreen
@@ -310,6 +311,9 @@ fun NavGraphBuilder.navigationBuilder(
     }
     composable("settings/changelog") {
         ChangelogScreen(onDismiss = { navController.navigateUp() })
+    }
+    composable("settings/logs") {
+        DebugLogScreen(navController, scrollBehavior)
     }
     composable("settings/about") {
         AboutScreen(navController, scrollBehavior)

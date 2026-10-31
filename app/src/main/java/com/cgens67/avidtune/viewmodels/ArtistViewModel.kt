@@ -1,5 +1,6 @@
 package com.cgens67.avidtune.viewmodels
 
+import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -9,16 +10,25 @@ import androidx.lifecycle.viewModelScope
 import com.cgens67.innertube.YouTube
 import com.cgens67.innertube.pages.ArtistPage
 import com.cgens67.avidtune.db.MusicDatabase
+import com.cgens67.avidtune.ui.component.LocaleManager
+import com.cgens67.avidtune.utils.AvidDescriptionProvider
+import com.cgens67.avidtune.utils.TranslationHelper
+import com.cgens67.avidtune.utils.Wikipedia
 import com.cgens67.avidtune.utils.reportException
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
 @HiltViewModel
 class ArtistViewModel @Inject constructor(
+    @ApplicationContext val context: Context,
     database: MusicDatabase,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
@@ -29,6 +39,13 @@ class ArtistViewModel @Inject constructor(
     val librarySongs = database.artistSongsPreview(artistId)
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
+    val originalDescription = MutableStateFlow<String?>(null)
+    val artistDescription = MutableStateFlow<String?>(null)
+    val descriptionProvider = MutableStateFlow<String?>(null)
+    val isTranslated = MutableStateFlow(false)
+    val canTranslate = MutableStateFlow(false)
+    val isDescriptionLoading = MutableStateFlow(true)
+
     init {
         fetchArtistsFromYTM()
     }
@@ -38,9 +55,186 @@ class ArtistViewModel @Inject constructor(
             YouTube.artist(artistId)
                 .onSuccess {
                     artistPage = it
+
+                    var resolvedDesc: String? = null
+                    var resolvedProvider: String? = null
+
+                    if (AvidDescriptionProvider.isMasterEnabled(context)) {
+                        val order = AvidDescriptionProvider.getOrderedProviders(context)
+                        for (provider in order) {
+                            if (resolvedDesc != null) break
+                            when (provider) {
+                                "AvidDescriptions" -> {
+                                    if (AvidDescriptionProvider.isAvidEnabled(context)) {
+                                        val d = withContext(Dispatchers.IO) {
+                                            AvidDescriptionProvider.getArtistDescription(
+                                                artistId = artistId,
+                                                channelId = it.artist.channelId,
+                                                artistName = it.artist.title
+                                            )
+                                        }
+                                        if (!d.isNullOrBlank()) {
+                                            resolvedDesc = d
+                                            resolvedProvider = "AvidDescriptions"
+                                        }
+                                    }
+                                }
+                                "YouTube Music" -> {
+                                    if (AvidDescriptionProvider.isYouTubeMusicEnabled(context)) {
+                                        val d = it.description?.substringBefore("From Wikipedia")?.trim()?.takeIf { s -> s.isNotBlank() }
+                                        if (!d.isNullOrBlank()) {
+                                            resolvedDesc = d
+                                            resolvedProvider = "YouTube Music"
+                                        }
+                                    }
+                                }
+                                "Wikipedia" -> {
+                                    if (AvidDescriptionProvider.isWikipediaEnabled(context)) {
+                                        if (it.description?.contains("From Wikipedia", ignoreCase = true) == true) {
+                                            val d = it.description?.substringBefore("From Wikipedia")?.trim()?.ifBlank { it.description?.trim() }
+                                            if (!d.isNullOrBlank()) {
+                                                resolvedDesc = d
+                                                resolvedProvider = "Wikipedia"
+                                            }
+                                        } else {
+                                            val wikiDesc = withContext(Dispatchers.IO) {
+                                                Wikipedia.fetchArtistInfo(it.artist.title)
+                                            }
+                                            if (!wikiDesc.isNullOrBlank()) {
+                                                resolvedDesc = wikiDesc
+                                                resolvedProvider = "Wikipedia"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (!resolvedDesc.isNullOrBlank()) {
+                        originalDescription.value = resolvedDesc
+                        descriptionProvider.value = resolvedProvider
+                        canTranslate.value = true
+                        processTranslation(resolvedDesc)
+                    } else {
+                        originalDescription.value = null
+                        artistDescription.value = null
+                        descriptionProvider.value = null
+                        canTranslate.value = false
+                        isDescriptionLoading.value = false
+                    }
                 }.onFailure {
                     reportException(it)
+                    viewModelScope.launch(Dispatchers.IO) {
+                        val isMaster = AvidDescriptionProvider.isMasterEnabled(context)
+                        val fallbackName = libraryArtist.value?.artist?.name.orEmpty()
+                        val customDesc = if (isMaster && fallbackName.isNotBlank() && AvidDescriptionProvider.isAvidEnabled(context)) {
+                            AvidDescriptionProvider.getArtistDescription(
+                                artistId = artistId,
+                                channelId = libraryArtist.value?.artist?.channelId,
+                                artistName = fallbackName
+                            )
+                        } else null
+
+                        if (!customDesc.isNullOrBlank()) {
+                            originalDescription.value = customDesc
+                            descriptionProvider.value = "AvidDescriptions"
+                            canTranslate.value = true
+                            processTranslation(customDesc)
+                        } else {
+                            originalDescription.value = null
+                            artistDescription.value = null
+                            descriptionProvider.value = null
+                            canTranslate.value = false
+                            isDescriptionLoading.value = false
+                        }
+                    }
                 }
+        }
+    }
+
+    private fun resolveTargetLanguage(context: Context): String {
+        val effectiveCode = runCatching {
+            LocaleManager.getInstance(context).getEffectiveLanguageCode()
+        }.getOrNull()
+
+        val locale = java.util.Locale.getDefault()
+        val tag = locale.toLanguageTag()
+        val lang = locale.language
+
+        val code = when {
+            !effectiveCode.isNullOrBlank() && effectiveCode != "system" && effectiveCode != "SYSTEM_DEFAULT" -> effectiveCode
+            tag.isNotBlank() -> tag
+            lang.isNotBlank() -> lang
+            else -> "en"
+        }
+
+        val lower = code.lowercase()
+        return when {
+            lower.startsWith("zh-tw") || lower.startsWith("zh-hk") || lower.startsWith("zh-hant") -> "zh-TW"
+            lower.startsWith("zh") -> "zh-CN"
+            lower.startsWith("pt-pt") -> "pt-PT"
+            lower.startsWith("pt") -> "pt"
+            lower == "he" || lower == "iw" -> "iw"
+            lower.contains("-") -> lower.substringBefore("-")
+            else -> lower
+        }
+    }
+
+    private fun processTranslation(desc: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                withTimeoutOrNull(5000L) {
+                    val targetLang = resolveTargetLanguage(context)
+                    val detectedLang = runCatching { TranslationHelper.detectLanguage(desc.take(200)) }.getOrNull()?.lowercase()
+                    val targetBase = targetLang.substringBefore("-").lowercase()
+
+                    val needsTranslation = when {
+                        detectedLang != null && detectedLang != "und" && !detectedLang.startsWith(targetBase) -> true
+                        !targetBase.startsWith("en") && desc.any { it in 'a'..'z' || it in 'A'..'Z' } -> true
+                        else -> false
+                    }
+
+                    if (needsTranslation) {
+                        val translated = TranslationHelper.translate(desc, targetLang)
+                        if (!translated.isNullOrBlank() && translated.trim() != desc.trim()) {
+                            artistDescription.value = translated
+                            isTranslated.value = true
+                        } else {
+                            artistDescription.value = desc
+                            isTranslated.value = false
+                        }
+                    } else {
+                        artistDescription.value = desc
+                        isTranslated.value = false
+                    }
+                } ?: run {
+                    artistDescription.value = desc
+                    isTranslated.value = false
+                }
+            } catch (e: Exception) {
+                artistDescription.value = desc
+                isTranslated.value = false
+            } finally {
+                isDescriptionLoading.value = false
+            }
+        }
+    }
+
+    fun toggleDescriptionTranslation() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val orig = originalDescription.value ?: return@launch
+            if (isTranslated.value) {
+                artistDescription.value = orig
+                isTranslated.value = false
+            } else {
+                val targetLang = resolveTargetLanguage(context)
+                val translated = TranslationHelper.translate(orig, targetLang)
+                if (!translated.isNullOrBlank()) {
+                    artistDescription.value = translated
+                    isTranslated.value = true
+                }
+            }
         }
     }
 }

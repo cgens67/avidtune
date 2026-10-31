@@ -888,6 +888,14 @@ private fun buildSettingsGroups(
                 ),
                 SettingsItem(
                     icon = painterResource(R.drawable.info),
+                    title = stringResource(R.string.debug_and_error_logs),
+                    subtitle = stringResource(R.string.debug_logs_subtitle),
+                    accentColor = MaterialTheme.colorScheme.error,
+                    keywords = listOf("debug", "error", "logs", "crash", "exception", "trace", "stacktrace"),
+                    onClick = { resetSearch(); navController.navigate("settings/logs") }
+                ),
+                SettingsItem(
+                    icon = painterResource(R.drawable.info),
                     title = stringResource(R.string.about),
                     subtitle = stringResource(R.string.version_name, BuildConfig.VERSION_NAME),
                     accentColor = MaterialTheme.colorScheme.tertiary,
@@ -1235,6 +1243,18 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
             onClick = { resetSearch(); navController.navigate("settings/content") }
         ),
         SettingsItem(
+            icon = painterResource(R.drawable.security),
+            title = stringResource(R.string.enable_ai_content_filter),
+            keywords = listOf("ai", "content", "filter", "moderate", "strict"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.info),
+            title = stringResource(R.string.include_moderate_confidence),
+            keywords = listOf("ai", "content", "filter", "moderate", "confidence"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
             icon = painterResource(R.drawable.wifi_proxy),
             title = stringResource(R.string.enable_proxy),
             keywords = listOf("proxy", "network", "connection"),
@@ -1280,6 +1300,12 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
             icon = painterResource(R.drawable.lyrics),
             title = stringResource(R.string.enable_paxsenix),
             keywords = listOf("paxsenix", "lyrics", "provider"),
+            onClick = { resetSearch(); navController.navigate("settings/content") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.lyrics),
+            title = stringResource(R.string.enable_binilyrics),
+            keywords = listOf("binilyrics", "bini", "lyrics", "provider"),
             onClick = { resetSearch(); navController.navigate("settings/content") }
         ),
         SettingsItem(

@@ -32,6 +32,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
@@ -85,6 +88,9 @@ import io.ktor.client.engine.cio.CIO as ClientCIO
 import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.plugins.websocket.webSocket
+import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.isSuccess
 import io.ktor.server.application.install
 import io.ktor.server.cio.CIO
 import io.ktor.server.cio.CIOApplicationEngine
@@ -100,12 +106,14 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.*
 import kotlinx.serialization.json.Json
+import org.json.JSONObject
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.SocketTimeoutException
 import java.net.URI
 import java.net.URLDecoder
+import java.net.URLEncoder
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.PI
@@ -120,8 +128,12 @@ val TogetherDisplayNameKey = stringPreferencesKey("TogetherDisplayName")
 val TogetherLastJoinLinkKey = stringPreferencesKey("TogetherLastJoinLink")
 val TogetherRequireHostApprovalToJoinKey = booleanPreferencesKey("TogetherRequireHostApprovalToJoin")
 val TogetherWelcomeShownKey = booleanPreferencesKey("TogetherWelcomeShown")
+val TogetherNetworkModeKey = stringPreferencesKey("TogetherNetworkMode")
+val TogetherRelayServerKey = stringPreferencesKey("TogetherRelayServer")
 
-// EMOJIS FOR IN-SESSION FLOATING REACTIONS
+// Connected to your Render deployment
+const val DEFAULT_RELAY_SERVER = "https://avidtune-relay.onrender.com"
+
 val TOGETHER_EMOJIS = listOf("😭", "🥀", "💅", "💩", "🙂‍↔️", "🙏")
 
 // --- MODELS & MESSAGES ---
@@ -166,9 +178,18 @@ data class FloatingReaction(
 @Serializable sealed class TogetherRole { @Serializable data object Host : TogetherRole(); @Serializable data object Guest : TogetherRole() }
 sealed class TogetherSessionState {
     data object Idle : TogetherSessionState()
-    data class Hosting(val sessionId: String, val joinLink: String, val pin: String, val localAddressHint: String?, val port: Int, val settings: TogetherRoomSettings, val roomState: TogetherRoomState?) : TogetherSessionState()
+    data class Hosting(
+        val sessionId: String, 
+        val joinLink: String, 
+        val pin: String, 
+        val localAddressHint: String?, 
+        val port: Int, 
+        val settings: TogetherRoomSettings, 
+        val roomState: TogetherRoomState?,
+        val isOnline: Boolean = true
+    ) : TogetherSessionState()
     data class Joining(val joinLink: String) : TogetherSessionState()
-    data class Joined(val role: TogetherRole, val sessionId: String, val selfParticipantId: String, val roomState: TogetherRoomState) : TogetherSessionState()
+    data class Joined(val role: TogetherRole, val sessionId: String, val selfParticipantId: String, val roomState: TogetherRoomState, val isOnline: Boolean = false) : TogetherSessionState()
     data class Error(val message: String, val recoverable: Boolean = true) : TogetherSessionState()
 }
 
@@ -190,24 +211,82 @@ const val TogetherProtocolVersion: Int = 1
 
 // --- LINK & JSON ---
 object TogetherJson { val json = Json { ignoreUnknownKeys = true; explicitNulls = false; encodeDefaults = true; classDiscriminator = "type" } }
-@Serializable data class TogetherJoinInfo(val host: String, val port: Int, val sessionId: String, val sessionKey: String) {
-    fun toWebSocketUrl() = "ws://$host:$port/together"
-    fun toDeepLink() = "AvidTune://together?host=$host&port=$port&sid=$sessionId&key=$sessionKey"
+
+@Serializable
+data class TogetherJoinInfo(
+    val host: String = "",
+    val port: Int = 0,
+    val sessionId: String,
+    val sessionKey: String,
+    val isOnline: Boolean = false,
+    val serverUrl: String? = null
+) {
+    fun toWebSocketUrl(): String {
+        return if (isOnline && !serverUrl.isNullOrBlank()) {
+            val base = serverUrl.trimEnd('/')
+            val wsBase = when {
+                base.startsWith("https://") -> "wss://" + base.removePrefix("https://")
+                base.startsWith("http://") -> "ws://" + base.removePrefix("http://")
+                base.startsWith("wss://") || base.startsWith("ws://") -> base
+                else -> "wss://$base"
+            }
+            "$wsBase/together/relay?sessionId=$sessionId&role=guest"
+        } else {
+            "ws://$host:$port/together"
+        }
+    }
+
+    fun toDeepLink(): String {
+        return if (isOnline && !serverUrl.isNullOrBlank()) {
+            val encServer = URLEncoder.encode(serverUrl, "UTF-8")
+            "AvidTune://together?server=$encServer&sid=$sessionId&key=$sessionKey&online=true"
+        } else {
+            "AvidTune://together?host=$host&port=$port&sid=$sessionId&key=$sessionKey"
+        }
+    }
 }
+
 object TogetherLink {
     fun encode(info: TogetherJoinInfo) = info.toDeepLink()
     fun decode(raw: String): TogetherJoinInfo? {
         val trimmed = raw.trim().replace("\\s+".toRegex(), "")
         runCatching { URI(trimmed) }.getOrNull()?.let { uri ->
             if (uri.scheme?.lowercase() == "avidtune" && uri.authority?.lowercase() == "together") {
-                val params = uri.rawQuery?.split("&")?.associate { val p = it.split("="); p[0] to URLDecoder.decode(p[1], "UTF-8") } ?: emptyMap()
-                return TogetherJoinInfo(params["host"] ?: return null, params["port"]?.toIntOrNull() ?: return null, params["sid"] ?: return null, params["key"] ?: return null)
+                val params = uri.rawQuery?.split("&")?.associate {
+                    val p = it.split("=")
+                    p[0] to URLDecoder.decode(p.getOrElse(1) { "" }, "UTF-8")
+                } ?: emptyMap()
+
+                val isOnline = params["online"]?.toBooleanStrictOrNull() ?: false
+                val server = params["server"]
+                if (isOnline && !server.isNullOrBlank()) {
+                    return TogetherJoinInfo(
+                        host = "",
+                        port = 0,
+                        sessionId = params["sid"] ?: return null,
+                        sessionKey = params["key"] ?: return null,
+                        isOnline = true,
+                        serverUrl = server
+                    )
+                }
+                return TogetherJoinInfo(
+                    host = params["host"] ?: return null,
+                    port = params["port"]?.toIntOrNull() ?: return null,
+                    sessionId = params["sid"] ?: return null,
+                    sessionKey = params["key"] ?: return null,
+                    isOnline = false
+                )
             }
         }
         val p = trimmed.split("|")
-        if (p.size == 4) return TogetherJoinInfo(p[0], p[1].toIntOrNull() ?: return null, p[2], p[3])
+        if (p.size == 4) return TogetherJoinInfo(p[0], p[1].toIntOrNull() ?: return null, p[2], p[3], isOnline = false)
         return null
     }
+}
+
+interface TogetherClientChannel {
+    suspend fun send(message: String)
+    suspend fun close()
 }
 
 // --- MANAGER ---
@@ -221,21 +300,23 @@ class TogetherManager(
 
     private var serverEngine: EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>? = null
     private var clientSession: DefaultClientWebSocketSession? = null
+    private var hostRelaySession: DefaultClientWebSocketSession? = null
+
     private val httpClient = HttpClient(ClientCIO) {
         install(WebSockets) {
-            pingIntervalMillis = 20_000L
+            pingIntervalMillis = 15_000L
         }
     }
     private var roomSettings = TogetherRoomSettings()
 
-    private val hostConnections = ConcurrentHashMap<String, io.ktor.websocket.DefaultWebSocketSession>()
+    private val hostChannels = ConcurrentHashMap<String, TogetherClientChannel>()
     private val hostParticipants = ConcurrentHashMap<String, TogetherParticipant>()
     private val hostRequestedQueue = ConcurrentHashMap<String, TogetherRequestedTrack>()
 
     private var isHost = false
+    private var isHostOnline = false
     private var broadcastJob: Job? = null
 
-    // UDP Discovery features
     private var discoverySocket: DatagramSocket? = null
     private var discoveryJob: Job? = null
     private var currentPin: String = ""
@@ -314,9 +395,7 @@ class TogetherManager(
                         discoverySocket?.send(replyPacket)
                     }
                 }
-            } catch (e: Exception) {
-                // Ignore socket closed exceptions
-            }
+            } catch (e: Exception) { }
         }
     }
 
@@ -326,14 +405,14 @@ class TogetherManager(
         try {
             socket = DatagramSocket().apply {
                 broadcast = true
-                soTimeout = 2000
+                soTimeout = 1500
             }
             val msg = "AVIDTUNE_DISCOVER_ALL".toByteArray(Charsets.UTF_8)
             for (address in getBroadcastAddresses()) {
-                try { socket.send(DatagramPacket(msg, msg.size, address, 42118)) } catch(e: Exception){}
+                try { socket.send(DatagramPacket(msg, msg.size, address, 42118)) } catch (e: Exception) {}
             }
             val buffer = ByteArray(2048)
-            val end = System.currentTimeMillis() + 2000
+            val end = System.currentTimeMillis() + 1500
             while (System.currentTimeMillis() < end) {
                 try {
                     val packet = DatagramPacket(buffer, buffer.size)
@@ -354,17 +433,48 @@ class TogetherManager(
         results
     }
 
-    suspend fun resolvePin(pin: String): DiscoveredSession? = withContext(Dispatchers.IO) {
+    suspend fun resolvePin(pin: String, onlineRelayUrl: String = DEFAULT_RELAY_SERVER): DiscoveredSession? = withContext(Dispatchers.IO) {
+        if (onlineRelayUrl.isNotBlank()) {
+            try {
+                val cleanUrl = onlineRelayUrl.trimEnd('/')
+                val httpUrl = when {
+                    cleanUrl.startsWith("wss://") -> "https://" + cleanUrl.removePrefix("wss://")
+                    cleanUrl.startsWith("ws://") -> "http://" + cleanUrl.removePrefix("ws://")
+                    cleanUrl.startsWith("http://") || cleanUrl.startsWith("https://") -> cleanUrl
+                    else -> "https://$cleanUrl"
+                }
+                val res = httpClient.get("$httpUrl/pin/$pin")
+                if (res.status.isSuccess()) {
+                    val jsonStr = res.bodyAsText()
+                    val obj = JSONObject(jsonStr)
+                    val sid = obj.getString("sessionId")
+                    val skey = obj.optString("sessionKey", "")
+                    val hName = obj.optString("hostName", "Host")
+                    val sUrl = obj.optString("serverUrl", cleanUrl)
+                    return@withContext DiscoveredSession(
+                        pin = pin,
+                        hostName = hName,
+                        joinInfo = TogetherJoinInfo(
+                            sessionId = sid,
+                            sessionKey = skey,
+                            isOnline = true,
+                            serverUrl = sUrl
+                        )
+                    )
+                }
+            } catch (e: Exception) { }
+        }
+
         var result: DiscoveredSession? = null
         var socket: DatagramSocket? = null
         try {
             socket = DatagramSocket().apply {
                 broadcast = true
-                soTimeout = 2000
+                soTimeout = 1500
             }
             val msg = "AVIDTUNE_DISCOVER_PIN:$pin".toByteArray(Charsets.UTF_8)
             for (address in getBroadcastAddresses()) {
-                try { socket.send(DatagramPacket(msg, msg.size, address, 42118)) } catch(e: Exception){}
+                try { socket.send(DatagramPacket(msg, msg.size, address, 42118)) } catch (e: Exception) {}
             }
             val buffer = ByteArray(2048)
             try {
@@ -393,7 +503,7 @@ class TogetherManager(
                 )
             )
             withContext(Dispatchers.IO) {
-                try { clientSession?.send(msg) } catch(e: Exception) {}
+                try { clientSession?.send(msg) } catch (e: Exception) {}
             }
         }
     }
@@ -412,13 +522,9 @@ class TogetherManager(
             val durationSec = customMeta?.duration ?: -1
 
             val track = TogetherTrack(trackId, trackTitle, trackArtists, durationSec, trackArt)
-
-            val msg = TogetherJson.json.encodeToString(
-                TogetherMessage.serializer(),
-                UpdateTrack(track)
-            )
+            val msg = TogetherJson.json.encodeToString(TogetherMessage.serializer(), UpdateTrack(track))
             withContext(Dispatchers.IO) {
-                try { clientSession?.send(msg) } catch(e: Exception) {}
+                try { clientSession?.send(msg) } catch (e: Exception) {}
             }
         }
     }
@@ -468,13 +574,17 @@ class TogetherManager(
                     val roomState = getCurrentRoomState(currentState.sessionId)
                     sessionState.value = currentState.copy(roomState = roomState)
 
-                    val msg = TogetherJson.json.encodeToString(TogetherMessage.serializer(), RoomStateMessage(roomState))
+                    val rawStateMsg = TogetherJson.json.encodeToString(TogetherMessage.serializer(), RoomStateMessage(roomState))
                     withContext(Dispatchers.IO) {
-                        hostConnections.values.forEach { session ->
-                            try {
-                                session.send(msg)
-                            } catch (e: Exception) {
-                                // ignore
+                        if (isHostOnline && hostRelaySession != null) {
+                            val wrap = JSONObject().apply {
+                                put("type", "broadcast")
+                                put("message", rawStateMsg)
+                            }.toString()
+                            try { hostRelaySession?.send(wrap) } catch (e: Exception) {}
+                        } else {
+                            hostChannels.values.forEach { channel ->
+                                try { channel.send(rawStateMsg) } catch (e: Exception) {}
                             }
                         }
                     }
@@ -497,22 +607,142 @@ class TogetherManager(
         }
     }
 
-    fun startTogetherHost(port: Int, displayName: String, settings: TogetherRoomSettings, avatar: String? = null) {
+    private fun handleIncomingMessageAsHost(pId: String, txt: String, sId: String) {
+        val msg = try {
+            TogetherJson.json.decodeFromString<TogetherMessage>(txt)
+        } catch (e: Exception) { null } ?: return
+
+        when (msg) {
+            is ClientHello -> {
+                val isPending = roomSettings.requireHostApprovalToJoin
+                hostParticipants[pId] = TogetherParticipant(
+                    id = pId,
+                    name = msg.displayName,
+                    isHost = false,
+                    isConnected = true,
+                    isPending = isPending,
+                    avatar = msg.avatar
+                )
+                scope.launch {
+                    val welcomeMsg = TogetherJson.json.encodeToString(
+                        TogetherMessage.serializer(),
+                        ServerWelcome(
+                            protocolVersion = TogetherProtocolVersion,
+                            sessionId = sId,
+                            participantId = pId,
+                            role = ServerRole.GUEST,
+                            isPending = isPending,
+                            settings = roomSettings
+                        )
+                    )
+                    hostChannels[pId]?.send(welcomeMsg)
+                    broadcastRoomState()
+                }
+            }
+            is UpdatePlayback -> {
+                if (roomSettings.allowGuestsToControlPlayback) {
+                    val p = hostParticipants[pId]
+                    if (p != null && !p.isPending) {
+                        scope.launch(Dispatchers.Main) {
+                            isSyncing = true
+                            if (msg.isPlaying && !player.isPlaying) player.play()
+                            else if (!msg.isPlaying && player.isPlaying) player.pause()
+
+                            if (kotlin.math.abs(player.currentPosition - msg.positionMs) > 1000L) {
+                                player.seekTo(msg.positionMs)
+                            }
+                            isSyncing = false
+                            broadcastRoomState()
+                        }
+                    }
+                }
+            }
+            is UpdateTrack -> {
+                if (roomSettings.allowGuestsToAddTracks) {
+                    val p = hostParticipants[pId]
+                    if (p != null && !p.isPending) {
+                        scope.launch(Dispatchers.Main) {
+                            isSyncing = true
+                            playTrackInternal(msg.track)
+                            isSyncing = false
+                            broadcastRoomState()
+                        }
+                    }
+                }
+            }
+            is SendReaction -> {
+                reactionsFlow.tryEmit(FloatingReaction(id = msg.id, emoji = msg.emoji, senderName = msg.senderName))
+                val resendMsg = TogetherJson.json.encodeToString(TogetherMessage.serializer(), msg)
+                scope.launch(Dispatchers.IO) {
+                    if (isHostOnline && hostRelaySession != null) {
+                        val wrap = JSONObject().apply {
+                            put("type", "broadcast")
+                            put("message", resendMsg)
+                        }.toString()
+                        try { hostRelaySession?.send(wrap) } catch (e: Exception) {}
+                    } else {
+                        hostChannels.values.forEach { channel ->
+                            try { channel.send(resendMsg) } catch (e: Exception) {}
+                        }
+                    }
+                }
+            }
+            is RequestTrack -> {
+                if (roomSettings.allowGuestsToAddTracks) {
+                    val existing = hostRequestedQueue[msg.track.id]
+                    if (existing == null) {
+                        hostRequestedQueue[msg.track.id] = TogetherRequestedTrack(
+                            track = msg.track,
+                            requesterId = msg.requesterId,
+                            requesterName = msg.requesterName,
+                            upvotes = listOf(msg.requesterId)
+                        )
+                        broadcastRoomState()
+                    }
+                }
+            }
+            is UpvoteTrack -> {
+                val existing = hostRequestedQueue[msg.trackId]
+                if (existing != null) {
+                    val upvotes = existing.upvotes.toMutableList()
+                    if (upvotes.contains(msg.voterId)) {
+                        upvotes.remove(msg.voterId)
+                    } else {
+                        upvotes.add(msg.voterId)
+                    }
+                    hostRequestedQueue[msg.trackId] = existing.copy(upvotes = upvotes)
+                    broadcastRoomState()
+                }
+            }
+            is RemoveRequestTrack -> {
+                hostRequestedQueue.remove(msg.trackId)
+                broadcastRoomState()
+            }
+            else -> {}
+        }
+    }
+
+    fun startTogetherHost(
+        port: Int, 
+        displayName: String, 
+        settings: TogetherRoomSettings, 
+        avatar: String? = null,
+        isOnline: Boolean = true,
+        relayServerUrl: String = DEFAULT_RELAY_SERVER
+    ) {
         leaveTogether()
         isHost = true
+        isHostOnline = isOnline
         scope.launch(Dispatchers.IO) {
             try {
                 roomSettings = settings
                 val sId = UUID.randomUUID().toString()
                 val sKey = UUID.randomUUID().toString()
-                val hostIp = getIpAddress() ?: "127.0.0.1"
-
                 currentPin = (100000..999999).random().toString()
                 currentHostName = displayName
-                currentJoinInfo = TogetherJoinInfo(hostIp, port, sId, sKey)
 
                 hostParticipants.clear()
-                hostConnections.clear()
+                hostChannels.clear()
                 hostRequestedQueue.clear()
 
                 val myHostId = UUID.randomUUID().toString()
@@ -524,146 +754,128 @@ class TogetherManager(
                     avatar = avatar
                 )
 
-                val engine = embeddedServer(CIO, port = port, host = "0.0.0.0") {
-                    install(io.ktor.server.websocket.WebSockets) {
-                        pingPeriodMillis = 15000L
-                        timeoutMillis = 15000L
-                        maxFrameSize = Long.MAX_VALUE
-                        masking = false
+                if (isOnline) {
+                    val cleanServerUrl = relayServerUrl.trimEnd('/')
+                    currentJoinInfo = TogetherJoinInfo(
+                        sessionId = sId,
+                        sessionKey = sKey,
+                        isOnline = true,
+                        serverUrl = cleanServerUrl
+                    )
+                    val link = TogetherLink.encode(currentJoinInfo!!)
+
+                    val wsBase = when {
+                        cleanServerUrl.startsWith("https://") -> "wss://" + cleanServerUrl.removePrefix("https://")
+                        cleanServerUrl.startsWith("http://") -> "ws://" + cleanServerUrl.removePrefix("http://")
+                        cleanServerUrl.startsWith("wss://") || cleanServerUrl.startsWith("ws://") -> cleanServerUrl
+                        else -> "wss://$cleanServerUrl"
                     }
-                    routing {
-                        webSocket("/together") {
-                            var pId: String? = null
-                            try {
-                                for (frame in incoming) {
-                                    if (frame !is Frame.Text) continue
-                                    val txt = frame.readText()
-                                    val msg = try {
-                                        TogetherJson.json.decodeFromString<TogetherMessage>(txt)
-                                    } catch (e: Exception) { null }
+                    val hostWsUrl = "$wsBase/together/relay?sessionId=$sId&sessionKey=$sKey&role=host&pin=$currentPin&name=${URLEncoder.encode(displayName, "UTF-8")}"
 
-                                    when (msg) {
-                                        is ClientHello -> {
-                                            val isPending = roomSettings.requireHostApprovalToJoin
-                                            pId = UUID.randomUUID().toString()
-                                            hostParticipants[pId] = TogetherParticipant(
-                                                id = pId,
-                                                name = msg.displayName,
-                                                isHost = false,
-                                                isConnected = true,
-                                                isPending = isPending,
-                                                avatar = msg.avatar
-                                            )
-                                            hostConnections[pId] = this@webSocket
+                    withContext(Dispatchers.Main) {
+                        val rs = getCurrentRoomState(sId)
+                        sessionState.value = TogetherSessionState.Hosting(sId, link, currentPin, null, 0, settings, rs, isOnline = true)
+                    }
 
-                                            send(TogetherJson.json.encodeToString(
-                                                TogetherMessage.serializer(),
-                                                ServerWelcome(
-                                                    protocolVersion = TogetherProtocolVersion,
-                                                    sessionId = sId,
-                                                    participantId = pId,
-                                                    role = ServerRole.GUEST,
-                                                    isPending = isPending,
-                                                    settings = roomSettings
-                                                )
-                                            ))
-                                            broadcastRoomState()
-                                        }
-                                        is UpdatePlayback -> {
-                                            if (roomSettings.allowGuestsToControlPlayback) {
-                                                val p = hostParticipants[pId]
-                                                if (p != null && !p.isPending) {
-                                                    withContext(Dispatchers.Main) {
-                                                        isSyncing = true
-                                                        if (msg.isPlaying && !player.isPlaying) player.play()
-                                                        else if (!msg.isPlaying && player.isPlaying) player.pause()
+                    httpClient.webSocket(hostWsUrl) {
+                        hostRelaySession = this
+                        startPeriodicBroadcast()
 
-                                                        if (kotlin.math.abs(player.currentPosition - msg.positionMs) > 1000L) {
-                                                            player.seekTo(msg.positionMs)
-                                                        }
-                                                        isSyncing = false
-                                                    }
-                                                    broadcastRoomState()
-                                                }
-                                            }
+                        for (frame in incoming) {
+                            if (frame !is Frame.Text) continue
+                            val frameText = frame.readText()
+                            val root = runCatching { JSONObject(frameText) }.getOrNull() ?: continue
+                            val type = root.optString("type")
+                            val participantId = root.optString("participantId")
+
+                            when (type) {
+                                "guest_connected" -> {
+                                    hostChannels[participantId] = object : TogetherClientChannel {
+                                        override suspend fun send(message: String) {
+                                            val wrap = JSONObject().apply {
+                                                put("type", "to_guest")
+                                                put("participantId", participantId)
+                                                put("message", message)
+                                            }.toString()
+                                            try { hostRelaySession?.send(wrap) } catch (e: Exception) {}
                                         }
-                                        is UpdateTrack -> {
-                                            if (roomSettings.allowGuestsToAddTracks) {
-                                                val p = hostParticipants[pId]
-                                                if (p != null && !p.isPending) {
-                                                    withContext(Dispatchers.Main) {
-                                                        isSyncing = true
-                                                        playTrackInternal(msg.track)
-                                                        isSyncing = false
-                                                    }
-                                                    broadcastRoomState()
-                                                }
-                                            }
+                                        override suspend fun close() {
+                                            val kickWrap = JSONObject().apply {
+                                                put("type", "to_guest")
+                                                put("participantId", participantId)
+                                                put("message", TogetherJson.json.encodeToString(TogetherMessage.serializer(), HostCommand("KICK")))
+                                            }.toString()
+                                            try { hostRelaySession?.send(kickWrap) } catch (e: Exception) {}
                                         }
-                                        is SendReaction -> {
-                                            reactionsFlow.tryEmit(FloatingReaction(id = msg.id, emoji = msg.emoji, senderName = msg.senderName))
-                                            val resendMsg = TogetherJson.json.encodeToString(TogetherMessage.serializer(), msg)
-                                            hostConnections.values.forEach { session ->
-                                                try { session.send(resendMsg) } catch (e: Exception) {}
-                                            }
-                                        }
-                                        is RequestTrack -> {
-                                            if (roomSettings.allowGuestsToAddTracks) {
-                                                val existing = hostRequestedQueue[msg.track.id]
-                                                if (existing == null) {
-                                                    hostRequestedQueue[msg.track.id] = TogetherRequestedTrack(
-                                                        track = msg.track,
-                                                        requesterId = msg.requesterId,
-                                                        requesterName = msg.requesterName,
-                                                        upvotes = listOf(msg.requesterId)
-                                                    )
-                                                    broadcastRoomState()
-                                                }
-                                            }
-                                        }
-                                        is UpvoteTrack -> {
-                                            val existing = hostRequestedQueue[msg.trackId]
-                                            if (existing != null) {
-                                                val upvotes = existing.upvotes.toMutableList()
-                                                if (upvotes.contains(msg.voterId)) {
-                                                    upvotes.remove(msg.voterId)
-                                                } else {
-                                                    upvotes.add(msg.voterId)
-                                                }
-                                                hostRequestedQueue[msg.trackId] = existing.copy(upvotes = upvotes)
-                                                broadcastRoomState()
-                                            }
-                                        }
-                                        is RemoveRequestTrack -> {
-                                            hostRequestedQueue.remove(msg.trackId)
-                                            broadcastRoomState()
-                                        }
-                                        else -> {}
                                     }
                                 }
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                            } finally {
-                                pId?.let {
-                                    hostParticipants.remove(it)
-                                    hostConnections.remove(it)
+                                "from_guest" -> {
+                                    val innerMessage = root.optString("message")
+                                    handleIncomingMessageAsHost(participantId, innerMessage, sId)
+                                }
+                                "guest_disconnected" -> {
+                                    hostParticipants.remove(participantId)
+                                    hostChannels.remove(participantId)
                                     broadcastRoomState()
                                 }
                             }
                         }
                     }
-                }
-                engine.start(wait = false)
-                serverEngine = engine
+                } else {
+                    val hostIp = getIpAddress() ?: "127.0.0.1"
+                    currentJoinInfo = TogetherJoinInfo(
+                        host = hostIp,
+                        port = port,
+                        sessionId = sId,
+                        sessionKey = sKey,
+                        isOnline = false
+                    )
 
-                val link = TogetherLink.encode(currentJoinInfo!!)
-                startUdpDiscoveryServer()
+                    val engine = embeddedServer(CIO, port = port, host = "0.0.0.0") {
+                        install(io.ktor.server.websocket.WebSockets) {
+                            pingPeriodMillis = 15000L
+                            timeoutMillis = 15000L
+                            maxFrameSize = Long.MAX_VALUE
+                            masking = false
+                        }
+                        routing {
+                            webSocket("/together") {
+                                var pId: String? = null
+                                try {
+                                    for (frame in incoming) {
+                                        if (frame !is Frame.Text) continue
+                                        val txt = frame.readText()
+                                        if (pId == null) {
+                                            pId = UUID.randomUUID().toString()
+                                            hostChannels[pId] = object : TogetherClientChannel {
+                                                override suspend fun send(message: String) = this@webSocket.send(message)
+                                                override suspend fun close() = this@webSocket.close()
+                                            }
+                                        }
+                                        handleIncomingMessageAsHost(pId, txt, sId)
+                                    }
+                                } finally {
+                                    pId?.let {
+                                        hostParticipants.remove(it)
+                                        hostChannels.remove(it)
+                                        broadcastRoomState()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    engine.start(wait = false)
+                    serverEngine = engine
 
-                withContext(Dispatchers.Main) {
-                    val rs = getCurrentRoomState(sId)
-                    sessionState.value = TogetherSessionState.Hosting(sId, link, currentPin, hostIp, port, settings, rs)
+                    val link = TogetherLink.encode(currentJoinInfo!!)
+                    startUdpDiscoveryServer()
+
+                    withContext(Dispatchers.Main) {
+                        val rs = getCurrentRoomState(sId)
+                        sessionState.value = TogetherSessionState.Hosting(sId, link, currentPin, hostIp, port, settings, rs, isOnline = false)
+                    }
+                    startPeriodicBroadcast()
                 }
-                startPeriodicBroadcast()
             } catch (e: Exception) {
                 e.printStackTrace()
                 withContext(Dispatchers.Main) {
@@ -673,12 +885,17 @@ class TogetherManager(
         }
     }
 
-    fun joinTogether(inputLink: String, displayName: String, avatar: String? = null) {
+    fun joinTogether(
+        inputLink: String, 
+        displayName: String, 
+        avatar: String? = null,
+        relayServerUrl: String = DEFAULT_RELAY_SERVER
+    ) {
         leaveTogether()
         isHost = false
         val joinJob = scope.launch(Dispatchers.IO) {
             val input = inputLink.trim()
-            val info = TogetherLink.decode(input) ?: resolvePin(input)?.joinInfo
+            val info = TogetherLink.decode(input) ?: resolvePin(input, relayServerUrl)?.joinInfo
             if (info == null) {
                 withContext(Dispatchers.Main) {
                     sessionState.value = TogetherSessionState.Error(context.getString(R.string.together_error_invalid_link_pin))
@@ -708,7 +925,7 @@ class TogetherManager(
                                     is RoomStateMessage -> {
                                         val rs = msg.state
                                         withContext(Dispatchers.Main) {
-                                            sessionState.value = TogetherSessionState.Joined(TogetherRole.Guest, info.sessionId, selfPId, rs)
+                                            sessionState.value = TogetherSessionState.Joined(TogetherRole.Guest, info.sessionId, selfPId, rs, isOnline = info.isOnline)
                                             val isPending = rs.participants.find { it.id == selfPId }?.isPending == true
                                             if (!isPending) {
                                                 syncPlayerToState(rs)
@@ -744,7 +961,6 @@ class TogetherManager(
                         e.printStackTrace()
                     }
 
-                    // Loop ended, connection closed by host/server
                     withContext(Dispatchers.Main) {
                         val curr = sessionState.value
                         if (curr is TogetherSessionState.Joined || curr is TogetherSessionState.Joining) {
@@ -760,9 +976,8 @@ class TogetherManager(
             }
         }
 
-        // Connection watchdog
         scope.launch {
-            delay(10_000L)
+            delay(12_000L)
             if (sessionState.value is TogetherSessionState.Joining) {
                 joinJob.cancel()
                 sessionState.value = TogetherSessionState.Error(context.getString(R.string.together_error_timeout))
@@ -840,11 +1055,19 @@ class TogetherManager(
         scope.launch(Dispatchers.IO) {
             val jsonStr = TogetherJson.json.encodeToString(TogetherMessage.serializer(), msg)
             if (isHost) {
-                hostConnections.values.forEach { session ->
-                    try { session.send(jsonStr) } catch(e: Exception){}
+                if (isHostOnline && hostRelaySession != null) {
+                    val wrap = JSONObject().apply {
+                        put("type", "broadcast")
+                        put("message", jsonStr)
+                    }.toString()
+                    try { hostRelaySession?.send(wrap) } catch (e: Exception) {}
+                } else {
+                    hostChannels.values.forEach { channel ->
+                        try { channel.send(jsonStr) } catch (e: Exception) {}
+                    }
                 }
             } else {
-                try { clientSession?.send(jsonStr) } catch(e: Exception){}
+                try { clientSession?.send(jsonStr) } catch (e: Exception) {}
             }
         }
     }
@@ -867,7 +1090,7 @@ class TogetherManager(
                 try {
                     val jsonStr = TogetherJson.json.encodeToString(TogetherMessage.serializer(), msg)
                     clientSession?.send(jsonStr)
-                } catch(e: Exception){}
+                } catch (e: Exception) {}
             }
         }
     }
@@ -891,7 +1114,7 @@ class TogetherManager(
                     val msg = UpvoteTrack(trackId, voterId)
                     val jsonStr = TogetherJson.json.encodeToString(TogetherMessage.serializer(), msg)
                     clientSession?.send(jsonStr)
-                } catch(e: Exception){}
+                } catch (e: Exception) {}
             }
         }
     }
@@ -917,7 +1140,7 @@ class TogetherManager(
                     val msg = RemoveRequestTrack(trackId)
                     val jsonStr = TogetherJson.json.encodeToString(TogetherMessage.serializer(), msg)
                     clientSession?.send(jsonStr)
-                } catch(e: Exception){}
+                } catch (e: Exception) {}
             }
         }
     }
@@ -930,20 +1153,15 @@ class TogetherManager(
         serverEngine = null
         val sessionToClose = clientSession
         clientSession = null
+        val hostSessionToClose = hostRelaySession
+        hostRelaySession = null
 
         sessionState.value = TogetherSessionState.Idle
 
         scope.launch(Dispatchers.IO) {
-            try {
-                engineToStop?.stop(100, 500)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-            try {
-                sessionToClose?.close()
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+            try { engineToStop?.stop(100, 500) } catch (e: Exception) {}
+            try { sessionToClose?.close() } catch (e: Exception) {}
+            try { hostSessionToClose?.close() } catch (e: Exception) {}
         }
     }
 
@@ -952,12 +1170,11 @@ class TogetherManager(
     fun kickParticipant(pId: String) {
         if (!isHost) return
         scope.launch {
-            val conn = hostConnections.remove(pId)
+            val ch = hostChannels.remove(pId)
             hostParticipants.remove(pId)
             try {
-                conn?.send(TogetherJson.json.encodeToString(TogetherMessage.serializer(), HostCommand("KICK")))
-                conn?.close()
-            } catch(e: Exception) {}
+                ch?.close()
+            } catch (e: Exception) {}
             broadcastRoomState()
         }
     }
@@ -974,11 +1191,11 @@ class TogetherManager(
                 val p = hostParticipants[pId]
                 if (p != null) {
                     hostParticipants[pId] = p.copy(isPending = false)
-                    val conn = hostConnections[pId]
+                    val ch = hostChannels[pId]
                     try {
                         val sId = (sessionState.value as? TogetherSessionState.Hosting)?.sessionId ?: ""
-                        conn?.send(TogetherJson.json.encodeToString(TogetherMessage.serializer(), JoinDecision(sId, pId, true)))
-                    } catch(e: Exception) {}
+                        ch?.send(TogetherJson.json.encodeToString(TogetherMessage.serializer(), JoinDecision(sId, pId, true)))
+                    } catch (e: Exception) {}
                     broadcastRoomState()
                 }
             } else {
@@ -1008,8 +1225,6 @@ private fun FloatingReactionItem(
         onAnimationEnd()
     }
 
-    // In Compose coordinates, negative Y moves UPWARDS.
-    // Start above navigation/controls (-120dp) and float up to -550dp.
     val startY = -120f
     val endY = -550f
     val currentY = startY + (animProgress.value * (endY - startY))
@@ -1205,8 +1420,7 @@ fun MusicTogetherScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val playerConnection = LocalPlayerConnection.current
-    @Suppress("DEPRECATION")
+    val playerConnection = LocalPlayerConnection.current ?: return
     val clipboard = LocalClipboardManager.current
     val haptic = LocalHapticFeedback.current
     val coroutineScope = rememberCoroutineScope()
@@ -1250,6 +1464,17 @@ fun MusicTogetherScreen(
         defaultValue = Build.MODEL?.takeIf { it.isNotBlank() } ?: context.getString(R.string.app_name),
     )
 
+    val (networkMode, setNetworkMode) = rememberPreference(
+        TogetherNetworkModeKey,
+        defaultValue = "ONLINE"
+    )
+    val isOnlineMode = networkMode == "ONLINE"
+
+    val (relayServerUrl, setRelayServerUrl) = rememberPreference(
+        TogetherRelayServerKey,
+        defaultValue = DEFAULT_RELAY_SERVER
+    )
+
     val avatarManager = remember { AvatarPreferenceManager(context) }
     val currentAvatarSelection by avatarManager.getAvatarSelection.collectAsState(initial = AvatarSelection.Default)
     val currentAvatar = AvatarUtils.getAvatarSource(currentAvatarSelection)
@@ -1260,7 +1485,7 @@ fun MusicTogetherScreen(
     val (requireApproval, setRequireApprovalRaw) = rememberPreference(TogetherRequireHostApprovalToJoinKey, defaultValue = false)
     val (lastJoinLink, setLastJoinLink) = rememberPreference(TogetherLastJoinLinkKey, defaultValue = "")
 
-    val sessionStateFlow = remember(playerConnection) { playerConnection?.service?.togetherSessionState ?: MutableStateFlow(TogetherSessionState.Idle) }
+    val sessionStateFlow = remember(playerConnection) { playerConnection.service.togetherSessionState }
     val sessionState by sessionStateFlow.collectAsState()
 
     val isHosting = sessionState is TogetherSessionState.Hosting
@@ -1298,6 +1523,7 @@ fun MusicTogetherScreen(
 
     var showNameDialog by rememberSaveable { mutableStateOf(false) }
     var showPortDialog by rememberSaveable { mutableStateOf(false) }
+    var showRelayServerDialog by rememberSaveable { mutableStateOf(false) }
     var showJoinDialog by rememberSaveable { mutableStateOf(false) }
     var showRequestTrackDialog by rememberSaveable { mutableStateOf(false) }
 
@@ -1310,10 +1536,10 @@ fun MusicTogetherScreen(
 
     var discoveredSessions by remember { mutableStateOf<List<DiscoveredSession>>(emptyList()) }
 
-    LaunchedEffect(isIdle) {
-        if (isIdle) {
-            while(isActive) {
-                val sessions = playerConnection?.service?.togetherManager?.discoverSessions() ?: emptyList()
+    LaunchedEffect(isIdle, isOnlineMode) {
+        if (isIdle && !isOnlineMode) {
+            while (isActive) {
+                val sessions = playerConnection.service.togetherManager.discoverSessions()
                 discoveredSessions = sessions
                 delay(5000)
             }
@@ -1328,7 +1554,7 @@ fun MusicTogetherScreen(
 
     fun pushSettingsToActiveSession(addTracks: Boolean = allowAddTracks, controlPlayback: Boolean = allowControlPlayback, approval: Boolean = requireApproval) {
         if (isHosting) {
-            playerConnection?.service?.updateTogetherSettings(TogetherRoomSettings(allowGuestsToAddTracks = addTracks, allowGuestsToControlPlayback = controlPlayback, requireHostApprovalToJoin = approval))
+            playerConnection.service.updateTogetherSettings(TogetherRoomSettings(allowGuestsToAddTracks = addTracks, allowGuestsToControlPlayback = controlPlayback, requireHostApprovalToJoin = approval))
         }
     }
 
@@ -1337,11 +1563,34 @@ fun MusicTogetherScreen(
     val setRequireApproval: (Boolean) -> Unit = { v -> setRequireApprovalRaw(v); pushSettingsToActiveSession(approval = v) }
 
     if (showNameDialog) {
-        com.cgens67.avidtune.ui.component.TextFieldDialog(title = { Text(stringResource(R.string.together_display_name)) }, placeholder = { Text(stringResource(R.string.together_display_name_placeholder)) }, isInputValid = { it.trim().isNotBlank() }, onDone = { setDisplayName(it.trim()) }, onDismiss = { showNameDialog = false })
+        com.cgens67.avidtune.ui.component.TextFieldDialog(
+            title = { Text(stringResource(R.string.together_display_name)) }, 
+            placeholder = { Text(stringResource(R.string.together_display_name_placeholder)) }, 
+            isInputValid = { it.trim().isNotBlank() }, 
+            onDone = { setDisplayName(it.trim()) }, 
+            onDismiss = { showNameDialog = false }
+        )
     }
 
     if (showPortDialog) {
-        com.cgens67.avidtune.ui.component.TextFieldDialog(title = { Text(stringResource(R.string.together_port)) }, placeholder = { Text("42117") }, isInputValid = { it.trim().toIntOrNull() in 1..65535 }, onDone = { setPort(it.trim().toInt()) }, onDismiss = { showPortDialog = false })
+        com.cgens67.avidtune.ui.component.TextFieldDialog(
+            title = { Text(stringResource(R.string.together_port)) }, 
+            placeholder = { Text("42117") }, 
+            isInputValid = { it.trim().toIntOrNull() in 1..65535 }, 
+            onDone = { setPort(it.trim().toInt()) }, 
+            onDismiss = { showPortDialog = false }
+        )
+    }
+
+    if (showRelayServerDialog) {
+        com.cgens67.avidtune.ui.component.TextFieldDialog(
+            title = { Text(stringResource(R.string.together_relay_server_url)) }, 
+            placeholder = { Text(DEFAULT_RELAY_SERVER) }, 
+            initialTextFieldValue = androidx.compose.ui.text.input.TextFieldValue(relayServerUrl),
+            isInputValid = { it.trim().isNotBlank() }, 
+            onDone = { setRelayServerUrl(it.trim()) }, 
+            onDismiss = { showRelayServerDialog = false }
+        )
     }
 
     var joinInput by rememberSaveable { mutableStateOf(lastJoinLink) }
@@ -1355,7 +1604,12 @@ fun MusicTogetherScreen(
                 val trimmed = raw.trim()
                 joinInput = trimmed
                 setLastJoinLink(trimmed)
-                playerConnection?.service?.joinTogether(trimmed, displayName, currentAvatar)
+                playerConnection.service.togetherManager.joinTogether(
+                    inputLink = trimmed, 
+                    displayName = displayName, 
+                    avatar = currentAvatar, 
+                    relayServerUrl = relayServerUrl
+                )
                 showJoinDialog = false
             }
         )
@@ -1366,7 +1620,7 @@ fun MusicTogetherScreen(
             onDismiss = { showRequestTrackDialog = false },
             onRequestTrack = { track ->
                 showRequestTrackDialog = false
-                playerConnection?.service?.togetherManager?.requestTrack(track, selfParticipantId, displayName)
+                playerConnection.service.togetherManager.requestTrack(track, selfParticipantId, displayName)
             }
         )
     }
@@ -1378,7 +1632,7 @@ fun MusicTogetherScreen(
             containerColor = MaterialTheme.colorScheme.surface,
             title = { Text(stringResource(R.string.together_kick)) },
             text = { Text(stringResource(R.string.together_kick_confirm, confirmKickName ?: stringResource(R.string.unknown)), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) },
-            confirmButton = { Button(onClick = { val pid = confirmKickParticipantId ?: return@Button; confirmKickParticipantId = null; playerConnection?.service?.kickTogetherParticipant(pid) }, shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text(stringResource(R.string.together_kick), fontWeight = FontWeight.SemiBold) } },
+            confirmButton = { Button(onClick = { val pid = confirmKickParticipantId ?: return@Button; confirmKickParticipantId = null; playerConnection.service.kickTogetherParticipant(pid) }, shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text(stringResource(R.string.together_kick), fontWeight = FontWeight.SemiBold) } },
             dismissButton = { TextButton(onClick = { confirmKickParticipantId = null }, shape = RoundedCornerShape(16.dp)) { Text(stringResource(R.string.dismiss)) } },
         )
     }
@@ -1390,7 +1644,7 @@ fun MusicTogetherScreen(
             containerColor = MaterialTheme.colorScheme.surface,
             title = { Text(stringResource(R.string.together_ban)) },
             text = { Text(stringResource(R.string.together_ban_confirm, confirmBanName ?: stringResource(R.string.unknown)), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) },
-            confirmButton = { Button(onClick = { val pid = confirmBanParticipantId ?: return@Button; confirmBanParticipantId = null; playerConnection?.service?.banTogetherParticipant(pid) }, shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text(stringResource(R.string.together_ban), fontWeight = FontWeight.SemiBold) } },
+            confirmButton = { Button(onClick = { val pid = confirmBanParticipantId ?: return@Button; confirmBanParticipantId = null; playerConnection.service.banTogetherParticipant(pid) }, shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text(stringResource(R.string.together_ban), fontWeight = FontWeight.SemiBold) } },
             dismissButton = { TextButton(onClick = { confirmBanParticipantId = null }, shape = RoundedCornerShape(16.dp)) { Text(stringResource(R.string.dismiss)) } },
         )
     }
@@ -1413,7 +1667,7 @@ fun MusicTogetherScreen(
                 .background(MaterialTheme.colorScheme.surface)
         ) {
             FloatingReactionsOverlay(
-                togetherManager = playerConnection?.service?.togetherManager,
+                togetherManager = playerConnection.service.togetherManager,
                 modifier = Modifier.fillMaxSize().zIndex(150f)
             )
 
@@ -1424,13 +1678,27 @@ fun MusicTogetherScreen(
             ) {
                 Spacer(Modifier.windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Top)))
 
-                StatusCard(state = sessionState, onCopyLink = { link -> clipboard.setText(AnnotatedString(link)); haptic.performHapticFeedback(HapticFeedbackType.LongPress); Toast.makeText(context, R.string.copied, Toast.LENGTH_SHORT).show() }, onShareLink = { link -> context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, link) }, null)) }, onLeave = { playerConnection?.service?.leaveTogether() }, modifier = Modifier.padding(horizontal = 16.dp).padding(top = 4.dp, bottom = 12.dp))
+                StatusCard(
+                    state = sessionState, 
+                    onCopyLink = { link -> 
+                        clipboard.setText(AnnotatedString(link))
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        Toast.makeText(context, R.string.copied, Toast.LENGTH_SHORT).show() 
+                    }, 
+                    onShareLink = { link -> 
+                        context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { 
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, link) 
+                        }, null)) 
+                    }, 
+                    onLeave = { playerConnection.service.leaveTogether() }, 
+                    modifier = Modifier.padding(horizontal = 16.dp).padding(top = 4.dp, bottom = 12.dp)
+                )
 
-                // In-Session Emoji Reactions Bar & Requested Tracks
                 if (isHosting || isJoinedAsAcceptedGuest) {
                     EmojiReactionsBar(
                         onSendReaction = { emoji ->
-                            playerConnection?.service?.togetherManager?.sendReaction(emoji, displayName)
+                            playerConnection.service.togetherManager.sendReaction(emoji, displayName)
                         },
                         modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)
                     )
@@ -1441,25 +1709,32 @@ fun MusicTogetherScreen(
                         isHost = isHostRole,
                         onRequestTrackClick = { showRequestTrackDialog = true },
                         onUpvoteTrack = { trackId ->
-                            playerConnection?.service?.togetherManager?.upvoteTrack(trackId, selfParticipantId)
+                            playerConnection.service.togetherManager.upvoteTrack(trackId, selfParticipantId)
                         },
                         onPlayTrack = { trackId ->
-                            playerConnection?.service?.togetherManager?.playRequestedTrack(trackId)
+                            playerConnection.service.togetherManager.playRequestedTrack(trackId)
                         },
                         onRemoveTrack = { trackId ->
-                            playerConnection?.service?.togetherManager?.removeRequestedTrack(trackId)
+                            playerConnection.service.togetherManager.removeRequestedTrack(trackId)
                         },
                         modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)
                     )
                 }
 
                 if (hostingLan?.roomState != null && isHostRole) {
-                    OnlineParticipantsCard(participants = hostingLan.roomState.participants, hostApprovalEnabled = hostingLan.settings.requireHostApprovalToJoin, onApprove = { pid, approved -> playerConnection?.service?.approveTogetherParticipant(pid, approved) }, onKick = { confirmKickParticipantId = it }, onBan  = { confirmBanParticipantId  = it }, modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp))
+                    OnlineParticipantsCard(
+                        participants = hostingLan.roomState.participants, 
+                        hostApprovalEnabled = hostingLan.settings.requireHostApprovalToJoin, 
+                        onApprove = { pid, approved -> playerConnection.service.approveTogetherParticipant(pid, approved) }, 
+                        onKick = { confirmKickParticipantId = it }, 
+                        onBan = { confirmBanParticipantId = it }, 
+                        modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)
+                    )
                 }
 
                 if (!isJoinedAsGuest && !isHostRole) {
                     AnimatedVisibility(
-                        visible = discoveredSessions.isNotEmpty(),
+                        visible = discoveredSessions.isNotEmpty() && !isOnlineMode,
                         enter = expandVertically(spring(stiffness = Spring.StiffnessMediumLow)) + fadeIn(),
                         exit = shrinkVertically(spring(stiffness = Spring.StiffnessMediumLow)) + fadeOut()
                     ) {
@@ -1469,17 +1744,88 @@ fun MusicTogetherScreen(
                                 val link = TogetherLink.encode(session.joinInfo)
                                 joinInput = link
                                 setLastJoinLink(link)
-                                playerConnection?.service?.joinTogether(link, displayName, currentAvatar)
+                                playerConnection.service.togetherManager.joinTogether(
+                                    inputLink = link, 
+                                    displayName = displayName, 
+                                    avatar = currentAvatar, 
+                                    relayServerUrl = relayServerUrl
+                                )
                             },
                             modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)
                         )
                     }
 
-                    HostSectionCard(displayName = displayName, port = port, allowAddTracks = allowAddTracks, allowControlPlayback = allowControlPlayback, requireApproval = requireApproval, onShowNameDialog = { showNameDialog = true }, onShowPortDialog = { showPortDialog = true }, onAllowAddTracksChange = setAllowAddTracks, onAllowControlPlaybackChange = setAllowControlPlayback, onRequireApprovalChange = setRequireApproval, isStartEnabled = !isCreatingSessionLoading && !isJoining && !isHosting && sessionState !is TogetherSessionState.Joined, isLoading = isCreatingSessionLoading, onStartSession = { playerConnection?.service?.startTogetherHost(port = port, displayName = displayName, settings = TogetherRoomSettings(allowGuestsToAddTracks = allowAddTracks, allowGuestsToControlPlayback = allowControlPlayback, requireHostApprovalToJoin = requireApproval), avatar = currentAvatar) }, modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp))
+                    HostSectionCard(
+                        displayName = displayName, 
+                        port = port, 
+                        isOnline = isOnlineMode,
+                        relayServerUrl = relayServerUrl,
+                        onModeChange = { isOnline -> setNetworkMode(if (isOnline) "ONLINE" else "LAN") },
+                        onShowRelayServerDialog = { showRelayServerDialog = true },
+                        allowAddTracks = allowAddTracks, 
+                        allowControlPlayback = allowControlPlayback, 
+                        requireApproval = requireApproval, 
+                        onShowNameDialog = { showNameDialog = true }, 
+                        onShowPortDialog = { showPortDialog = true }, 
+                        onAllowAddTracksChange = setAllowAddTracks, 
+                        onAllowControlPlaybackChange = setAllowControlPlayback, 
+                        onRequireApprovalChange = setRequireApproval, 
+                        isStartEnabled = !isCreatingSessionLoading && !isJoining && !isHosting && sessionState !is TogetherSessionState.Joined, 
+                        isLoading = isCreatingSessionLoading, 
+                        onStartSession = { 
+                            playerConnection.service.togetherManager.startTogetherHost(
+                                port = port, 
+                                displayName = displayName, 
+                                settings = TogetherRoomSettings(
+                                    allowGuestsToAddTracks = allowAddTracks, 
+                                    allowGuestsToControlPlayback = allowControlPlayback, 
+                                    requireHostApprovalToJoin = requireApproval
+                                ), 
+                                avatar = currentAvatar,
+                                isOnline = isOnlineMode,
+                                relayServerUrl = relayServerUrl
+                            ) 
+                        }, 
+                        modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)
+                    )
                 }
 
                 if (!isHostRole) {
-                    JoinSectionCard(joinInput = joinInput, onJoinInputChange = { joinInput = it }, canJoin = canJoin, disableJoinUi = disableJoinUi, isJoined = isJoinedAsAcceptedGuest, isWaitingApproval = isWaitingApproval, isJoining = isJoining, onShowJoinDialog = { showJoinDialog = true }, onPasteFromClipboard = { val text = clipboard.getText()?.text?.trim() ?: ""; if (text.isNotBlank()) { joinInput = text; haptic.performHapticFeedback(HapticFeedbackType.LongPress); setLastJoinLink(text); playerConnection?.service?.joinTogether(text, displayName, currentAvatar) } }, onJoin = { val trimmed = joinInput.trim(); setLastJoinLink(trimmed); playerConnection?.service?.joinTogether(trimmed, displayName, currentAvatar) }, modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp))
+                    JoinSectionCard(
+                        joinInput = joinInput, 
+                        onJoinInputChange = { joinInput = it }, 
+                        canJoin = canJoin, 
+                        disableJoinUi = disableJoinUi, 
+                        isJoined = isJoinedAsAcceptedGuest, 
+                        isWaitingApproval = isWaitingApproval, 
+                        isJoining = isJoining, 
+                        onShowJoinDialog = { showJoinDialog = true }, 
+                        onPasteFromClipboard = { 
+                            val text = clipboard.getText()?.text?.trim() ?: ""
+                            if (text.isNotBlank()) { 
+                                joinInput = text
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                setLastJoinLink(text)
+                                playerConnection.service.togetherManager.joinTogether(
+                                    inputLink = text, 
+                                    displayName = displayName, 
+                                    avatar = currentAvatar, 
+                                    relayServerUrl = relayServerUrl
+                                ) 
+                            } 
+                        }, 
+                        onJoin = { 
+                            val trimmed = joinInput.trim()
+                            setLastJoinLink(trimmed)
+                            playerConnection.service.togetherManager.joinTogether(
+                                inputLink = trimmed, 
+                                displayName = displayName, 
+                                avatar = currentAvatar, 
+                                relayServerUrl = relayServerUrl
+                            ) 
+                        }, 
+                        modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp)
+                    )
                 }
             }
 
@@ -1499,719 +1845,136 @@ fun MusicTogetherScreen(
     }
 }
 
-// --- REQUESTED TRACKS CARD ---
+// --- HOST SECTION CARD ---
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun RequestedTracksCard(
-    requestedQueue: List<TogetherRequestedTrack>,
-    selfParticipantId: String,
-    isHost: Boolean,
-    onRequestTrackClick: () -> Unit,
-    onUpvoteTrack: (String) -> Unit,
-    onPlayTrack: (String) -> Unit,
-    onRemoveTrack: (String) -> Unit,
+private fun HostSectionCard(
+    displayName: String, 
+    port: Int, 
+    isOnline: Boolean,
+    relayServerUrl: String,
+    onModeChange: (Boolean) -> Unit,
+    onShowRelayServerDialog: () -> Unit,
+    allowAddTracks: Boolean, 
+    allowControlPlayback: Boolean, 
+    requireApproval: Boolean, 
+    onShowNameDialog: () -> Unit, 
+    onShowPortDialog: () -> Unit, 
+    onAllowAddTracksChange: (Boolean) -> Unit, 
+    onAllowControlPlaybackChange: (Boolean) -> Unit, 
+    onRequireApprovalChange: (Boolean) -> Unit, 
+    isStartEnabled: Boolean, 
+    isLoading: Boolean, 
+    onStartSession: () -> Unit, 
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier.fillMaxWidth().animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)),
-        shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.primaryContainer),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.playlist_add),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    Text(
-                        text = stringResource(R.string.together_requests_count, requestedQueue.size),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Button(
-                    onClick = onRequestTrackClick,
-                    shape = RoundedCornerShape(12.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.add),
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text(stringResource(R.string.together_request_track), style = MaterialTheme.typography.labelMedium)
-                }
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            if (requestedQueue.isEmpty()) {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = stringResource(R.string.together_no_requests_placeholder),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(16.dp)
-                    )
-                }
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    requestedQueue.forEach { item ->
-                        val hasUpvoted = item.upvotes.contains(selfParticipantId)
-
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = MaterialTheme.colorScheme.surfaceContainer,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(10.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                AsyncImage(
-                                    model = item.track.thumbnailUrl,
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .size(48.dp)
-                                        .clip(RoundedCornerShape(10.dp)),
-                                    contentScale = ContentScale.Crop
-                                )
-
-                                Spacer(Modifier.width(10.dp))
-
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = item.track.title,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    Text(
-                                        text = "${item.track.artists.joinToString(", ")} • ${stringResource(R.string.by_text)} ${item.requesterName}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-
-                                Spacer(Modifier.width(8.dp))
-
-                                // Upvote Button
-                                FilledTonalButton(
-                                    onClick = { onUpvoteTrack(item.track.id) },
-                                    shape = RoundedCornerShape(12.dp),
-                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                    colors = if (hasUpvoted) {
-                                        ButtonDefaults.filledTonalButtonColors(
-                                            containerColor = MaterialTheme.colorScheme.primary,
-                                            contentColor = MaterialTheme.colorScheme.onPrimary
-                                        )
-                                    } else {
-                                        ButtonDefaults.filledTonalButtonColors()
-                                    }
-                                ) {
-                                    Icon(
-                                        painter = painterResource(if (hasUpvoted) R.drawable.favorite else R.drawable.favorite_border),
-                                        contentDescription = stringResource(R.string.together_upvote),
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(Modifier.width(4.dp))
-                                    Text(
-                                        text = "${item.upvotes.size}",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-
-                                if (isHost) {
-                                    Spacer(Modifier.width(4.dp))
-                                    IconButton(
-                                        onClick = { onPlayTrack(item.track.id) },
-                                        modifier = Modifier.size(36.dp)
-                                    ) {
-                                        Icon(
-                                            painter = painterResource(R.drawable.play),
-                                            contentDescription = stringResource(R.string.play),
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                    IconButton(
-                                        onClick = { onRemoveTrack(item.track.id) },
-                                        modifier = Modifier.size(36.dp)
-                                    ) {
-                                        Icon(
-                                            painter = painterResource(R.drawable.close),
-                                            contentDescription = stringResource(R.string.together_remove),
-                                            tint = MaterialTheme.colorScheme.error,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                } else if (item.requesterId == selfParticipantId) {
-                                    Spacer(Modifier.width(4.dp))
-                                    IconButton(
-                                        onClick = { onRemoveTrack(item.track.id) },
-                                        modifier = Modifier.size(36.dp)
-                                    ) {
-                                        Icon(
-                                            painter = painterResource(R.drawable.close),
-                                            contentDescription = stringResource(R.string.together_remove),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// --- SEARCH & REQUEST TRACK DIALOG ---
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun SearchAndRequestTrackDialog(
-    onDismiss: () -> Unit,
-    onRequestTrack: (TogetherTrack) -> Unit
-) {
-    var query by remember { mutableStateOf("") }
-    var searchResults by remember { mutableStateOf<List<SongItem>>(emptyList()) }
-    var isSearching by remember { mutableStateOf(false) }
-    val coroutineScope = rememberCoroutineScope()
-    val focusRequester = remember { FocusRequester() }
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    // Consumes overscroll
-    val nestedScrollConnection = remember {
-        object : NestedScrollConnection {
-            override fun onPostScroll(
-                consumed: Offset,
-                available: Offset,
-                source: NestedScrollSource
-            ): Offset {
-                return Offset(0f, available.y)
-            }
-        }
-    }
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        dragHandle = { BottomSheetDefaults.DragHandle() },
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.85f)
-                .nestedScroll(nestedScrollConnection)
-                .navigationBarsPadding()
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 20.dp)
-        ) {
-            // Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.primaryContainer),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.playlist_add),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                    Column {
-                        Text(
-                            text = stringResource(R.string.together_request_track_title),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = stringResource(R.string.together_search_ytm_desc),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                AtIconButton(
-                    onClick = {
-                        coroutineScope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() }
-                    },
-                    onLongClick = {}
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.close),
-                        contentDescription = stringResource(R.string.close),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            // Search Input Field
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.search),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-
-                    BasicTextField(
-                        value = query,
-                        onValueChange = { newQuery ->
-                            query = newQuery
-                            if (newQuery.isNotBlank()) {
-                                isSearching = true
-                                coroutineScope.launch(Dispatchers.IO) {
-                                    delay(300) // Debounce
-                                    YouTube.search(newQuery, YouTube.SearchFilter.FILTER_SONG).onSuccess { res ->
-                                        withContext(Dispatchers.Main) {
-                                            searchResults = res.items.filterIsInstance<SongItem>()
-                                            isSearching = false
-                                        }
-                                    }.onFailure { withContext(Dispatchers.Main) { isSearching = false } }
-                                }
-                            } else {
-                                searchResults = emptyList()
-                                isSearching = false
-                            }
-                        },
-                        singleLine = true,
-                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(onSearch = {
-                            if (query.isNotBlank()) {
-                                isSearching = true
-                                coroutineScope.launch(Dispatchers.IO) {
-                                    YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).onSuccess { res ->
-                                        withContext(Dispatchers.Main) {
-                                            searchResults = res.items.filterIsInstance<SongItem>()
-                                            isSearching = false
-                                        }
-                                    }.onFailure { withContext(Dispatchers.Main) { isSearching = false } }
-                                }
-                            }
-                        }),
-                        modifier = Modifier
-                            .weight(1f)
-                            .focusRequester(focusRequester),
-                        decorationBox = { innerTextField ->
-                            if (query.isEmpty()) {
-                                Text(
-                                    stringResource(R.string.together_search_placeholder),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                )
-                            }
-                            innerTextField()
-                        }
-                    )
-
-                    if (query.isNotEmpty()) {
-                        Icon(
-                            painter = painterResource(R.drawable.close),
-                            contentDescription = stringResource(R.string.together_clear),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier
-                                .size(18.dp)
-                                .clip(CircleShape)
-                                .clickable { query = ""; searchResults = emptyList() }
-                        )
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            // Results Container
-            if (isSearching) {
-                Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                }
-            } else if (searchResults.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.search),
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                        )
-                        Text(
-                            text = if (query.isBlank()) stringResource(R.string.together_search_empty_prompt) else stringResource(R.string.together_no_songs_found, query),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(searchResults, key = { it.id }) { song ->
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = MaterialTheme.colorScheme.surfaceContainer,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    val track = TogetherTrack(
-                                        id = song.id,
-                                        title = song.title,
-                                        artists = song.artists.map { it.name },
-                                        durationSec = song.duration ?: -1,
-                                        thumbnailUrl = song.thumbnail
-                                    )
-                                    coroutineScope.launch { sheetState.hide() }.invokeOnCompletion { 
-                                        onRequestTrack(track) 
-                                    }
-                                }
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                AsyncImage(
-                                    model = song.thumbnail,
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .size(52.dp)
-                                        .clip(RoundedCornerShape(12.dp)),
-                                    contentScale = ContentScale.Crop
-                                )
-
-                                Spacer(Modifier.width(12.dp))
-
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = song.title,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    Spacer(Modifier.height(2.dp))
-                                    Text(
-                                        text = song.artists.joinToString(", ") { it.name },
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-
-                                Spacer(Modifier.width(8.dp))
-
-                                Button(
-                                    onClick = {
-                                        val track = TogetherTrack(
-                                            id = song.id,
-                                            title = song.title,
-                                            artists = song.artists.map { it.name },
-                                            durationSec = song.duration ?: -1,
-                                            thumbnailUrl = song.thumbnail
-                                        )
-                                        coroutineScope.launch { sheetState.hide() }.invokeOnCompletion { 
-                                            onRequestTrack(track) 
-                                        }
-                                    },
-                                    shape = RoundedCornerShape(12.dp),
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                                ) {
-                                    Icon(
-                                        painter = painterResource(R.drawable.add),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(Modifier.width(4.dp))
-                                    Text(stringResource(R.string.together_request_button), style = MaterialTheme.typography.labelMedium)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        delay(150)
-        focusRequester.requestFocus()
-    }
-}
-
-@Composable
-private fun CustomJoinDialog(
-    initialValue: String,
-    onDismiss: () -> Unit,
-    onJoin: (String) -> Unit
-) {
-    var isPinMode by remember { mutableStateOf(initialValue.length <= 6 && initialValue.all { it.isDigit() }) }
-    var pinInput by remember { mutableStateOf(if (isPinMode) initialValue else "") }
-    var linkInput by remember { mutableStateOf(if (!isPinMode) initialValue else "") }
-
-    val focusRequester = remember { FocusRequester() }
-    val keyboardController = LocalSoftwareKeyboardController.current
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(28.dp),
-        containerColor = MaterialTheme.colorScheme.surface,
-        title = {
-            Text(
-                text = stringResource(if (isPinMode) R.string.together_join_via_pin else R.string.together_join_via_link),
-                style = MaterialTheme.typography.titleLarge
-            )
-        },
-        text = {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                TabRow(
-                    selectedTabIndex = if (isPinMode) 0 else 1,
-                    containerColor = Color.Transparent,
-                    divider = { },
-                    indicator = { },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                ) {
-                    val pinBg = if (isPinMode) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-                    val linkBg = if (!isPinMode) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-
-                    Tab(
-                        selected = isPinMode,
-                        onClick = { isPinMode = true },
-                        modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(pinBg),
-                        text = { Text(stringResource(R.string.together_pin), color = if (isPinMode) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant) }
-                    )
-                    Tab(
-                        selected = !isPinMode,
-                        onClick = { isPinMode = false },
-                        modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(linkBg),
-                        text = { Text(stringResource(R.string.together_link), color = if (!isPinMode) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant) }
-                    )
-                }
-
-                if (isPinMode) {
-                    BasicTextField(
-                        value = pinInput,
-                        onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) pinInput = it },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = { if (pinInput.length == 6) onJoin(pinInput) }),
-                        modifier = Modifier.focusRequester(focusRequester).fillMaxWidth(),
-                        decorationBox = {
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), modifier = Modifier.fillMaxWidth()) {
-                                repeat(6) { index ->
-                                    val char = pinInput.getOrNull(index)?.toString() ?: ""
-                                    val isFocused = pinInput.length == index || (pinInput.length == 6 && index == 5)
-                                    Box(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .aspectRatio(0.8f)
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                                            .border(
-                                                width = 2.dp,
-                                                color = if (isFocused) MaterialTheme.colorScheme.primary else Color.Transparent,
-                                                shape = RoundedCornerShape(8.dp)
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = char,
-                                            style = MaterialTheme.typography.titleLarge,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    )
-                } else {
-                    OutlinedTextField(
-                        value = linkInput,
-                        onValueChange = { linkInput = it },
-                        placeholder = { Text(stringResource(R.string.together_paste_link_placeholder)) },
-                        modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
-                        singleLine = false,
-                        minLines = 3,
-                        maxLines = 4,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = { if (linkInput.isNotBlank()) onJoin(linkInput) }),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onJoin(if (isPinMode) pinInput else linkInput) },
-                enabled = if (isPinMode) pinInput.length == 6 else linkInput.isNotBlank()
-            ) {
-                Text(stringResource(R.string.join))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(android.R.string.cancel))
-            }
-        }
-    )
-
-    LaunchedEffect(isPinMode) {
-        delay(100)
-        focusRequester.requestFocus()
-        keyboardController?.show()
-    }
-}
-
-@Composable
-private fun OngoingSessionsCard(
-    sessions: List<DiscoveredSession>,
-    onJoin: (DiscoveredSession) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier.fillMaxWidth().animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)),
-        shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        modifier = modifier.fillMaxWidth().animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)), 
+        shape = RoundedCornerShape(28.dp), 
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow), 
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(vertical = 8.dp)) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp), 
+                verticalAlignment = Alignment.CenterVertically, 
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Box(
-                    modifier = Modifier.size(40.dp).clip(RoundedCornerShape(14.dp)).background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f), MaterialTheme.colorScheme.secondary.copy(alpha = 0.08f)))),
+                    modifier = Modifier.size(40.dp).clip(RoundedCornerShape(14.dp)).background(
+                        Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f), MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)))
+                    ), 
                     contentAlignment = Alignment.Center
-                ) {
-                    Icon(painterResource(R.drawable.wifi_proxy), contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(22.dp))
+                ) { 
+                    Icon(painterResource(R.drawable.auto_awesome), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp)) 
                 }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.together_ongoing_sessions_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text(stringResource(R.string.together_ongoing_sessions_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Column(modifier = Modifier.weight(1f)) { 
+                    Text(stringResource(R.string.together_host_section), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        stringResource(if (isOnline) R.string.together_desc_worldwide else R.string.together_lan), 
+                        style = MaterialTheme.typography.bodySmall, 
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    ) 
+                }
+                Surface(shape = RoundedCornerShape(50.dp), color = MaterialTheme.colorScheme.primaryContainer) { 
+                    Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) { 
+                        Icon(painterResource(if (isOnline) R.drawable.language else R.drawable.wifi_proxy), contentDescription = null, modifier = Modifier.size(13.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Text(stringResource(if (isOnline) R.string.together_badge_worldwide else R.string.together_badge_lan), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer) 
+                    } 
                 }
             }
 
-            sessions.forEach { session ->
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).clickable { onJoin(session) }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 18.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)
+            ) {
+                ToggleButton(
+                    checked = isOnline,
+                    onCheckedChange = { if (it) onModeChange(true) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics { role = Role.RadioButton },
+                    shapes = ButtonGroupDefaults.connectedLeadingButtonShapes()
                 ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
-                            Text(session.hostName.take(1).uppercase(), color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold)
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(session.hostName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-                            Text(stringResource(R.string.together_local_network), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        FilledTonalButton(onClick = { onJoin(session) }, contentPadding = PaddingValues(horizontal = 16.dp)) {
-                            Text(stringResource(R.string.join), fontWeight = FontWeight.SemiBold)
-                        }
-                    }
+                    Icon(
+                        painter = painterResource(R.drawable.language),
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(R.string.together_mode_worldwide),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                ToggleButton(
+                    checked = !isOnline,
+                    onCheckedChange = { if (it) onModeChange(false) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics { role = Role.RadioButton },
+                    shapes = ButtonGroupDefaults.connectedTrailingButtonShapes()
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.wifi_proxy),
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(R.string.together_mode_lan),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
-            Spacer(Modifier.height(8.dp))
-        }
-    }
-}
 
-@Composable
-private fun HostSectionCard(displayName: String, port: Int, allowAddTracks: Boolean, allowControlPlayback: Boolean, requireApproval: Boolean, onShowNameDialog: () -> Unit, onShowPortDialog: () -> Unit, onAllowAddTracksChange: (Boolean) -> Unit, onAllowControlPlaybackChange: (Boolean) -> Unit, onRequireApprovalChange: (Boolean) -> Unit, isStartEnabled: Boolean, isLoading: Boolean, onStartSession: () -> Unit, modifier: Modifier = Modifier) {
-    Card(modifier = modifier.fillMaxWidth().animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)), shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
-        Column(modifier = Modifier.padding(vertical = 8.dp)) {
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(modifier = Modifier.size(40.dp).clip(RoundedCornerShape(14.dp)).background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f), MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)))), contentAlignment = Alignment.Center) { Icon(painterResource(R.drawable.auto_awesome), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp)) }
-                Column(modifier = Modifier.weight(1f)) { Text(stringResource(R.string.together_host_section), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold); Text(stringResource(R.string.together_lan), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                Surface(shape = RoundedCornerShape(50.dp), color = MaterialTheme.colorScheme.secondaryContainer) { Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) { Icon(painterResource(R.drawable.wifi_proxy), contentDescription = null, modifier = Modifier.size(13.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer); Text(stringResource(R.string.together_lan_badge), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer) } }
-            }
+            SettingsDivider()
+
             SettingsItemRow(icon = R.drawable.person, title = stringResource(R.string.together_display_name), subtitle = displayName, onClick = onShowNameDialog)
             SettingsDivider()
-            SettingsItemRow(icon = R.drawable.link, title = stringResource(R.string.together_port), subtitle = port.toString(), onClick = onShowPortDialog)
+
+            if (isOnline) {
+                val shortRelay = relayServerUrl.removePrefix("https://").removePrefix("http://").removePrefix("wss://").removePrefix("ws://")
+                SettingsItemRow(
+                    icon = R.drawable.language, 
+                    title = stringResource(R.string.together_relay_server), 
+                    subtitle = shortRelay.ifBlank { stringResource(R.string.together_default_cloud_server) }, 
+                    onClick = onShowRelayServerDialog
+                )
+            } else {
+                SettingsItemRow(icon = R.drawable.link, title = stringResource(R.string.together_port), subtitle = port.toString(), onClick = onShowPortDialog)
+            }
+
             SettingsDivider()
             ToggleRow(icon = R.drawable.playlist_add, title = stringResource(R.string.together_allow_guests_add), checked = allowAddTracks, onCheckedChange = onAllowAddTracksChange)
             SettingsDivider()
@@ -2219,50 +1982,27 @@ private fun HostSectionCard(displayName: String, port: Int, allowAddTracks: Bool
             SettingsDivider()
             ToggleRow(icon = R.drawable.lock, title = stringResource(R.string.together_require_approval), checked = requireApproval, onCheckedChange = onRequireApprovalChange)
             Spacer(Modifier.height(8.dp))
+            
             val interactionSource = remember { MutableInteractionSource() }
             val isPressed by interactionSource.collectIsPressedAsState()
             val scale by animateFloatAsState(targetValue = if (isPressed) 0.97f else 1f, animationSpec = spring(stiffness = Spring.StiffnessMedium), label = "scale")
-            Button(enabled = isStartEnabled, onClick = onStartSession, modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(bottom = 10.dp).scale(scale), shape = RoundedCornerShape(18.dp), interactionSource = interactionSource, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)) {
-                if (isLoading) { CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary); Spacer(Modifier.width(10.dp)); Text(stringResource(R.string.loading), fontWeight = FontWeight.SemiBold) } else { Icon(painterResource(R.drawable.auto_awesome), null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.start_session), fontWeight = FontWeight.SemiBold) }
-            }
-        }
-    }
-}
-
-@Composable
-private fun JoinSectionCard(joinInput: String, onJoinInputChange: (String) -> Unit, canJoin: Boolean, disableJoinUi: Boolean, isJoined: Boolean, isWaitingApproval: Boolean, isJoining: Boolean, onShowJoinDialog: () -> Unit, onPasteFromClipboard: () -> Unit, onJoin: () -> Unit, modifier: Modifier = Modifier) {
-    val parsedLink = remember(joinInput) { TogetherLink.decode(joinInput.trim()) }
-    Card(modifier = modifier.fillMaxWidth().animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)), shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
-        Column(modifier = Modifier.padding(vertical = 8.dp)) {
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(modifier = Modifier.size(40.dp).clip(RoundedCornerShape(14.dp)).background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.18f), MaterialTheme.colorScheme.tertiary.copy(alpha = 0.08f)))), contentAlignment = Alignment.Center) { Icon(painterResource(R.drawable.person), contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(22.dp)) }
-                Column(modifier = Modifier.weight(1f)) { Text(stringResource(R.string.together_join_section), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold); Text(stringResource(R.string.join_session), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            }
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f), modifier = Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).clickable(enabled = !disableJoinUi && !isJoining && !isJoined && !isWaitingApproval, onClick = onShowJoinDialog)) {
-                    Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Icon(painterResource(R.drawable.link), contentDescription = null, tint = if (canJoin) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
-                        Text(text = if (joinInput.isBlank()) stringResource(R.string.together_enter_pin_or_link) else joinInput.trim(), style = MaterialTheme.typography.bodySmall.copy(fontFamily = if (joinInput.isNotBlank()) FontFamily.Monospace else FontFamily.Default), color = if (joinInput.isNotBlank()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                        if (joinInput.isNotBlank() && !disableJoinUi) { Icon(painterResource(R.drawable.close), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.size(16.dp).clip(CircleShape).clickable { onJoinInputChange("") }) }
-                    }
-                }
-                if (!disableJoinUi && !isJoining && !isJoined && !isWaitingApproval) {
-                    FilledTonalButton(onClick = onPasteFromClipboard, shape = RoundedCornerShape(16.dp), contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)) { Icon(painterResource(R.drawable.content_copy), contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.paste), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold) }
-                }
-            }
-            AnimatedVisibility(visible = parsedLink != null && !isJoined && !isWaitingApproval, enter = fadeIn(tween(200)) + expandVertically(tween(250)), exit  = fadeOut(tween(150)) + shrinkVertically(tween(200))) {
-                if (parsedLink != null) { Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f), modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(top = 4.dp)) { Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) { Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)) { Text(text = "${parsedLink.host}:${parsedLink.port}", style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace), fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) }; Text(text = stringResource(R.string.together_session_id_format, parsedLink.sessionId.take(8)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.weight(1f)); Icon(painterResource(R.drawable.check), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp)) } } }
-            }
-            Spacer(Modifier.height(10.dp))
-            val interactionSource = remember { MutableInteractionSource() }
-            val isPressed by interactionSource.collectIsPressedAsState()
-            val scale by animateFloatAsState(targetValue = if (isPressed) 0.97f else 1f, animationSpec = spring(stiffness = Spring.StiffnessMedium), label = "joinBtnScale")
-            FilledTonalButton(enabled = canJoin && !disableJoinUi && !isJoining && !isJoined && !isWaitingApproval, onClick = onJoin, modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(bottom = 10.dp).scale(scale), shape = RoundedCornerShape(18.dp), interactionSource = interactionSource) {
-                when {
-                    isJoining -> { CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSecondaryContainer); Spacer(Modifier.width(10.dp)); Text(stringResource(R.string.connecting), fontWeight = FontWeight.SemiBold) }
-                    isWaitingApproval -> { CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSecondaryContainer); Spacer(Modifier.width(10.dp)); Text(stringResource(R.string.together_waiting_approval), fontWeight = FontWeight.SemiBold) }
-                    isJoined -> { Icon(painterResource(R.drawable.check), null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.joined), fontWeight = FontWeight.SemiBold) }
-                    else -> { Icon(painterResource(R.drawable.play), null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.join), fontWeight = FontWeight.SemiBold) }
+            
+            Button(
+                enabled = isStartEnabled, 
+                onClick = onStartSession, 
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(bottom = 10.dp).scale(scale), 
+                shape = RoundedCornerShape(18.dp), 
+                interactionSource = interactionSource, 
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+            ) {
+                if (isLoading) { 
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                    Spacer(Modifier.width(10.dp))
+                    Text(stringResource(R.string.loading), fontWeight = FontWeight.SemiBold) 
+                } else { 
+                    Icon(painterResource(R.drawable.auto_awesome), null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(if (isOnline) R.string.together_start_worldwide_session else R.string.start_session), fontWeight = FontWeight.SemiBold) 
                 }
             }
         }
@@ -2275,13 +2015,25 @@ private fun StatusCard(state: TogetherSessionState, onCopyLink: (String) -> Unit
     val isError  = state is TogetherSessionState.Error
     val isWaitingApproval = run { val joined = state as? TogetherSessionState.Joined ?: return@run false; joined.role is TogetherRole.Guest && joined.roomState.participants.firstOrNull { it.id == joined.selfParticipantId }?.isPending == true }
     val statusColor = when { isError  -> MaterialTheme.colorScheme.error; isActive -> MaterialTheme.colorScheme.primary; else -> MaterialTheme.colorScheme.onSurfaceVariant }
+    
     Card(modifier = modifier.fillMaxWidth().animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)), shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
         Box(modifier = Modifier.fillMaxWidth().background(Brush.horizontalGradient(if (isActive && !isError) listOf(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f), MaterialTheme.colorScheme.surfaceContainerLow) else if (isError) listOf(MaterialTheme.colorScheme.error.copy(alpha = 0.14f), MaterialTheme.colorScheme.surfaceContainerLow) else listOf(MaterialTheme.colorScheme.surfaceContainerLow, MaterialTheme.colorScheme.surfaceContainerLow))).padding(18.dp)) {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     Box(modifier = Modifier.size(44.dp).clip(RoundedCornerShape(16.dp)).background(Brush.linearGradient(listOf(statusColor.copy(alpha = 0.18f), statusColor.copy(alpha = 0.08f)))), contentAlignment = Alignment.Center) { Icon(painterResource(if (isError) R.drawable.error else R.drawable.auto_awesome), contentDescription = null, tint = statusColor, modifier = Modifier.size(24.dp)) }
                     Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { Text(stringResource(R.string.together_status), style = MaterialTheme.typography.labelLarge, color = statusColor); if (isActive && !isError) { Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary)) } }
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { 
+                            Text(
+                                text = when (state) {
+                                    is TogetherSessionState.Hosting -> stringResource(if (state.isOnline) R.string.together_status_worldwide_host else R.string.together_status_lan_host)
+                                    is TogetherSessionState.Joined -> stringResource(if (state.isOnline) R.string.together_status_worldwide_guest else R.string.together_status_lan_guest)
+                                    else -> stringResource(R.string.together_status)
+                                }, 
+                                style = MaterialTheme.typography.labelLarge, 
+                                color = statusColor
+                            )
+                            if (isActive && !isError) { Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary)) } 
+                        }
                         Text(text = when (state) { TogetherSessionState.Idle -> stringResource(R.string.together_idle); is TogetherSessionState.Hosting -> stringResource(R.string.together_hosting); is TogetherSessionState.Joining -> stringResource(R.string.together_joining); is TogetherSessionState.Joined -> if (isWaitingApproval) stringResource(R.string.together_waiting_approval) else stringResource(R.string.together_connected); is TogetherSessionState.Error -> stringResource(R.string.together_error_state); else -> "" }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
 
                         if (isActive && !isError && !isWaitingApproval) {
@@ -2303,7 +2055,17 @@ private fun StatusCard(state: TogetherSessionState, onCopyLink: (String) -> Unit
                     if (isActive) { FilledTonalButton(onClick = onLeave, shape = RoundedCornerShape(14.dp)) { Icon(painterResource(R.drawable.arrow_back), null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.leave), fontWeight = FontWeight.SemiBold) } }
                 }
                 when (state) {
-                    is TogetherSessionState.Hosting -> { LanSessionLinkCard(link = state.joinLink, pin = state.pin, localAddressHint = state.localAddressHint, port = state.port, onCopy  = { onCopyLink(state.joinLink) }, onShare = { onShareLink(state.joinLink) }) }
+                    is TogetherSessionState.Hosting -> { 
+                        SessionLinkCard(
+                            link = state.joinLink, 
+                            pin = state.pin, 
+                            localAddressHint = state.localAddressHint, 
+                            port = state.port, 
+                            isOnline = state.isOnline,
+                            onCopy = { onCopyLink(state.joinLink) }, 
+                            onShare = { onShareLink(state.joinLink) }
+                        ) 
+                    }
                     is TogetherSessionState.Joined -> { if (!isWaitingApproval) { ParticipantsCard(participants = state.roomState.participants) } }
                     is TogetherSessionState.Error -> { Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) { Text(text = state.message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.padding(14.dp)) } }
                     else -> Unit
@@ -2314,17 +2076,65 @@ private fun StatusCard(state: TogetherSessionState, onCopyLink: (String) -> Unit
 }
 
 @Composable
-private fun LanSessionLinkCard(link: String, pin: String, localAddressHint: String?, port: Int, onCopy: () -> Unit, onShare: () -> Unit) {
+private fun SessionLinkCard(
+    link: String, 
+    pin: String, 
+    localAddressHint: String?, 
+    port: Int, 
+    isOnline: Boolean,
+    onCopy: () -> Unit, 
+    onShare: () -> Unit
+) {
     Card(shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.7f)), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp), modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(stringResource(R.string.together_join_with_pin), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                stringResource(if (isOnline) R.string.together_share_pin_worldwide else R.string.together_join_with_pin), 
+                style = MaterialTheme.typography.labelMedium, 
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Text(pin, style = MaterialTheme.typography.displayMedium.copy(fontFamily = FontFamily.Monospace, letterSpacing = 8.sp), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
-            if (localAddressHint != null) { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { Surface(shape = RoundedCornerShape(50.dp), color = MaterialTheme.colorScheme.primaryContainer) { Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) { Icon(painterResource(R.drawable.wifi_proxy), contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(13.dp)); Text(text = "$localAddressHint:$port", style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer) } }; Text(stringResource(R.string.session_link), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold) } }
-            Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f), modifier = Modifier.fillMaxWidth()) { Box(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 10.dp)) { Text(text = link, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace), color = MaterialTheme.colorScheme.primary, maxLines = 2) } }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { Button(onClick = onCopy, shape = RoundedCornerShape(14.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary), modifier = Modifier.weight(1f)) { Icon(painterResource(R.drawable.content_copy), contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.copy_link), fontWeight = FontWeight.SemiBold) }; FilledTonalButton(onClick = onShare, shape = RoundedCornerShape(14.dp), modifier = Modifier.weight(1f)) { Icon(painterResource(R.drawable.share), contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.share), fontWeight = FontWeight.SemiBold) } }
+            if (!isOnline && localAddressHint != null) { 
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { 
+                    Surface(shape = RoundedCornerShape(50.dp), color = MaterialTheme.colorScheme.primaryContainer) { 
+                        Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) { 
+                            Icon(painterResource(R.drawable.wifi_proxy), contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(13.dp))
+                            Text(text = "$localAddressHint:$port", style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer) 
+                        } 
+                    }
+                    Text(stringResource(R.string.session_link), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold) 
+                } 
+            } else if (isOnline) {
+                Surface(shape = RoundedCornerShape(50.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
+                    Text(
+                        text = stringResource(R.string.together_worldwide_invite_link), 
+                        style = MaterialTheme.typography.labelMedium, 
+                        fontWeight = FontWeight.Bold, 
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f), modifier = Modifier.fillMaxWidth()) { 
+                Box(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 10.dp)) { 
+                    Text(text = link, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace), color = MaterialTheme.colorScheme.primary, maxLines = 2) 
+                } 
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { 
+                Button(onClick = onCopy, shape = RoundedCornerShape(14.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary), modifier = Modifier.weight(1f)) { 
+                    Icon(painterResource(R.drawable.content_copy), contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.copy_link), fontWeight = FontWeight.SemiBold) 
+                }
+                FilledTonalButton(onClick = onShare, shape = RoundedCornerShape(14.dp), modifier = Modifier.weight(1f)) { 
+                    Icon(painterResource(R.drawable.share), contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.share), fontWeight = FontWeight.SemiBold) 
+                } 
+            }
         }
     }
 }
@@ -2391,7 +2201,7 @@ private fun OnlineParticipantsCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            participants.forEachIndexed { index, participant ->
+            participants.forEachIndexed { _, participant ->
                 key(participant.id) {
                     val accent = if (participant.isHost) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
 
@@ -2406,7 +2216,6 @@ private fun OnlineParticipantsCard(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            // Avatar
                             ParticipantAvatar(
                                 participant = participant,
                                 modifier = Modifier.size(48.dp),
@@ -2415,7 +2224,6 @@ private fun OnlineParticipantsCard(
                                 textStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                             )
 
-                            // Name & Role
                             Column(
                                 modifier = Modifier.weight(1f),
                                 verticalArrangement = Arrangement.spacedBy(2.dp)
@@ -2440,7 +2248,6 @@ private fun OnlineParticipantsCard(
                                 )
                             }
 
-                            // Actions
                             if (!participant.isHost) {
                                 Row(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -2765,5 +2572,737 @@ private fun CheckboxRow(
             text = label,
             style = MaterialTheme.typography.bodyMedium
         )
+    }
+}
+
+@Composable
+private fun OngoingSessionsCard(
+    sessions: List<DiscoveredSession>,
+    onJoin: (DiscoveredSession) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth().animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)),
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(modifier = Modifier.padding(vertical = 8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Box(
+                    modifier = Modifier.size(40.dp).clip(RoundedCornerShape(14.dp)).background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f), MaterialTheme.colorScheme.secondary.copy(alpha = 0.08f)))),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(painterResource(R.drawable.wifi_proxy), contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(22.dp))
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.together_ongoing_sessions_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.together_ongoing_sessions_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
+            sessions.forEach { session ->
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).clickable { onJoin(session) }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
+                            Text(session.hostName.take(1).uppercase(), color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(session.hostName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.together_local_network), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        FilledTonalButton(onClick = { onJoin(session) }, contentPadding = PaddingValues(horizontal = 16.dp)) {
+                            Text(stringResource(R.string.join), fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
+@Composable
+private fun JoinSectionCard(joinInput: String, onJoinInputChange: (String) -> Unit, canJoin: Boolean, disableJoinUi: Boolean, isJoined: Boolean, isWaitingApproval: Boolean, isJoining: Boolean, onShowJoinDialog: () -> Unit, onPasteFromClipboard: () -> Unit, onJoin: () -> Unit, modifier: Modifier = Modifier) {
+    val parsedLink = remember(joinInput) { TogetherLink.decode(joinInput.trim()) }
+    Card(modifier = modifier.fillMaxWidth().animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)), shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
+        Column(modifier = Modifier.padding(vertical = 8.dp)) {
+            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(modifier = Modifier.size(40.dp).clip(RoundedCornerShape(14.dp)).background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.18f), MaterialTheme.colorScheme.tertiary.copy(alpha = 0.08f)))), contentAlignment = Alignment.Center) { Icon(painterResource(R.drawable.person), contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(22.dp)) }
+                Column(modifier = Modifier.weight(1f)) { Text(stringResource(R.string.together_join_section), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold); Text(stringResource(R.string.join_session), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            }
+            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f), modifier = Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).clickable(enabled = !disableJoinUi && !isJoining && !isJoined && !isWaitingApproval, onClick = onShowJoinDialog)) {
+                    Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Icon(painterResource(R.drawable.link), contentDescription = null, tint = if (canJoin) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
+                        Text(text = if (joinInput.isBlank()) stringResource(R.string.together_enter_pin_or_link) else joinInput.trim(), style = MaterialTheme.typography.bodySmall.copy(fontFamily = if (joinInput.isNotBlank()) FontFamily.Monospace else FontFamily.Default), color = if (joinInput.isNotBlank()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                        if (joinInput.isNotBlank() && !disableJoinUi) { Icon(painterResource(R.drawable.close), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.size(16.dp).clip(CircleShape).clickable { onJoinInputChange("") }) }
+                    }
+                }
+                if (!disableJoinUi && !isJoining && !isJoined && !isWaitingApproval) {
+                    FilledTonalButton(onClick = onPasteFromClipboard, shape = RoundedCornerShape(16.dp), contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)) { Icon(painterResource(R.drawable.content_copy), contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.paste), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold) }
+                }
+            }
+            AnimatedVisibility(visible = parsedLink != null && !isJoined && !isWaitingApproval, enter = fadeIn(tween(200)) + expandVertically(tween(250)), exit = fadeOut(tween(150)) + shrinkVertically(tween(200))) {
+                if (parsedLink != null) { Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f), modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(top = 4.dp)) { Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) { Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)) { Text(text = if (parsedLink.isOnline) "Worldwide" else "${parsedLink.host}:${parsedLink.port}", style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace), fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) }; Text(text = stringResource(R.string.together_session_id_format, parsedLink.sessionId.take(8)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.weight(1f)); Icon(painterResource(R.drawable.check), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp)) } } }
+            }
+            Spacer(Modifier.height(10.dp))
+            val interactionSource = remember { MutableInteractionSource() }
+            val isPressed by interactionSource.collectIsPressedAsState()
+            val scale by animateFloatAsState(targetValue = if (isPressed) 0.97f else 1f, animationSpec = spring(stiffness = Spring.StiffnessMedium), label = "joinBtnScale")
+            FilledTonalButton(enabled = canJoin && !disableJoinUi && !isJoining && !isJoined && !isWaitingApproval, onClick = onJoin, modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(bottom = 10.dp).scale(scale), shape = RoundedCornerShape(18.dp), interactionSource = interactionSource) {
+                when {
+                    isJoining -> { CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSecondaryContainer); Spacer(Modifier.width(10.dp)); Text(stringResource(R.string.connecting), fontWeight = FontWeight.SemiBold) }
+                    isWaitingApproval -> { CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSecondaryContainer); Spacer(Modifier.width(10.dp)); Text(stringResource(R.string.together_waiting_approval), fontWeight = FontWeight.SemiBold) }
+                    isJoined -> { Icon(painterResource(R.drawable.check), null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.joined), fontWeight = FontWeight.SemiBold) }
+                    else -> { Icon(painterResource(R.drawable.play), null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.join), fontWeight = FontWeight.SemiBold) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CustomJoinDialog(
+    initialValue: String,
+    onDismiss: () -> Unit,
+    onJoin: (String) -> Unit
+) {
+    var isPinMode by remember { mutableStateOf(initialValue.length <= 6 && initialValue.all { it.isDigit() }) }
+    var pinInput by remember { mutableStateOf(if (isPinMode) initialValue else "") }
+    var linkInput by remember { mutableStateOf(if (!isPinMode) initialValue else "") }
+
+    val focusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(28.dp),
+        containerColor = MaterialTheme.colorScheme.surface,
+        title = {
+            Text(
+                text = stringResource(if (isPinMode) R.string.together_join_via_pin else R.string.together_join_via_link),
+                style = MaterialTheme.typography.titleLarge
+            )
+        },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                TabRow(
+                    selectedTabIndex = if (isPinMode) 0 else 1,
+                    containerColor = Color.Transparent,
+                    divider = { },
+                    indicator = { },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                ) {
+                    val pinBg = if (isPinMode) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+                    val linkBg = if (!isPinMode) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+
+                    Tab(
+                        selected = isPinMode,
+                        onClick = { isPinMode = true },
+                        modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(pinBg),
+                        text = { Text(stringResource(R.string.together_pin), color = if (isPinMode) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant) }
+                    )
+                    Tab(
+                        selected = !isPinMode,
+                        onClick = { isPinMode = false },
+                        modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(linkBg),
+                        text = { Text(stringResource(R.string.together_link), color = if (!isPinMode) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant) }
+                    )
+                }
+
+                if (isPinMode) {
+                    BasicTextField(
+                        value = pinInput,
+                        onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) pinInput = it },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { if (pinInput.length == 6) onJoin(pinInput) }),
+                        modifier = Modifier.focusRequester(focusRequester).fillMaxWidth(),
+                        decorationBox = {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), modifier = Modifier.fillMaxWidth()) {
+                                repeat(6) { index ->
+                                    val char = pinInput.getOrNull(index)?.toString() ?: ""
+                                    val isFocused = pinInput.length == index || (pinInput.length == 6 && index == 5)
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .aspectRatio(0.8f)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                                            .border(
+                                                width = 2.dp,
+                                                color = if (isFocused) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                                shape = RoundedCornerShape(8.dp)
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = char,
+                                            style = MaterialTheme.typography.titleLarge,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = linkInput,
+                        onValueChange = { linkInput = it },
+                        placeholder = { Text(stringResource(R.string.together_paste_link_placeholder)) },
+                        modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
+                        singleLine = false,
+                        minLines = 3,
+                        maxLines = 4,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { if (linkInput.isNotBlank()) onJoin(linkInput) }),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onJoin(if (isPinMode) pinInput else linkInput) },
+                enabled = if (isPinMode) pinInput.length == 6 else linkInput.isNotBlank()
+            ) {
+                Text(stringResource(R.string.join))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(android.R.string.cancel))
+            }
+        }
+    )
+
+    LaunchedEffect(isPinMode) {
+        delay(100)
+        focusRequester.requestFocus()
+        keyboardController?.show()
+    }
+}
+
+@Composable
+private fun RequestedTracksCard(
+    requestedQueue: List<TogetherRequestedTrack>,
+    selfParticipantId: String,
+    isHost: Boolean,
+    onRequestTrackClick: () -> Unit,
+    onUpvoteTrack: (String) -> Unit,
+    onPlayTrack: (String) -> Unit,
+    onRemoveTrack: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth().animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)),
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.playlist_add),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Text(
+                        text = stringResource(R.string.together_requests_count, requestedQueue.size),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Button(
+                    onClick = onRequestTrackClick,
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.add),
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(stringResource(R.string.together_request_track), style = MaterialTheme.typography.labelMedium)
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            if (requestedQueue.isEmpty()) {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = stringResource(R.string.together_no_requests_placeholder),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    requestedQueue.forEach { item ->
+                        val hasUpvoted = item.upvotes.contains(selfParticipantId)
+
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainer,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                AsyncImage(
+                                    model = item.track.thumbnailUrl,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .clip(RoundedCornerShape(10.dp)),
+                                    contentScale = ContentScale.Crop
+                                )
+
+                                Spacer(Modifier.width(10.dp))
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = item.track.title,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = "${item.track.artists.joinToString(", ")} • ${stringResource(R.string.by_text)} ${item.requesterName}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+
+                                Spacer(Modifier.width(8.dp))
+
+                                FilledTonalButton(
+                                    onClick = { onUpvoteTrack(item.track.id) },
+                                    shape = RoundedCornerShape(12.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                    colors = if (hasUpvoted) {
+                                        ButtonDefaults.filledTonalButtonColors(
+                                            containerColor = MaterialTheme.colorScheme.primary,
+                                            contentColor = MaterialTheme.colorScheme.onPrimary
+                                        )
+                                    } else {
+                                        ButtonDefaults.filledTonalButtonColors()
+                                    }
+                                ) {
+                                    Icon(
+                                        painter = painterResource(if (hasUpvoted) R.drawable.favorite else R.drawable.favorite_border),
+                                        contentDescription = stringResource(R.string.together_upvote),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(
+                                        text = "${item.upvotes.size}",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+
+                                if (isHost) {
+                                    Spacer(Modifier.width(4.dp))
+                                    IconButton(
+                                        onClick = { onPlayTrack(item.track.id) },
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(R.drawable.play),
+                                            contentDescription = stringResource(R.string.play),
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = { onRemoveTrack(item.track.id) },
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(R.drawable.close),
+                                            contentDescription = stringResource(R.string.together_remove),
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                } else if (item.requesterId == selfParticipantId) {
+                                    Spacer(Modifier.width(4.dp))
+                                    IconButton(
+                                        onClick = { onRemoveTrack(item.track.id) },
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(R.drawable.close),
+                                            contentDescription = stringResource(R.string.together_remove),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SearchAndRequestTrackDialog(
+    onDismiss: () -> Unit,
+    onRequestTrack: (TogetherTrack) -> Unit
+) {
+    var query by remember { mutableStateOf("") }
+    var searchResults by remember { mutableStateOf<List<SongItem>>(emptyList()) }
+    var isSearching by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+    val focusRequester = remember { FocusRequester() }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                return Offset(0f, available.y)
+            }
+        }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        dragHandle = { BottomSheetDefaults.DragHandle() },
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.85f)
+                .nestedScroll(nestedScrollConnection)
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 20.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.playlist_add),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = stringResource(R.string.together_request_track_title),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = stringResource(R.string.together_search_ytm_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                AtIconButton(
+                    onClick = {
+                        coroutineScope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() }
+                    },
+                    onLongClick = {}
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.close),
+                        contentDescription = stringResource(R.string.close),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.search),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+
+                    BasicTextField(
+                        value = query,
+                        onValueChange = { newQuery ->
+                            query = newQuery
+                            if (newQuery.isNotBlank()) {
+                                isSearching = true
+                                coroutineScope.launch(Dispatchers.IO) {
+                                    delay(300)
+                                    YouTube.search(newQuery, YouTube.SearchFilter.FILTER_SONG).onSuccess { res ->
+                                        withContext(Dispatchers.Main) {
+                                            searchResults = res.items.filterIsInstance<SongItem>()
+                                            isSearching = false
+                                        }
+                                    }.onFailure { withContext(Dispatchers.Main) { isSearching = false } }
+                                }
+                            } else {
+                                searchResults = emptyList()
+                                isSearching = false
+                            }
+                        },
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = {
+                            if (query.isNotBlank()) {
+                                isSearching = true
+                                coroutineScope.launch(Dispatchers.IO) {
+                                    YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).onSuccess { res ->
+                                        withContext(Dispatchers.Main) {
+                                            searchResults = res.items.filterIsInstance<SongItem>()
+                                            isSearching = false
+                                        }
+                                    }.onFailure { withContext(Dispatchers.Main) { isSearching = false } }
+                                }
+                            }
+                        }),
+                        modifier = Modifier
+                            .weight(1f)
+                            .focusRequester(focusRequester),
+                        decorationBox = { innerTextField ->
+                            if (query.isEmpty()) {
+                                Text(
+                                    stringResource(R.string.together_search_placeholder),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                )
+                            }
+                            innerTextField()
+                        }
+                    )
+
+                    if (query.isNotEmpty()) {
+                        Icon(
+                            painter = painterResource(R.drawable.close),
+                            contentDescription = stringResource(R.string.together_clear),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .size(18.dp)
+                                .clip(CircleShape)
+                                .clickable { query = ""; searchResults = emptyList() }
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            if (isSearching) {
+                Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                }
+            } else if (searchResults.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.search),
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                        )
+                        Text(
+                            text = if (query.isBlank()) stringResource(R.string.together_search_empty_prompt) else stringResource(R.string.together_no_songs_found, query),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(searchResults, key = { it.id }) { song ->
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainer,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    val track = TogetherTrack(
+                                        id = song.id,
+                                        title = song.title,
+                                        artists = song.artists.map { it.name },
+                                        durationSec = song.duration ?: -1,
+                                        thumbnailUrl = song.thumbnail
+                                    )
+                                    coroutineScope.launch { sheetState.hide() }.invokeOnCompletion { 
+                                        onRequestTrack(track) 
+                                    }
+                                }
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                AsyncImage(
+                                    model = song.thumbnail,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(52.dp)
+                                        .clip(RoundedCornerShape(12.dp)),
+                                    contentScale = ContentScale.Crop
+                                )
+
+                                Spacer(Modifier.width(12.dp))
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = song.title,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(
+                                        text = song.artists.joinToString(", ") { it.name },
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+
+                                Spacer(Modifier.width(8.dp))
+
+                                Button(
+                                    onClick = {
+                                        val track = TogetherTrack(
+                                            id = song.id,
+                                            title = song.title,
+                                            artists = song.artists.map { it.name },
+                                            durationSec = song.duration ?: -1,
+                                            thumbnailUrl = song.thumbnail
+                                        )
+                                        coroutineScope.launch { sheetState.hide() }.invokeOnCompletion { 
+                                            onRequestTrack(track) 
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(12.dp),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.add),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(stringResource(R.string.together_request_button), style = MaterialTheme.typography.labelMedium)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        delay(150)
+        focusRequester.requestFocus()
     }
 }

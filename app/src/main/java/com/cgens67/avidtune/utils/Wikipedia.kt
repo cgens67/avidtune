@@ -46,6 +46,25 @@ object Wikipedia {
     }.getOrNull()
 
     /**
+     * Attempts to find the Wikipedia summary for a specific artist.
+     */
+    suspend fun fetchArtistInfo(artistName: String, lang: String = "en"): String? {
+        val preciseQueries = listOf(
+            "$artistName (musician)",
+            "$artistName (singer)",
+            "$artistName (band)",
+            artistName
+        )
+        for (query in preciseQueries) {
+            val summary = fetchPageSummary(query, lang)
+            if (summary != null && summary.type != "disambiguation" && !summary.extract.isNullOrBlank()) {
+                return summary.extract
+            }
+        }
+        return null
+    }
+
+    /**
      * Attempts to find the Wikipedia summary for a specific album.
      *
      * It uses a heuristic approach to find the correct page:
@@ -84,8 +103,6 @@ object Wikipedia {
         for (query in genericQueries) {
             val summary = fetchPageSummary(query, lang)
             if (summary != null && summary.type != "disambiguation" && !summary.extract.isNullOrBlank()) {
-                // If we know the artist, ensure the summary actually mentions them.
-                // This prevents "Greatest Hits" returning the wrong album.
                 if (artistName != null) {
                     if (summary.extract.contains(artistName, ignoreCase = true)) {
                         return summary.extract

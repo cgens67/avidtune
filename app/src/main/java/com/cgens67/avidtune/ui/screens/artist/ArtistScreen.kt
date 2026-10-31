@@ -96,6 +96,7 @@ import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
 import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.AppBarHeight
+import com.cgens67.avidtune.constants.EnableDescriptionsKey
 import com.cgens67.avidtune.db.entities.ArtistEntity
 import com.cgens67.avidtune.extensions.toMediaItem
 import com.cgens67.avidtune.extensions.togglePlayPause
@@ -167,6 +168,13 @@ fun ArtistScreen(
     val artistPage = viewModel.artistPage
     val libraryArtist by viewModel.libraryArtist.collectAsState()
     val librarySongs by viewModel.librarySongs.collectAsState()
+    
+    val (enableDescriptions) = rememberPreference(EnableDescriptionsKey, defaultValue = true)
+    val artistDescription by viewModel.artistDescription.collectAsState()
+    val descriptionProvider by viewModel.descriptionProvider.collectAsState()
+    val isTranslated by viewModel.isTranslated.collectAsState()
+    val canTranslate by viewModel.canTranslate.collectAsState()
+    val isDescriptionLoading by viewModel.isDescriptionLoading.collectAsState()
 
     val totalPlayCount by remember(viewModel.artistId) { database.artistTotalPlayCount(viewModel.artistId) }.collectAsState(initial = 0)
 
@@ -559,34 +567,128 @@ fun ArtistScreen(
                                 }
                             }
 
-                            // Description
-                            var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
-                            val fallbackDesc = "$artistName is a music artist."
-                            val description = artistPage?.description?.substringBefore("From Wikipedia")?.trim() ?: fallbackDesc
+                            // Description Section: Controlled by EnableDescriptionsKey
+                            if (enableDescriptions) {
+                                if (isDescriptionLoading) {
+                                    ShimmerHost(modifier = Modifier.padding(bottom = 4.dp)) {
+                                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            Spacer(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .height(12.dp)
+                                                    .background(MaterialTheme.colorScheme.onSurface, RoundedCornerShape(6.dp))
+                                            )
+                                            Spacer(
+                                                modifier = Modifier
+                                                    .fillMaxWidth(0.7f)
+                                                    .height(12.dp)
+                                                    .background(MaterialTheme.colorScheme.onSurface, RoundedCornerShape(6.dp))
+                                            )
+                                        }
+                                    }
+                                } else if (!artistDescription.isNullOrBlank()) {
+                                    var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
+                                    val description = artistDescription!!
+                                    val showActionsRow = (canTranslate || isTranslated) || (isDescriptionExpanded && !descriptionProvider.isNullOrBlank())
 
-                            Text(
-                                text = description,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Start,
-                                modifier = Modifier
-                                    .padding(bottom = 16.dp)
-                                    .fillMaxWidth()
-                                    .animateContentSize()
-                                    .clickable(
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        indication = null,
-                                        onClick = { isDescriptionExpanded = !isDescriptionExpanded }
-                                    ),
-                                maxLines = if (isDescriptionExpanded) Int.MAX_VALUE else 3,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .animateContentSize()
+                                    ) {
+                                        Text(
+                                            text = description,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            textAlign = TextAlign.Start,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable(
+                                                    interactionSource = remember { MutableInteractionSource() },
+                                                    indication = null,
+                                                    onClick = { isDescriptionExpanded = !isDescriptionExpanded }
+                                                ),
+                                            maxLines = if (isDescriptionExpanded) Int.MAX_VALUE else 3,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+
+                                        if (showActionsRow) {
+                                            Spacer(modifier = Modifier.height(10.dp))
+
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                // Left: Translate action (if available)
+                                                if (canTranslate || isTranslated) {
+                                                    Row(
+                                                        modifier = Modifier
+                                                            .clip(RoundedCornerShape(8.dp))
+                                                            .clickable { viewModel.toggleDescriptionTranslation() }
+                                                            .padding(vertical = 4.dp, horizontal = 2.dp),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                    ) {
+                                                        Icon(
+                                                            painter = painterResource(R.drawable.translate),
+                                                            contentDescription = null,
+                                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                            modifier = Modifier.size(16.dp)
+                                                        )
+                                                        Text(
+                                                            text = if (isTranslated) stringResource(R.string.show_original) else stringResource(R.string.Translate),
+                                                            style = MaterialTheme.typography.labelMedium,
+                                                            fontWeight = FontWeight.SemiBold,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                        )
+                                                    }
+                                                } else {
+                                                    Spacer(modifier = Modifier.width(1.dp))
+                                                }
+
+                                                // Right: Provider pill styled like AlbumScreen (without apple icon)
+                                                if (isDescriptionExpanded && !descriptionProvider.isNullOrBlank()) {
+                                                    Surface(
+                                                        shape = RoundedCornerShape(12.dp),
+                                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                                    ) {
+                                                        Row(
+                                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                        ) {
+                                                            Icon(
+                                                                painter = painterResource(
+                                                                    when (descriptionProvider) {
+                                                                        "Wikipedia" -> R.drawable.language
+                                                                        else -> R.drawable.info
+                                                                    }
+                                                                ),
+                                                                contentDescription = null,
+                                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                                                modifier = Modifier.size(12.dp)
+                                                            )
+                                                            Text(
+                                                                text = stringResource(R.string.fetched_by, descriptionProvider!!),
+                                                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                                                fontWeight = FontWeight.Medium,
+                                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
 
                             // Buttons Row
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(top = 8.dp, bottom = 16.dp),
+                                    .padding(top = 12.dp, bottom = 16.dp),
                                 horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
                             ) {
                                 // Subscribe Button
@@ -732,8 +834,6 @@ fun ArtistScreen(
                                 }
                             }
                         }
-
-                        Spacer(modifier = Modifier.height(16.dp))
                     }
                 }
 
@@ -810,7 +910,6 @@ fun ArtistScreen(
                         )
                     }
 
-                    // Show "View All" if more songs available
                     if (filteredLibrarySongs.size > 5) {
                         item {
                             Surface(

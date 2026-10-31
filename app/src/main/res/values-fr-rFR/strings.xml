@@ -1294,5 +1294,143 @@
     <string name="sort_oldest">Plus ancien</string>
     <string name="sort_important_first">Important d\'abord</string>
     <string name="sort_prefix">Trier : %1$s</string>
+    
+    <string name="player_design">Style du lecteur</string>
+    <string name="player_design_classic">Classique (v1)</string>
+    <string name="player_design_modern">Moderne (v2)</string>
+    <string name="slider_expanding">Extensible</string>
+    <string name="audio_output">Sortie audio</string>
+    <string name="this_device">Cet appareil</string>
+    <string name="internal_speaker">Haut-parleur intégré</string>
+    <string name="connected_bluetooth">Connecté via Bluetooth</string>
+    <string name="open_system_output_switcher">Ouvrir le sélecteur de sortie</string>
+    <string name="cover_art">Pochette d\'album</string>
+    <string name="volume_down">Diminuer le volume</string>
+    <string name="volume_up">Augmenter le volume</string>
+    <string name="lock_queue">Verrouiller la file</string>
+    <string name="unlock_queue">Déverrouiller la file</string>
+    <string name="drag_to_reorder">Glisser pour réorganiser</string>
+    
+    <string name="album_fallback_description">%1$s est un album de %2$s.</string>
+    <string name="single_fallback_description">%1$s est un single de %2$s.</string>
+    <string name="ep_fallback_description">%1$s est un EP de %2$s.</string>
+    <string name="single_text">Single</string>
+    <string name="ep_text">EP</string>
+    <string name="enable_binilyrics">Activer BiniLyrics</string>
+    
+    <!-- Debug & Error Log Viewer Strings -->
+    <string name="debug_and_error_logs">Journaux d’erreurs et débogage</string>
+    <string name="debug_logs_subtitle">Inspecter les exceptions et traces d’erreurs</string>
+    <string name="search_logs_placeholder">Filtrer les erreurs, exceptions…</string>
+    <string name="log_level_all">TOUT</string>
+    <string name="no_matching_logs_found">Aucun journal correspondant trouvé</string>
+    <string name="no_logs_recorded">Aucun journal enregistré</string>
+    <string name="inject_demo_exception">Injecter une exception de test</string>
+    <string name="demo_exception_message">Exemple IllegalStateException : exception de test déclenchée depuis l’écran de débogage</string>
+    <string name="scroll_to_top">Faire défiler vers le haut</string>
+    <string name="scroll_to_bottom">Faire défiler vers le bas</string>
+    <string name="share_all_logs">Partager tous les journaux</string>
+    <string name="copy_all_logs">Copier tous les journaux</string>
+    <string name="clear_logs">Effacer les journaux</string>
+    <string name="clear_logs_dialog_title">Effacer tous les journaux ?</string>
+    <string name="clear_logs_dialog_message">Cette action effacera tous les journaux de débogage et traces d’exécution en mémoire.</string>
+    <string name="stack_trace_label">Trace de la pile :</string>
+    <string name="log_copied_to_clipboard">Journal copié dans le presse-papiers</string>
+    <string name="all_logs_copied">Tous les journaux ont été copiés dans le presse-papiers</string>
+    <string name="no_logs_to_export">Aucun journal à exporter</string>
+    <string name="export_all_logs_chooser">Exporter tous les journaux</string>
+    <string name="share_exception">Partager l’exception</string>
+    <string name="exception_tag">Exception</string>
+    
+    <!-- Share Lyrics Studio -->
+    <string name="lyrics_share_tab_image">Carte image</string>
+    <string name="lyrics_share_tab_text">Citation texte</string>
+    <string name="lyrics_share_cat_themes">Thèmes</string>
+    <string name="lyrics_share_cat_canvas">Canevas</string>
+    <string name="lyrics_share_cat_style">Style</string>
+    <string name="lyrics_share_cat_typography">Typographie</string>
+    <string name="lyrics_share_cat_branding">Marque</string>
+
+    <string name="lyrics_share_style_rounded">Arrondi</string>
+    <string name="lyrics_share_style_circle">Cercle</string>
+    <string name="lyrics_share_style_square">Carré</string>
+
+    <string name="lyrics_share_font_normal">Normal</string>
+    <string name="lyrics_share_font_italic">Italique</string>
+    <string name="lyrics_share_font_condensed">Condensé</string>
+
+    <string name="lyrics_share_weight_regular">Normal</string>
+    <string name="lyrics_share_weight_bold">Gras</string>
+    <string name="lyrics_share_weight_extrabold">Extra gras</string>
+
+    <string name="lyrics_share_bg_solid">Uni</string>
+    <string name="lyrics_share_bg_gradient">Dégradé</string>
+    <string name="lyrics_share_bg_pattern">Motif</string>
+
+    <string name="lyrics_share_pos_bottom_left">Bas gauche</string>
+    <string name="lyrics_share_pos_bottom_right">Bas droite</string>
+    <string name="lyrics_share_pos_top_left">Haut gauche</string>
+    <string name="lyrics_share_pos_top_right">Haut droite</string>
+
+    <string name="lyrics_share_size_small">Petit</string>
+    <string name="lyrics_share_size_medium">Moyen</string>
+    <string name="lyrics_share_size_large">Grand</string>
+
+    <string name="lyrics_share_accent_line">Ligne d\'accentuation</string>
+    <string name="lyrics_share_line_spacing">Interligne</string>
+    <string name="lyrics_share_element_spacing">Espacement des éléments</string>
+    <string name="lyrics_share_corner_radius">Rayon des coins</string>
+    <string name="lyrics_share_padding">Marge interne</string>
+    <string name="lyrics_share_border">Bordure</string>
+    <string name="lyrics_share_border_width">Épaisseur de la bordure</string>
+    <string name="lyrics_share_text_shadow">Ombre du texte</string>
+    <string name="lyrics_share_show_cover">Afficher la pochette</string>
+    <string name="lyrics_share_show_title">Afficher le titre</string>
+    <string name="lyrics_share_show_artist">Afficher l\'artiste</string>
+    <string name="lyrics_share_show_logo">Afficher le logo</string>
+    <string name="lyrics_share_logo_position">Position du logo</string>
+    <string name="lyrics_share_logo_size">Taille du logo</string>
+    <string name="lyrics_share_pattern_opacity">Opacité du motif</string>
+    
+    <!-- Descriptions Settings -->
+    <string name="descriptions_title">Activer les descriptions</string>
+    <string name="descriptions_desc">Afficher les descriptions d\'artistes et d\'albums depuis des sources en ligne</string>
+    <string name="avid_descriptions_desc">Récupérer les descriptions depuis AvidDescriptions</string>
+    <string name="apple_music_desc">Récupérer les notes éditoriales depuis Apple Music</string>
+    <string name="wikipedia_desc">Récupérer les résumés depuis Wikipédia</string>
+    <string name="ytm_desc">Récupérer les biographies et descriptions depuis YouTube Music</string>
+    <string name="description_provider_priority">Priorité des fournisseurs de description</string>
+    <string name="description_provider_priority_desc">Faites glisser pour ajuster l\'ordre des sources de description</string>
+    
+        <!-- Music Together Worldwide Extensions -->
+    <string name="together_mode_worldwide">Mondial (Cloud)</string>
+    <string name="together_mode_lan">Local (Même Wi-Fi)</string>
+    <string name="together_desc_worldwide">Mondial (Relais Internet)</string>
+    <string name="together_badge_worldwide">Mondial</string>
+    <string name="together_badge_lan">LAN</string>
+    <string name="together_relay_server">Serveur relais</string>
+    <string name="together_relay_server_url">URL du serveur relais</string>
+    <string name="together_default_cloud_server">Serveur cloud par défaut</string>
+    <string name="together_start_worldwide_session">Démarrer une session mondiale</string>
+    <string name="together_status_worldwide_host">Hôte mondial</string>
+    <string name="together_status_lan_host">Hôte LAN</string>
+    <string name="together_status_worldwide_guest">Invité mondial</string>
+    <string name="together_status_lan_guest">Invité LAN</string>
+    <string name="together_share_pin_worldwide">Partager le code PIN (Connexion depuis le monde entier)</string>
+    <string name="together_worldwide_invite_link">Lien d\'invitation mondial</string>
+    
+    <!-- Descriptions des fournisseurs de paroles -->
+    <string name="enable_avid_lyrics_desc">Dépôt communautaire pour AvidTune incluant des paroles synchronisées</string>
+    <string name="enable_lyrics_plus_desc">API TTML communautaire prenant en charge la synchronisation mot à mot et plusieurs voix</string>
+    <string name="enable_better_lyrics_desc">Vaste catalogue prenant en charge les paroles synchronisées et mot à mot</string>
+    <string name="enable_simpmusic_desc">Fournisseur rapide de paroles synchronisées avec minutage mot à mot</string>
+    <string name="enable_paxsenix_desc">Fournisseur fiable pour les paroles synchronisées ligne par ligne</string>
+    <string name="enable_binilyrics_desc">Fournisseur basé sur TTML pour les paroles synchronisées et la romanisation</string>
+    <string name="enable_lrclib_desc">Base de données communautaire ouverte pour les paroles synchronisées ligne par ligne</string>
+    <string name="enable_kugou_desc">Fournisseur chinois ; catalogue étendu mais sans paroles synchronisées mot à mot</string>
+    <string name="enable_netease_desc">Fournisseur chinois avec un vaste catalogue de musique asiatique ; synchronisation ligne par ligne uniquement</string>
+    <string name="enable_genius_desc">Base de données collaborative fournissant des paroles en texte brut non synchronisées</string>
+    <string name="enable_yt_subtitle_desc">Sous-titres extraits des transcriptions de vidéos YouTube</string>
+    <string name="enable_yt_music_lyrics_desc">Paroles statiques officielles du catalogue YouTube Music</string>
 
 </resources>

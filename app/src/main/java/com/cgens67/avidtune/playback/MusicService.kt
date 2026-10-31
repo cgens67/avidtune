@@ -36,7 +36,7 @@ import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.cache.CacheDataSource
-import androidx.media3.datasource.cache.CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR
+import androidx.media3.datasource.cache.ContentMetadata
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultRenderersFactory
@@ -49,10 +49,7 @@ import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.ShuffleOrder.DefaultShuffleOrder
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
-import androidx.media3.extractor.ExtractorsFactory
-import androidx.media3.extractor.mkv.MatroskaExtractor
-import androidx.media3.extractor.mp4.FragmentedMp4Extractor
-import androidx.media3.extractor.mp4.Mp4Extractor
+import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.session.CommandButton
 import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaController
@@ -159,8 +156,6 @@ import java.time.LocalDateTime
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.seconds
-import com.cgens67.avidtune.constants.AudioFadingKey
-import com.cgens67.avidtune.constants.StopMusicOnTaskClearKey
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 @AndroidEntryPoint
@@ -358,11 +353,16 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         }.collectLatest(scope) { (mediaMetadata, showLyrics) ->
             if (showLyrics && mediaMetadata != null && database.lyrics(mediaMetadata.id).first() == null) {
                 val lyricsResult = lyricsHelper.getLyrics(mediaMetadata)
+                val textToSave = if (lyricsResult.lyrics.isNotBlank() && lyricsResult.lyrics != LyricsEntity.LYRICS_NOT_FOUND) {
+                    "[provider:${lyricsResult.providerName}]\n${lyricsResult.lyrics}"
+                } else {
+                    lyricsResult.lyrics
+                }
                 database.query {
                     upsert(
                         LyricsEntity(
                             id = mediaMetadata.id,
-                            lyrics = lyricsResult.lyrics,
+                            lyrics = textToSave,
                         )
                     )
                 }
@@ -1131,6 +1131,25 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     override fun onPlayerError(error: PlaybackException) {
         super.onPlayerError(error)
         Log.e(TAG, "Player error: ${error.errorCodeName}, message: ${error.message}", error)
+        
+        // Evict cached stream URL, corrupted cache block on disk, and VisitorData so retry/next track fetches clean data
+        player.currentMediaItem?.mediaId?.let { id ->
+            songUrlCache.remove(id)
+            runCatching { playerCache.removeResource(id) }
+        }
+        runBlocking {
+            dataStore.edit { it.remove(com.cgens67.avidtune.constants.VisitorDataKey) }
+        }
+
+        // Auto-retry transient EOF/truncated streams once after clearing the corrupted cache span
+        val isEofError = error.cause is java.io.EOFException || error.cause?.cause is java.io.EOFException
+        if (isEofError && consecutivePlaybackErr < 2 && isNetworkConnected.value) {
+            consecutivePlaybackErr++
+            player.prepare()
+            player.play()
+            return
+        }
+
         val isConnectionError = (error.cause?.cause is PlaybackException) &&
             (error.cause?.cause as PlaybackException).errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED
         if (!isNetworkConnected.value || isConnectionError) {
@@ -1144,98 +1163,75 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         }
     }
 
+    private val songUrlCache = java.util.concurrent.ConcurrentHashMap<String, Pair<String, Long>>()
+
     private fun createCacheDataSource(): DataSource.Factory {
+        val userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
         val upstreamFactory = DefaultDataSource.Factory(
             this,
             OkHttpDataSource.Factory(
                 OkHttpClient.Builder()
                     .proxy(YouTube.proxy)
+                    .retryOnConnectionFailure(true)
+                    .connectTimeout(30, TimeUnit.SECONDS)
+                    .readTimeout(30, TimeUnit.SECONDS)
                     .build()
-            )
+            ).setUserAgent(userAgent)
         )
 
-        return DataSource.Factory {
-            val downloadCacheDataSource = CacheDataSource.Factory()
-                .setCache(downloadCache)
-                .setUpstreamDataSourceFactory(upstreamFactory)
-                .setCacheWriteDataSinkFactory(null)
-                .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
-                .createDataSource()
+        // Chain downloadCache on top of playerCache.
+        // If present in downloadCache, it reads from disk without network.
+        // If not in downloadCache, it streams into and reads from playerCache.
+        val playerCacheDataSourceFactory = CacheDataSource.Factory()
+            .setCache(playerCache)
+            .setUpstreamDataSourceFactory(upstreamFactory)
+            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
 
-            val playerCacheDataSource = CacheDataSource.Factory()
-                .setCache(playerCache)
-                .setUpstreamDataSourceFactory(upstreamFactory)
-                .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
-                .createDataSource()
-
-            object : DataSource {
-                private var activeDataSource: DataSource? = null
-
-                override fun addTransferListener(transferListener: androidx.media3.datasource.TransferListener) {
-                    downloadCacheDataSource.addTransferListener(transferListener)
-                    playerCacheDataSource.addTransferListener(transferListener)
-                }
-
-                override fun open(dataSpec: androidx.media3.datasource.DataSpec): Long {
-                    val mediaId = dataSpec.key ?: dataSpec.uri.toString()
-                    val length = if (dataSpec.length >= 0) dataSpec.length else 1L
-                    val isDownloaded = downloadCache.isCached(mediaId, dataSpec.position, length)
-                    
-                    activeDataSource = if (isDownloaded) {
-                        downloadCacheDataSource
-                    } else {
-                        playerCacheDataSource
-                    }
-                    return activeDataSource!!.open(dataSpec)
-                }
-
-                override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
-                    return activeDataSource?.read(buffer, offset, length) ?: C.RESULT_END_OF_INPUT
-                }
-
-                override fun getUri(): android.net.Uri? {
-                    return activeDataSource?.uri
-                }
-
-                override fun getResponseHeaders(): Map<String, List<String>> {
-                    return activeDataSource?.responseHeaders ?: emptyMap()
-                }
-
-                override fun close() {
-                    activeDataSource?.close()
-                }
-            }
-        }
+        return CacheDataSource.Factory()
+            .setCache(downloadCache)
+            .setUpstreamDataSourceFactory(playerCacheDataSourceFactory)
+            .setCacheWriteDataSinkFactory(null)
+            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
     }
 
     private fun createMediaSourceFactory() =
         DefaultMediaSourceFactory(
             createDataSourceFactory(),
-            ExtractorsFactory {
-                arrayOf(MatroskaExtractor(), FragmentedMp4Extractor(), Mp4Extractor())
-            }
+            DefaultExtractorsFactory()
+                .setConstantBitrateSeekingEnabled(true)
         ).setLoadErrorHandlingPolicy(
-            DefaultLoadErrorHandlingPolicy(1)
+            DefaultLoadErrorHandlingPolicy(3)
         )
 
     private fun createDataSourceFactory(): DataSource.Factory {
-        val songUrlCache = HashMap<String, Pair<String, Long>>()
         return ResolvingDataSource.Factory(createCacheDataSource()) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")
-            if (downloadCache.isCached(mediaId, dataSpec.position, if (dataSpec.length >= 0) dataSpec.length else 1) ||
-                playerCache.isCached(mediaId, dataSpec.position, CHUNK_LENGTH)
-            ) {
-                scope.launch(Dispatchers.IO) {
-                    recoverSong(mediaId)
-                }
+
+            // If URI is already a valid remote URL, no need to resolve again
+            if (dataSpec.uri.scheme == "http" || dataSpec.uri.scheme == "https") {
                 return@Factory dataSpec
             }
-            
+
+            // 1. If we have an unexpired resolved stream URL in memory, use it immediately
             songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
                 scope.launch(Dispatchers.IO) {
                     recoverSong(mediaId)
                 }
                 return@Factory dataSpec.withUri(it.first.toUri())
+            }
+
+            // 2. Only skip network resolution if the song is 100% fully downloaded offline
+            val downloadContentLength = ContentMetadata.getContentLength(downloadCache.getContentMetadata(mediaId))
+            val isFullyDownloaded = downloadContentLength > 0L && downloadCache.isCached(mediaId, 0L, downloadContentLength)
+
+            val playerContentLength = ContentMetadata.getContentLength(playerCache.getContentMetadata(mediaId))
+            val isFullyPlayerCached = playerContentLength > 0L && playerCache.isCached(mediaId, 0L, playerContentLength)
+
+            if (isFullyDownloaded || (!isNetworkConnected.value && isFullyPlayerCached)) {
+                scope.launch(Dispatchers.IO) {
+                    recoverSong(mediaId)
+                }
+                return@Factory dataSpec
             }
             
             val ytLogTag = "YouTube"
@@ -1297,6 +1293,12 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 return@Factory dataSpec.withUri(streamUrl.toUri())
             } catch (e: Exception) {
                 Timber.tag(ytLogTag).e(e, "YouTube playback error, trying JossRed as fallback")
+                
+                // Invalidate stale VisitorData on 403 / IO_UNSPECIFIED errors
+                runBlocking {
+                    dataStore.edit { it.remove(com.cgens67.avidtune.constants.VisitorDataKey) }
+                }
+
                 val useAlternativeSource = runBlocking {
                     dataStore.data.map { preferences ->
                         val JossRedMultimedia = booleanPreferencesKey("JossRedMultimedia")
@@ -1404,12 +1406,14 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             val PauseRemoteListenHistoryKey = booleanPreferencesKey("pauseRemoteListenHistory")
             if (!dataStore.get(PauseRemoteListenHistoryKey, false)) {
                 CoroutineScope(Dispatchers.IO).launch {
-                    val playbackUrl = database.format(mediaItem.mediaId).first()?.playbackUrl
+                    val rawUrl = database.format(mediaItem.mediaId).first()?.playbackUrl
+                    val playbackUrl = rawUrl?.takeIf { !it.contains("googlevideo.com") }
                         ?: YTPlayerUtils.playerResponseForMetadata(mediaItem.mediaId, null)
                             .getOrNull()?.playbackTracking?.videostatsPlaybackUrl?.baseUrl
-                    playbackUrl?.let {
+
+                    if (playbackUrl != null && !playbackUrl.contains("googlevideo.com")) {
                         YouTube.registerPlayback(null, playbackUrl).onFailure {
-                            reportException(it)
+                            Timber.tag(TAG).w(it, "Failed to register playback tracking")
                         }
                     }
                 }

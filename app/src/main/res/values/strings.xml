@@ -1319,5 +1319,143 @@
     <string name="sort_oldest">Oldest</string>
     <string name="sort_important_first">Important first</string>
     <string name="sort_prefix">Sort: %1$s</string>
+    
+    <string name="player_design">Player design style</string>
+    <string name="player_design_classic">Classic (v1)</string>
+    <string name="player_design_modern">Modern (v2)</string>
+    <string name="slider_expanding">Expanding</string>
+    <string name="audio_output">Audio output</string>
+    <string name="this_device">This device</string>
+    <string name="internal_speaker">Built-in speaker</string>
+    <string name="connected_bluetooth">Connected via Bluetooth</string>
+    <string name="open_system_output_switcher">Open output switcher</string>
+    <string name="cover_art">Cover art</string>
+    <string name="volume_down">Volume down</string>
+    <string name="volume_up">Volume up</string>
+    <string name="lock_queue">Lock queue</string>
+    <string name="unlock_queue">Unlock queue</string>
+    <string name="drag_to_reorder">Drag to reorder</string>
+    
+    <string name="album_fallback_description">%1$s is an album by %2$s.</string>
+    <string name="single_fallback_description">%1$s is a single by %2$s.</string>
+    <string name="ep_fallback_description">%1$s is an EP by %2$s.</string>
+    <string name="single_text">Single</string>
+    <string name="ep_text">EP</string>
+    <string name="enable_binilyrics">Enable BiniLyrics</string>
+    
+    <!-- Debug & Error Log Viewer Strings -->
+    <string name="debug_and_error_logs">Debug and error logs</string>
+    <string name="debug_logs_subtitle">Inspect exceptions and crash traces</string>
+    <string name="search_logs_placeholder">Filter errors, exceptions…</string>
+    <string name="log_level_all">ALL</string>
+    <string name="no_matching_logs_found">No matching logs found</string>
+    <string name="no_logs_recorded">No logs recorded yet</string>
+    <string name="inject_demo_exception">Inject test exception</string>
+    <string name="demo_exception_message">Sample IllegalStateException: demo exception triggered from Debug Screen</string>
+    <string name="scroll_to_top">Scroll to top</string>
+    <string name="scroll_to_bottom">Scroll to bottom</string>
+    <string name="share_all_logs">Share all logs</string>
+    <string name="copy_all_logs">Copy all logs</string>
+    <string name="clear_logs">Clear logs</string>
+    <string name="clear_logs_dialog_title">Clear all logs?</string>
+    <string name="clear_logs_dialog_message">This will erase all buffered runtime debug logs and stack traces.</string>
+    <string name="stack_trace_label">Stack trace:</string>
+    <string name="log_copied_to_clipboard">Log copied to clipboard</string>
+    <string name="all_logs_copied">All logs copied to clipboard</string>
+    <string name="no_logs_to_export">No logs to export</string>
+    <string name="export_all_logs_chooser">Export all logs</string>
+    <string name="share_exception">Share exception</string>
+    <string name="exception_tag">Exception</string>
+    
+    <!-- Share Lyrics Studio -->
+    <string name="lyrics_share_tab_image">Image card</string>
+    <string name="lyrics_share_tab_text">Text quote</string>
+    <string name="lyrics_share_cat_themes">Themes</string>
+    <string name="lyrics_share_cat_canvas">Canvas</string>
+    <string name="lyrics_share_cat_style">Style</string>
+    <string name="lyrics_share_cat_typography">Typography</string>
+    <string name="lyrics_share_cat_branding">Branding</string>
 
+    <string name="lyrics_share_style_rounded">Rounded</string>
+    <string name="lyrics_share_style_circle">Circle</string>
+    <string name="lyrics_share_style_square">Square</string>
+
+    <string name="lyrics_share_font_normal">Normal</string>
+    <string name="lyrics_share_font_italic">Italic</string>
+    <string name="lyrics_share_font_condensed">Condensed</string>
+
+    <string name="lyrics_share_weight_regular">Regular</string>
+    <string name="lyrics_share_weight_bold">Bold</string>
+    <string name="lyrics_share_weight_extrabold">Extra bold</string>
+
+    <string name="lyrics_share_bg_solid">Solid</string>
+    <string name="lyrics_share_bg_gradient">Gradient</string>
+    <string name="lyrics_share_bg_pattern">Pattern</string>
+
+    <string name="lyrics_share_pos_bottom_left">Bottom left</string>
+    <string name="lyrics_share_pos_bottom_right">Bottom right</string>
+    <string name="lyrics_share_pos_top_left">Top left</string>
+    <string name="lyrics_share_pos_top_right">Top right</string>
+
+    <string name="lyrics_share_size_small">Small</string>
+    <string name="lyrics_share_size_medium">Medium</string>
+    <string name="lyrics_share_size_large">Large</string>
+
+    <string name="lyrics_share_accent_line">Accent line</string>
+    <string name="lyrics_share_line_spacing">Line spacing</string>
+    <string name="lyrics_share_element_spacing">Element spacing</string>
+    <string name="lyrics_share_corner_radius">Corner radius</string>
+    <string name="lyrics_share_padding">Padding</string>
+    <string name="lyrics_share_border">Border</string>
+    <string name="lyrics_share_border_width">Border width</string>
+    <string name="lyrics_share_text_shadow">Text shadow</string>
+    <string name="lyrics_share_show_cover">Show cover art</string>
+    <string name="lyrics_share_show_title">Show song title</string>
+    <string name="lyrics_share_show_artist">Show artist name</string>
+    <string name="lyrics_share_show_logo">Show app logo</string>
+    <string name="lyrics_share_logo_position">Logo position</string>
+    <string name="lyrics_share_logo_size">Logo size</string>
+    <string name="lyrics_share_pattern_opacity">Pattern opacity</string>
+    
+    <!-- Descriptions Settings -->
+    <string name="descriptions_title">Enable descriptions</string>
+    <string name="descriptions_desc">Show artist and album descriptions from online sources</string>
+    <string name="avid_descriptions_desc">Fetch descriptions from AvidDescriptions</string>
+    <string name="apple_music_desc">Fetch editorial notes from Apple Music</string>
+    <string name="wikipedia_desc">Fetch summaries from Wikipedia</string>
+    <string name="ytm_desc">Fetch artist bios and descriptions from YouTube Music</string>
+    <string name="description_provider_priority">Description provider priority</string>
+    <string name="description_provider_priority_desc">Drag to adjust the order of description sources</string>
+    
+        <!-- Music Together Worldwide Extensions -->
+    <string name="together_mode_worldwide">Worldwide (Cloud)</string>
+    <string name="together_mode_lan">Local (Same Wi-Fi)</string>
+    <string name="together_desc_worldwide">Worldwide (Internet Relay)</string>
+    <string name="together_badge_worldwide">Worldwide</string>
+    <string name="together_badge_lan">LAN</string>
+    <string name="together_relay_server">Relay Server</string>
+    <string name="together_relay_server_url">Relay Server URL</string>
+    <string name="together_default_cloud_server">Default Cloud Server</string>
+    <string name="together_start_worldwide_session">Start Worldwide Session</string>
+    <string name="together_status_worldwide_host">Worldwide Host</string>
+    <string name="together_status_lan_host">LAN Host</string>
+    <string name="together_status_worldwide_guest">Worldwide Guest</string>
+    <string name="together_status_lan_guest">LAN Guest</string>
+    <string name="together_share_pin_worldwide">Share PIN (Connect from anywhere in the world)</string>
+    <string name="together_worldwide_invite_link">Worldwide Invite Link</string>
+    
+    <!-- Lyrics Providers Descriptions -->
+    <string name="enable_avid_lyrics_desc">Curated community repository for AvidTune; includes synchronized lyrics</string>
+    <string name="enable_lyrics_plus_desc">Community TTML API supporting word-by-word sync and multi-singer vocals</string>
+    <string name="enable_better_lyrics_desc">Extensive catalog supporting synchronized and word-by-word lyrics</string>
+    <string name="enable_simpmusic_desc">Fast synchronized lyrics provider with word-level timing</string>
+    <string name="enable_paxsenix_desc">Reliable provider for line-by-line synchronized lyrics</string>
+    <string name="enable_binilyrics_desc">TTML-based provider for synchronized lyrics and Romanization</string>
+    <string name="enable_lrclib_desc">Community-driven open database for line-by-line synchronized lyrics</string>
+    <string name="enable_kugou_desc">Chinese lyrics provider; extensive catalog but no timed word-by-word lyrics</string>
+    <string name="enable_netease_desc">Chinese lyrics provider with broad Asian music catalog; line-synced only</string>
+    <string name="enable_genius_desc">Crowdsourced database providing plain, unsynchronized lyrics with annotations</string>
+    <string name="enable_yt_subtitle_desc">Subtitles and closed captions extracted from YouTube video transcripts</string>
+    <string name="enable_yt_music_lyrics_desc">Official static lyrics from YouTube Music catalog</string>
+    
 </resources>

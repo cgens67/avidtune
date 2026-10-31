@@ -1295,5 +1295,143 @@
     <string name="sort_oldest">最旧</string>
     <string name="sort_important_first">重要优先</string>
     <string name="sort_prefix">排序：%1$s</string>
+    
+    <string name="player_design">播放器样式</string>
+    <string name="player_design_classic">经典版 (v1)</string>
+    <string name="player_design_modern">现代版 (v2)</string>
+    <string name="slider_expanding">膨胀条</string>
+    <string name="audio_output">音频输出</string>
+    <string name="this_device">此设备</string>
+    <string name="internal_speaker">内置扬声器</string>
+    <string name="connected_bluetooth">已连接蓝牙设备</string>
+    <string name="open_system_output_switcher">打开系统输出切换器</string>
+    <string name="cover_art">专辑封面</string>
+    <string name="volume_down">调低音量</string>
+    <string name="volume_up">调高音量</string>
+    <string name="lock_queue">锁定队列</string>
+    <string name="unlock_queue">解锁队列</string>
+    <string name="drag_to_reorder">拖动重新排序</string>
+    
+    <string name="album_fallback_description">%1$s 是 %2$s 的一张专辑。</string>
+    <string name="single_fallback_description">%1$s 是 %2$s 的一首单曲。</string>
+    <string name="ep_fallback_description">%1$s 是 %2$s 的一张 EP。</string>
+    <string name="single_text">单曲</string>
+    <string name="ep_text">EP</string>
+    <string name="enable_binilyrics">启用 BiniLyrics</string>
+    
+    <!-- Debug & Error Log Viewer Strings -->
+    <string name="debug_and_error_logs">调试与错误日志</string>
+    <string name="debug_logs_subtitle">查看异常和崩溃堆栈跟踪</string>
+    <string name="search_logs_placeholder">筛选错误、异常…</string>
+    <string name="log_level_all">全部</string>
+    <string name="no_matching_logs_found">未找到匹配的日志</string>
+    <string name="no_logs_recorded">暂无记录的日志</string>
+    <string name="inject_demo_exception">插入测试异常</string>
+    <string name="demo_exception_message">示例 IllegalStateException：从调试屏幕触发的测试异常</string>
+    <string name="scroll_to_top">滚动到顶部</string>
+    <string name="scroll_to_bottom">滚动到底部</string>
+    <string name="share_all_logs">分享所有日志</string>
+    <string name="copy_all_logs">复制所有日志</string>
+    <string name="clear_logs">清空日志</string>
+    <string name="clear_logs_dialog_title">清空所有日志？</string>
+    <string name="clear_logs_dialog_message">这将清除所有缓冲的运行时调试日志和堆栈跟踪。</string>
+    <string name="stack_trace_label">堆栈跟踪：</string>
+    <string name="log_copied_to_clipboard">日志已复制到剪贴板</string>
+    <string name="all_logs_copied">所有日志已复制到剪贴板</string>
+    <string name="no_logs_to_export">没有可导出的日志</string>
+    <string name="export_all_logs_chooser">导出所有日志</string>
+    <string name="share_exception">分享异常</string>
+    <string name="exception_tag">异常</string>
+    
+    <!-- Share Lyrics Studio -->
+    <string name="lyrics_share_tab_image">图片卡片</string>
+    <string name="lyrics_share_tab_text">文本摘录</string>
+    <string name="lyrics_share_cat_themes">主题配色</string>
+    <string name="lyrics_share_cat_canvas">画布背景</string>
+    <string name="lyrics_share_cat_style">卡片样式</string>
+    <string name="lyrics_share_cat_typography">排版字体</string>
+    <string name="lyrics_share_cat_branding">品牌标识</string>
 
+    <string name="lyrics_share_style_rounded">圆角</string>
+    <string name="lyrics_share_style_circle">圆形</string>
+    <string name="lyrics_share_style_square">方形</string>
+
+    <string name="lyrics_share_font_normal">常规</string>
+    <string name="lyrics_share_font_italic">斜体</string>
+    <string name="lyrics_share_font_condensed">紧凑</string>
+
+    <string name="lyrics_share_weight_regular">常规</string>
+    <string name="lyrics_share_weight_bold">粗体</string>
+    <string name="lyrics_share_weight_extrabold">特粗</string>
+
+    <string name="lyrics_share_bg_solid">纯色</string>
+    <string name="lyrics_share_bg_gradient">渐变</string>
+    <string name="lyrics_share_bg_pattern">图案</string>
+
+    <string name="lyrics_share_pos_bottom_left">左下角</string>
+    <string name="lyrics_share_pos_bottom_right">右下角</string>
+    <string name="lyrics_share_pos_top_left">左上角</string>
+    <string name="lyrics_share_pos_top_right">右上角</string>
+
+    <string name="lyrics_share_size_small">小</string>
+    <string name="lyrics_share_size_medium">中</string>
+    <string name="lyrics_share_size_large">大</string>
+
+    <string name="lyrics_share_accent_line">显示强调分割线</string>
+    <string name="lyrics_share_line_spacing">行距</string>
+    <string name="lyrics_share_element_spacing">元素间距</string>
+    <string name="lyrics_share_corner_radius">圆角大小</string>
+    <string name="lyrics_share_padding">内边距</string>
+    <string name="lyrics_share_border">外边框</string>
+    <string name="lyrics_share_border_width">边框粗细</string>
+    <string name="lyrics_share_text_shadow">文字立体阴影</string>
+    <string name="lyrics_share_show_cover">显示封面</string>
+    <string name="lyrics_share_show_title">显示歌曲标题</string>
+    <string name="lyrics_share_show_artist">显示艺术家姓名</string>
+    <string name="lyrics_share_show_logo">显示应用Logo</string>
+    <string name="lyrics_share_logo_position">Logo位置</string>
+    <string name="lyrics_share_logo_size">Logo大小</string>
+    <string name="lyrics_share_pattern_opacity">图案不透明度</string>
+    
+    <!-- Descriptions Settings -->
+    <string name="descriptions_title">启用简介</string>
+    <string name="descriptions_desc">显示来自在线来源的艺人和专辑简介</string>
+    <string name="avid_descriptions_desc">从 AvidDescriptions 获取简介</string>
+    <string name="apple_music_desc">从 Apple Music 获取编辑附注与简介</string>
+    <string name="wikipedia_desc">从维基百科获取摘要与背景信息</string>
+    <string name="ytm_desc">从 YouTube Music 获取艺人传记和简介</string>
+    <string name="description_provider_priority">简介源优先级</string>
+    <string name="description_provider_priority_desc">拖动以调整简介来源的偏好顺序</string>
+    
+        <!-- Music Together Worldwide Extensions -->
+    <string name="together_mode_worldwide">全球 (云端)</string>
+    <string name="together_mode_lan">本地 (同一Wi-Fi)</string>
+    <string name="together_desc_worldwide">全球 (网络中继)</string>
+    <string name="together_badge_worldwide">全球</string>
+    <string name="together_badge_lan">局域网</string>
+    <string name="together_relay_server">中继服务器</string>
+    <string name="together_relay_server_url">中继服务器地址</string>
+    <string name="together_default_cloud_server">默认云端服务器</string>
+    <string name="together_start_worldwide_session">启动全球会话</string>
+    <string name="together_status_worldwide_host">全球房主</string>
+    <string name="together_status_lan_host">局域网房主</string>
+    <string name="together_status_worldwide_guest">全球访客</string>
+    <string name="together_status_lan_guest">局域网访客</string>
+    <string name="together_share_pin_worldwide">分享PIN码 (支持全球任意网络连接)</string>
+    <string name="together_worldwide_invite_link">全球邀请链接</string>
+    
+    <!-- 歌词源描述 -->
+    <string name="enable_avid_lyrics_desc">AvidTune 官方精选社区歌词库，包含高品质同步歌词</string>
+    <string name="enable_lyrics_plus_desc">支持逐字同步与多歌手声部识别的社区 TTML 歌词源</string>
+    <string name="enable_better_lyrics_desc">曲库庞大的高品质逐字与行同步歌词源</string>
+    <string name="enable_simpmusic_desc">响应迅速且支持逐字时间轴的高效歌词源</string>
+    <string name="enable_paxsenix_desc">稳定可靠的行同步时间轴歌词源</string>
+    <string name="enable_binilyrics_desc">基于 TTML 格式的同步歌词与罗马音源</string>
+    <string name="enable_lrclib_desc">社区驱动的开源行同步 LRC 歌词数据库</string>
+    <string name="enable_kugou_desc">中国酷狗音乐歌词源；曲库极全但不支持逐字时间轴</string>
+    <string name="enable_netease_desc">中国网易云音乐歌词源；亚洲音乐覆盖面广，仅支持行同步</string>
+    <string name="enable_genius_desc">全球最大的众包歌词平台，仅提供无时间轴纯文本歌词</string>
+    <string name="enable_yt_subtitle_desc">从 YouTube 视频字幕及原声转录中提取的同步歌词</string>
+    <string name="enable_yt_music_lyrics_desc">来自 YouTube Music 官方曲库的静态歌词</string>
+    
 </resources>

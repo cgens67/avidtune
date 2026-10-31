@@ -127,8 +127,6 @@ object LyricsPlusProvider : LyricsProvider {
         "https://lyricsplus.atomix.one/", //meow's mirror
         "https://lyricsplus.prjktla.my.id", //main server
         "https://lyricsplus-seven.vercel.app", //jigen's mirror
-        //"https://lyricsplus.prjktla.workers.dev", //ibra's cf workers (disabled due it has 100000 request per day limit)
-        //"https://lyrics-plus-backend.vercel.app", //ibra's vercel (disabled due it's disabled)
     )
 
     @Volatile
@@ -172,11 +170,11 @@ object LyricsPlusProvider : LyricsProvider {
         duration: Int,
         album: String?,
     ): LyricsPlusResponse? = runCatching {
+        val durationSec = if (duration > 10000) duration / 1000 else duration
         val response = client.get("$url/v2/lyrics/get") {
             parameter("title", title)
             parameter("artist", artist)
-            // LyricsPlus expects duration in seconds, while MediaMetadata stores milliseconds.
-            if (duration > 0) parameter("duration", duration / 1000)
+            if (durationSec > 0) parameter("duration", durationSec)
             if (!album.isNullOrBlank()) parameter("album", album)
         }
         if (response.status == HttpStatusCode.OK) response.body<LyricsPlusResponse>() else null
@@ -218,15 +216,16 @@ object LyricsPlusProvider : LyricsProvider {
         val normalizedIsrc = normalizedId.uppercase()
         val canUseIsrc = normalizedIsrc.matches(ISRC_REGEX)
         val hasMetadata = title.isNotBlank() && artist.isNotBlank()
-        // Search is valid when we have an ISRC, or when metadata (title + artist) is present.
         if (!canUseIsrc && !hasMetadata) return null
+
+        val durationSec = if (duration > 10000) duration / 1000 else duration
 
         suspend fun requestByTrackMetadata() = runCatching {
             client.get(BINIMUM_API_BASE_URL) {
                 parameter("track", title)
                 parameter("artist", artist)
                 if (!album.isNullOrBlank()) parameter("album", album)
-                if (duration > 0) parameter("duration", duration)
+                if (durationSec > 0) parameter("duration", durationSec)
             }
         }.getOrNull()
 
@@ -293,10 +292,7 @@ object LyricsPlusProvider : LyricsProvider {
         val lyrics = response?.lyrics?.takeIf { it.isNotEmpty() } ?: return null
         val isWordSync = response.type.equals("Word", ignoreCase = true)
 
-        // Agent mapping
-        // The JSON aliases (v1, v2, v1000) are used directly. Others get mapped
-        // to the next free v1/v2 slot, falling back to v1.
-        val agentMap = linkedMapOf<String, String>() // raw alias -> lrc id
+        val agentMap = linkedMapOf<String, String>()
         lyrics.forEach { line ->
             val raw = line.element?.singer?.lowercase() ?: return@forEach
             if (raw !in agentMap) {
@@ -357,11 +353,9 @@ object LyricsPlusProvider : LyricsProvider {
         return sb.toString().trimEnd().ifBlank { null }
     }
 
-    /** Joins word texts as-is (spaces are embedded in each text value by the API). */
     private fun buildText(words: List<LyricWord>): String =
         words.joinToString("") { it.text }.trim()
 
-    /** Appends `[mm:ss.cc]<tag>text\n` */
     private fun StringBuilder.appendLrcLine(timeMs: Long, tag: String, text: String) {
         append(formatLrcTime(timeMs))
         append(tag)
@@ -369,7 +363,6 @@ object LyricsPlusProvider : LyricsProvider {
         append('\n')
     }
 
-    /** Appends `<word:startSec:endSec|...>\n` */
     private fun StringBuilder.appendWordBlock(words: List<LyricWord>) {
         val valid = words.filter { it.text.isNotBlank() }
         if (valid.isEmpty()) return

@@ -17,26 +17,30 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -46,7 +50,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -94,7 +97,6 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
@@ -104,7 +106,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -116,16 +117,11 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
-import androidx.core.graphics.ColorUtils
-import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.Player.STATE_ENDED
 import androidx.media3.common.Player.STATE_READY
-import androidx.media3.exoplayer.offline.Download
-import androidx.media3.exoplayer.offline.DownloadRequest
-import androidx.media3.exoplayer.offline.DownloadService
 import androidx.navigation.NavController
 import androidx.palette.graphics.Palette
 import coil.ImageLoader
@@ -133,9 +129,9 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.cgens67.avidtune.LocalDatabase
 import com.cgens67.avidtune.LocalDownloadUtil
-import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
 import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
+import com.cgens67.avidtune.constants.CoverResolutionKey
 import com.cgens67.avidtune.constants.DarkModeKey
 import com.cgens67.avidtune.constants.DisableBlurKey
 import com.cgens67.avidtune.constants.MinimalPlayerDesignKey
@@ -145,30 +141,27 @@ import com.cgens67.avidtune.constants.PlayerButtonsStyle
 import com.cgens67.avidtune.constants.PlayerButtonsStyleKey
 import com.cgens67.avidtune.constants.PlayerHorizontalPadding
 import com.cgens67.avidtune.constants.PlayerTextAlignmentKey
+import com.cgens67.avidtune.constants.PlayerVersion
+import com.cgens67.avidtune.constants.PlayerVersionKey
 import com.cgens67.avidtune.constants.PureBlackKey
 import com.cgens67.avidtune.constants.QueuePeekHeight
 import com.cgens67.avidtune.constants.SliderStyle
 import com.cgens67.avidtune.constants.SliderStyleKey
-import com.cgens67.avidtune.constants.SwipeThumbnailKey
-import com.cgens67.avidtune.extensions.toggleRepeatMode
 import com.cgens67.avidtune.models.MediaMetadata
-import com.cgens67.avidtune.playback.ExoDownloadService
 import com.cgens67.avidtune.playback.PlayerConnection
 import com.cgens67.avidtune.ui.component.BottomSheet
 import com.cgens67.avidtune.ui.component.BottomSheetState
-import com.cgens67.avidtune.ui.component.LocalBottomSheetPageState
 import com.cgens67.avidtune.ui.component.LocalMenuState
 import com.cgens67.avidtune.ui.component.PlayerSliderTrack
+import com.cgens67.avidtune.ui.component.SponsorBlockOverlay
 import com.cgens67.avidtune.ui.component.rememberBottomSheetState
 import com.cgens67.avidtune.ui.menu.PlayerMenu
 import com.cgens67.avidtune.ui.screens.settings.DarkMode
 import com.cgens67.avidtune.ui.screens.settings.PlayerTextAlignment
 import com.cgens67.avidtune.ui.theme.PlayerColorExtractor
-import com.cgens67.avidtune.ui.utils.resize
 import com.cgens67.avidtune.utils.makeTimeString
 import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -194,6 +187,9 @@ fun BottomSheetPlayer(
     val clipboardManager = LocalClipboardManager.current
     val playerConnection = LocalPlayerConnection.current ?: return
 
+    val currentSkipSegments by playerConnection.currentSkipSegments.collectAsState()
+    val sponsorBlockEnabled by playerConnection.sponsorBlockEnabled.collectAsState()
+
     val playerTextAlignment by rememberEnumPreference(
         PlayerTextAlignmentKey,
         PlayerTextAlignment.CENTER
@@ -201,6 +197,11 @@ fun BottomSheetPlayer(
 
     val minimalPlayerDesign by rememberPreference(MinimalPlayerDesignKey, false)
     val disableBlur by rememberPreference(DisableBlurKey, false)
+
+    val (playerVersion) = rememberEnumPreference(
+        PlayerVersionKey,
+        defaultValue = PlayerVersion.V1
+    )
 
     val playerBackground by rememberEnumPreference(
         key = PlayerBackgroundStyleKey,
@@ -213,13 +214,13 @@ fun BottomSheetPlayer(
     val useDarkTheme = remember(darkTheme, isSystemInDarkTheme) {
         if (darkTheme == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON
     }
-    
+
     val useBlackBackground =
         remember(isSystemInDarkTheme, darkTheme, pureBlack) {
             val isDark = if (darkTheme == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON
             isDark && pureBlack
         }
-        
+
     val bottomSheetBackgroundColor = when (playerBackground) {
         PlayerBackgroundStyle.LIVE_MESH, PlayerBackgroundStyle.BLUR, PlayerBackgroundStyle.GRADIENT, PlayerBackgroundStyle.APPLE_MUSIC ->
             if (useDarkTheme) MaterialTheme.colorScheme.surfaceContainer else Color(0xFF424242)
@@ -228,18 +229,11 @@ fun BottomSheetPlayer(
             else MaterialTheme.colorScheme.surfaceContainer
     }
 
-    val backgroundColor = if (useBlackBackground && state.value > state.collapsedBound) {
-        lerp(MaterialTheme.colorScheme.surfaceContainer, Color.Black, state.progress)
-    } else {
-        MaterialTheme.colorScheme.surfaceContainer
-    }
-
     val playbackState by playerConnection.playbackState.collectAsState()
     val isPlaying by playerConnection.isPlaying.collectAsState()
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
     val currentSong by playerConnection.currentSong.collectAsState(initial = null)
     val currentSongLiked = currentSong?.song?.liked == true
-    val automix by playerConnection.service.automixItems.collectAsState()
     val repeatMode by playerConnection.repeatMode.collectAsState()
 
     val canSkipPrevious by playerConnection.canSkipPrevious.collectAsState()
@@ -264,12 +258,6 @@ fun BottomSheetPlayer(
             else emptyList()
         )
     }
-
-    val blurRadius by animateDpAsState(
-        targetValue = if (state.isExpanded && playerBackground == PlayerBackgroundStyle.BLUR) 150.dp else 0.dp,
-        animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing),
-        label = "blurRadius"
-    )
 
     val playerButtonsStyle by rememberEnumPreference(
         key = PlayerButtonsStyleKey,
@@ -346,24 +334,18 @@ fun BottomSheetPlayer(
 
     val queueOnBgColor = when (playerBackground) {
         PlayerBackgroundStyle.DEFAULT -> MaterialTheme.colorScheme.secondary
-        else ->
-            if (useDarkTheme)
-                MaterialTheme.colorScheme.onSurface
-            else
-                MaterialTheme.colorScheme.onPrimary
+        else -> if (useDarkTheme) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimary
     }
 
-    val TextBackgroundColor =
-        when (playerBackground) {
-            PlayerBackgroundStyle.DEFAULT -> MaterialTheme.colorScheme.onBackground
-            else -> Color.White
-        }
+    val TextBackgroundColor = when (playerBackground) {
+        PlayerBackgroundStyle.DEFAULT -> MaterialTheme.colorScheme.onBackground
+        else -> Color.White
+    }
 
-    val icBackgroundColor =
-        when (playerBackground) {
-            PlayerBackgroundStyle.DEFAULT -> MaterialTheme.colorScheme.surface
-            else -> Color.Black
-        }
+    val icBackgroundColor = when (playerBackground) {
+        PlayerBackgroundStyle.DEFAULT -> MaterialTheme.colorScheme.surface
+        else -> Color.Black
+    }
 
     val (textButtonColor, iconButtonColor) = when (playerButtonsStyle) {
         PlayerButtonsStyle.DEFAULT -> {
@@ -382,9 +364,6 @@ fun BottomSheetPlayer(
             MaterialTheme.colorScheme.onTertiary
         )
     }
-
-    val download by LocalDownloadUtil.current.getDownload(mediaMetadata?.id ?: "")
-        .collectAsState(initial = null)
 
     var showDetailsDialog by rememberSaveable {
         mutableStateOf(false)
@@ -412,10 +391,9 @@ fun BottomSheetPlayer(
             },
             text = {
                 Column(
-                    modifier =
-                        Modifier
-                            .sizeIn(minWidth = 280.dp, maxWidth = 560.dp)
-                            .verticalScroll(rememberScrollState()),
+                    modifier = Modifier
+                        .sizeIn(minWidth = 280.dp, maxWidth = 560.dp)
+                        .verticalScroll(rememberScrollState()),
                 ) {
                     listOf(
                         stringResource(R.string.song_title) to mediaMetadata?.title,
@@ -428,13 +406,9 @@ fun BottomSheetPlayer(
                         stringResource(R.string.sample_rate) to currentFormat?.sampleRate?.let { "$it Hz" },
                         stringResource(R.string.loudness) to currentFormat?.loudnessDb?.let { "$it dB" },
                         stringResource(R.string.volume) to "${(playerConnection.service.playerVolume.value * 100).toInt()}%",
-                        stringResource(R.string.file_size) to
-                                currentFormat?.contentLength?.let {
-                                    Formatter.formatShortFileSize(
-                                        context,
-                                        it
-                                    )
-                                },
+                        stringResource(R.string.file_size) to currentFormat?.contentLength?.let {
+                            Formatter.formatShortFileSize(context, it)
+                        },
                     ).forEach { (label, text) ->
                         val displayText = text ?: stringResource(R.string.unknown)
                         Text(
@@ -444,16 +418,14 @@ fun BottomSheetPlayer(
                         Text(
                             text = displayText,
                             style = MaterialTheme.typography.titleMedium,
-                            modifier =
-                                Modifier.clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null,
-                                    onClick = {
-                                        clipboardManager.setText(AnnotatedString(displayText))
-                                        Toast.makeText(context, R.string.copied, Toast.LENGTH_SHORT)
-                                            .show()
-                                    },
-                                ),
+                            modifier = Modifier.clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = {
+                                    clipboardManager.setText(AnnotatedString(displayText))
+                                    Toast.makeText(context, R.string.copied, Toast.LENGTH_SHORT).show()
+                                },
+                            ),
                         )
                         Spacer(Modifier.height(8.dp))
                     }
@@ -462,12 +434,10 @@ fun BottomSheetPlayer(
         )
     }
 
-    val queueSheetState =
-        rememberBottomSheetState(
-            dismissedBound = QueuePeekHeight + WindowInsets.systemBars.asPaddingValues()
-                .calculateBottomPadding(),
-            expandedBound = state.expandedBound,
-        )
+    val queueSheetState = rememberBottomSheetState(
+        dismissedBound = QueuePeekHeight + WindowInsets.systemBars.asPaddingValues().calculateBottomPadding(),
+        expandedBound = state.expandedBound,
+    )
 
     LaunchedEffect(playbackState) {
         if (playbackState == STATE_READY) {
@@ -481,9 +451,70 @@ fun BottomSheetPlayer(
 
     val isLoading = playbackState == Player.STATE_BUFFERING
 
+    if (playerVersion == PlayerVersion.V2) {
+        BottomSheet(
+            state = state,
+            modifier = modifier,
+            slidingBackground = playerBackground == PlayerBackgroundStyle.APPLE_MUSIC,
+            background = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(bottomSheetBackgroundColor)
+                ) {
+                    if (isCustomBackground) {
+                        PlayerBackground(
+                            playerBackground = playerBackground,
+                            mediaMetadata = mediaMetadata,
+                            gradientColors = gradientColors,
+                            disableBlur = disableBlur
+                        )
+                        if (playerBackground != PlayerBackgroundStyle.APPLE_MUSIC) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color.Black.copy(alpha = if (useDarkTheme) 0.3f else 0.45f))
+                            )
+                        }
+                    }
+                }
+            },
+            onDismiss = {
+                coroutineScope.launch {
+                    val player = playerConnection.player
+                    val currentVol = player.volume
+                    val steps = 10
+                    val delayMs = 25L
+                    for (i in steps downTo 1) {
+                        player.volume = currentVol * (i / steps.toFloat())
+                        delay(delayMs)
+                    }
+                    player.pause()
+                    player.stop()
+                    player.clearMediaItems()
+                    player.volume = currentVol
+                }
+            },
+            collapsedContent = {
+                MiniPlayer(
+                    position = position,
+                    duration = duration,
+                )
+            },
+        ) {
+            PlayerV2(
+                state = state,
+                navController = navController,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+        return
+    }
+
     BottomSheet(
         state = state,
         modifier = modifier,
+        slidingBackground = playerBackground == PlayerBackgroundStyle.APPLE_MUSIC,
         background = {
             Box(
                 modifier = Modifier
@@ -512,7 +543,7 @@ fun BottomSheetPlayer(
                 val player = playerConnection.player
                 val currentVol = player.volume
                 val steps = 10
-                val delayMs = 25L // 250ms smooth fade out
+                val delayMs = 25L
                 for (i in steps downTo 1) {
                     player.volume = currentVol * (i / steps.toFloat())
                     delay(delayMs)
@@ -580,9 +611,9 @@ fun BottomSheetPlayer(
                                         state = state
                                     )
                                 }
-                                
+
                                 Spacer(modifier = Modifier.width(12.dp))
-                                
+
                                 if (minimalPlayerDesign) {
                                     PlayerTopActionsV3(
                                         mediaMetadata = it,
@@ -650,7 +681,9 @@ fun BottomSheetPlayer(
                                         position = pos
                                     }
                                     sliderPosition = null
-                                }
+                                },
+                                currentSkipSegments = currentSkipSegments,
+                                sponsorBlockEnabled = sponsorBlockEnabled
                             )
 
                             Spacer(Modifier.height(4.dp))
@@ -702,10 +735,9 @@ fun BottomSheetPlayer(
             else -> {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier =
-                        Modifier
-                            .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Horizontal))
-                            .padding(bottom = queueSheetState.collapsedBound),
+                    modifier = Modifier
+                        .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Horizontal))
+                        .padding(bottom = queueSheetState.collapsedBound),
                 ) {
                     Box(
                         contentAlignment = Alignment.Center,
@@ -739,9 +771,9 @@ fun BottomSheetPlayer(
                                     state = state
                                 )
                             }
-                            
+
                             Spacer(modifier = Modifier.width(12.dp))
-                            
+
                             if (minimalPlayerDesign) {
                                 PlayerTopActionsV3(
                                     mediaMetadata = it,
@@ -809,7 +841,9 @@ fun BottomSheetPlayer(
                                     position = pos
                                 }
                                 sliderPosition = null
-                            }
+                            },
+                            currentSkipSegments = currentSkipSegments,
+                            sponsorBlockEnabled = sponsorBlockEnabled
                         )
 
                         Spacer(Modifier.height(4.dp))
@@ -1052,7 +1086,6 @@ fun PlayerBackground(
                             val saturationMatrix = remember { ColorMatrix().apply { setToSaturation(1.8f) } }
                             val baseBlur = if (!disableBlur) 24.dp else 0.dp
 
-                            // Layer 1 (Anchor)
                             AsyncImage(
                                 model = imageRequest,
                                 contentDescription = null,
@@ -1069,7 +1102,6 @@ fun PlayerBackground(
                                     .size(200.dp)
                             )
 
-                            // Layer 2 (Fast)
                             AsyncImage(
                                 model = imageRequest,
                                 contentDescription = null,
@@ -1088,7 +1120,6 @@ fun PlayerBackground(
                                     .size(200.dp)
                             )
 
-                            // Layer 3 (Slow)
                             AsyncImage(
                                 model = imageRequest,
                                 contentDescription = null,
@@ -1107,7 +1138,6 @@ fun PlayerBackground(
                                     .size(200.dp)
                             )
                             
-                            // Depth & Contrast Overlays
                             Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.2f)))
                             Box(
                                 modifier = Modifier
@@ -1123,7 +1153,6 @@ fun PlayerBackground(
                 }
             }
             else -> {
-                // DEFAULT
             }
         }
     }
@@ -1139,41 +1168,111 @@ fun PlayerSliderV4(
     isPlaying: Boolean,
     textBackgroundColor: Color,
     onValueChange: (Long) -> Unit,
-    onValueChangeFinished: () -> Unit
+    onValueChangeFinished: () -> Unit,
+    currentSkipSegments: List<Pair<Long, Long>> = emptyList(),
+    sponsorBlockEnabled: Boolean = false,
 ) {
+    val sponsorFractions = remember(currentSkipSegments, duration, sponsorBlockEnabled) {
+        if (!sponsorBlockEnabled || duration <= 0L) emptyList()
+        else currentSkipSegments.map { (startMs, endMs) ->
+            (startMs.toFloat() / duration).coerceIn(0f, 1f) to (endMs.toFloat() / duration).coerceIn(0f, 1f)
+        }
+    }
+    val currentProgressFrac = if (duration > 0) ((sliderPosition ?: position).toFloat() / duration).coerceIn(0f, 1f) else 0f
+
     when (sliderStyle) {
-        SliderStyle.DEFAULT -> {
+        SliderStyle.EXPANDING -> {
+            val trackInteractionSource = remember { MutableInteractionSource() }
+            val isTrackDragged by trackInteractionSource.collectIsDraggedAsState()
+            val isTrackPressed by trackInteractionSource.collectIsPressedAsState()
+            val isTrackActive = isTrackDragged || isTrackPressed
+
+            val trackHeight by animateDpAsState(
+                targetValue = if (isTrackActive) 12.dp else 6.dp,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
+                label = "trackScale"
+            )
+
             Slider(
                 value = (sliderPosition ?: position).toFloat(),
                 valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
                 onValueChange = { onValueChange(it.toLong()) },
                 onValueChangeFinished = onValueChangeFinished,
-                colors = SliderDefaults.colors(
-                    activeTrackColor = textBackgroundColor,
-                    inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
-                    thumbColor = textBackgroundColor
-                ),
+                interactionSource = trackInteractionSource,
+                thumb = { Spacer(modifier = Modifier.size(0.dp)) },
+                track = { sliderState ->
+                    PlayerSliderTrack(
+                        sliderState = sliderState,
+                        trackHeight = trackHeight,
+                        colors = SliderDefaults.colors(
+                            activeTrackColor = textBackgroundColor,
+                            inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
+                            thumbColor = textBackgroundColor
+                        ),
+                        sponsorSegments = sponsorFractions
+                    )
+                },
                 modifier = Modifier.padding(horizontal = PlayerHorizontalPadding),
             )
         }
+        SliderStyle.DEFAULT -> {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = PlayerHorizontalPadding)
+            ) {
+                Slider(
+                    value = (sliderPosition ?: position).toFloat(),
+                    valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
+                    onValueChange = { onValueChange(it.toLong()) },
+                    onValueChangeFinished = onValueChangeFinished,
+                    colors = SliderDefaults.colors(
+                        activeTrackColor = textBackgroundColor,
+                        inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
+                        thumbColor = textBackgroundColor
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                SponsorBlockOverlay(
+                    sponsorSegments = sponsorFractions,
+                    activeProgress = currentProgressFrac,
+                    trackHeight = 4.dp,
+                    thumbOffset = 10.dp
+                )
+            }
+        }
         SliderStyle.SQUIGGLY -> {
-            SquigglySlider(
-                value = (sliderPosition ?: position).toFloat(),
-                valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
-                onValueChange = { onValueChange(it.toLong()) },
-                onValueChangeFinished = onValueChangeFinished,
-                colors = SliderDefaults.colors(
-                    activeTrackColor = textBackgroundColor,
-                    inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
-                    thumbColor = textBackgroundColor
-                ),
-                modifier = Modifier.padding(horizontal = PlayerHorizontalPadding),
-                squigglesSpec = SquigglySlider.SquigglesSpec(
-                    amplitude = if (isPlaying) (4.dp).coerceAtLeast(2.dp) else 0.dp,
-                    strokeWidth = 3.dp,
-                    wavelength = 36.dp,
-                ),
-            )
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = PlayerHorizontalPadding)
+            ) {
+                SquigglySlider(
+                    value = (sliderPosition ?: position).toFloat(),
+                    valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
+                    onValueChange = { onValueChange(it.toLong()) },
+                    onValueChangeFinished = onValueChangeFinished,
+                    colors = SliderDefaults.colors(
+                        activeTrackColor = textBackgroundColor,
+                        inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
+                        thumbColor = textBackgroundColor
+                    ),
+                    squigglesSpec = SquigglySlider.SquigglesSpec(
+                        amplitude = if (isPlaying) (4.dp).coerceAtLeast(2.dp) else 0.dp,
+                        strokeWidth = 3.dp,
+                        wavelength = 36.dp,
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                SponsorBlockOverlay(
+                    sponsorSegments = sponsorFractions,
+                    activeProgress = currentProgressFrac,
+                    trackHeight = 3.dp,
+                    thumbOffset = 10.dp
+                )
+            }
         }
         SliderStyle.SLIM -> {
             Slider(
@@ -1189,14 +1288,11 @@ fun PlayerSliderV4(
                             activeTrackColor = textBackgroundColor,
                             inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
                             thumbColor = textBackgroundColor
-                        )
+                        ),
+                        trackHeight = 3.dp,
+                        sponsorSegments = sponsorFractions
                     )
                 },
-                colors = SliderDefaults.colors(
-                    activeTrackColor = textBackgroundColor,
-                    inactiveTrackColor = textBackgroundColor.copy(alpha = 0.3f),
-                    thumbColor = textBackgroundColor
-                ),
                 modifier = Modifier.padding(horizontal = PlayerHorizontalPadding)
             )
         }
@@ -1245,7 +1341,7 @@ fun PlayerTitleSection(
 ) {
     val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
     val context = LocalContext.current
-    
+
     AnimatedContent(
         targetState = mediaMetadata.title,
         transitionSpec = { fadeIn() togetherWith fadeOut() },
@@ -1404,7 +1500,6 @@ fun PlayerTopActionsV4(
             }
         }
 
-        // More menu button
         Surface(
             onClick = onMoreOptions,
             shape = RoundedCornerShape(14.dp),

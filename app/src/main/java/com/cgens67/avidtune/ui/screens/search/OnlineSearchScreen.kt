@@ -108,7 +108,7 @@ fun OnlineSearchScreen(
                         label = { Text(stringResource(R.string.apple_music_trending)) },
                         leadingIcon = {
                             Icon(
-                                painter = painterResource(R.drawable.apple),
+                                painter = painterResource(R.drawable.trending_up),
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp)
                             )

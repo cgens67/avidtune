@@ -523,11 +523,13 @@ object ComposeToImage {
         }
 
         if (textShadowEnabled) {
+            val isLightText = androidx.core.graphics.ColorUtils.calculateLuminance(textColor) > 0.5
+            val shadowColor = if (isLightText) 0xCC000000.toInt() else 0xCCFFFFFF.toInt()
             paint.setShadowLayer(
-                imageSize * 0.0037f,
-                imageSize * 0.00185f,
-                imageSize * 0.00185f,
-                backgroundColor
+                imageSize * 0.006f,
+                imageSize * 0.003f,
+                imageSize * 0.003f,
+                shadowColor
             )
         }
 

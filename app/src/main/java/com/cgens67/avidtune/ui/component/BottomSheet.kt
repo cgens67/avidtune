@@ -55,6 +55,7 @@ import kotlin.math.pow
 fun BottomSheet(
     state: BottomSheetState,
     modifier: Modifier = Modifier,
+    slidingBackground: Boolean = false,
     background: @Composable (BoxScope.() -> Unit) = { },
     onDismiss: (() -> Unit)? = null,
     onCollapsedContentClick: (() -> Unit)? = null,
@@ -64,14 +65,16 @@ fun BottomSheet(
 ) {
     val currentOnDismiss by rememberUpdatedState(onDismiss)
 
-    Box(
-        modifier = modifier
-            .graphicsLayer {
-                alpha = (1.4f * (state.progress.coerceAtLeast(0.1f) - 0.1f).pow(0.5f)).coerceIn(0f, 1f)
-            }
-            .fillMaxSize(),
-        content = background
-    )
+    if (!slidingBackground) {
+        Box(
+            modifier = modifier
+                .graphicsLayer {
+                    alpha = (1.4f * (state.progress.coerceAtLeast(0.1f) - 0.1f).pow(0.5f)).coerceIn(0f, 1f)
+                }
+                .fillMaxSize(),
+            content = background
+        )
+    }
     
     Box(
         modifier = modifier
@@ -90,6 +93,17 @@ fun BottomSheet(
                 )
             )
     ) {
+        if (slidingBackground) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        alpha = (state.progress * 4).coerceIn(0f, 1f)
+                    },
+                content = background
+            )
+        }
+
         if (state.isExpandedOrExpanding && backHandlerEnabled) {
             BackHandler(onBack = state::collapseSoft)
         }

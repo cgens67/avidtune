@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
@@ -53,6 +54,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.cgens67.avidtune.NotificationPermissionPreference
@@ -60,15 +62,22 @@ import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.ContentCountryKey
 import com.cgens67.avidtune.constants.ContentLanguageKey
 import com.cgens67.avidtune.constants.CountryCodeToName
+import com.cgens67.avidtune.constants.DescriptionProviderOrderKey
+import com.cgens67.avidtune.constants.EnableAppleMusicDescriptionsKey
+import com.cgens67.avidtune.constants.EnableAvidDescriptionsKey
 import com.cgens67.avidtune.constants.EnableAvidLyricsKey
+import com.cgens67.avidtune.constants.EnableBetterLyricsKey
+import com.cgens67.avidtune.constants.EnableBiniLyricsKey
+import com.cgens67.avidtune.constants.EnableDescriptionsKey
+import com.cgens67.avidtune.constants.EnableGeniusKey
 import com.cgens67.avidtune.constants.EnableKugouKey
 import com.cgens67.avidtune.constants.EnableLrcLibKey
-import com.cgens67.avidtune.constants.EnableBetterLyricsKey
-import com.cgens67.avidtune.constants.EnableSimpMusicKey
 import com.cgens67.avidtune.constants.EnableLyricsPlusKey
-import com.cgens67.avidtune.constants.EnablePaxsenixKey
 import com.cgens67.avidtune.constants.EnableNetEaseKey
-import com.cgens67.avidtune.constants.EnableGeniusKey
+import com.cgens67.avidtune.constants.EnablePaxsenixKey
+import com.cgens67.avidtune.constants.EnableSimpMusicKey
+import com.cgens67.avidtune.constants.EnableWikipediaDescriptionsKey
+import com.cgens67.avidtune.constants.EnableYouTubeMusicDescriptionsKey
 import com.cgens67.avidtune.constants.HideExplicitKey
 import com.cgens67.avidtune.constants.HideMusicVideosKey
 import com.cgens67.avidtune.constants.HistoryDuration
@@ -90,6 +99,7 @@ import com.cgens67.avidtune.ui.component.SettingsGeneralCategory
 import com.cgens67.avidtune.ui.component.SettingsPage
 import com.cgens67.avidtune.ui.component.SliderPreference
 import com.cgens67.avidtune.ui.component.SwitchPreference
+import com.cgens67.avidtune.utils.AvidDescriptionProvider
 import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
 import kotlinx.coroutines.launch
@@ -144,6 +154,43 @@ fun ContentSettings(
         key = QuickPicksKey,
         defaultValue = QuickPicks.QUICK_PICKS
     )
+
+    // Descriptions settings states
+    val (enableDescriptions, onEnableDescriptionsChange) = rememberPreference(
+        key = EnableDescriptionsKey,
+        defaultValue = true
+    )
+    val (enableAvidDescriptions, onEnableAvidDescriptionsChange) = rememberPreference(
+        key = EnableAvidDescriptionsKey,
+        defaultValue = true
+    )
+    val (enableAppleMusicDescriptions, onEnableAppleMusicDescriptionsChange) = rememberPreference(
+        key = EnableAppleMusicDescriptionsKey,
+        defaultValue = true
+    )
+    val (enableWikipediaDescriptions, onEnableWikipediaDescriptionsChange) = rememberPreference(
+        key = EnableWikipediaDescriptionsKey,
+        defaultValue = true
+    )
+    val (enableYouTubeMusicDescriptions, onEnableYouTubeMusicDescriptionsChange) = rememberPreference(
+        key = EnableYouTubeMusicDescriptionsKey,
+        defaultValue = true
+    )
+
+    val defaultDescriptionOrder = AvidDescriptionProvider.defaultProviders
+    val (descriptionOrderStr, onDescriptionOrderChange) = rememberPreference(
+        DescriptionProviderOrderKey,
+        defaultDescriptionOrder.joinToString(",")
+    )
+    val currentDescriptionOrder = remember(descriptionOrderStr) {
+        descriptionOrderStr.split(",").filter { it.isNotBlank() }.let { saved ->
+            val missing = defaultDescriptionOrder.filter { it !in saved }
+            saved + missing
+        }
+    }
+    var showDescriptionReorderDialog by remember { mutableStateOf(false) }
+
+    // Lyrics provider states
     val (enableAvidLyrics, onEnableAvidLyricsChange) = rememberPreference(
         key = EnableAvidLyricsKey,
         defaultValue = true
@@ -168,6 +215,10 @@ fun ContentSettings(
         key = EnablePaxsenixKey,
         defaultValue = true
     )
+    val (enableBiniLyrics, onEnableBiniLyricsChange) = rememberPreference(
+        key = EnableBiniLyricsKey,
+        defaultValue = true
+    )
     val (enableLyricsPlus, onEnableLyricsPlusChange) = rememberPreference(
         key = EnableLyricsPlusKey,
         defaultValue = true
@@ -190,7 +241,7 @@ fun ContentSettings(
         defaultValue = false
     )
 
-    val defaultOrder = listOf("AvidLyrics", "LyricsPlus", "Paxsenix", "BetterLyrics", "SimpMusic", "LrcLib", "Kugou", "NetEase", "Genius", "YouTube Subtitle", "YouTube Music")
+    val defaultOrder = listOf("AvidLyrics", "LyricsPlus", "Paxsenix", "BiniLyrics", "BetterLyrics", "SimpMusic", "LrcLib", "Kugou", "NetEase", "Genius", "YouTube Subtitle", "YouTube Music")
     val (providerOrderStr, onProviderOrderChange) = rememberPreference(LyricsProviderOrderKey, defaultOrder.joinToString(","))
     val currentOrder = remember(providerOrderStr) {
         providerOrderStr.split(",").filter { it.isNotBlank() }.let { saved ->
@@ -207,6 +258,17 @@ fun ContentSettings(
             onSave = { newOrder ->
                 onProviderOrderChange(newOrder.joinToString(","))
                 showReorderDialog = false
+            }
+        )
+    }
+
+    if (showDescriptionReorderDialog) {
+        ReorderDescriptionProvidersBottomSheet(
+            currentOrder = currentDescriptionOrder,
+            onDismiss = { showDescriptionReorderDialog = false },
+            onSave = { newOrder ->
+                onDescriptionOrderChange(newOrder.joinToString(","))
+                showDescriptionReorderDialog = false
             }
         )
     }
@@ -291,6 +353,87 @@ fun ContentSettings(
             )
         )
 
+        // Descriptions provider settings (Canvas-style)
+        SettingsGeneralCategory(
+            title = stringResource(R.string.description),
+            items = listOf(
+                {
+                    SwitchPreference(
+                        title = { Text(stringResource(R.string.descriptions_title)) },
+                        description = stringResource(R.string.descriptions_desc),
+                        icon = { Icon(painterResource(R.drawable.info), null) },
+                        checked = enableDescriptions,
+                        onCheckedChange = onEnableDescriptionsChange
+                    )
+                },
+                {
+                    AnimatedVisibility(visible = enableDescriptions) {
+                        Column {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(start = 76.dp, end = 20.dp),
+                                thickness = 0.5.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                            )
+                            SwitchPreference(
+                                title = { Text("AvidDescriptions") },
+                                description = stringResource(R.string.avid_descriptions_desc),
+                                icon = { Icon(painterResource(R.drawable.info), null) },
+                                checked = enableAvidDescriptions,
+                                onCheckedChange = onEnableAvidDescriptionsChange
+                            )
+                            HorizontalDivider(
+                                modifier = Modifier.padding(start = 76.dp, end = 20.dp),
+                                thickness = 0.5.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                            )
+                            SwitchPreference(
+                                title = { Text("Apple Music") },
+                                description = stringResource(R.string.apple_music_desc),
+                                icon = { Icon(painterResource(R.drawable.info), null) },
+                                checked = enableAppleMusicDescriptions,
+                                onCheckedChange = onEnableAppleMusicDescriptionsChange
+                            )
+                            HorizontalDivider(
+                                modifier = Modifier.padding(start = 76.dp, end = 20.dp),
+                                thickness = 0.5.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                            )
+                            SwitchPreference(
+                                title = { Text("Wikipedia") },
+                                description = stringResource(R.string.wikipedia_desc),
+                                icon = { Icon(painterResource(R.drawable.language), null) },
+                                checked = enableWikipediaDescriptions,
+                                onCheckedChange = onEnableWikipediaDescriptionsChange
+                            )
+                            HorizontalDivider(
+                                modifier = Modifier.padding(start = 76.dp, end = 20.dp),
+                                thickness = 0.5.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                            )
+                            SwitchPreference(
+                                title = { Text("YouTube Music") },
+                                description = stringResource(R.string.ytm_desc),
+                                icon = { Icon(painterResource(R.drawable.play), null) },
+                                checked = enableYouTubeMusicDescriptions,
+                                onCheckedChange = onEnableYouTubeMusicDescriptionsChange
+                            )
+                            HorizontalDivider(
+                                modifier = Modifier.padding(start = 76.dp, end = 20.dp),
+                                thickness = 0.5.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                            )
+                            PreferenceEntry(
+                                title = { Text(stringResource(R.string.description_provider_priority)) },
+                                description = stringResource(R.string.description_provider_priority_desc),
+                                icon = { Icon(painterResource(R.drawable.list), null) },
+                                onClick = { showDescriptionReorderDialog = true }
+                            )
+                        }
+                    }
+                }
+            )
+        )
+
         // Proxy settings
         SettingsGeneralCategory(
             title = stringResource(R.string.proxy),
@@ -326,54 +469,70 @@ fun ContentSettings(
             items = listOf(
                 {SwitchPreference(
                     title = { Text(stringResource(R.string.enable_avid_lyrics)) },
+                    description = stringResource(R.string.enable_avid_lyrics_desc),
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = enableAvidLyrics,
                     onCheckedChange = onEnableAvidLyricsChange,
                 )},
                 {SwitchPreference(
                     title = { Text(stringResource(R.string.enable_lyrics_plus)) },
+                    description = stringResource(R.string.enable_lyrics_plus_desc),
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = enableLyricsPlus,
                     onCheckedChange = onEnableLyricsPlusChange,
                 )},
                 {SwitchPreference(
                     title = { Text(stringResource(R.string.enable_better_lyrics)) },
+                    description = stringResource(R.string.enable_better_lyrics_desc),
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = enableBetterLyrics,
                     onCheckedChange = onEnableBetterLyricsChange,
                 )},
                 {SwitchPreference(
                     title = { Text(stringResource(R.string.enable_simpmusic)) },
+                    description = stringResource(R.string.enable_simpmusic_desc),
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = enableSimpMusic,
                     onCheckedChange = onEnableSimpMusicChange,
                 )},
                 {SwitchPreference(
                     title = { Text(stringResource(R.string.enable_paxsenix)) },
+                    description = stringResource(R.string.enable_paxsenix_desc),
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = enablePaxsenix,
                     onCheckedChange = onEnablePaxsenixChange,
                 )},
                 {SwitchPreference(
+                    title = { Text(stringResource(R.string.enable_binilyrics)) },
+                    description = stringResource(R.string.enable_binilyrics_desc),
+                    icon = { Icon(painterResource(R.drawable.lyrics), null) },
+                    checked = enableBiniLyrics,
+                    onCheckedChange = onEnableBiniLyricsChange,
+                )},
+                {SwitchPreference(
                     title = { Text(stringResource(R.string.enable_lrclib)) },
+                    description = stringResource(R.string.enable_lrclib_desc),
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = enableLrclib,
                     onCheckedChange = onEnableLrclibChange,
                 )},
                 {SwitchPreference(
                     title = { Text(stringResource(R.string.enable_kugou)) },
+                    description = stringResource(R.string.enable_kugou_desc),
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = enableKugou,
                     onCheckedChange = onEnableKugouChange,
                 )},
                 {SwitchPreference(
                     title = { Text(stringResource(R.string.enable_netease)) },
+                    description = stringResource(R.string.enable_netease_desc),
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = enableNetEase,
                     onCheckedChange = onEnableNetEaseChange,
                 )},
                 {SwitchPreference(
                     title = { Text(stringResource(R.string.enable_genius)) },
+                    description = stringResource(R.string.enable_genius_desc),
                     icon = { Icon(painterResource(R.drawable.lyrics), null) },
                     checked = enableGenius,
                     onCheckedChange = onEnableGeniusChange,
@@ -433,6 +592,204 @@ fun ContentSettings(
     }
 }
 
+@Composable
+private fun getLyricsProviderDescription(providerName: String): String? {
+    return when (providerName) {
+        "AvidLyrics" -> stringResource(R.string.enable_avid_lyrics_desc)
+        "LyricsPlus" -> stringResource(R.string.enable_lyrics_plus_desc)
+        "BetterLyrics" -> stringResource(R.string.enable_better_lyrics_desc)
+        "SimpMusic" -> stringResource(R.string.enable_simpmusic_desc)
+        "Paxsenix" -> stringResource(R.string.enable_paxsenix_desc)
+        "BiniLyrics" -> stringResource(R.string.enable_binilyrics_desc)
+        "LrcLib" -> stringResource(R.string.enable_lrclib_desc)
+        "Kugou" -> stringResource(R.string.enable_kugou_desc)
+        "NetEase" -> stringResource(R.string.enable_netease_desc)
+        "Genius" -> stringResource(R.string.enable_genius_desc)
+        "YouTube Subtitle" -> stringResource(R.string.enable_yt_subtitle_desc)
+        "YouTube Music" -> stringResource(R.string.enable_yt_music_lyrics_desc)
+        else -> null
+    }
+}
+
+@Composable
+private fun getDescriptionProviderDescription(providerName: String): String? {
+    return when (providerName) {
+        "AvidDescriptions" -> stringResource(R.string.avid_descriptions_desc)
+        "Apple Music" -> stringResource(R.string.apple_music_desc)
+        "Wikipedia" -> stringResource(R.string.wikipedia_desc)
+        "YouTube Music" -> stringResource(R.string.ytm_desc)
+        else -> null
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ReorderDescriptionProvidersBottomSheet(
+    currentOrder: List<String>,
+    onDismiss: () -> Unit,
+    onSave: (List<String>) -> Unit
+) {
+    val list = remember { currentOrder.toMutableStateList() }
+    val lazyListState = rememberLazyListState()
+    val reorderableState = rememberReorderableLazyListState(lazyListState) { from, to ->
+        val item = list.removeAt(from.index)
+        list.add(to.index, item)
+    }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val coroutineScope = rememberCoroutineScope()
+
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                return Offset(0f, available.y)
+            }
+        }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .nestedScroll(nestedScrollConnection)
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .padding(bottom = 16.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
+                    Text(
+                        text = stringResource(R.string.provider_priority),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = stringResource(R.string.description_provider_priority_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(
+                        onClick = { 
+                            coroutineScope.launch {
+                                sheetState.hide()
+                                onDismiss()
+                            }
+                        }
+                    ) {
+                        Text(stringResource(android.R.string.cancel))
+                    }
+                    Button(
+                        onClick = { 
+                            coroutineScope.launch {
+                                sheetState.hide()
+                                onSave(list)
+                            }
+                        }
+                    ) {
+                        Text(stringResource(R.string.save))
+                    }
+                }
+            }
+
+            HorizontalDivider()
+
+            LazyColumn(
+                state = lazyListState,
+                contentPadding = PaddingValues(bottom = 80.dp, top = 8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 500.dp)
+            ) {
+                items(list, key = { it }) { item ->
+                    ReorderableItem(reorderableState, key = item) { isDragging ->
+                        val elevation by animateDpAsState(if (isDragging) 8.dp else 0.dp, label = "elevation")
+                        val index = list.indexOf(item)
+
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
+                            tonalElevation = elevation,
+                            shadowElevation = elevation,
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isDragging) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surfaceContainer
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(16.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .background(
+                                            if (index == 0) MaterialTheme.colorScheme.primary 
+                                            else MaterialTheme.colorScheme.surfaceVariant,
+                                            CircleShape
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "${index + 1}",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = if (index == 0) MaterialTheme.colorScheme.onPrimary 
+                                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+
+                                Spacer(Modifier.width(16.dp))
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = item,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = if (index == 0) FontWeight.Bold else FontWeight.SemiBold
+                                    )
+                                    val desc = getDescriptionProviderDescription(item)
+                                    if (!desc.isNullOrBlank()) {
+                                        Spacer(Modifier.height(2.dp))
+                                        Text(
+                                            text = desc,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+
+                                Icon(
+                                    painter = painterResource(R.drawable.drag_handle),
+                                    contentDescription = stringResource(R.string.drag_to_reorder),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier
+                                        .draggableHandle()
+                                        .padding(8.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReorderLyricsProvidersBottomSheet(
@@ -449,7 +806,6 @@ fun ReorderLyricsProvidersBottomSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val coroutineScope = rememberCoroutineScope()
 
-    // Consumes ALL vertical overscroll to prevent the sheet from dragging and snapping back
     val nestedScrollConnection = remember {
         object : NestedScrollConnection {
             override fun onPostScroll(
@@ -525,14 +881,13 @@ fun ReorderLyricsProvidersBottomSheet(
                 contentPadding = PaddingValues(bottom = 80.dp, top = 8.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 400.dp)
+                    .heightIn(max = 500.dp)
             ) {
                 items(list, key = { it }) { item ->
                     ReorderableItem(reorderableState, key = item) { isDragging ->
                         val elevation by animateDpAsState(if (isDragging) 8.dp else 0.dp, label = "elevation")
-                        
                         val index = list.indexOf(item)
-                        
+
                         Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -546,7 +901,6 @@ fun ReorderLyricsProvidersBottomSheet(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.padding(16.dp)
                             ) {
-                                // Priority Number Badge
                                 Box(
                                     modifier = Modifier
                                         .size(28.dp)
@@ -565,21 +919,31 @@ fun ReorderLyricsProvidersBottomSheet(
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
-                                
+
                                 Spacer(Modifier.width(16.dp))
-                                
-                                // Provider Name
-                                Text(
-                                    text = item,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = if (index == 0) FontWeight.Bold else FontWeight.Normal,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                
-                                // Drag Handle
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = item,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = if (index == 0) FontWeight.Bold else FontWeight.SemiBold
+                                    )
+                                    val desc = getLyricsProviderDescription(item)
+                                    if (!desc.isNullOrBlank()) {
+                                        Spacer(Modifier.height(2.dp))
+                                        Text(
+                                            text = desc,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+
                                 Icon(
                                     painter = painterResource(R.drawable.drag_handle),
-                                    contentDescription = "Drag",
+                                    contentDescription = stringResource(R.string.drag_to_reorder),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier
                                         .draggableHandle()

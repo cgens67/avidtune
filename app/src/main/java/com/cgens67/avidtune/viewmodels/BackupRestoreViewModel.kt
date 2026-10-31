@@ -27,6 +27,8 @@ import java.io.FileOutputStream
 import java.util.zip.ZipEntry
 import javax.inject.Inject
 import kotlin.system.exitProcess
+import androidx.datastore.preferences.core.edit
+import com.cgens67.avidtune.utils.dataStore
 
 @HiltViewModel
 class BackupRestoreViewModel @Inject constructor(
@@ -178,11 +180,10 @@ class BackupRestoreViewModel @Inject constructor(
 
     fun resetVisitorData(context: Context) {
         runCatching {
-            // Implementa aquí cómo borras VISITOR_DATA, por ejemplo, desde DataStore
-            val visitorDataFile = context.filesDir / "datastore" / SETTINGS_FILENAME
-            if (visitorDataFile.exists()) {
-                // Borra solo la parte de VISITOR_DATA si es posible, o reinicia el archivo
-                visitorDataFile.delete()
+            runBlocking {
+                context.dataStore.edit { settings ->
+                    settings.remove(com.cgens67.avidtune.constants.VisitorDataKey)
+                }
             }
 
             Toast.makeText(
@@ -210,4 +211,3 @@ class BackupRestoreViewModel @Inject constructor(
         const val SETTINGS_FILENAME = "settings.preferences_pb"
     }
 }
-
