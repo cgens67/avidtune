@@ -1132,7 +1132,6 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         super.onPlayerError(error)
         Log.e(TAG, "Player error: ${error.errorCodeName}, message: ${error.message}", error)
         
-        // Evict cached stream URL, corrupted cache block on disk, and VisitorData so retry/next track fetches clean data
         player.currentMediaItem?.mediaId?.let { id ->
             songUrlCache.remove(id)
             runCatching { playerCache.removeResource(id) }
@@ -1141,7 +1140,6 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             dataStore.edit { it.remove(com.cgens67.avidtune.constants.VisitorDataKey) }
         }
 
-        // Auto-retry transient EOF/truncated streams once after clearing the corrupted cache span
         val isEofError = error.cause is java.io.EOFException || error.cause?.cause is java.io.EOFException
         if (isEofError && consecutivePlaybackErr < 2 && isNetworkConnected.value) {
             consecutivePlaybackErr++
@@ -1179,9 +1177,6 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             ).setUserAgent(userAgent)
         )
 
-        // Chain downloadCache on top of playerCache.
-        // If present in downloadCache, it reads from disk without network.
-        // If not in downloadCache, it streams into and reads from playerCache.
         val playerCacheDataSourceFactory = CacheDataSource.Factory()
             .setCache(playerCache)
             .setUpstreamDataSourceFactory(upstreamFactory)
@@ -1207,12 +1202,10 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         return ResolvingDataSource.Factory(createCacheDataSource()) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")
 
-            // If URI is already a valid remote URL, no need to resolve again
             if (dataSpec.uri.scheme == "http" || dataSpec.uri.scheme == "https") {
                 return@Factory dataSpec
             }
 
-            // 1. If we have an unexpired resolved stream URL in memory, use it immediately
             songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
                 scope.launch(Dispatchers.IO) {
                     recoverSong(mediaId)
@@ -1220,7 +1213,6 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 return@Factory dataSpec.withUri(it.first.toUri())
             }
 
-            // 2. Only skip network resolution if the song is 100% fully downloaded offline
             val downloadContentLength = ContentMetadata.getContentLength(downloadCache.getContentMetadata(mediaId))
             val isFullyDownloaded = downloadContentLength > 0L && downloadCache.isCached(mediaId, 0L, downloadContentLength)
 
@@ -1294,7 +1286,6 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             } catch (e: Exception) {
                 Timber.tag(ytLogTag).e(e, "YouTube playback error, trying JossRed as fallback")
                 
-                // Invalidate stale VisitorData on 403 / IO_UNSPECIFIED errors
                 runBlocking {
                     dataStore.edit { it.remove(com.cgens67.avidtune.constants.VisitorDataKey) }
                 }
@@ -1406,15 +1397,13 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             val PauseRemoteListenHistoryKey = booleanPreferencesKey("pauseRemoteListenHistory")
             if (!dataStore.get(PauseRemoteListenHistoryKey, false)) {
                 CoroutineScope(Dispatchers.IO).launch {
-                    val rawUrl = database.format(mediaItem.mediaId).first()?.playbackUrl
-                    val playbackUrl = rawUrl?.takeIf { !it.contains("googlevideo.com") }
-                        ?: YTPlayerUtils.playerResponseForMetadata(mediaItem.mediaId, null)
-                            .getOrNull()?.playbackTracking?.videostatsPlaybackUrl?.baseUrl
-
-                    if (playbackUrl != null && !playbackUrl.contains("googlevideo.com")) {
-                        YouTube.registerPlayback(null, playbackUrl).onFailure {
-                            Timber.tag(TAG).w(it, "Failed to register playback tracking")
-                        }
+                    val cpn = (1..16).map { "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_".random() }.joinToString("")
+                    YouTube.registerPlayback(
+                        videoId = mediaItem.mediaId,
+                        clientPlaybackNonce = cpn,
+                        isHistoryEnabled = { true }
+                    ).onFailure {
+                        Timber.tag(TAG).w(it, "Failed to register playback tracking")
                     }
                 }
             }
