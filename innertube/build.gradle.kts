@@ -24,7 +24,6 @@ kotlin {
 
 dependencies {
     api(libs.innertubex)
-    implementation(libs.newpipe.extractor)
     
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.okhttp)
