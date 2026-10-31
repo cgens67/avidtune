@@ -69,15 +69,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_21
     }
 
-    kotlin {
-        jvmToolchain(21)
-    }
-
-    kotlinOptions {
-        freeCompilerArgs = freeCompilerArgs + "-Xcontext-receivers"
-        jvmTarget = "21"
-    }
-
     testOptions {
         unitTests.isIncludeAndroidResources = true
         unitTests.isReturnDefaultValues = true
@@ -90,6 +81,13 @@ android {
     dependenciesInfo {
         includeInApk = false
         includeInBundle = false
+    }
+}
+
+kotlin {
+    jvmToolchain(21)
+    compilerOptions {
+        freeCompilerArgs.add("-Xcontext-receivers")
     }
 }
 
