@@ -13,6 +13,17 @@ import timber.log.Timber
 object YTPlayerUtils {
     private const val logTag = "YTPlayerUtils"
 
+    private val httpClient = OkHttpClient.Builder()
+        .proxy(YouTube.proxy)
+        .proxyAuthenticator { _, response ->
+            YouTube.proxyAuth?.let { auth ->
+                response.request.newBuilder()
+                    .header("Proxy-Authorization", auth)
+                    .build()
+            } ?: response.request
+        }
+        .build()
+        
     data class PlaybackData(
         val audioConfig: PlayerResponse.PlayerConfig.AudioConfig?,
         val videoDetails: PlayerResponse.VideoDetails?,
@@ -28,16 +39,18 @@ object YTPlayerUtils {
         audioQuality: AudioQuality,
         connectivityManager: ConnectivityManager,
     ): Result<PlaybackData> = runCatching {
-        Timber.tag(logTag).d("Fetching player response for videoId: $videoId")
+        Timber.tag(logTag).d("Fetching player response for videoId: $videoId, playlistId: $playlistId")
         
         val isLoggedIn = YouTube.cookie != null
         val sessionId = if (isLoggedIn) YouTube.dataSyncId else YouTube.visitorData
         val poToken = PoTokenGenerator().getWebClientPoToken(videoId, sessionId ?: "")?.playerRequestPoToken
         
-        var playerResponse = YouTube.player(videoId, playlistId, YouTubeClient.WEB_REMIX, null, poToken).getOrNull()
+        // Use IOS client first as it returns direct, unencrypted stream URLs without needing signature ciphers
+        var playerResponse = YouTube.player(videoId, playlistId, YouTubeClient.IOS, null, poToken).getOrNull()
         
+        // Fallback to WEB_REMIX if IOS is blocked
         if (playerResponse?.playabilityStatus?.status != "OK") {
-            playerResponse = YouTube.player(videoId, playlistId, YouTubeClient.IOS).getOrNull()
+            playerResponse = YouTube.player(videoId, playlistId, YouTubeClient.WEB_REMIX, null, poToken).getOrNull()
         }
 
         if (playerResponse == null || playerResponse.playabilityStatus.status != "OK") {
@@ -75,10 +88,31 @@ object YTPlayerUtils {
         videoId: String,
         playlistId: String? = null
     ): Result<List<Pair<PlayerResponse.StreamingData.Format, String>>> = runCatching {
-        val playerResponse = YouTube.player(videoId, playlistId, YouTubeClient.WEB_REMIX).getOrThrow()
-        val audioFormats = playerResponse.streamingData?.adaptiveFormats?.filter { it.isAudio } ?: emptyList()
-        audioFormats.mapNotNull { format -> format.url?.let { url -> format to url } }
-            .ifEmpty { throw Exception("No valid audio streams found") }
+        val isLoggedIn = YouTube.cookie != null
+        val sessionId = if (isLoggedIn) YouTube.dataSyncId else YouTube.visitorData
+        val poToken = PoTokenGenerator().getWebClientPoToken(videoId, sessionId ?: "")?.playerRequestPoToken
+
+        var playerResponse = YouTube.player(videoId, playlistId, YouTubeClient.IOS, null, poToken).getOrNull()
+        if (playerResponse?.playabilityStatus?.status != "OK") {
+            playerResponse = YouTube.player(videoId, playlistId, YouTubeClient.WEB_REMIX, null, poToken).getOrNull()
+        }
+
+        if (playerResponse?.playabilityStatus?.status != "OK") {
+            throw Exception("Bad stream player response")
+        }
+
+        val audioFormats = playerResponse.streamingData?.adaptiveFormats
+            ?.filter { it.isAudio } ?: emptyList()
+
+        val validStreams = audioFormats.mapNotNull { format ->
+            format.url?.let { url -> format to url }
+        }
+
+        if (validStreams.isEmpty()) {
+            throw Exception("No valid audio streams found via InnerTube")
+        }
+
+        validStreams
     }
 
     private fun findCandidateFormats(
