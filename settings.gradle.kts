@@ -7,11 +7,11 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         maven { 
-            url = uri("https://www.jitpack.io") 
+            url = uri("https://jitpack.io") 
             content {
+                includeGroup("com.github.MetrolistGroup")
                 includeGroup("com.github.MetrolistGroup.innertubex")
                 includeGroup("com.github.MetrolistGroup.quackjs")
-                includeGroup("com.github.MetrolistGroup")
                 includeGroup("com.github.PhilJay")
                 includeGroup("com.github.yalantis")
             }
