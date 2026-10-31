@@ -68,7 +68,6 @@ import com.cgens67.innertube.pages.SearchResult
 import com.cgens67.innertube.pages.SearchSuggestionPage
 import com.cgens67.innertube.pages.SearchSummary
 import com.cgens67.innertube.pages.SearchSummaryPage
-import com.cgens67.innertube.pages.NewPipeExtractor
 import com.metrolist.innertubex.models.YouTubeClient.Companion.WEB
 import com.metrolist.innertubex.models.YouTubeClient.Companion.WEB_REMIX
 import io.ktor.client.call.body
@@ -2496,59 +2495,6 @@ object YouTube {
 
     val SUPPORTED_UPLOAD_TYPES = listOf("mp3", "m4a", "wma", "flac", "ogg")
     const val MAX_UPLOAD_SIZE = 314572800L
-
-    fun getNewPipeStreamUrls(videoId: String): List<Pair<Int, String>> =
-        NewPipeExtractor.newPipePlayer(videoId)
-
-    suspend fun newPipePlayer(
-        videoId: String,
-        tempRes: PlayerResponse,
-    ): PlayerResponse? {
-        if (tempRes.playabilityStatus.status != "OK") {
-            return null
-        }
-
-        val streamsList = getNewPipeStreamUrls(videoId)
-        if (streamsList.isEmpty()) return null
-
-        val decodedSigResponse =
-            tempRes.copy(
-                streamingData =
-                    tempRes.streamingData?.copy(
-                        formats =
-                            tempRes.streamingData.formats?.map { format ->
-                                format.copy(
-                                    url = streamsList.find { it.first == format.itag }?.second ?: format.url,
-                                )
-                            },
-                        adaptiveFormats =
-                            tempRes.streamingData.adaptiveFormats.map { adaptiveFormat ->
-                                adaptiveFormat.copy(
-                                    url = streamsList.find { it.first == adaptiveFormat.itag }?.second ?: adaptiveFormat.url,
-                                )
-                            },
-                    ),
-            )
-
-        val urlList =
-            (
-                decodedSigResponse.streamingData
-                    ?.adaptiveFormats
-                    ?.mapNotNull { it.url }
-                    ?.toMutableList() ?: mutableListOf()
-            ).apply {
-                decodedSigResponse.streamingData
-                    ?.formats
-                    ?.mapNotNull { it.url }
-                    ?.let { addAll(it) }
-            }
-
-        return if (urlList.isNotEmpty()) {
-            decodedSigResponse
-        } else {
-            null
-        }
-    }
 
     suspend fun resolveArtistIds(items: List<YTItem>): List<YTItem> {
         val missingNames = mutableSetOf<String>()
