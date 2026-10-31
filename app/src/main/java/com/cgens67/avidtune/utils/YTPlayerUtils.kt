@@ -33,6 +33,13 @@ object YTPlayerUtils {
         val streamExpiresInSeconds: Int,
     )
 
+    private val CLIENTS_TO_TRY = listOf(
+        YouTubeClient.WEB_REMIX,
+        YouTubeClient.IOS,
+        YouTubeClient.TVHTML5,
+        YouTubeClient.ANDROID
+    )
+
     suspend fun playerResponseForPlayback(
         videoId: String,
         playlistId: String? = null,
@@ -45,17 +52,24 @@ object YTPlayerUtils {
         val sessionId = if (isLoggedIn) YouTube.dataSyncId else YouTube.visitorData
         val poToken = PoTokenGenerator().getWebClientPoToken(videoId, sessionId ?: "")?.playerRequestPoToken
         
-        // Try IOS client first
-        var playerResponse = YouTube.player(videoId, playlistId, YouTubeClient.IOS, null, poToken).getOrNull()
-        
-        // Fallback to WEB_REMIX if needed
-        if (playerResponse?.playabilityStatus?.status != "OK") {
-            playerResponse = YouTube.player(videoId, playlistId, YouTubeClient.WEB_REMIX, null, poToken).getOrNull()
+        var playerResponse: PlayerResponse? = null
+        var successfulClient: YouTubeClient? = null
+
+        // Try multiple clients until one returns playable streaming data with valid URLs
+        for (client in CLIENTS_TO_TRY) {
+            val response = YouTube.player(videoId, playlistId, client, null, poToken).getOrNull()
+            if (response?.playabilityStatus?.status == "OK" && 
+                (!response.streamingData?.adaptiveFormats.isNullOrEmpty() || !response.streamingData?.formats.isNullOrEmpty())) {
+                playerResponse = response
+                successfulClient = client
+                Timber.tag(logTag).d("Successfully retrieved player response using client: ${client.clientName}")
+                break
+            }
         }
 
         if (playerResponse == null || playerResponse.playabilityStatus.status != "OK") {
             throw PlaybackException(
-                playerResponse?.playabilityStatus?.reason ?: "Unplayable stream",
+                playerResponse?.playabilityStatus?.reason ?: "All fallback clients failed to retrieve a playable stream",
                 null,
                 PlaybackException.ERROR_CODE_REMOTE_ERROR
             )
@@ -63,7 +77,7 @@ object YTPlayerUtils {
 
         val candidateFormats = findCandidateFormats(playerResponse, audioQuality, connectivityManager)
         val format = candidateFormats.firstOrNull { !it.url.isNullOrBlank() }
-            ?: throw Exception("Could not find suitable format")
+            ?: throw Exception("Could not find suitable format with a valid direct stream URL")
         
         PlaybackData(
             audioConfig = playerResponse.playerConfig?.audioConfig,
@@ -92,17 +106,21 @@ object YTPlayerUtils {
         val sessionId = if (isLoggedIn) YouTube.dataSyncId else YouTube.visitorData
         val poToken = PoTokenGenerator().getWebClientPoToken(videoId, sessionId ?: "")?.playerRequestPoToken
 
-        var playerResponse = YouTube.player(videoId, playlistId, YouTubeClient.IOS, null, poToken).getOrNull()
-        if (playerResponse?.playabilityStatus?.status != "OK") {
-            playerResponse = YouTube.player(videoId, playlistId, YouTubeClient.WEB_REMIX, null, poToken).getOrNull()
+        var playerResponse: PlayerResponse? = null
+        for (client in CLIENTS_TO_TRY) {
+            val response = YouTube.player(videoId, playlistId, client, null, poToken).getOrNull()
+            if (response?.playabilityStatus?.status == "OK") {
+                playerResponse = response
+                break
+            }
         }
 
         if (playerResponse?.playabilityStatus?.status != "OK") {
             throw Exception("Bad stream player response")
         }
 
-        val audioFormats = playerResponse.streamingData?.adaptiveFormats
-            ?.filter { it.isAudio } ?: emptyList()
+        val audioFormats = (playerResponse.streamingData?.adaptiveFormats.orEmpty() + playerResponse.streamingData?.formats.orEmpty())
+            .filter { it.isAudio }
 
         val validStreams = audioFormats.mapNotNull { format ->
             format.url?.let { url -> format to url }
@@ -120,10 +138,11 @@ object YTPlayerUtils {
         audioQuality: AudioQuality,
         connectivityManager: ConnectivityManager,
     ): List<PlayerResponse.StreamingData.Format> {
-        val formats = playerResponse.streamingData?.adaptiveFormats
-            ?.filter { it.isAudio }
-            ?: playerResponse.streamingData?.formats
-            ?: return emptyList()
+        // Combine both adaptiveFormats and standard formats to ensure we never miss a stream URL
+        val formats = (playerResponse.streamingData?.adaptiveFormats.orEmpty() + playerResponse.streamingData?.formats.orEmpty())
+            .filter { it.isAudio }
+
+        if (formats.isEmpty()) return emptyList()
 
         val isMetered = connectivityManager.isActiveNetworkMetered
 
