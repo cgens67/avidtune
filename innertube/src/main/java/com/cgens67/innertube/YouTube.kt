@@ -17,7 +17,6 @@ import com.cgens67.innertube.models.PlaylistItem
 import com.cgens67.innertube.models.PodcastItem
 import com.cgens67.innertube.models.Run
 import com.cgens67.innertube.models.Runs
-import kotlinx.serialization.json.Json
 import com.cgens67.innertube.models.SearchSuggestions
 import com.cgens67.innertube.models.SectionListRenderer
 import com.cgens67.innertube.models.SongItem
@@ -69,6 +68,7 @@ import com.cgens67.innertube.pages.SearchResult
 import com.cgens67.innertube.pages.SearchSuggestionPage
 import com.cgens67.innertube.pages.SearchSummary
 import com.cgens67.innertube.pages.SearchSummaryPage
+import com.cgens67.innertube.pages.NewPipeExtractor
 import com.metrolist.innertubex.models.YouTubeClient.Companion.WEB
 import com.metrolist.innertubex.models.YouTubeClient.Companion.WEB_REMIX
 import io.ktor.client.call.body
@@ -76,12 +76,17 @@ import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.serialization.json.Json
 import timber.log.Timber
 import java.io.FilterInputStream
 import java.io.InputStream
 import java.net.Proxy
 import kotlinx.coroutines.CancellationException
 
+/**
+ * Parse useful data with [InnerTube] sending requests.
+ * Modified from [ViMusic](https://github.com/vfsfitvnm/ViMusic)
+ */
 object YouTube {
     private val innerTube = InnerTube()
 
@@ -115,6 +120,7 @@ object YouTube {
         set(value) {
             innerTube.proxy = value
         }
+
     var proxyAuth: String?
         get() = innerTube.proxyAuth
         set(value) {
@@ -156,6 +162,7 @@ object YouTube {
             )
         }
 
+    // Background metadata resolution must never write to account search history.
     suspend fun searchSummary(
         query: String,
         recordSearchHistory: Boolean = false,
@@ -2436,7 +2443,7 @@ object YouTube {
         }
 
     suspend fun getMediaInfo(videoId: String): Result<MediaInfo> =
-        innerTube.getMediaInfo(videoId)
+        runCatching { innerTube.getMediaInfo(videoId) }
 
     @JvmInline
     value class SearchFilter(val value: String) {
@@ -2489,6 +2496,59 @@ object YouTube {
 
     val SUPPORTED_UPLOAD_TYPES = listOf("mp3", "m4a", "wma", "flac", "ogg")
     const val MAX_UPLOAD_SIZE = 314572800L
+
+    fun getNewPipeStreamUrls(videoId: String): List<Pair<Int, String>> =
+        NewPipeExtractor.newPipePlayer(videoId)
+
+    suspend fun newPipePlayer(
+        videoId: String,
+        tempRes: PlayerResponse,
+    ): PlayerResponse? {
+        if (tempRes.playabilityStatus.status != "OK") {
+            return null
+        }
+
+        val streamsList = getNewPipeStreamUrls(videoId)
+        if (streamsList.isEmpty()) return null
+
+        val decodedSigResponse =
+            tempRes.copy(
+                streamingData =
+                    tempRes.streamingData?.copy(
+                        formats =
+                            tempRes.streamingData.formats?.map { format ->
+                                format.copy(
+                                    url = streamsList.find { it.first == format.itag }?.second ?: format.url,
+                                )
+                            },
+                        adaptiveFormats =
+                            tempRes.streamingData.adaptiveFormats.map { adaptiveFormat ->
+                                adaptiveFormat.copy(
+                                    url = streamsList.find { it.first == adaptiveFormat.itag }?.second ?: adaptiveFormat.url,
+                                )
+                            },
+                    ),
+            )
+
+        val urlList =
+            (
+                decodedSigResponse.streamingData
+                    ?.adaptiveFormats
+                    ?.mapNotNull { it.url }
+                    ?.toMutableList() ?: mutableListOf()
+            ).apply {
+                decodedSigResponse.streamingData
+                    ?.formats
+                    ?.mapNotNull { it.url }
+                    ?.let { addAll(it) }
+            }
+
+        return if (urlList.isNotEmpty()) {
+            decodedSigResponse
+        } else {
+            null
+        }
+    }
 
     suspend fun resolveArtistIds(items: List<YTItem>): List<YTItem> {
         val missingNames = mutableSetOf<String>()
