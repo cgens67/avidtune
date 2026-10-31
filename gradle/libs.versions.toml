@@ -8,7 +8,7 @@ lifecycle = "2.9.4"
 material3 = "1.5.0-alpha13"
 media3 = "1.8.0"
 room = "2.6.1"
-hilt = "2.55"
+hilt = "2.60.1"
 ktor = "3.6.0"
 ksp = "2.3.12"
 kotlinxSerializationJson = "1.8.0"
@@ -76,7 +76,7 @@ room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 
 apache-lang3 = { group = "org.apache.commons", name = "commons-lang3", version = "3.17.0" }
 
-hilt = { group = "com.google.dagger", name = "hilt-android", version = "2.53.1" }
+hilt = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
 hilt-compiler = { group = "com.google.dagger", name = "hilt-android-compiler", version.ref = "hilt" }
 
 ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor" }
@@ -91,7 +91,7 @@ json = { module = "org.json:json", version.ref = "json" }
 
 brotli = { group = "org.brotli", name = "dec", version = "0.1.2" }
 
-desugaring = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugaring" }
+desugaring = { group = "com.android.tools", name = "desugar_jdk_libs", version = "2.1.4" }
 
 junit = { group = "junit", name = "junit", version = "4.13.2" }
 
