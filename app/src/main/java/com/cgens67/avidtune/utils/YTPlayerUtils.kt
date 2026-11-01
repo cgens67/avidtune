@@ -35,7 +35,7 @@ object YTPlayerUtils {
         val streamExpiresInSeconds: Int,
     )
 
-    // Fallback rotation chain: WEB_REMIX -> IOS -> ANDROID_VR -> TVHTML5
+    // Fallback rotation: WEB_REMIX -> IOS -> ANDROID_VR -> TVHTML5
     private val CLIENT_FALLBACK_CHAIN = listOf(
         YouTubeClient.WEB_REMIX,
         YouTubeClient.IOS,
@@ -90,7 +90,7 @@ object YTPlayerUtils {
             val candidateFormats = findCandidateFormats(playerRes, audioQuality, connectivityManager)
             for (candidate in candidateFormats) {
                 val candidateUrl = findUrlOrNull(candidate, videoId)
-                if (candidateUrl != null && validateStatus(candidateUrl)) {
+                if (!candidateUrl.isNullOrBlank()) {
                     chosenFormat = candidate
                     chosenStreamUrl = candidateUrl
                     break
@@ -175,9 +175,10 @@ object YTPlayerUtils {
         audioQuality: AudioQuality,
         connectivityManager: ConnectivityManager?,
     ): List<PlayerResponse.StreamingData.Format> {
-        val formats = playerResponse.streamingData?.adaptiveFormats
-            ?.filter { it.isAudio }
-            ?: return emptyList()
+        val formats = (playerResponse.streamingData?.adaptiveFormats.orEmpty() + 
+                       playerResponse.streamingData?.formats.orEmpty())
+            .filter { it.isAudio || it.audioSampleRate != null || (it.bitrate > 0 && it.width == null) }
+            .ifEmpty { return emptyList() }
 
         val isMetered = connectivityManager?.isActiveNetworkMetered ?: false
 
@@ -188,16 +189,6 @@ object YTPlayerUtils {
                 AudioQuality.LOW -> -1
             }
             (format.bitrate * qualityMultiplier) + (if (format.mimeType.startsWith("audio/webm")) 10240 else 0)
-        }
-    }
-
-    private fun validateStatus(url: String): Boolean {
-        return try {
-            val requestBuilder = Request.Builder().head().url(url)
-            val response = httpClient.newCall(requestBuilder.build()).execute()
-            response.isSuccessful
-        } catch (e: Exception) {
-            false
         }
     }
 

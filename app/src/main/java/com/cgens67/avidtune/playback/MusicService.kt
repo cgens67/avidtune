@@ -102,6 +102,7 @@ import com.cgens67.avidtune.lyrics.LyricsHelper
 import com.cgens67.avidtune.models.PersistPlayerState
 import com.cgens67.avidtune.models.PersistQueue
 import com.cgens67.avidtune.models.toMediaMetadata
+import com.cgens67.avidtune.playback.AlternativeStreamClient
 import com.cgens67.avidtune.playback.queues.EmptyQueue
 import com.cgens67.avidtune.playback.queues.Queue
 import com.cgens67.avidtune.playback.queues.YouTubeQueue
@@ -142,7 +143,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 import timber.log.Timber
 import java.io.ObjectInputStream
@@ -1289,28 +1289,21 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             } catch (e: Exception) {
                 Timber.tag(ytLogTag).e(e, "YouTube stream resolution failed, attempting alternative stream fallback...")
 
-                try {
-                    val alternativeUrl = runCatching {
-                        runBlocking(Dispatchers.IO) {
-                            withTimeoutOrNull(6000) {
-                                AlternativeStreamClient.getStreamingUrl(mediaId)
-                            }
-                        }
-                    }.getOrNull()
-
-                    if (alternativeUrl != null) {
-                        Timber.tag("AlternativeStream").i("Using fallback stream URL: $alternativeUrl")
-                        scope.launch(Dispatchers.IO) {
-                            recoverSong(mediaId)
-                        }
-                        return@Factory dataSpec.withUri(alternativeUrl.toUri())
-                    } else {
-                        throw e
+                val alternativeUrl = runCatching {
+                    runBlocking(Dispatchers.IO) {
+                        AlternativeStreamClient.getStreamingUrl(mediaId)
                     }
-                } catch (altEx: Exception) {
-                    Timber.tag("AlternativeStream").w("Alternative stream client failed: ${altEx.message}")
-                    throw e
+                }.getOrNull()
+
+                if (alternativeUrl != null) {
+                    Timber.tag("AlternativeStream").i("Using fallback stream URL: $alternativeUrl")
+                    scope.launch(Dispatchers.IO) {
+                        recoverSong(mediaId)
+                    }
+                    return@Factory dataSpec.withUri(alternativeUrl.toUri())
                 }
+
+                throw e
             }
         }
     }
