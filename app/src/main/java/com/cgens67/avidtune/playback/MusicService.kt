@@ -81,6 +81,7 @@ import com.cgens67.avidtune.constants.ShowLyricsKey
 import com.cgens67.avidtune.constants.SimilarContent
 import com.cgens67.avidtune.constants.SkipSilenceKey
 import com.cgens67.avidtune.constants.SponsorBlockEnabledKey
+import com.cgens67.avidtune.constants.StopMusicOnTaskClearKey
 import com.cgens67.avidtune.db.MusicDatabase
 import com.cgens67.avidtune.db.entities.Event
 import com.cgens67.avidtune.db.entities.FormatEntity
@@ -746,8 +747,16 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             if (initialStatus.items.isEmpty()) return@launch
 
             if (queue.preloadItem != null) {
-                player.addMediaItems(0, initialStatus.items.subList(0, initialStatus.mediaItemIndex))
-                player.addMediaItems(initialStatus.items.subList(initialStatus.mediaItemIndex + 1, initialStatus.items.size))
+                val preloadedId = queue.preloadItem!!.id
+                val foundIndex = initialStatus.items.indexOfFirst { it.mediaId == preloadedId }
+                val targetIndex = if (foundIndex != -1) foundIndex else initialStatus.mediaItemIndex
+
+                if (targetIndex in initialStatus.items.indices) {
+                    player.addMediaItems(0, initialStatus.items.subList(0, targetIndex))
+                    player.addMediaItems(initialStatus.items.subList(targetIndex + 1, initialStatus.items.size))
+                } else {
+                    player.addMediaItems(initialStatus.items)
+                }
             } else {
                 player.setMediaItems(
                     initialStatus.items,
@@ -770,7 +779,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         }
 
         scope.launch(SilentHandler) {
-            val radioQueue = YouTubeQueue(endpoint = WatchEndpoint(videoId = currentMediaMetadata.id))
+            val radioQueue = YouTubeQueue.radio(currentMediaMetadata)
             val initialStatus = radioQueue.getInitialStatus()
             if (initialStatus.title != null) {
                 queueTitle = initialStatus.title
@@ -1132,16 +1141,11 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         super.onPlayerError(error)
         Log.e(TAG, "Player error: ${error.errorCodeName}, message: ${error.message}", error)
         
-        // Evict cached stream URL, corrupted cache block on disk, and VisitorData so retry/next track fetches clean data
         player.currentMediaItem?.mediaId?.let { id ->
             songUrlCache.remove(id)
             runCatching { playerCache.removeResource(id) }
         }
-        runBlocking {
-            dataStore.edit { it.remove(com.cgens67.avidtune.constants.VisitorDataKey) }
-        }
 
-        // Auto-retry transient EOF/truncated streams once after clearing the corrupted cache span
         val isEofError = error.cause is java.io.EOFException || error.cause?.cause is java.io.EOFException
         if (isEofError && consecutivePlaybackErr < 2 && isNetworkConnected.value) {
             consecutivePlaybackErr++
@@ -1179,9 +1183,6 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             ).setUserAgent(userAgent)
         )
 
-        // Chain downloadCache on top of playerCache.
-        // If present in downloadCache, it reads from disk without network.
-        // If not in downloadCache, it streams into and reads from playerCache.
         val playerCacheDataSourceFactory = CacheDataSource.Factory()
             .setCache(playerCache)
             .setUpstreamDataSourceFactory(upstreamFactory)
@@ -1207,12 +1208,10 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         return ResolvingDataSource.Factory(createCacheDataSource()) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")
 
-            // If URI is already a valid remote URL, no need to resolve again
             if (dataSpec.uri.scheme == "http" || dataSpec.uri.scheme == "https") {
                 return@Factory dataSpec
             }
 
-            // 1. If we have an unexpired resolved stream URL in memory, use it immediately
             songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
                 scope.launch(Dispatchers.IO) {
                     recoverSong(mediaId)
@@ -1220,7 +1219,6 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 return@Factory dataSpec.withUri(it.first.toUri())
             }
 
-            // 2. Only skip network resolution if the song is 100% fully downloaded offline
             val downloadContentLength = ContentMetadata.getContentLength(downloadCache.getContentMetadata(mediaId))
             val isFullyDownloaded = downloadContentLength > 0L && downloadCache.isCached(mediaId, 0L, downloadContentLength)
 
@@ -1292,12 +1290,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 songUrlCache[mediaId] = streamUrl to System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L)
                 return@Factory dataSpec.withUri(streamUrl.toUri())
             } catch (e: Exception) {
-                Timber.tag(ytLogTag).e(e, "YouTube playback error, trying JossRed as fallback")
-                
-                // Invalidate stale VisitorData on 403 / IO_UNSPECIFIED errors
-                runBlocking {
-                    dataStore.edit { it.remove(com.cgens67.avidtune.constants.VisitorDataKey) }
-                }
+                Timber.tag(ytLogTag).e(e, "YouTube playback error, trying alternative sources")
 
                 val useAlternativeSource = runBlocking {
                     dataStore.data.map { preferences ->
@@ -1333,17 +1326,17 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                         try {
                             val response = client.newCall(request).execute()
                             if (response.isSuccessful) {
-                                Timber.tag(JRlogTag).i("Using JossRed URL as fallback: $alternativeUrl")
+                                Timber.tag(JRlogTag).i("Using alternative stream URL: $alternativeUrl")
                                 scope.launch(Dispatchers.IO) {
                                     recoverSong(mediaId)
                                 }
                                 return@Factory dataSpec.withUri(alternativeUrl.toUri())
                             } else {
-                                Timber.tag(JRlogTag).w("JossRed URL unreachable (HTTP ${response.code}), throwing original error")
+                                Timber.tag(JRlogTag).w("Alternative URL unreachable (HTTP ${response.code}), throwing original error")
                                 throw e
                             }
                         } catch (jrException: Exception) {
-                            Timber.tag(JRlogTag).e(jrException, "Error verifying JossRed URL, throwing original error")
+                            Timber.tag(JRlogTag).e(jrException, "Error verifying alternative stream URL, throwing original error")
                             throw e
                         }
                     } else {
@@ -1352,13 +1345,13 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 } catch (jrException: Exception) {
                     when (jrException) {
                         is JossRedClient.JossRedException -> {
-                            Timber.tag(JRlogTag).w("JossRed error: ${jrException.message}, throwing original error")
+                            Timber.tag(JRlogTag).w("Alternative stream error: ${jrException.message}, throwing original error")
                         }
                         is TimeoutCancellationException -> {
-                            Timber.tag(JRlogTag).w("JossRed timeout, throwing original error")
+                            Timber.tag(JRlogTag).w("Alternative stream timeout, throwing original error")
                         }
                         else -> {
-                            Timber.tag(JRlogTag).e(jrException, "JossRed error, throwing original error")
+                            Timber.tag(JRlogTag).e(jrException, "Alternative stream error, throwing original error")
                         }
                     }
                     throw e
@@ -1406,15 +1399,13 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             val PauseRemoteListenHistoryKey = booleanPreferencesKey("pauseRemoteListenHistory")
             if (!dataStore.get(PauseRemoteListenHistoryKey, false)) {
                 CoroutineScope(Dispatchers.IO).launch {
-                    val rawUrl = database.format(mediaItem.mediaId).first()?.playbackUrl
-                    val playbackUrl = rawUrl?.takeIf { !it.contains("googlevideo.com") }
-                        ?: YTPlayerUtils.playerResponseForMetadata(mediaItem.mediaId, null)
-                            .getOrNull()?.playbackTracking?.videostatsPlaybackUrl?.baseUrl
-
-                    if (playbackUrl != null && !playbackUrl.contains("googlevideo.com")) {
-                        YouTube.registerPlayback(null, playbackUrl).onFailure {
-                            Timber.tag(TAG).w(it, "Failed to register playback tracking")
-                        }
+                    val cpn = (1..16).map { "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_".random() }.joinToString("")
+                    YouTube.registerPlayback(
+                        videoId = mediaItem.mediaId,
+                        clientPlaybackNonce = cpn,
+                        isHistoryEnabled = { true }
+                    ).onFailure {
+                        Timber.tag(TAG).w(it, "Failed to register playback tracking")
                     }
                 }
             }

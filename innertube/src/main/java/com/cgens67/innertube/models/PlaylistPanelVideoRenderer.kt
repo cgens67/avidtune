@@ -4,16 +4,16 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class PlaylistPanelVideoRenderer(
-    val title: Runs?,
-    val lengthText: Runs?,
-    val longBylineText: Runs?,
-    val shortBylineText: Runs?,
-    val badges: List<Badges>?,
-    val videoId: String?,
-    val playlistSetVideoId: String?,
-    val selected: Boolean,
-    val thumbnail: Thumbnails,
-    val unplayableText: Runs?,
-    val menu: Menu?,
-    val navigationEndpoint: NavigationEndpoint,
+    val title: Runs? = null,
+    val lengthText: Runs? = null,
+    val longBylineText: Runs? = null,
+    val shortBylineText: Runs? = null,
+    val badges: List<Badges>? = null,
+    val videoId: String? = null,
+    val playlistSetVideoId: String? = null,
+    val selected: Boolean = false,
+    val thumbnail: Thumbnails? = null,
+    val unplayableText: Runs? = null,
+    val menu: Menu? = null,
+    val navigationEndpoint: NavigationEndpoint? = null,
 )

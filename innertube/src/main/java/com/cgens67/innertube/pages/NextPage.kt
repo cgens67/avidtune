@@ -6,7 +6,6 @@ import com.cgens67.innertube.models.BrowseEndpoint
 import com.cgens67.innertube.models.PlaylistPanelVideoRenderer
 import com.cgens67.innertube.models.SongItem
 import com.cgens67.innertube.models.WatchEndpoint
-import com.cgens67.innertube.models.oddElements
 import com.cgens67.innertube.models.splitBySeparator
 import com.cgens67.innertube.utils.parseTime
 
@@ -17,62 +16,68 @@ data class NextResult(
     val lyricsEndpoint: BrowseEndpoint? = null,
     val relatedEndpoint: BrowseEndpoint? = null,
     val continuation: String?,
-    val endpoint: WatchEndpoint, // current or continuation next endpoint
+    val endpoint: WatchEndpoint,
 )
 
 object NextPage {
     fun fromPlaylistPanelVideoRenderer(renderer: PlaylistPanelVideoRenderer): SongItem? {
-        val longByLineRuns = renderer.longBylineText?.runs?.splitBySeparator() ?: return null
+        val videoId = renderer.videoId
+            ?: renderer.navigationEndpoint?.watchEndpoint?.videoId
+            ?: return null
+
+        val title = renderer.title
+            ?.runs
+            ?.firstOrNull()
+            ?.text ?: return null
 
         val libraryTokens = PageHelper.extractLibraryTokensFromMenuItems(renderer.menu?.menuRenderer?.items)
-        val views = PageHelper.extractViews(longByLineRuns.flatten())
+
+        val longByLineRuns = renderer.longBylineText?.runs?.splitBySeparator()
+        val shortByLineRuns = renderer.shortBylineText?.runs?.splitBySeparator()
+
+        val artists = PageHelper.extractArtists(renderer.longBylineText?.runs)
+            .ifEmpty { PageHelper.extractArtists(renderer.shortBylineText?.runs) }
+            .ifEmpty {
+                val fallbackName = renderer.shortBylineText?.runs?.firstOrNull()?.text
+                    ?: renderer.longBylineText?.runs?.firstOrNull()?.text
+                if (!fallbackName.isNullOrBlank()) listOf(Artist(fallbackName.trim(), null))
+                else emptyList()
+            }
+
+        val album = (longByLineRuns ?: shortByLineRuns)?.let { groups ->
+            groups.getOrNull(1)?.firstOrNull()?.takeIf {
+                it.navigationEndpoint?.browseEndpoint != null
+            }?.let {
+                val browseId = it.navigationEndpoint?.browseEndpoint?.browseId
+                if (browseId != null) Album(name = it.text, id = browseId) else null
+            }
+        }
+
+        val duration = renderer.lengthText
+            ?.runs
+            ?.firstOrNull()
+            ?.text
+            ?.parseTime()
+
+        val thumbnail = renderer.thumbnail?.thumbnails
+            ?.lastOrNull()
+            ?.url ?: "https://i.ytimg.com/vi/$videoId/hqdefault.jpg"
+
+        val explicit = renderer.badges?.any {
+            it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
+        } == true
 
         return SongItem(
-            id = renderer.videoId
-                ?: renderer.navigationEndpoint.watchEndpoint?.videoId
-                ?: return null,
-            title =
-                renderer.title
-                    ?.runs
-                    ?.firstOrNull()
-                    ?.text ?: return null,
-            artists =
-                longByLineRuns.firstOrNull()?.oddElements()?.map {
-                    Artist(
-                        name = it.text,
-                        id = it.navigationEndpoint?.browseEndpoint?.browseId,
-                    )
-                } ?: return null,
-            album =
-                longByLineRuns
-                    .getOrNull(1)
-                    ?.firstOrNull()
-                    ?.takeIf {
-                        it.navigationEndpoint?.browseEndpoint != null
-                    }?.let {
-                        Album(
-                            name = it.text,
-                            id = it.navigationEndpoint?.browseEndpoint?.browseId!!,
-                        )
-                    },
-            duration =
-                renderer.lengthText
-                    ?.runs
-                    ?.firstOrNull()
-                    ?.text
-                    ?.parseTime() ?: return null,
-            musicVideoType = renderer.navigationEndpoint.musicVideoType,
-            thumbnail =
-                renderer.thumbnail.thumbnails
-                    .lastOrNull()
-                    ?.url ?: return null,
-            explicit =
-                renderer.badges?.find {
-                    it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
-                } != null,
+            id = videoId,
+            title = title,
+            artists = artists,
+            album = album,
+            duration = duration,
+            musicVideoType = renderer.navigationEndpoint?.musicVideoType,
+            thumbnail = thumbnail,
+            explicit = explicit,
             libraryAddToken = libraryTokens.addToken,
-            libraryRemoveToken = libraryTokens.removeToken,
-            views = views
+            libraryRemoveToken = libraryTokens.removeToken
         )
     }
 }

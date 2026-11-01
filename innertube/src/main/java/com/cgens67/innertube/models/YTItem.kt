@@ -144,6 +144,9 @@ data class EpisodeItem(
     val markAsUnplayedToken: String? = null,
     val views: String? = null
 ) : YTItem() {
+    val artists: List<Artist>
+        get() = listOfNotNull(author)
+
     override val shareLink: String
         get() = "https://music.youtube.com/watch?v=$id"
 

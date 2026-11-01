@@ -1,10 +1,7 @@
 package com.cgens67.innertube.pages
 
 import com.cgens67.innertube.models.AlbumItem
-import com.cgens67.innertube.models.Artist
 import com.cgens67.innertube.models.MusicTwoRowItemRenderer
-import com.cgens67.innertube.models.oddElements
-import com.cgens67.innertube.models.splitBySeparator
 
 object NewReleaseAlbumPage {
     fun fromMusicTwoRowItemRenderer(renderer: MusicTwoRowItemRenderer): AlbumItem? {
@@ -23,14 +20,10 @@ object NewReleaseAlbumPage {
                     ?.firstOrNull()
                     ?.text ?: return null,
             artists =
-                renderer.subtitle?.runs?.splitBySeparator()?.getOrNull(1)?.oddElements()?.map {
-                    Artist(
-                        name = it.text,
-                        id = it.navigationEndpoint?.browseEndpoint?.browseId,
-                    )
-                } ?: return null,
+                PageHelper.extractArtists(renderer.subtitle?.runs),
             year =
-                renderer.subtitle?.runs
+                renderer.subtitle
+                    ?.runs
                     ?.lastOrNull()
                     ?.text
                     ?.toIntOrNull(),

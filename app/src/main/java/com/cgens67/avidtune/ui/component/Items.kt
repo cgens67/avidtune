@@ -97,12 +97,6 @@ import androidx.media3.exoplayer.offline.Download.STATE_QUEUED
 import coil.compose.AsyncImage
 import coil.imageLoader
 import coil.request.ImageRequest
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import com.cgens67.avidtune.LocalDatabase
 import com.cgens67.avidtune.LocalDownloadUtil
 import com.cgens67.avidtune.LocalPlayerConnection
@@ -110,14 +104,23 @@ import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.GridThumbnailHeight
 import com.cgens67.avidtune.constants.ListItemHeight
 import com.cgens67.avidtune.constants.ListThumbnailSize
+import com.cgens67.avidtune.constants.SmallGridThumbnailHeight
 import com.cgens67.avidtune.constants.SwipeToSongKey
 import com.cgens67.avidtune.constants.ThumbnailCornerRadius
-import com.cgens67.avidtune.constants.SmallGridThumbnailHeight
 import com.cgens67.avidtune.db.entities.Album
 import com.cgens67.avidtune.db.entities.Artist
 import com.cgens67.avidtune.db.entities.Playlist
 import com.cgens67.avidtune.db.entities.Song
 import com.cgens67.avidtune.extensions.toMediaItem
+import com.cgens67.avidtune.models.MediaMetadata
+import com.cgens67.avidtune.playback.queues.LocalAlbumRadio
+import com.cgens67.avidtune.ui.theme.extractThemeColor
+import com.cgens67.avidtune.ui.utils.resize
+import com.cgens67.avidtune.utils.getPlaylistImageUri
+import com.cgens67.avidtune.utils.joinByBullet
+import com.cgens67.avidtune.utils.makeTimeString
+import com.cgens67.avidtune.utils.rememberPreference
+import com.cgens67.avidtune.utils.reportException
 import com.cgens67.innertube.YouTube
 import com.cgens67.innertube.models.AlbumItem
 import com.cgens67.innertube.models.ArtistItem
@@ -126,15 +129,12 @@ import com.cgens67.innertube.models.PlaylistItem
 import com.cgens67.innertube.models.PodcastItem
 import com.cgens67.innertube.models.SongItem
 import com.cgens67.innertube.models.YTItem
-import com.cgens67.avidtune.models.MediaMetadata
-import com.cgens67.avidtune.playback.queues.LocalAlbumRadio
-import com.cgens67.avidtune.ui.theme.extractThemeColor
-import com.cgens67.avidtune.ui.utils.resize
-import com.cgens67.avidtune.utils.joinByBullet
-import com.cgens67.avidtune.utils.makeTimeString
-import com.cgens67.avidtune.utils.rememberPreference
-import com.cgens67.avidtune.utils.getPlaylistImageUri
-import com.cgens67.avidtune.utils.reportException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
 const val ActiveBoxAlpha = 0.6f
@@ -278,7 +278,7 @@ fun GridItem(
     fillMaxWidth: Boolean = false,
 ) {
     val itemCornerRadius = rememberItemCornerRadius()
-    
+
     Column(
         modifier =
             if (fillMaxWidth) {
@@ -855,7 +855,7 @@ fun PlaylistGridItem(
         thumbnailContent = {
             val width = maxWidth
             val thumbnailUri = getPlaylistImageUri(context, playlist.playlist.id)
-            
+
             if (thumbnailUri != null) {
                 AsyncImage(
                     model = thumbnailUri,
@@ -1417,6 +1417,7 @@ fun YouTubeListItem(
                         val viewsStr = stringResource(R.string.views)
                         val playsStr = stringResource(R.string.plays)
                         val views = rawViews
+                            ?.replace('\u00a0', ' ')
                             ?.replace(" views", " $viewsStr", ignoreCase = true)
                             ?.replace(" plays", " $playsStr", ignoreCase = true)
 
@@ -1444,6 +1445,7 @@ fun YouTubeListItem(
                         val viewsStr = stringResource(R.string.views)
                         val playsStr = stringResource(R.string.plays)
                         val views = rawViews
+                            ?.replace('\u00a0', ' ')
                             ?.replace(" views", " $viewsStr", ignoreCase = true)
                             ?.replace(" plays", " $playsStr", ignoreCase = true)
                         
@@ -1540,6 +1542,7 @@ fun YouTubeGridItem(
                         val viewsStr = stringResource(R.string.views)
                         val playsStr = stringResource(R.string.plays)
                         val views = rawViews
+                            ?.replace('\u00a0', ' ')
                             ?.replace(" views", " $viewsStr", ignoreCase = true)
                             ?.replace(" plays", " $playsStr", ignoreCase = true)
 
@@ -1557,6 +1560,7 @@ fun YouTubeGridItem(
                         val viewsStr = stringResource(R.string.views)
                         val playsStr = stringResource(R.string.plays)
                         val views = rawViews
+                            ?.replace('\u00a0', ' ')
                             ?.replace(" views", " $viewsStr", ignoreCase = true)
                             ?.replace(" plays", " $playsStr", ignoreCase = true)
                         joinByBullet(item.author?.name, item.publishDateText, views)
@@ -2621,6 +2625,7 @@ fun YouTubeSmallGridItem(
             val viewsStr = stringResource(R.string.views)
             val playsStr = stringResource(R.string.plays)
             val views = rawViews
+                ?.replace('\u00a0', ' ')
                 ?.replace(" views", " $viewsStr", ignoreCase = true)
                 ?.replace(" plays", " $playsStr", ignoreCase = true)
             
@@ -2637,6 +2642,7 @@ fun YouTubeSmallGridItem(
             val viewsStr = stringResource(R.string.views)
             val playsStr = stringResource(R.string.plays)
             val views = rawViews
+                ?.replace('\u00a0', ' ')
                 ?.replace(" views", " $viewsStr", ignoreCase = true)
                 ?.replace(" plays", " $playsStr", ignoreCase = true)
             joinByBullet(item.author?.name, item.publishDateText, views)
