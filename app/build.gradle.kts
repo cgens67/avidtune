@@ -154,7 +154,6 @@ dependencies {
     implementation(projects.kugou)
     implementation(projects.lrclib)
     implementation(projects.kizzy)
-    implementation(project(":jossredconnect"))
     implementation(project(":betterlyrics"))
     implementation(project(":paxsenix"))
     implementation(project(":simpmusic"))

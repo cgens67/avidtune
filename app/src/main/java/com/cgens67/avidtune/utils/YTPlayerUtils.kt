@@ -7,8 +7,6 @@ import com.cgens67.innertube.pages.NewPipeUtils
 import com.cgens67.avidtune.constants.AudioQuality
 import com.cgens67.innertube.YouTube
 import com.cgens67.innertube.models.YouTubeClient
-import com.cgens67.innertube.strategy.ContentAwareFallbackStrategy
-import com.cgens67.innertube.strategy.ContentHints
 import com.cgens67.avidtune.utils.potoken.PoTokenGenerator
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -37,7 +35,7 @@ object YTPlayerUtils {
         val streamExpiresInSeconds: Int,
     )
 
-    // Primary order of clients to try when bot checks or stream errors occur
+    // Fallback rotation chain: WEB_REMIX -> IOS -> ANDROID_VR -> TVHTML5
     private val CLIENT_FALLBACK_CHAIN = listOf(
         YouTubeClient.WEB_REMIX,
         YouTubeClient.IOS,
@@ -75,21 +73,20 @@ object YTPlayerUtils {
                 null
             }
 
-            Timber.tag(logTag).d("Attempting player fetch with client: ${client.name} for videoId: $videoId")
+            Timber.tag(logTag).d("Attempting player fetch with client: $client for videoId: $videoId")
             val playerRes = YouTube.player(videoId, playlistId, client, signatureTimestamp, clientPoToken).getOrNull()
 
             if (playerRes == null) {
-                Timber.tag(logTag).w("Client ${client.name} returned null response, trying next client...")
+                Timber.tag(logTag).w("Client $client returned null response, trying next client...")
                 continue
             }
 
             val status = playerRes.playabilityStatus.status
             if (status != "OK") {
-                Timber.tag(logTag).w("Client ${client.name} unplayable: $status (${playerRes.playabilityStatus.reason}), trying next client...")
+                Timber.tag(logTag).w("Client $client unplayable: $status (${playerRes.playabilityStatus.reason}), trying next client...")
                 continue
             }
 
-            // Attempt to resolve streams
             val candidateFormats = findCandidateFormats(playerRes, audioQuality, connectivityManager)
             for (candidate in candidateFormats) {
                 val candidateUrl = findUrlOrNull(candidate, videoId)
@@ -103,7 +100,7 @@ object YTPlayerUtils {
             if (chosenFormat != null && chosenStreamUrl != null) {
                 successfulResponse = playerRes
                 chosenExpiresInSeconds = playerRes.streamingData?.expiresInSeconds ?: 21600
-                Timber.tag(logTag).i("Successfully obtained valid stream using client: ${client.name}")
+                Timber.tag(logTag).i("Successfully obtained valid stream using client: $client")
                 break
             }
         }

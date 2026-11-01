@@ -119,7 +119,6 @@ import com.cgens67.avidtune.utils.reportException
 import com.cgens67.innertube.YouTube
 import com.cgens67.innertube.models.SongItem
 import com.cgens67.innertube.models.WatchEndpoint
-import com.cgens67.jossredconnect.JossRedClient
 import com.google.common.util.concurrent.MoreExecutors
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -127,7 +126,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -144,9 +142,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
-import okhttp3.Request
 import timber.log.Timber
 import java.io.ObjectInputStream
 import java.io.ObjectOutputStream
@@ -1275,7 +1272,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                             codecs = format.mimeType.split("codecs=")[1].removeSurrounding("\""),
                             bitrate = format.bitrate,
                             sampleRate = format.audioSampleRate,
-                            contentLength = format.contentLength!!,
+                            contentLength = format.contentLength ?: 0L,
                             loudnessDb = playbackData.audioConfig?.loudnessDb,
                             playbackUrl = playbackData.streamUrl
                         )
@@ -1290,70 +1287,26 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 songUrlCache[mediaId] = streamUrl to System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L)
                 return@Factory dataSpec.withUri(streamUrl.toUri())
             } catch (e: Exception) {
-                Timber.tag(ytLogTag).e(e, "YouTube playback error, trying alternative sources")
+                Timber.tag(ytLogTag).e(e, "YouTube stream resolution failed, attempting alternative stream fallback...")
 
-                val useAlternativeSource = runBlocking {
-                    dataStore.data.map { preferences ->
-                        val JossRedMultimedia = booleanPreferencesKey("JossRedMultimedia")
-                        preferences[JossRedMultimedia] ?: false
-                    }.first()
-                }
-                
-                if (!useAlternativeSource) {
-                    throw e
-                }
-                
-                val JRlogTag = "JossRed"
                 try {
-                    val alternativeUrl = runCatching {
-                        runBlocking(Dispatchers.IO) {
-                            withTimeout(5000) {
-                                JossRedClient.getStreamingUrl(mediaId)
-                            }
+                    val alternativeUrl = withContext(Dispatchers.IO) {
+                        withTimeoutOrNull(6000) {
+                            AlternativeStreamClient.getStreamingUrl(mediaId)
                         }
-                    }.getOrNull()
-                    
+                    }
+
                     if (alternativeUrl != null) {
-                        val client = OkHttpClient.Builder()
-                            .connectTimeout(2, TimeUnit.SECONDS)
-                            .readTimeout(2, TimeUnit.SECONDS)
-                            .build()
-                        val request = Request.Builder()
-                            .url(alternativeUrl)
-                            .head()
-                            .build()
-                            
-                        try {
-                            val response = client.newCall(request).execute()
-                            if (response.isSuccessful) {
-                                Timber.tag(JRlogTag).i("Using alternative stream URL: $alternativeUrl")
-                                scope.launch(Dispatchers.IO) {
-                                    recoverSong(mediaId)
-                                }
-                                return@Factory dataSpec.withUri(alternativeUrl.toUri())
-                            } else {
-                                Timber.tag(JRlogTag).w("Alternative URL unreachable (HTTP ${response.code}), throwing original error")
-                                throw e
-                            }
-                        } catch (jrException: Exception) {
-                            Timber.tag(JRlogTag).e(jrException, "Error verifying alternative stream URL, throwing original error")
-                            throw e
+                        Timber.tag("AlternativeStream").i("Using fallback stream URL: $alternativeUrl")
+                        scope.launch(Dispatchers.IO) {
+                            recoverSong(mediaId)
                         }
+                        return@Factory dataSpec.withUri(alternativeUrl.toUri())
                     } else {
                         throw e
                     }
-                } catch (jrException: Exception) {
-                    when (jrException) {
-                        is JossRedClient.JossRedException -> {
-                            Timber.tag(JRlogTag).w("Alternative stream error: ${jrException.message}, throwing original error")
-                        }
-                        is TimeoutCancellationException -> {
-                            Timber.tag(JRlogTag).w("Alternative stream timeout, throwing original error")
-                        }
-                        else -> {
-                            Timber.tag(JRlogTag).e(jrException, "Alternative stream error, throwing original error")
-                        }
-                    }
+                } catch (altEx: Exception) {
+                    Timber.tag("AlternativeStream").w("Alternative stream client failed: ${altEx.message}")
                     throw e
                 }
             }
