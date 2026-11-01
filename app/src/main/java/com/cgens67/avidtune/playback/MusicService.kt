@@ -1290,11 +1290,13 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 Timber.tag(ytLogTag).e(e, "YouTube stream resolution failed, attempting alternative stream fallback...")
 
                 try {
-                    val alternativeUrl = withContext(Dispatchers.IO) {
-                        withTimeoutOrNull(6000) {
-                            AlternativeStreamClient.getStreamingUrl(mediaId)
+                    val alternativeUrl = runCatching {
+                        runBlocking(Dispatchers.IO) {
+                            withTimeoutOrNull(6000) {
+                                AlternativeStreamClient.getStreamingUrl(mediaId)
+                            }
                         }
-                    }
+                    }.getOrNull()
 
                     if (alternativeUrl != null) {
                         Timber.tag("AlternativeStream").i("Using fallback stream URL: $alternativeUrl")
