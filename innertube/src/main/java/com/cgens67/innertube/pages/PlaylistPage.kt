@@ -51,7 +51,12 @@ data class PlaylistPage(
                 Timber.w("PlaylistPage.fromMusicResponsiveListItemRenderer: Song '$title' - NO SECONDARY LINE (flexColumns[1] is null)")
             }
 
-            val artists = PageHelper.extractArtists(secondaryLineRuns)
+            val artists = PageHelper.extractArtists(secondaryLineRuns).ifEmpty {
+                val bylineText = secondaryLineRuns?.splitBySeparator()?.firstOrNull()?.joinToString("") { it.text }?.trim()
+                if (!bylineText.isNullOrBlank()) {
+                    PageHelper.splitArtistNames(bylineText).map { Artist(it, null) }
+                } else emptyList()
+            }
 
             return SongItem(
                 id = renderer.videoId ?: return null,

@@ -58,6 +58,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.RadioButton
@@ -248,10 +249,9 @@ fun AppearanceSettings(
     val (canvasProviderOrderStr, onCanvasProviderOrderChange) = rememberPreference(ArtistCanvasProviderOrderKey, defaultCanvasOrder.joinToString(","))
 
     val currentCanvasOrder = remember(canvasProviderOrderStr) {
-        canvasProviderOrderStr.split(",").filter { it.isNotBlank() }.let { saved ->
-            val missing = defaultCanvasOrder.filter { it !in saved }
-            saved + missing
-        }
+        val saved = canvasProviderOrderStr.split(",").filter { it.isNotBlank() }
+        val missing = defaultCanvasOrder.filter { it !in saved }
+        saved + missing
     }
     var showCanvasReorderDialog by remember { mutableStateOf(false) }
 
@@ -629,6 +629,7 @@ fun AppearanceSettings(
                             when (it) {
                                 PlayerVersion.V1 -> stringResource(R.string.player_design_classic)
                                 PlayerVersion.V2 -> stringResource(R.string.player_design_modern)
+                                PlayerVersion.V3 -> "V3 (Expressive)"
                             }
                         },
                     )
@@ -674,35 +675,42 @@ fun AppearanceSettings(
                     )
                 },
                 {
-                    EnumListPreference(
-                        title = { Text(stringResource(R.string.player_buttons_style)) },
-                        icon = { Icon(painterResource(R.drawable.palette), null) },
-                        selectedValue = playerButtonsStyle,
-                        onValueSelected = onPlayerButtonsStyleChange,
-                        valueText = {
-                            when (it) {
-                                PlayerButtonsStyle.DEFAULT -> stringResource(R.string.default_style)
-                                PlayerButtonsStyle.PRIMARY -> stringResource(R.string.secondary_color_style)
-                                PlayerButtonsStyle.TERTIARY -> stringResource(R.string.tertiary_color_style)
-                            }
-                        },
-                    )
-                },
-                {
-                    PreferenceEntry(
-                        title = { Text(stringResource(R.string.player_slider_style)) },
-                        description =
-                            when (sliderStyle) {
-                                SliderStyle.DEFAULT -> stringResource(R.string.default_)
-                                SliderStyle.SQUIGGLY -> stringResource(R.string.squiggly)
-                                SliderStyle.SLIM -> stringResource(R.string.slim)
-                                SliderStyle.EXPANDING -> stringResource(R.string.slider_expanding)
-                            },
-                        icon = { Icon(painterResource(R.drawable.sliders), null) },
-                        onClick = {
-                            showSliderOptionDialog = true
-                        },
-                    )
+                    AnimatedVisibility(visible = playerVersion != PlayerVersion.V3) {
+                        Column {
+                            EnumListPreference(
+                                title = { Text(stringResource(R.string.player_buttons_style)) },
+                                icon = { Icon(painterResource(R.drawable.palette), null) },
+                                selectedValue = playerButtonsStyle,
+                                onValueSelected = onPlayerButtonsStyleChange,
+                                valueText = {
+                                    when (it) {
+                                        PlayerButtonsStyle.DEFAULT -> stringResource(R.string.default_style)
+                                        PlayerButtonsStyle.PRIMARY -> stringResource(R.string.secondary_color_style)
+                                        PlayerButtonsStyle.TERTIARY -> stringResource(R.string.tertiary_color_style)
+                                    }
+                                },
+                            )
+                            HorizontalDivider(
+                                modifier = Modifier.padding(start = 76.dp, end = 20.dp),
+                                thickness = 0.5.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                            )
+                            PreferenceEntry(
+                                title = { Text(stringResource(R.string.player_slider_style)) },
+                                description =
+                                    when (sliderStyle) {
+                                        SliderStyle.DEFAULT -> stringResource(R.string.default_)
+                                        SliderStyle.SQUIGGLY -> stringResource(R.string.squiggly)
+                                        SliderStyle.SLIM -> stringResource(R.string.slim)
+                                        SliderStyle.EXPANDING -> stringResource(R.string.slider_expanding)
+                                    },
+                                icon = { Icon(painterResource(R.drawable.sliders), null) },
+                                onClick = {
+                                    showSliderOptionDialog = true
+                                },
+                            )
+                        }
+                    }
                 },
                 {
                     SwitchPreference(

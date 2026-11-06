@@ -378,6 +378,16 @@ object YouTube {
             val editable = base?.musicEditablePlaylistDetailHeaderRenderer != null
             val description: String? = header?.description?.musicDescriptionShelfRenderer?.description?.runs?.joinToString("") { it.text } ?: base?.musicEditablePlaylistDetailHeaderRenderer?.header?.musicDetailHeaderRenderer?.description?.runs?.joinToString("") { it.text } ?: response.header?.musicDetailHeaderRenderer?.description?.runs?.joinToString("") { it.text }
             
+            val shelfContents = response.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents?.firstOrNull()?.musicPlaylistShelfRenderer?.contents 
+                ?: response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()?.tabRenderer?.content?.sectionListRenderer?.contents?.firstOrNull()?.musicPlaylistShelfRenderer?.contents
+                ?: emptyList()
+                
+            val shelfContinuations = response.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents?.firstOrNull()?.musicPlaylistShelfRenderer?.continuations 
+                ?: response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()?.tabRenderer?.content?.sectionListRenderer?.contents?.firstOrNull()?.musicPlaylistShelfRenderer?.continuations
+                
+            val rootContinuations = response.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.continuations 
+                ?: response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()?.tabRenderer?.content?.sectionListRenderer?.continuations
+
             PlaylistPage(
                 playlist = PlaylistItem(
                     id = playlistId,
@@ -392,18 +402,28 @@ object YouTube {
                     description = description,
                     authorAvatarUrl = header?.facepile?.avatarStackViewModel?.avatars?.firstOrNull()?.avatarViewModel?.image?.sources?.firstOrNull()?.url
                 ),
-                songs = (response.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents?.firstOrNull()?.musicPlaylistShelfRenderer?.contents ?: response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()?.tabRenderer?.content?.sectionListRenderer?.contents?.firstOrNull()?.musicPlaylistShelfRenderer?.contents)?.getItems()?.mapNotNull { PlaylistPage.fromMusicResponsiveListItemRenderer(it) } ?: emptyList(),
-                songsContinuation = response.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents?.firstOrNull()?.musicPlaylistShelfRenderer?.continuations?.getContinuation(),
-                continuation = response.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.continuations?.getContinuation(),
+                songs = shelfContents.getItems().mapNotNull { PlaylistPage.fromMusicResponsiveListItemRenderer(it) },
+                songsContinuation = shelfContinuations?.getContinuation() ?: shelfContents.getContinuation(),
+                continuation = rootContinuations?.getContinuation(),
             )
         }
 
     suspend fun playlistContinuation(continuation: String): Result<PlaylistContinuationPage> =
         runCatching {
             val response = innerTube.browse(client = WEB_REMIX, continuation = continuation, setLogin = true).body<BrowseResponse>()
-            val contents = response.continuationContents?.sectionListContinuation?.contents?.mapNotNull { it.musicPlaylistShelfRenderer?.contents ?: it.musicShelfRenderer?.contents }?.flatten() ?: response.continuationContents?.musicPlaylistShelfContinuation?.contents ?: response.continuationContents?.musicShelfContinuation?.contents ?: response.onResponseReceivedActions.orEmpty().flatMap { it.appendContinuationItemsAction?.continuationItems.orEmpty() }
+            val contents = response.continuationContents?.sectionListContinuation?.contents?.mapNotNull { it.musicPlaylistShelfRenderer?.contents ?: it.musicShelfRenderer?.contents }?.flatten() 
+                ?: response.continuationContents?.musicPlaylistShelfContinuation?.contents 
+                ?: response.continuationContents?.musicShelfContinuation?.contents 
+                ?: response.onResponseReceivedActions.orEmpty().flatMap { it.appendContinuationItemsAction?.continuationItems.orEmpty() }
             val songs = contents.mapNotNull { it.musicResponsiveListItemRenderer }.mapNotNull { PlaylistPage.fromMusicResponsiveListItemRenderer(it) }
-            PlaylistContinuationPage(songs = songs, continuation = response.continuationContents?.sectionListContinuation?.continuations?.getContinuation() ?: response.continuationContents?.musicPlaylistShelfContinuation?.continuations?.getContinuation() ?: response.continuationContents?.musicShelfContinuation?.continuations?.getContinuation() ?: response.onResponseReceivedActions?.firstOrNull()?.appendContinuationItemsAction?.continuationItems?.getContinuation())
+            PlaylistContinuationPage(
+                songs = songs, 
+                continuation = response.continuationContents?.sectionListContinuation?.continuations?.getContinuation() 
+                    ?: response.continuationContents?.musicPlaylistShelfContinuation?.continuations?.getContinuation() 
+                    ?: response.continuationContents?.musicShelfContinuation?.continuations?.getContinuation() 
+                    ?: response.onResponseReceivedActions?.firstOrNull()?.appendContinuationItemsAction?.continuationItems?.getContinuation()
+                    ?: contents.getContinuation()
+            )
         }
 
     suspend fun library(browseId: String, params: String? = null): Result<LibraryPage> =
@@ -791,7 +811,27 @@ object YouTube {
     }
 
     suspend fun resolveArtistIds(items: List<YTItem>): List<YTItem> {
-        val missingNames = items.filter { (it is SongItem && it.artists.any { a -> a.id == null }) || (it is AlbumItem && it.artists?.any { a -> a.id == null } == true) || (it is PlaylistItem && it.author?.id == null) || (it is EpisodeItem && it.author?.id == null) || (it is PodcastItem && it.author?.id == null) }.flatMap {
+        val normalizedItems = items.map { item ->
+            when (item) {
+                is SongItem -> {
+                    val expanded = item.artists.flatMap { artist ->
+                        if (artist.id == null) PageHelper.splitArtistNames(artist.name).map { Artist(it, null) }
+                        else listOf(artist)
+                    }
+                    if (expanded != item.artists) item.copy(artists = expanded) else item
+                }
+                is AlbumItem -> {
+                    val expanded = item.artists?.flatMap { artist ->
+                        if (artist.id == null) PageHelper.splitArtistNames(artist.name).map { Artist(it, null) }
+                        else listOf(artist)
+                    }
+                    if (expanded != item.artists) item.copy(artists = expanded) else item
+                }
+                else -> item
+            }
+        }
+
+        val missingNames = normalizedItems.filter { (it is SongItem && it.artists.any { a -> a.id == null }) || (it is AlbumItem && it.artists?.any { a -> a.id == null } == true) || (it is PlaylistItem && it.author?.id == null) || (it is EpisodeItem && it.author?.id == null) || (it is PodcastItem && it.author?.id == null) }.flatMap {
             when(it) {
                 is SongItem -> it.artists.filter { a -> a.id == null }.map { a -> a.name }
                 is AlbumItem -> it.artists?.filter { a -> a.id == null }?.map { a -> a.name } ?: emptyList()
@@ -801,12 +841,12 @@ object YouTube {
                 else -> emptyList()
             }
         }.toSet()
-        if (missingNames.isEmpty()) return items
+        if (missingNames.isEmpty()) return normalizedItems
         val resolved = coroutineScope {
             missingNames.map { name -> async { val res = search(name, SearchFilter.FILTER_ARTIST).getOrNull(); name to (res?.items?.filterIsInstance<ArtistItem>()?.firstOrNull { it.title.trim().equals(name.trim(), ignoreCase = true) }?.id) } }.awaitAll().filter { it.second != null }.associate { it.first to it.second!! }
         }
         fun Artist.resolve() = if (id == null) resolved[name]?.let { copy(id = it) } ?: this else this
-        return items.map { item ->
+        return normalizedItems.map { item ->
             when (item) {
                 is SongItem -> item.copy(artists = item.artists.map { it.resolve() })
                 is AlbumItem -> item.copy(artists = item.artists?.map { it.resolve() })
@@ -821,11 +861,11 @@ object YouTube {
     suspend fun resolveArtistIdMap(items: List<YTItem>): Map<String, String> {
         val missingNames = items.filter { (it is SongItem && it.artists.any { a -> a.id == null }) || (it is AlbumItem && it.artists?.any { a -> a.id == null } == true) || (it is PlaylistItem && it.author?.id == null) || (it is EpisodeItem && it.author?.id == null) || (it is PodcastItem && it.author?.id == null) }.flatMap {
             when(it) {
-                is SongItem -> it.artists.filter { a -> a.id == null }.map { a -> a.name }
-                is AlbumItem -> it.artists?.filter { a -> a.id == null }?.map { a -> a.name } ?: emptyList()
-                is PlaylistItem -> listOfNotNull(it.author?.name)
-                is EpisodeItem -> listOfNotNull(it.author?.name)
-                is PodcastItem -> listOfNotNull(it.author?.name)
+                is SongItem -> it.artists.flatMap { a -> if (a.id == null) PageHelper.splitArtistNames(a.name) else emptyList() }
+                is AlbumItem -> it.artists.orEmpty().flatMap { a -> if (a.id == null) PageHelper.splitArtistNames(a.name) else emptyList() }
+                is PlaylistItem -> listOfNotNull(it.author?.name?.let { n -> if (it.author.id == null) n else null })
+                is EpisodeItem -> listOfNotNull(it.author?.name?.let { n -> if (it.author.id == null) n else null })
+                is PodcastItem -> listOfNotNull(it.author?.name?.let { n -> if (it.author.id == null) n else null })
                 else -> emptyList()
             }
         }.toSet()

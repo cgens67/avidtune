@@ -23,9 +23,12 @@ data class AlbumPage(
                     album?.browseId?.startsWith("FEmusic_library_privately_owned_release_detail") == true
                 ) {
                     subtitle?.splitBySeparator()?.firstOrNull()?.oddElements()
-                        ?.mapNotNull { run ->
-                            run.text.trim().takeIf { it.isNotEmpty() && run.navigationEndpoint == null }
-                                ?.let { Artist(it, null) }
+                        ?.flatMap { run ->
+                            if (run.navigationEndpoint == null && run.text.isNotBlank()) {
+                                PageHelper.splitArtistNames(run.text).map { Artist(it, null) }
+                            } else {
+                                PageHelper.extractArtists(listOf(run))
+                            }
                         }.orEmpty()
                 } else emptyList()
             }.ifEmpty { album?.artists.orEmpty() }

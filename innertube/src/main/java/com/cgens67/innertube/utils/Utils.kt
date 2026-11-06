@@ -9,12 +9,12 @@ import java.security.MessageDigest
 suspend fun Result<PlaylistPage>.completed(): Result<PlaylistPage> = runCatching {
     val page = getOrThrow()
     val songs = page.songs.toMutableList()
-    var continuation = page.songsContinuation
+    var continuation = page.songsContinuation ?: page.continuation
     val seenContinuations = mutableSetOf<String>()
     var requestCount = 0
 
     while (continuation != null) {
-        check(requestCount++ < 50) { "Playlist pagination exceeded 50 requests" }
+        check(requestCount++ < 100) { "Playlist pagination exceeded 100 requests" }
         check(seenContinuations.add(continuation)) { "Playlist pagination repeated a continuation" }
 
         val continuationPage = YouTube.playlistContinuation(continuation).getOrThrow()
@@ -25,7 +25,7 @@ suspend fun Result<PlaylistPage>.completed(): Result<PlaylistPage> = runCatching
         playlist = page.playlist,
         songs = songs,
         songsContinuation = null,
-        continuation = page.continuation
+        continuation = null
     )
 }
 
@@ -38,7 +38,7 @@ suspend fun Result<LibraryPage>.completed(): Result<LibraryPage> = runCatching {
     var requestCount = 0
 
     while (continuation != null) {
-        check(requestCount++ < 50) { "Library pagination exceeded 50 requests" }
+        check(requestCount++ < 100) { "Library pagination exceeded 100 requests" }
         check(seenContinuations.add(continuation)) { "Library pagination repeated a continuation" }
 
         val continuationPage = YouTube.libraryContinuation(continuation, isUploaded = page.isUploaded).getOrThrow()

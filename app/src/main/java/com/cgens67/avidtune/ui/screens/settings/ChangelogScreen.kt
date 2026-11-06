@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -40,6 +41,7 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -106,6 +108,8 @@ import coil.compose.AsyncImage
 import com.cgens67.avidtune.BuildConfig
 import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
 import com.cgens67.avidtune.R
+import com.cgens67.avidtune.ui.component.LocaleManager
+import com.cgens67.avidtune.utils.TranslationHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -118,6 +122,7 @@ import java.io.File
 import java.time.Duration
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 // --- Data Models ---
@@ -141,17 +146,67 @@ data class ReleaseMetadata(
     val changelogUrl: String?,
     val isPrerelease: Boolean,
     val rawDate: String,
-    val body: String
+    val body: String,
+    val assetUrls: Map<String, String> = emptyMap()
 )
 
 data class CachedChangelogData(
     val sections: List<ChangelogSection>,
     val image: String?,
     val description: String?,
-    val warning: String?
+    val warning: String?,
+    val isTranslated: Boolean = false,
+    val isNativeLanguage: Boolean = false,
+    val originalSections: List<ChangelogSection>? = null,
+    val originalDescription: String? = null,
+    val originalWarning: String? = null,
+    val translatedSections: List<ChangelogSection>? = null,
+    val translatedDescription: String? = null,
+    val translatedWarning: String? = null
 )
 
 // --- Utils ---
+
+fun getEffectiveLanguage(context: Context): String {
+    val code = runCatching {
+        LocaleManager.getInstance(context).getEffectiveLanguageCode()
+    }.getOrNull()?.takeIf { it.isNotBlank() && it != "system_default" && it != "system" }
+        ?: Locale.getDefault().toLanguageTag()
+    return code
+}
+
+fun getLocalizedChangelogCandidates(context: Context): List<String> {
+    val langCode = getEffectiveLanguage(context)
+    val lower = langCode.lowercase()
+    val candidates = mutableListOf<String>()
+
+    when {
+        lower.startsWith("zh-cn") || lower == "zh" || lower.startsWith("zh-hans") -> {
+            candidates.add("changelog_cn.json")
+            candidates.add("changelog_zh-cn.json")
+            candidates.add("changelog_zh_cn.json")
+            candidates.add("changelog_zh.json")
+        }
+        lower.startsWith("zh-tw") || lower.startsWith("zh-hk") || lower.startsWith("zh-hant") -> {
+            candidates.add("changelog_tw.json")
+            candidates.add("changelog_zh-tw.json")
+            candidates.add("changelog_zh_tw.json")
+            candidates.add("changelog_hk.json")
+            candidates.add("changelog_zh.json")
+        }
+        lower.contains("-") -> {
+            val base = lower.substringBefore("-")
+            val fullUnderscore = lower.replace("-", "_")
+            candidates.add("changelog_${lower}.json")
+            candidates.add("changelog_${fullUnderscore}.json")
+            candidates.add("changelog_${base}.json")
+        }
+        else -> {
+            candidates.add("changelog_${lower}.json")
+        }
+    }
+    return candidates.distinct()
+}
 
 fun getTimeAgo(context: Context, dateString: String?): String {
     if (dateString.isNullOrBlank()) return context.getString(R.string.unknown)
@@ -210,6 +265,93 @@ fun matchesVersion(tagName: String, query: String): Boolean {
     if (normQuery.isNotEmpty() && normTag.contains(normQuery)) return true
 
     return false
+}
+
+private fun parseChangelogJson(jsonStr: String): Pair<List<ChangelogSection>, Triple<String?, String?, String?>> {
+    val changelogData = JSONObject(jsonStr)
+
+    val desc = changelogData.optString("description", "").takeIf { it.isNotBlank() }
+    val imageUrl = changelogData.optString("image", "").takeIf { it.isNotBlank() }
+    val warning = changelogData.optString("warning", "").takeIf { it.isNotBlank() }
+    val changelogArray = changelogData.optJSONArray("changelog")
+
+    val sections = mutableListOf<ChangelogSection>()
+    if (changelogArray != null) {
+        for (i in 0 until changelogArray.length()) {
+            val sectionObj = changelogArray.optJSONObject(i)
+            if (sectionObj != null) {
+                val title = sectionObj.optString("title", "")
+                val itemsArray = sectionObj.optJSONArray("items")
+                val items = mutableListOf<String>()
+                if (itemsArray != null) {
+                    for (j in 0 until itemsArray.length()) {
+                        items.add(itemsArray.getString(j))
+                    }
+                }
+                if (title.isNotBlank() || items.isNotEmpty()) {
+                    sections.add(ChangelogSection(title, items))
+                }
+            } else {
+                val item = changelogArray.optString(i, "")
+                if (item.isNotBlank()) {
+                    if (sections.isEmpty() || sections[0].title.isNotBlank()) {
+                        sections.add(0, ChangelogSection("", mutableListOf()))
+                    }
+                    (sections[0].items as MutableList<String>).add(item)
+                }
+            }
+        }
+    }
+    return sections to Triple(imageUrl, desc, warning)
+}
+
+private suspend fun translateChangelogData(
+    original: CachedChangelogData,
+    targetLang: String
+): CachedChangelogData = withContext(Dispatchers.IO) {
+    val translatedDesc = original.description?.let { desc ->
+        if (desc.isNotBlank()) TranslationHelper.translate(desc, targetLang) ?: desc else desc
+    }
+    val translatedWarning = original.warning?.let { warn ->
+        if (warn.isNotBlank()) TranslationHelper.translate(warn, targetLang) ?: warn else warn
+    }
+    val translatedSections = original.sections.map { section ->
+        val transTitle = if (section.title.isNotBlank()) {
+            TranslationHelper.translate(section.title, targetLang) ?: section.title
+        } else section.title
+
+        val transItems = if (section.items.isNotEmpty()) {
+            val joined = section.items.joinToString("\n")
+            val transJoined = TranslationHelper.translate(joined, targetLang)
+            if (transJoined != null) {
+                val lines = transJoined.lines().map { it.trim() }.filter { it.isNotEmpty() }
+                if (lines.size == section.items.size) lines else {
+                    section.items.map { item ->
+                        TranslationHelper.translate(item, targetLang) ?: item
+                    }
+                }
+            } else {
+                section.items
+            }
+        } else section.items
+
+        ChangelogSection(transTitle, transItems)
+    }
+
+    CachedChangelogData(
+        sections = translatedSections,
+        image = original.image,
+        description = translatedDesc,
+        warning = translatedWarning,
+        isTranslated = true,
+        isNativeLanguage = false,
+        originalSections = original.originalSections ?: original.sections,
+        originalDescription = original.originalDescription ?: original.description,
+        originalWarning = original.originalWarning ?: original.warning,
+        translatedSections = translatedSections,
+        translatedDescription = translatedDesc,
+        translatedWarning = translatedWarning
+    )
 }
 
 // --- Empty Search Results Component ---
@@ -455,7 +597,7 @@ fun ChangelogScreen(
     }
 }
 
-// --- Releases (News-style) Content ---
+// --- Releases Content ---
 
 @Composable
 fun ReleasesContent(
@@ -475,6 +617,7 @@ fun ReleasesContent(
     val allChangelogsData = remember { mutableStateMapOf<String, CachedChangelogData>() }
     val changelogFetchErrors = remember { mutableStateMapOf<String, String>() }
     val changelogLoadingStates = remember { mutableStateMapOf<String, Boolean>() }
+    val translatingTags = remember { mutableStateMapOf<String, Boolean>() }
 
     val pullToRefreshState = rememberPullToRefreshState()
     
@@ -522,84 +665,163 @@ fun ReleasesContent(
 
         coroutineScope.launch(Dispatchers.IO) {
             try {
-                val cachedData = if (!bypassCache) loadChangelogFromCache(context, tag) else null
+                val targetLang = getEffectiveLanguage(context)
+                val normalizedLang = TranslationHelper.normalizeTargetLanguage(targetLang)
+                val isEnglish = normalizedLang.startsWith("en", ignoreCase = true)
+                val langCacheKey = if (isEnglish) "en" else normalizedLang
+
+                val cachedData = if (!bypassCache) loadChangelogFromCache(context, tag, langCacheKey) else null
                 if (cachedData != null) {
                     withContext(Dispatchers.Main) {
                         allChangelogsData[tag] = cachedData
                         changelogLoadingStates[tag] = false
                     }
-                } else {
-                    val urlToFetch = release?.changelogUrl 
-                        ?: "https://github.com/cgens67/AvidTune/releases/download/$tag/changelog.json"
+                    return@launch
+                }
 
-                    val request = Request.Builder()
-                        .url(urlToFetch)
-                        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                        .build()
+                var fetchedSuccess = false
 
-                    val response = httpClient.newCall(request).execute()
+                // 1. If not English, attempt to fetch localized changelog (e.g., changelog_cn.json, changelog_es.json)
+                if (!isEnglish) {
+                    val candidates = getLocalizedChangelogCandidates(context)
+                    for (candidate in candidates) {
+                        val candidateUrl = release?.assetUrls?.get(candidate.lowercase())
+                            ?: "https://github.com/cgens67/AvidTune/releases/download/$tag/$candidate"
 
-                    if (response.isSuccessful) {
-                        val changelogJson = response.body?.string() ?: "{}"
                         try {
-                            val changelogData = JSONObject(changelogJson)
+                            val request = Request.Builder()
+                                .url(candidateUrl)
+                                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                                .build()
 
-                            val desc = changelogData.optString("description", "").takeIf { it.isNotBlank() }
-                            val imageUrl = changelogData.optString("image", "").takeIf { it.isNotBlank() }
-                            val warning = changelogData.optString("warning", "").takeIf { it.isNotBlank() }
-                            val changelogArray = changelogData.optJSONArray("changelog")
-
-                            val sections = mutableListOf<ChangelogSection>()
-                            if (changelogArray != null) {
-                                for (i in 0 until changelogArray.length()) {
-                                    val sectionObj = changelogArray.optJSONObject(i)
-                                    if (sectionObj != null) {
-                                        val title = sectionObj.optString("title", "")
-                                        val itemsArray = sectionObj.optJSONArray("items")
-                                        val items = mutableListOf<String>()
-                                        if (itemsArray != null) {
-                                            for (j in 0 until itemsArray.length()) {
-                                                items.add(itemsArray.getString(j))
-                                            }
+                            val response = httpClient.newCall(request).execute()
+                            if (response.isSuccessful) {
+                                val body = response.body?.string()
+                                if (!body.isNullOrBlank()) {
+                                    val (sections, meta) = parseChangelogJson(body)
+                                    if (sections.isNotEmpty() || !meta.second.isNullOrBlank()) {
+                                        val parsed = CachedChangelogData(
+                                            sections = sections,
+                                            image = meta.first,
+                                            description = meta.second,
+                                            warning = meta.third,
+                                            isTranslated = false,
+                                            isNativeLanguage = true,
+                                            originalSections = sections,
+                                            originalDescription = meta.second,
+                                            originalWarning = meta.third
+                                        )
+                                        saveChangelogToCache(context, tag, langCacheKey, parsed)
+                                        withContext(Dispatchers.Main) {
+                                            allChangelogsData[tag] = parsed
+                                            changelogLoadingStates[tag] = false
                                         }
-                                        if (title.isNotBlank() || items.isNotEmpty()) {
-                                            sections.add(ChangelogSection(title, items))
-                                        }
-                                    } else {
-                                        val item = changelogArray.optString(i, "")
-                                        if (item.isNotBlank()) {
-                                            if (sections.isEmpty() || sections[0].title.isNotBlank()) {
-                                                sections.add(0, ChangelogSection("", mutableListOf()))
-                                            }
-                                            (sections[0].items as MutableList<String>).add(item)
-                                        }
+                                        fetchedSuccess = true
+                                        break
                                     }
                                 }
                             }
-
-                            saveChangelogToCache(context, tag, sections, imageUrl, desc, warning)
-                            val parsed = CachedChangelogData(sections, imageUrl, desc, warning)
-                            withContext(Dispatchers.Main) {
-                                allChangelogsData[tag] = parsed
-                                changelogLoadingStates[tag] = false
-                            }
                         } catch (e: Exception) {
-                            withContext(Dispatchers.Main) { 
-                                changelogFetchErrors[tag] = "JSON Parse Error: ${e.message}"
-                                changelogLoadingStates[tag] = false 
-                            }
+                            // Try next candidate
+                        }
+                    }
+                }
+
+                if (fetchedSuccess) return@launch
+
+                // 2. Fallback to default changelog.json
+                val defaultUrl = release?.assetUrls?.get("changelog.json")
+                    ?: release?.changelogUrl
+                    ?: "https://github.com/cgens67/AvidTune/releases/download/$tag/changelog.json"
+
+                val request = Request.Builder()
+                    .url(defaultUrl)
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                    .build()
+
+                val response = httpClient.newCall(request).execute()
+
+                if (response.isSuccessful) {
+                    val changelogJson = response.body?.string() ?: "{}"
+                    val (sections, meta) = parseChangelogJson(changelogJson)
+                    val baseData = CachedChangelogData(
+                        sections = sections,
+                        image = meta.first,
+                        description = meta.second,
+                        warning = meta.third,
+                        isTranslated = false,
+                        isNativeLanguage = false,
+                        originalSections = sections,
+                        originalDescription = meta.second,
+                        originalWarning = meta.third
+                    )
+
+                    // Auto-translate if not in English
+                    val finalData = if (!isEnglish) {
+                        try {
+                            translateChangelogData(baseData, normalizedLang)
+                        } catch (e: Exception) {
+                            baseData
                         }
                     } else {
-                        withContext(Dispatchers.Main) { 
-                            changelogFetchErrors[tag] = if (response.code == 403) context.getString(R.string.github_api_rate_limit_exceeded) else "HTTP ${response.code}: ${response.message}\nURL: $urlToFetch"
-                            changelogLoadingStates[tag] = false 
+                        baseData
+                    }
+
+                    saveChangelogToCache(context, tag, langCacheKey, finalData)
+                    withContext(Dispatchers.Main) {
+                        allChangelogsData[tag] = finalData
+                        changelogLoadingStates[tag] = false
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        changelogFetchErrors[tag] = if (response.code == 403) {
+                            context.getString(R.string.github_api_rate_limit_exceeded)
+                        } else {
+                            "HTTP ${response.code}: ${response.message}\nURL: $defaultUrl"
                         }
+                        changelogLoadingStates[tag] = false
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     changelogFetchErrors[tag] = "Network Error: ${e.javaClass.simpleName} - ${e.message}"
                     changelogLoadingStates[tag] = false
+                }
+            }
+        }
+    }
+
+    fun toggleTranslationForTag(tag: String) {
+        val current = allChangelogsData[tag] ?: return
+        if (current.isTranslated) {
+            allChangelogsData[tag] = current.copy(
+                sections = current.originalSections ?: current.sections,
+                description = current.originalDescription ?: current.description,
+                warning = current.originalWarning ?: current.warning,
+                isTranslated = false
+            )
+        } else {
+            if (current.translatedSections != null) {
+                allChangelogsData[tag] = current.copy(
+                    sections = current.translatedSections,
+                    description = current.translatedDescription,
+                    warning = current.translatedWarning,
+                    isTranslated = true
+                )
+            } else {
+                coroutineScope.launch {
+                    translatingTags[tag] = true
+                    try {
+                        val targetLang = getEffectiveLanguage(context)
+                        val normLang = TranslationHelper.normalizeTargetLanguage(targetLang)
+                        val translated = translateChangelogData(current, normLang)
+                        allChangelogsData[tag] = translated
+                        saveChangelogToCache(context, tag, normLang, translated)
+                    } catch (e: Exception) {
+                        Toast.makeText(context, R.string.translation_failed, Toast.LENGTH_SHORT).show()
+                    } finally {
+                        translatingTags.remove(tag)
+                    }
                 }
             }
         }
@@ -649,15 +871,18 @@ fun ReleasesContent(
 
                     val assets = obj.getJSONArray("assets")
                     var changelogUrl: String? = null
+                    val assetUrls = mutableMapOf<String, String>()
                     for (j in 0 until assets.length()) {
                         val asset = assets.getJSONObject(j)
-                        if (asset.getString("name").equals("changelog.json", ignoreCase = true)) {
-                            changelogUrl = asset.getString("browser_download_url")
-                            break
+                        val assetName = asset.getString("name")
+                        val browserUrl = asset.getString("browser_download_url")
+                        assetUrls[assetName.lowercase()] = browserUrl
+                        if (assetName.equals("changelog.json", ignoreCase = true)) {
+                            changelogUrl = browserUrl
                         }
                     }
 
-                    list.add(ReleaseMetadata(tagName, name, formattedDate, changelogUrl, isPrerelease, publishedAt, bodyText))
+                    list.add(ReleaseMetadata(tagName, name, formattedDate, changelogUrl, isPrerelease, publishedAt, bodyText, assetUrls))
                 }
                 withContext(Dispatchers.Main) {
                     availableReleases = list
@@ -683,8 +908,6 @@ fun ReleasesContent(
     }
 
     val filteredReleases = availableReleases.filter { it.isPrerelease == isBetaTab }
-
-    // Convert map to a tracked form for the remember block
     val allChangelogsValues = allChangelogsData.toMap()
     
     val searchFilteredReleases = remember(filteredReleases, searchQuery, allChangelogsValues) {
@@ -826,7 +1049,7 @@ fun ReleasesContent(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f, fill = false)) {
                         Text(
                             text = currentVersionTag,
                             style = MaterialTheme.typography.titleLarge,
@@ -849,6 +1072,52 @@ fun ReleasesContent(
                                         fontWeight = FontWeight.Medium
                                     )
                                 }
+                            }
+                        }
+                    }
+
+                    // Translate toggle button
+                    if (currentChangelog != null) {
+                        val isTranslating = translatingTags[currentVersionTag] == true
+                        Surface(
+                            onClick = { toggleTranslationForTag(currentVersionTag) },
+                            enabled = !isTranslating,
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (currentChangelog.isTranslated) MaterialTheme.colorScheme.primaryContainer 
+                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                            modifier = Modifier.clip(RoundedCornerShape(12.dp))
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                if (isTranslating) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(14.dp),
+                                        strokeWidth = 2.dp,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                } else {
+                                    Icon(
+                                        painter = painterResource(R.drawable.translate),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                        tint = if (currentChangelog.isTranslated) MaterialTheme.colorScheme.onPrimaryContainer 
+                                               else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    text = when {
+                                        isTranslating -> "${stringResource(R.string.Translate)}..."
+                                        currentChangelog.isTranslated -> stringResource(R.string.show_original)
+                                        else -> stringResource(R.string.Translate)
+                                    },
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (currentChangelog.isTranslated) MaterialTheme.colorScheme.onPrimaryContainer 
+                                           else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     }
@@ -1090,6 +1359,7 @@ fun CommitsContent(
     val context = LocalContext.current
     var commits by remember { mutableStateOf<List<CommitData>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+    val isRefreshing = isLoading
     var hasError by remember { mutableStateOf(false) }
     var detailedError by remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
@@ -1097,7 +1367,7 @@ fun CommitsContent(
     val pullToRefreshState = rememberPullToRefreshState()
 
     val scaleFraction = {
-        if (isLoading) 1f
+        if (isRefreshing) 1f
         else LinearOutSlowInEasing.transform(pullToRefreshState.distanceFraction).coerceIn(0f, 1f)
     }
 
@@ -1230,7 +1500,7 @@ fun CommitsContent(
             .fillMaxSize()
             .pullToRefresh(
                 state = pullToRefreshState,
-                isRefreshing = isLoading,
+                isRefreshing = isRefreshing,
                 onRefresh = { fetchCommits(bypassCache = true) }
             )
             .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom))
@@ -1330,7 +1600,7 @@ fun CommitsContent(
                     scaleY = scaleFraction()
                 }
         ) {
-            PullToRefreshDefaults.LoadingIndicator(state = pullToRefreshState, isRefreshing = isLoading)
+            PullToRefreshDefaults.LoadingIndicator(state = pullToRefreshState, isRefreshing = isRefreshing)
         }
     }
 }
@@ -1517,16 +1787,44 @@ private fun loadCommitsFromCache(context: Context): String? {
 private fun cleanupOldChangelogCache(context: Context, currentVersionTag: String) {
     try {
         context.filesDir.listFiles { file -> file.name.startsWith("changelog_cache_") && file.name.endsWith(".json") }?.forEach { file ->
-            if (file.name != "changelog_cache_$currentVersionTag.json") file.delete()
+            if (file.name.startsWith("changelog_cache_${currentVersionTag}_") || file.name == "changelog_cache_${currentVersionTag}.json") {
+                file.delete()
+            }
         }
     } catch (e: Exception) { Log.e("ChangelogCache", "Error cleaning up cache", e) }
 }
 
-private fun saveChangelogToCache(context: Context, versionTag: String, sections: List<ChangelogSection>, image: String?, description: String?, warning: String?) {
+private fun parseSectionsFromArray(sectionsArray: JSONArray?): List<ChangelogSection> {
+    val sections = mutableListOf<ChangelogSection>()
+    if (sectionsArray != null) {
+        for (i in 0 until sectionsArray.length()) {
+            val sectionObj = sectionsArray.optJSONObject(i)
+            if (sectionObj != null) {
+                val title = sectionObj.optString("title", "")
+                val itemsArray = sectionObj.optJSONArray("items")
+                val items = mutableListOf<String>()
+                if (itemsArray != null) {
+                    for (j in 0 until itemsArray.length()) {
+                        items.add(itemsArray.getString(j))
+                    }
+                }
+                sections.add(ChangelogSection(title, items))
+            }
+        }
+    }
+    return sections
+}
+
+private fun saveChangelogToCache(
+    context: Context, 
+    versionTag: String, 
+    langSuffix: String,
+    data: CachedChangelogData
+) {
     try {
         val cacheData = JSONObject().apply {
             val sectionsArray = JSONArray()
-            sections.forEach { section ->
+            data.sections.forEach { section ->
                 val sectionObj = JSONObject().apply {
                     put("title", section.title)
                     val itemsArray = JSONArray()
@@ -1536,40 +1834,71 @@ private fun saveChangelogToCache(context: Context, versionTag: String, sections:
                 sectionsArray.put(sectionObj)
             }
             put("sections", sectionsArray)
-            put("image", image ?: "")
-            put("description", description ?: "")
-            put("warning", warning ?: "")
+            put("image", data.image ?: "")
+            put("description", data.description ?: "")
+            put("warning", data.warning ?: "")
+            put("isTranslated", data.isTranslated)
+            put("isNativeLanguage", data.isNativeLanguage)
+
+            if (data.originalSections != null) {
+                val origArray = JSONArray()
+                data.originalSections.forEach { section ->
+                    val sectionObj = JSONObject().apply {
+                        put("title", section.title)
+                        val itemsArray = JSONArray()
+                        section.items.forEach { itemsArray.put(it) }
+                        put("items", itemsArray)
+                    }
+                    origArray.put(sectionObj)
+                }
+                put("originalSections", origArray)
+                put("originalDescription", data.originalDescription ?: "")
+                put("originalWarning", data.originalWarning ?: "")
+            }
         }
-        context.openFileOutput("changelog_cache_$versionTag.json", Context.MODE_PRIVATE).use { it.write(cacheData.toString().toByteArray()) }
+        val fileName = "changelog_cache_${versionTag}_${langSuffix}.json"
+        context.openFileOutput(fileName, Context.MODE_PRIVATE).use { it.write(cacheData.toString().toByteArray()) }
     } catch (e: Exception) { Log.e("ChangelogCache", "Error saving cache", e) }
 }
 
-private fun loadChangelogFromCache(context: Context, versionTag: String): CachedChangelogData? {
+private fun loadChangelogFromCache(
+    context: Context, 
+    versionTag: String, 
+    langSuffix: String
+): CachedChangelogData? {
     return try {
-        val cacheFile = File(context.filesDir, "changelog_cache_$versionTag.json")
+        val fileName = "changelog_cache_${versionTag}_${langSuffix}.json"
+        val cacheFile = File(context.filesDir, fileName)
         if (!cacheFile.exists()) return null
-        val cacheData = JSONObject(context.openFileInput("changelog_cache_$versionTag.json").use { it.bufferedReader().readText() })
+        val cacheData = JSONObject(context.openFileInput(fileName).use { it.bufferedReader().readText() })
 
         val sectionsArray = cacheData.optJSONArray("sections")
-        val sections = mutableListOf<ChangelogSection>()
-        if (sectionsArray != null) {
-            for (i in 0 until sectionsArray.length()) {
-                val sectionObj = sectionsArray.getJSONObject(i)
-                val title = sectionObj.getString("title")
-                val itemsArray = sectionObj.getJSONArray("items")
-                val items = mutableListOf<String>()
-                for (j in 0 until itemsArray.length()) {
-                    items.add(itemsArray.getString(j))
-                }
-                sections.add(ChangelogSection(title, items))
-            }
-        }
+        val sections = parseSectionsFromArray(sectionsArray)
+
+        val origSectionsArray = cacheData.optJSONArray("originalSections")
+        val origSections = if (origSectionsArray != null) parseSectionsFromArray(origSectionsArray) else null
+
+        val isTranslated = cacheData.optBoolean("isTranslated", false)
+        val isNative = cacheData.optBoolean("isNativeLanguage", false)
+
+        val desc = cacheData.optString("description", null).takeIf { !it.isNullOrBlank() }
+        val origDesc = cacheData.optString("originalDescription", null).takeIf { !it.isNullOrBlank() }
+        val warning = cacheData.optString("warning", null).takeIf { !it.isNullOrBlank() }
+        val origWarning = cacheData.optString("originalWarning", null).takeIf { !it.isNullOrBlank() }
 
         CachedChangelogData(
             sections = sections,
             image = cacheData.optString("image", null).takeIf { !it.isNullOrBlank() },
-            description = cacheData.optString("description", null).takeIf { !it.isNullOrBlank() },
-            warning = cacheData.optString("warning", null).takeIf { !it.isNullOrBlank() }
+            description = desc,
+            warning = warning,
+            isTranslated = isTranslated,
+            isNativeLanguage = isNative,
+            originalSections = origSections,
+            originalDescription = origDesc,
+            originalWarning = origWarning,
+            translatedSections = if (isTranslated) sections else null,
+            translatedDescription = if (isTranslated) desc else null,
+            translatedWarning = if (isTranslated) warning else null
         )
     } catch (e: Exception) { null }
 }

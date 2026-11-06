@@ -95,6 +95,15 @@ constructor(
             }.getOrThrow()
             val format = playbackData.format
 
+            val existingLoudness = runBlocking(Dispatchers.IO) {
+                database.format(mediaId).first()?.loudnessDb
+            }
+            val loudnessDb = playbackData.audioConfig?.loudnessDb
+                ?: existingLoudness
+                ?: runBlocking(Dispatchers.IO) {
+                    YTPlayerUtils.playerResponseForMetadata(mediaId).getOrNull()?.playerConfig?.audioConfig?.loudnessDb
+                }
+
             database.query {
                 upsert(
                     FormatEntity(
@@ -104,8 +113,8 @@ constructor(
                         codecs = format.mimeType.split("codecs=")[1].removeSurrounding("\""),
                         bitrate = format.bitrate,
                         sampleRate = format.audioSampleRate,
-                        contentLength = format.contentLength!!,
-                        loudnessDb = playbackData.audioConfig?.loudnessDb,
+                        contentLength = format.contentLength ?: 0L,
+                        loudnessDb = loudnessDb,
                         playbackUrl = playbackData.playbackTracking?.videostatsPlaybackUrl?.baseUrl
                     ),
                 )

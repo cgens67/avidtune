@@ -1,4 +1,8 @@
-@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@file:OptIn(
+    ExperimentalMaterial3ExpressiveApi::class,
+    ExperimentalMaterial3Api::class,
+    ExperimentalStdlibApi::class
+)
 
 package com.cgens67.avidtune.ui.screens.settings
 
@@ -10,6 +14,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.Settings
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
@@ -19,8 +24,10 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
@@ -56,6 +63,7 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
@@ -66,7 +74,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -114,6 +122,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.painter.Painter
@@ -140,7 +149,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.cgens67.innertube.utils.parseCookieString
 import com.cgens67.avidtune.BuildConfig
 import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
 import com.cgens67.avidtune.R
@@ -153,12 +161,14 @@ import com.cgens67.avidtune.ui.utils.backToMain
 import com.cgens67.avidtune.utils.rememberPreference
 import com.cgens67.avidtune.viewmodels.HomeViewModel
 import com.cgens67.avidtune.viewmodels.NewsViewModel
+import com.cgens67.innertube.utils.parseCookieString
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
@@ -282,7 +292,6 @@ data class SettingsIntegrationAction(
 // --- MAIN SCREEN ---
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     latestVersion: Long,
@@ -292,7 +301,6 @@ fun SettingsScreen(
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val animationsDisabled = LocalAnimationsDisabled.current
-    val isAndroid12OrLater = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     val listState = rememberLazyListState()
     val viewModel: HomeViewModel = hiltViewModel()
 
@@ -328,13 +336,13 @@ fun SettingsScreen(
             scrollBehavior = scrollBehavior,
             onBack = { showTogetherScreen = false }
         )
-        return // Stop rendering SettingsScreen beneath it
+        return
     }
 
     // Search History State
     val prefs = context.getSharedPreferences("settings_search_history", Context.MODE_PRIVATE)
     var searchHistory by remember {
-        mutableStateOf(prefs.getStringSet("history", emptySet())?.toList() ?: emptyList())
+        mutableStateOf(prefs.getStringSet("history", emptySet())?.toList() ?: emptyList<String>())
     }
 
     fun saveSearch(q: String) {
@@ -502,7 +510,7 @@ fun SettingsScreen(
         hasSearchResults = hasSearchResults,
         onProfileHeaderClick = { navController.navigate("settings/account") },
         onRequestPermission = {
-            val toRequest = buildList {
+            val toRequest = mutableListOf<String>().apply {
                 if (!isStorageGranted) add(storagePermission)
                 if (!isNotificationGranted && notificationPermission != null) {
                     add(notificationPermission)
@@ -537,12 +545,12 @@ fun SettingsScreen(
         },
         onUpdateClick = { showUpdateDialog = true },
         onBetaUpdateClick = { showBetaUpdateDialog = true },
-        onSearchHistoryItemClick = { clickedQuery ->
+        onSearchHistoryItemClick = { clickedQuery: String ->
             query = TextFieldValue(clickedQuery)
             focusManager.clearFocus()
             saveSearch(clickedQuery)
         },
-        onRemoveSearchHistoryItem = { q -> removeHistoryItem(q) },
+        onRemoveSearchHistoryItem = { q: String -> removeHistoryItem(q) },
         onClearSearchHistory = { clearHistory() },
     )
 
@@ -1116,6 +1124,12 @@ private fun buildInternalItems(navController: NavController, resetSearch: () -> 
             icon = painterResource(R.drawable.graphic_eq),
             title = stringResource(R.string.audio_quality),
             keywords = listOf("audio", "quality", "high", "low", "auto"),
+            onClick = { resetSearch(); navController.navigate("settings/player") }
+        ),
+        SettingsItem(
+            icon = painterResource(R.drawable.list),
+            title = stringResource(R.string.playback_fallback_priority),
+            keywords = listOf("playback", "client", "priority", "fallback", "visionos", "web_remix", "tvhtml5", "stream"),
             onClick = { resetSearch(); navController.navigate("settings/player") }
         ),
         SettingsItem(
@@ -2293,7 +2307,6 @@ fun SettingsProfileHeader(
                     contentAlignment = Alignment.Center,
                 ) {
                     if (state.isLoading) {
-                        @OptIn(ExperimentalMaterial3ExpressiveApi::class)
                         CircularWavyProgressIndicator(
                             modifier = Modifier.size(28.dp),
                             color = MaterialTheme.colorScheme.primary,
@@ -2457,7 +2470,6 @@ fun SettingsPermissionBanner(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsUpdateBanner(
     latestVersion: String,
@@ -2564,7 +2576,6 @@ fun SettingsUpdateBanner(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsBetaUpdateBanner(
     latestVersion: String,
@@ -3085,7 +3096,7 @@ fun IntegrationPill(
     }
 }
 
-// --- UPDATE DIALOG (From Original) ---
+// --- UPDATE DOWNLOAD LOGIC & DIALOG ---
 
 enum class DownloadStatus {
     NOT_STARTED,
@@ -3194,10 +3205,10 @@ suspend fun checkForUpdates(): String? = withContext(Dispatchers.IO) {
         connection.connect()
         val json = connection.getInputStream().bufferedReader().use { it.readText() }
         val jsonObject = JSONObject(json)
-        return@withContext jsonObject.getString("tag_name")
+        jsonObject.getString("tag_name")
     } catch (e: Exception) {
         e.printStackTrace()
-        return@withContext null
+        null
     }
 }
 
@@ -3207,17 +3218,17 @@ suspend fun checkForBetaUpdates(): String? = withContext(Dispatchers.IO) {
         val connection = url.openConnection()
         connection.connect()
         val json = connection.getInputStream().bufferedReader().use { it.readText() }
-        val jsonArray = org.json.JSONArray(json)
+        val jsonArray = JSONArray(json)
         for (i in 0 until jsonArray.length()) {
             val release = jsonArray.getJSONObject(i)
             if (release.getBoolean("prerelease")) {
                 return@withContext release.getString("tag_name")
             }
         }
-        return@withContext null
+        null
     } catch (e: Exception) {
         e.printStackTrace()
-        return@withContext null
+        null
     }
 }
 
@@ -3234,20 +3245,18 @@ fun isNewerVersion(remoteVersion: String, currentVersion: String): Boolean {
         if (r < c) return false
     }
 
-    // Same base version, check tags
     val remoteTag = remoteVersion.substringAfter("-", "")
     val currentTag = currentVersion.substringAfter("-", "")
 
-    if (remoteTag.isEmpty() && currentTag.isNotEmpty()) return true // Stable > Beta
-    if (remoteTag.isNotEmpty() && currentTag.isEmpty()) return false // Beta < Stable
+    if (remoteTag.isEmpty() && currentTag.isNotEmpty()) return true
+    if (remoteTag.isNotEmpty() && currentTag.isEmpty()) return false
     if (remoteTag.isNotEmpty() && currentTag.isNotEmpty()) {
-        return remoteTag > currentTag // E.g., beta02 > beta01
+        return remoteTag > currentTag
     }
 
     return false
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UpdateDownloadDialog(
     latestVersion: String,
@@ -3292,7 +3301,6 @@ fun UpdateDownloadDialog(
                 .navigationBarsPadding(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Animated/Themed Icon Header
             val iconTint = if (isBeta) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
             val iconBg = if (isBeta) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.primaryContainer
             val iconOnBg = if (isBeta) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onPrimaryContainer
@@ -3309,7 +3317,6 @@ fun UpdateDownloadDialog(
                 modifier = Modifier.size(96.dp),
                 contentAlignment = Alignment.Center
             ) {
-                // Outer glow
                 if (downloadStatus == DownloadStatus.DOWNLOADING) {
                     Box(
                         modifier = Modifier

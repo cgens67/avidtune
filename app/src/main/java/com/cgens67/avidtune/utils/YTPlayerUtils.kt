@@ -2,14 +2,15 @@ package com.cgens67.avidtune.utils
 
 import android.net.ConnectivityManager
 import androidx.media3.common.PlaybackException
-import com.cgens67.innertube.models.response.PlayerResponse
-import com.cgens67.innertube.pages.NewPipeUtils
+import com.cgens67.avidtune.App
 import com.cgens67.avidtune.constants.AudioQuality
+import com.cgens67.avidtune.constants.PlaybackClientOrderKey
+import com.cgens67.avidtune.utils.potoken.PoTokenGenerator
 import com.cgens67.innertube.YouTube
 import com.cgens67.innertube.models.YouTubeClient
-import com.cgens67.avidtune.utils.potoken.PoTokenGenerator
+import com.cgens67.innertube.models.response.PlayerResponse
+import com.cgens67.innertube.pages.NewPipeUtils
 import okhttp3.OkHttpClient
-import okhttp3.Request
 import timber.log.Timber
 
 object YTPlayerUtils {
@@ -33,57 +34,84 @@ object YTPlayerUtils {
         val format: PlayerResponse.StreamingData.Format,
         val streamUrl: String,
         val streamExpiresInSeconds: Int,
+        val clientName: String = "",
     )
 
-    // Fallback rotation: WEB_REMIX -> IOS -> ANDROID_VR -> TVHTML5
-    private val CLIENT_FALLBACK_CHAIN = listOf(
+    // Allowed clients for fallback configuration (excluding WEB, ANDROID, etc.)
+    val DEFAULT_CLIENT_FALLBACK_CHAIN = listOf(
+        YouTubeClient.VISIONOS,
         YouTubeClient.WEB_REMIX,
-        YouTubeClient.IOS,
-        YouTubeClient.ANDROID_VR_1_65_10,
-        YouTubeClient.TVHTML5
+        YouTubeClient.TVHTML5_SIMPLY,
+        YouTubeClient.TVHTML5,
+        YouTubeClient.WEB_CREATOR
     )
+
+    fun getClientForName(name: String): YouTubeClient? = when (name.trim().uppercase()) {
+        "VISIONOS" -> YouTubeClient.VISIONOS
+        "WEB_REMIX" -> YouTubeClient.WEB_REMIX
+        "TVHTML5_SIMPLY" -> YouTubeClient.TVHTML5_SIMPLY
+        "TVHTML5" -> YouTubeClient.TVHTML5
+        "WEB_CREATOR" -> YouTubeClient.WEB_CREATOR
+        else -> null
+    }
+
+    fun getClientFallbackChain(): List<YouTubeClient> {
+        val orderStr = runCatching { App.instance.dataStore[PlaybackClientOrderKey] }.getOrNull()
+        if (orderStr.isNullOrBlank()) {
+            return DEFAULT_CLIENT_FALLBACK_CHAIN
+        }
+        val names = orderStr.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        val mapped = names.mapNotNull { getClientForName(it) }
+        val missing = DEFAULT_CLIENT_FALLBACK_CHAIN.filter { it !in mapped }
+        return (mapped + missing).distinct()
+    }
 
     suspend fun playerResponseForPlayback(
         videoId: String,
         playlistId: String? = null,
         audioQuality: AudioQuality,
-        connectivityManager: ConnectivityManager,
+        connectivityManager: ConnectivityManager?,
     ): Result<PlaybackData> = runCatching {
         val signatureTimestamp = getSignatureTimestampOrNull(videoId)
         val isLoggedIn = YouTube.cookie != null
         val sessionId = if (isLoggedIn) YouTube.dataSyncId else YouTube.visitorData
 
-        // Web PoToken is only valid for Web clients
-        val webPoToken = PoTokenGenerator().getWebClientPoToken(videoId, sessionId ?: "")?.playerRequestPoToken
+        val webPoToken = PoTokenGenerator.getWebClientPoToken(videoId, sessionId ?: "")?.playerRequestPoToken
 
         var successfulResponse: PlayerResponse? = null
         var chosenFormat: PlayerResponse.StreamingData.Format? = null
         var chosenStreamUrl: String? = null
         var chosenExpiresInSeconds: Int? = null
+        var chosenClientName = ""
 
-        for (client in CLIENT_FALLBACK_CHAIN) {
+        val clientChain = getClientFallbackChain()
+
+        for (client in clientChain) {
             if (client.loginRequired && !isLoggedIn) {
                 continue
             }
 
-            // Only pass webPoToken to WEB_REMIX / WEB. Non-web clients must receive null.
             val clientPoToken = if (client == YouTubeClient.WEB_REMIX || client == YouTubeClient.WEB) {
                 webPoToken
             } else {
                 null
             }
 
-            Timber.tag(logTag).d("Attempting player fetch with client: $client for videoId: $videoId")
+            val clientNameFormatted = runCatching { client.clientName }.getOrNull()
+                ?: (client as? Enum<*>)?.name
+                ?: client.toString().substringAfter("clientName=").substringBefore(",").substringBefore(")")
+
+            Timber.tag(logTag).d("Attempting player fetch with client: $clientNameFormatted for videoId: $videoId")
             val playerRes = YouTube.player(videoId, playlistId, client, signatureTimestamp, clientPoToken).getOrNull()
 
             if (playerRes == null) {
-                Timber.tag(logTag).w("Client $client returned null response, trying next client...")
+                Timber.tag(logTag).w("Client $clientNameFormatted returned null response, trying next client...")
                 continue
             }
 
             val status = playerRes.playabilityStatus.status
             if (status != "OK") {
-                Timber.tag(logTag).w("Client $client unplayable: $status (${playerRes.playabilityStatus.reason}), trying next client...")
+                Timber.tag(logTag).w("Client $clientNameFormatted unplayable: $status (${playerRes.playabilityStatus.reason}), trying next client...")
                 continue
             }
 
@@ -100,7 +128,8 @@ object YTPlayerUtils {
             if (chosenFormat != null && chosenStreamUrl != null) {
                 successfulResponse = playerRes
                 chosenExpiresInSeconds = playerRes.streamingData?.expiresInSeconds ?: 21600
-                Timber.tag(logTag).i("Successfully obtained valid stream using client: $client")
+                chosenClientName = clientNameFormatted
+                Timber.tag(logTag).i("Successfully obtained valid stream using client: $chosenClientName")
                 break
             }
         }
@@ -120,6 +149,7 @@ object YTPlayerUtils {
             format = chosenFormat,
             streamUrl = chosenStreamUrl,
             streamExpiresInSeconds = chosenExpiresInSeconds ?: 21600,
+            clientName = chosenClientName
         )
     }
 
@@ -128,7 +158,7 @@ object YTPlayerUtils {
         playlistId: String? = null,
     ): Result<PlayerResponse> {
         val sessionId = if (YouTube.cookie != null) YouTube.dataSyncId else YouTube.visitorData
-        val poToken = PoTokenGenerator().getWebClientPoToken(videoId, sessionId ?: "")?.playerRequestPoToken
+        val poToken = PoTokenGenerator.getWebClientPoToken(videoId, sessionId ?: "")?.playerRequestPoToken
         return YouTube.player(videoId, playlistId, client = YouTubeClient.WEB_REMIX, poToken = poToken)
     }
 
@@ -139,11 +169,12 @@ object YTPlayerUtils {
         val signatureTimestamp = getSignatureTimestampOrNull(videoId)
         val isLoggedIn = YouTube.cookie != null
         val sessionId = if (isLoggedIn) YouTube.dataSyncId else YouTube.visitorData
-        val webPoToken = PoTokenGenerator().getWebClientPoToken(videoId, sessionId ?: "")?.playerRequestPoToken
+        val webPoToken = PoTokenGenerator.getWebClientPoToken(videoId, sessionId ?: "")?.playerRequestPoToken
 
         val validStreams = mutableListOf<Pair<PlayerResponse.StreamingData.Format, String>>()
+        val clientChain = getClientFallbackChain()
 
-        for (client in CLIENT_FALLBACK_CHAIN) {
+        for (client in clientChain) {
             if (client.loginRequired && !isLoggedIn) continue
             val clientPoToken = if (client == YouTubeClient.WEB_REMIX || client == YouTubeClient.WEB) webPoToken else null
             val response = YouTube.player(videoId, playlistId, client, signatureTimestamp, clientPoToken).getOrNull()

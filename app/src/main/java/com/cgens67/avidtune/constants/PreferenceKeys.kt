@@ -53,6 +53,7 @@ val PlayerVersionKey = stringPreferencesKey("playerVersion")
 enum class PlayerVersion {
     V1,
     V2,
+    V3,
 }
 
 val ShowPlayerThumbnailShadowKey = booleanPreferencesKey("showPlayerThumbnailShadow")
@@ -179,6 +180,7 @@ val PlaylistEditLockKey = booleanPreferencesKey("playlistEditLock")
 val QuickPicksKey = stringPreferencesKey("discover")
 val PreferredLyricsProviderKey = stringPreferencesKey("lyricsProvider")
 val LyricsProviderOrderKey = stringPreferencesKey("lyricsProviderOrder")
+val PlaybackClientOrderKey = stringPreferencesKey("playbackClientOrder")
 val QueueEditLockKey = booleanPreferencesKey("queueEditLock")
 
 val LyricFontSizeKey = intPreferencesKey("lyricFontSize")

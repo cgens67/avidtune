@@ -109,6 +109,7 @@ import com.cgens67.avidtune.playback.queues.YouTubeQueue
 import com.cgens67.avidtune.playback.queues.filterExplicit
 import com.cgens67.avidtune.together.TogetherManager
 import com.cgens67.avidtune.together.TogetherRoomSettings
+import com.cgens67.avidtune.together.TogetherSessionState
 import com.cgens67.avidtune.utils.CoilBitmapLoader
 import com.cgens67.avidtune.utils.DiscordRPC
 import com.cgens67.avidtune.utils.NetworkConnectivityObserver
@@ -181,7 +182,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     private var scope = CoroutineScope(Dispatchers.Main) + Job()
     private val binder = MusicBinder()
 
-    val togetherManager by lazy { TogetherManager(scope, player) }
+    val togetherManager by lazy { TogetherManager(scope, player, this) }
     val togetherSessionState get() = togetherManager.sessionState
 
     fun updateTogetherSettings(settings: TogetherRoomSettings) = togetherManager.updateSettings(settings)
@@ -206,6 +207,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     private var currentQueue: Queue = EmptyQueue
     var queueTitle: String? = null
     val currentMediaMetadata = MutableStateFlow<com.cgens67.avidtune.models.MediaMetadata?>(null)
+    val currentPlaybackClient = MutableStateFlow<String?>(null)
 
     private val currentSong = currentMediaMetadata
         .flatMapLatest { mediaMetadata ->
@@ -320,6 +322,14 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                         player.prepare()
                         player.play()
                     }
+                }
+            }
+        }
+
+        scope.launch {
+            togetherSessionState.collect { state ->
+                if (state is TogetherSessionState.Hosting || state is TogetherSessionState.Joined) {
+                    queueTitle = getString(R.string.music_together)
                 }
             }
         }
@@ -698,14 +708,27 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             player.findNextMediaItemById(mediaId)?.metadata
         } ?: return
 
+        val currentDbFormat = database.format(mediaId).first()
+        val needsMetadata = song?.song?.duration == -1 || currentDbFormat?.loudnessDb == null
+        val metadataResponse = if (needsMetadata) {
+            YTPlayerUtils.playerResponseForMetadata(mediaId).getOrNull()
+        } else null
+
         val duration = song?.song?.duration?.takeIf { it != -1 }
             ?: mediaMetadata.duration.takeIf { it != -1 }
-            ?: (playbackData?.videoDetails ?: YTPlayerUtils.playerResponseForMetadata(mediaId).getOrNull()?.videoDetails)?.lengthSeconds?.toInt()
+            ?: (playbackData?.videoDetails ?: metadataResponse?.videoDetails)?.lengthSeconds?.toInt()
             ?: -1
+
+        val loudnessDb = playbackData?.audioConfig?.loudnessDb
+            ?: metadataResponse?.playerConfig?.audioConfig?.loudnessDb
 
         database.query {
             if (song == null) insert(mediaMetadata.copy(duration = duration))
             else if (song.song.duration == -1) update(song.song.copy(duration = duration))
+
+            if (currentDbFormat != null && currentDbFormat.loudnessDb == null && loudnessDb != null) {
+                upsert(currentDbFormat.copy(loudnessDb = loudnessDb))
+            }
         }
         
         if (!database.hasRelatedSongs(mediaId)) {
@@ -738,9 +761,13 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 queue.getInitialStatus().filterExplicit(dataStore.get(HideExplicitKey, false))
             }
             if (queue.preloadItem != null && player.playbackState == STATE_IDLE) return@launch
-            if (initialStatus.title != null) {
+
+            if (togetherSessionState.value is TogetherSessionState.Hosting || togetherSessionState.value is TogetherSessionState.Joined) {
+                queueTitle = getString(R.string.music_together)
+            } else if (initialStatus.title != null) {
                 queueTitle = initialStatus.title
             }
+
             if (initialStatus.items.isEmpty()) return@launch
 
             if (queue.preloadItem != null) {
@@ -778,7 +805,9 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         scope.launch(SilentHandler) {
             val radioQueue = YouTubeQueue.radio(currentMediaMetadata)
             val initialStatus = radioQueue.getInitialStatus()
-            if (initialStatus.title != null) {
+            if (togetherSessionState.value is TogetherSessionState.Hosting || togetherSessionState.value is TogetherSessionState.Joined) {
+                queueTitle = getString(R.string.music_together)
+            } else if (initialStatus.title != null) {
                 queueTitle = initialStatus.title
             }
             player.addMediaItems(initialStatus.items.drop(1))
@@ -842,7 +871,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 val orderAfter = mutableListOf<Int>()
                 var idx = currentIndex
                 while (true) {
-                    idx = timeline.getNextWindowIndex(idx, Player.REPEAT_MODE_OFF, /*shuffleModeEnabled=*/true)
+                    idx = timeline.getNextWindowIndex(idx, Player.REPEAT_MODE_OFF, true)
                     if (idx == C.INDEX_UNSET) break
                     if (idx != currentIndex) orderAfter.add(idx)
                 }
@@ -850,7 +879,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 val prevList = mutableListOf<Int>()
                 var pIdx = currentIndex
                 while (true) {
-                    pIdx = timeline.getPreviousWindowIndex(pIdx, Player.REPEAT_MODE_OFF, /*shuffleModeEnabled=*/true)
+                    pIdx = timeline.getPreviousWindowIndex(pIdx, Player.REPEAT_MODE_OFF, true)
                     if (pIdx == C.INDEX_UNSET) break
                     if (pIdx != currentIndex) prevList.add(pIdx)
                 }
@@ -1046,6 +1075,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 delay(1000)
                 if (!player.isPlaying && player.mediaItemCount == 0) {
                     currentMediaMetadata.value = null
+                    currentPlaybackClient.value = null
                 }
             }
         }
@@ -1263,6 +1293,8 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 }
                 
                 val format = playbackData.format
+                val loudnessDb = playbackData.audioConfig?.loudnessDb
+
                 database.query {
                     upsert(
                         FormatEntity(
@@ -1273,7 +1305,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                             bitrate = format.bitrate,
                             sampleRate = format.audioSampleRate,
                             contentLength = format.contentLength ?: 0L,
-                            loudnessDb = playbackData.audioConfig?.loudnessDb,
+                            loudnessDb = loudnessDb,
                             playbackUrl = playbackData.streamUrl
                         )
                     )
@@ -1284,6 +1316,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 }
                 
                 val streamUrl = playbackData.streamUrl
+                currentPlaybackClient.value = playbackData.clientName
                 songUrlCache[mediaId] = streamUrl to System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L)
                 return@Factory dataSpec.withUri(streamUrl.toUri())
             } catch (e: Exception) {
@@ -1297,6 +1330,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
 
                 if (alternativeUrl != null) {
                     Timber.tag("AlternativeStream").i("Using fallback stream URL: $alternativeUrl")
+                    currentPlaybackClient.value = "Piped (Fallback)"
                     scope.launch(Dispatchers.IO) {
                         recoverSong(mediaId)
                     }

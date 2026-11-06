@@ -1,4 +1,7 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
+@file:OptIn(
+    ExperimentalMaterial3Api::class,
+    ExperimentalMaterial3ExpressiveApi::class
+)
 
 package com.cgens67.avidtune.ui.menu
 
@@ -10,6 +13,16 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -25,7 +38,6 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -33,38 +45,35 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -75,29 +84,25 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.net.toUri
 import androidx.media3.common.PlaybackParameters
-import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.exoplayer.offline.DownloadRequest
 import androidx.media3.exoplayer.offline.DownloadService
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
-import com.cgens67.innertube.YouTube
-import com.cgens67.innertube.models.WatchEndpoint
 import com.cgens67.avidtune.LocalDatabase
 import com.cgens67.avidtune.LocalDownloadUtil
 import com.cgens67.avidtune.LocalPlayerConnection
@@ -109,7 +114,6 @@ import com.cgens67.avidtune.db.entities.AlbumEntity
 import com.cgens67.avidtune.db.entities.ArtistEntity
 import com.cgens67.avidtune.db.entities.Song
 import com.cgens67.avidtune.models.MediaMetadata
-import com.cgens67.avidtune.models.toMediaMetadata
 import com.cgens67.avidtune.playback.ExoDownloadService
 import com.cgens67.avidtune.playback.queues.YouTubeQueue
 import com.cgens67.avidtune.ui.component.BottomSheetState
@@ -122,11 +126,12 @@ import com.cgens67.avidtune.ui.component.NewAction
 import com.cgens67.avidtune.ui.component.NewActionGrid
 import com.cgens67.avidtune.utils.joinByBullet
 import com.cgens67.avidtune.utils.makeTimeString
+import com.cgens67.innertube.YouTube
+import com.cgens67.innertube.models.WatchEndpoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 import kotlin.math.roundToInt
 
@@ -145,8 +150,6 @@ fun ColumnScope.PlayerMenu(
     val playerConnection = LocalPlayerConnection.current ?: return
     val playerVolume by playerConnection.service.playerVolume.collectAsState()
     val isMuted by playerConnection.isMuted.collectAsState()
-    val activityResultLauncher =
-        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { }
     val librarySong by database.song(mediaMetadata.id).collectAsState(initial = null)
     val coroutineScope = rememberCoroutineScope()
 
@@ -946,12 +949,17 @@ fun ColumnScope.PlayerMenu(
 fun TempoPitchBottomSheet(onDismiss: () -> Unit) {
     val playerConnection = LocalPlayerConnection.current ?: return
     val coroutineScope = rememberCoroutineScope()
-    
+
     var tempo by remember {
         mutableFloatStateOf(playerConnection.player.playbackParameters.speed)
     }
     var pitch by remember {
         mutableFloatStateOf(playerConnection.player.playbackParameters.pitch)
+    }
+
+    // Whether pitch and tempo are merged together into a unified control
+    var isMerged by rememberSaveable {
+        mutableStateOf(false)
     }
 
     val updatePlaybackParameters = {
@@ -990,36 +998,117 @@ fun TempoPitchBottomSheet(onDismiss: () -> Unit) {
                 text = stringResource(R.string.tempo_and_pitch),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 24.dp)
+                modifier = Modifier.padding(bottom = 16.dp)
             )
 
-            ContinuousValueAdjuster(
-                title = "Tempo",
-                icon = R.drawable.speed,
-                value = tempo,
-                valueRange = 0.25f..3.0f,
-                onValueChange = { 
-                    tempo = it
-                    updatePlaybackParameters()
+            // Segmented Toggle: Separate | Merged
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)
+            ) {
+                ToggleButton(
+                    checked = !isMerged,
+                    onCheckedChange = { if (it) isMerged = false },
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics { role = Role.RadioButton },
+                    shapes = ButtonGroupDefaults.connectedLeadingButtonShapes()
+                ) {
+                    Text(
+                        text = stringResource(R.string.separate),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                ToggleButton(
+                    checked = isMerged,
+                    onCheckedChange = {
+                        if (it) {
+                            isMerged = true
+                            pitch = tempo
+                            updatePlaybackParameters()
+                        }
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics { role = Role.RadioButton },
+                    shapes = ButtonGroupDefaults.connectedTrailingButtonShapes()
+                ) {
+                    Text(
+                        text = stringResource(R.string.merged),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            // Smooth animated collapse / expand between Unified and Separate modes
+            AnimatedContent(
+                targetState = isMerged,
+                transitionSpec = {
+                    (fadeIn(animationSpec = tween(250)) + expandVertically(spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)))
+                        .togetherWith(
+                            fadeOut(animationSpec = tween(200)) + shrinkVertically(spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow))
+                        )
                 },
-                valueText = { String.format(java.util.Locale.US, "%.2fx", it) },
-                buttonStep = 0.05f
-            )
+                label = "tempoPitchModeTransition"
+            ) { merged ->
+                if (merged) {
+                    // Merged Mode: One clean, unified Speed & Pitch control
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        ContinuousValueAdjuster(
+                            title = stringResource(R.string.tempo_and_pitch),
+                            icon = R.drawable.speed,
+                            value = tempo,
+                            valueRange = 0.25f..3.0f,
+                            onValueChange = {
+                                tempo = it
+                                pitch = it
+                                updatePlaybackParameters()
+                            },
+                            valueText = { String.format(java.util.Locale.US, "%.2fx", it) },
+                            buttonStep = 0.05f
+                        )
+                    }
+                } else {
+                    // Separate Mode: Independent Tempo and Pitch sliders
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(20.dp)
+                    ) {
+                        ContinuousValueAdjuster(
+                            title = stringResource(R.string.tempo),
+                            icon = R.drawable.speed,
+                            value = tempo,
+                            valueRange = 0.25f..3.0f,
+                            onValueChange = {
+                                tempo = it
+                                updatePlaybackParameters()
+                            },
+                            valueText = { String.format(java.util.Locale.US, "%.2fx", it) },
+                            buttonStep = 0.05f
+                        )
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            ContinuousValueAdjuster(
-                title = "Pitch",
-                icon = R.drawable.discover_tune,
-                value = pitch,
-                valueRange = 0.25f..3.0f,
-                onValueChange = { 
-                    pitch = it
-                    updatePlaybackParameters()
-                },
-                valueText = { String.format(java.util.Locale.US, "%.2fx", it) },
-                buttonStep = 0.05f
-            )
+                        ContinuousValueAdjuster(
+                            title = stringResource(R.string.pitch),
+                            icon = R.drawable.discover_tune,
+                            value = pitch,
+                            valueRange = 0.25f..3.0f,
+                            onValueChange = {
+                                pitch = it
+                                updatePlaybackParameters()
+                            },
+                            valueText = { String.format(java.util.Locale.US, "%.2fx", it) },
+                            buttonStep = 0.05f
+                        )
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(32.dp))
 
@@ -1086,27 +1175,27 @@ fun ContinuousValueAdjuster(
                 color = MaterialTheme.colorScheme.primary
             )
         }
-        
+
         Spacer(modifier = Modifier.height(8.dp))
-        
+
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             IconButton(
-                onClick = { 
+                onClick = {
                     val newValue = kotlin.math.round((value - buttonStep) * 100) / 100f
-                    onValueChange(newValue.coerceIn(valueRange)) 
+                    onValueChange(newValue.coerceIn(valueRange))
                 },
                 modifier = Modifier.size(36.dp)
             ) {
                 Icon(
-                    painter = painterResource(R.drawable.remove), 
-                    contentDescription = "-",
+                    painter = painterResource(R.drawable.remove),
+                    contentDescription = stringResource(R.string.decrease),
                     tint = MaterialTheme.colorScheme.onSurface
                 )
             }
-            
+
             Slider(
                 value = value,
                 onValueChange = { newValue ->
@@ -1115,17 +1204,17 @@ fun ContinuousValueAdjuster(
                 valueRange = valueRange,
                 modifier = Modifier.weight(1f)
             )
-            
+
             IconButton(
-                onClick = { 
+                onClick = {
                     val newValue = kotlin.math.round((value + buttonStep) * 100) / 100f
-                    onValueChange(newValue.coerceIn(valueRange)) 
+                    onValueChange(newValue.coerceIn(valueRange))
                 },
                 modifier = Modifier.size(36.dp)
             ) {
                 Icon(
-                    painter = painterResource(R.drawable.add), 
-                    contentDescription = "+",
+                    painter = painterResource(R.drawable.add),
+                    contentDescription = stringResource(R.string.increase),
                     tint = MaterialTheme.colorScheme.onSurface
                 )
             }

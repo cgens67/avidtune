@@ -38,10 +38,11 @@ object NextPage {
         val artists = PageHelper.extractArtists(renderer.longBylineText?.runs)
             .ifEmpty { PageHelper.extractArtists(renderer.shortBylineText?.runs) }
             .ifEmpty {
-                val fallbackName = renderer.shortBylineText?.runs?.firstOrNull()?.text
-                    ?: renderer.longBylineText?.runs?.firstOrNull()?.text
-                if (!fallbackName.isNullOrBlank()) listOf(Artist(fallbackName.trim(), null))
-                else emptyList()
+                val bylineRuns = renderer.shortBylineText?.runs ?: renderer.longBylineText?.runs
+                val fallbackName = bylineRuns?.joinToString("") { it.text }?.trim()
+                if (!fallbackName.isNullOrBlank()) {
+                    PageHelper.splitArtistNames(fallbackName).map { Artist(it, null) }
+                } else emptyList()
             }
 
         val album = (longByLineRuns ?: shortByLineRuns)?.let { groups ->

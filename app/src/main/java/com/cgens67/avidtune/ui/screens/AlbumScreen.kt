@@ -18,6 +18,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -32,6 +33,8 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -1304,10 +1307,22 @@ private fun AlbumHeaderContent(
                 .padding(top = 14.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            val playInteractionSource = remember { MutableInteractionSource() }
+            val isPlayPressed by playInteractionSource.collectIsPressedAsState()
+            val playCornerRadius by animateDpAsState(
+                targetValue = if (isPlayPressed) 28.dp else 16.dp,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium
+                ),
+                label = "playCornerRadius"
+            )
+
             Button(
                 onClick = onPlayClick,
+                interactionSource = playInteractionSource,
                 modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(playCornerRadius),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
                 Icon(
@@ -1321,10 +1336,23 @@ private fun AlbumHeaderContent(
                     fontWeight = FontWeight.SemiBold
                 )
             }
+
+            val shuffleInteractionSource = remember { MutableInteractionSource() }
+            val isShufflePressed by shuffleInteractionSource.collectIsPressedAsState()
+            val shuffleCornerRadius by animateDpAsState(
+                targetValue = if (isShufflePressed) 28.dp else 16.dp,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium
+                ),
+                label = "shuffleCornerRadius"
+            )
+
             FilledTonalButton(
                 onClick = onShuffleClick,
+                interactionSource = shuffleInteractionSource,
                 modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(shuffleCornerRadius)
             ) {
                 Icon(
                     painter = painterResource(R.drawable.shuffle),

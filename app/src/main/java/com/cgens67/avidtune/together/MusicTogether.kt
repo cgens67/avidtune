@@ -17,7 +17,6 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,9 +31,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
@@ -52,6 +48,9 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -64,6 +63,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.datastore.preferences.core.*
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.navigation.NavController
@@ -75,6 +75,7 @@ import com.cgens67.avidtune.App
 import com.cgens67.avidtune.LocalPlayerAwareWindowInsets
 import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
+import com.cgens67.avidtune.playback.MusicService
 import com.cgens67.avidtune.ui.component.AvatarPreferenceManager
 import com.cgens67.avidtune.ui.component.AvatarSelection
 import com.cgens67.avidtune.ui.component.AvatarUtils
@@ -127,19 +128,35 @@ val TogetherDefaultPortKey = intPreferencesKey("TogetherDefaultPort")
 val TogetherDisplayNameKey = stringPreferencesKey("TogetherDisplayName")
 val TogetherLastJoinLinkKey = stringPreferencesKey("TogetherLastJoinLink")
 val TogetherRequireHostApprovalToJoinKey = booleanPreferencesKey("TogetherRequireHostApprovalToJoin")
+val TogetherAutoEnqueueRequestsKey = booleanPreferencesKey("TogetherAutoEnqueueRequests")
+val TogetherAllowReactionsKey = booleanPreferencesKey("TogetherAllowReactions")
 val TogetherWelcomeShownKey = booleanPreferencesKey("TogetherWelcomeShown")
 val TogetherNetworkModeKey = stringPreferencesKey("TogetherNetworkMode")
 val TogetherRelayServerKey = stringPreferencesKey("TogetherRelayServer")
 
-// Connected to your Render deployment
 const val DEFAULT_RELAY_SERVER = "https://avidtune-relay.onrender.com"
 
-val TOGETHER_EMOJIS = listOf("😭", "🥀", "💅", "💩", "🙂‍↔️", "🙏")
+val TOGETHER_EMOJIS = listOf("😭", "🥀", "💅", "💩", "🙂‍↔️", "🙏", "🐐", "🙄", "🫪", "😴", "🤡")
 
 // --- MODELS & MESSAGES ---
 @Serializable data class TogetherTrack(val id: String, val title: String, val artists: List<String> = emptyList(), val durationSec: Int = -1, val thumbnailUrl: String? = null)
-@Serializable data class TogetherParticipant(val id: String, val name: String, val isHost: Boolean = false, val isPending: Boolean = false, val isConnected: Boolean = true, val avatar: String? = null)
-@Serializable data class TogetherRoomSettings(val allowGuestsToAddTracks: Boolean = true, val allowGuestsToControlPlayback: Boolean = false, val requireHostApprovalToJoin: Boolean = false)
+@Serializable data class TogetherParticipant(
+    val id: String, 
+    val name: String, 
+    val isHost: Boolean = false, 
+    val isPending: Boolean = false, 
+    val isConnected: Boolean = true, 
+    val avatar: String? = null,
+    val joinedAt: Long = 0L
+)
+@Serializable 
+data class TogetherRoomSettings(
+    val allowGuestsToAddTracks: Boolean = true, 
+    val allowGuestsToControlPlayback: Boolean = false, 
+    val requireHostApprovalToJoin: Boolean = false,
+    val autoEnqueueRequests: Boolean = true,
+    val allowReactions: Boolean = true
+)
 
 @Serializable
 data class TogetherRequestedTrack(
@@ -163,6 +180,8 @@ data class TogetherRoomState(
     val positionMs: Long = 0L,
     val repeatMode: Int = 0,
     val shuffleEnabled: Boolean = false,
+    val speed: Float = 1.0f,
+    val pitch: Float = 1.0f,
     val sentAtMs: Long = 0L
 )
 
@@ -199,7 +218,7 @@ const val TogetherProtocolVersion: Int = 1
 @Serializable @SerialName("server_welcome") data class ServerWelcome(val protocolVersion: Int, val sessionId: String, val participantId: String, val role: ServerRole, val isPending: Boolean, val settings: TogetherRoomSettings) : TogetherMessage
 @Serializable @SerialName("room_state") data class RoomStateMessage(val state: TogetherRoomState) : TogetherMessage
 @Serializable @SerialName("join_decision") data class JoinDecision(val sessionId: String, val participantId: String, val approved: Boolean) : TogetherMessage
-@Serializable @SerialName("update_playback") data class UpdatePlayback(val positionMs: Long, val isPlaying: Boolean) : TogetherMessage
+@Serializable @SerialName("update_playback") data class UpdatePlayback(val positionMs: Long, val isPlaying: Boolean, val speed: Float = 1.0f, val pitch: Float = 1.0f) : TogetherMessage
 @Serializable @SerialName("update_track") data class UpdateTrack(val track: TogetherTrack) : TogetherMessage
 @Serializable @SerialName("host_command") data class HostCommand(val command: String, val args: String = "") : TogetherMessage
 @Serializable @SerialName("send_reaction") data class SendReaction(val emoji: String, val senderName: String, val id: String = UUID.randomUUID().toString()) : TogetherMessage
@@ -312,6 +331,7 @@ class TogetherManager(
     private val hostChannels = ConcurrentHashMap<String, TogetherClientChannel>()
     private val hostParticipants = ConcurrentHashMap<String, TogetherParticipant>()
     private val hostRequestedQueue = ConcurrentHashMap<String, TogetherRequestedTrack>()
+    private val bannedClientIds = ConcurrentHashMap.newKeySet<String>()
 
     private var isHost = false
     private var isHostOnline = false
@@ -325,21 +345,45 @@ class TogetherManager(
 
     @Volatile private var isSyncing = false
 
+    val isGuestPlaybackRestricted: Boolean
+        get() {
+            val state = sessionState.value
+            return if (state is TogetherSessionState.Joined && state.role is TogetherRole.Guest) {
+                !state.roomState.settings.allowGuestsToControlPlayback
+            } else {
+                false
+            }
+        }
+
     private val playerListener = object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: Int) {
             if (isSyncing) return
             if (isHost) broadcastRoomState()
-            else sendGuestUpdate()
+            else if (!isGuestPlaybackRestricted) sendGuestUpdate()
         }
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
             if (isSyncing) return
             if (isHost) broadcastRoomState()
-            else sendGuestUpdate()
+            else if (!isGuestPlaybackRestricted) sendGuestUpdate()
+        }
+        override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
+            if (isSyncing) return
+            if (isHost) broadcastRoomState()
+            else if (!isGuestPlaybackRestricted) sendGuestUpdate()
         }
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             if (isSyncing) return
-            if (isHost) broadcastRoomState()
-            else sendGuestTrackUpdate(mediaItem)
+            if (isHost) {
+                checkAndRemovePlayedRequest(mediaItem?.mediaId)
+                broadcastRoomState()
+            } else if (!isGuestPlaybackRestricted) {
+                sendGuestTrackUpdate(mediaItem)
+            } else {
+                val curr = (sessionState.value as? TogetherSessionState.Joined)?.roomState
+                if (curr != null) {
+                    scope.launch { syncPlayerToState(curr) }
+                }
+            }
         }
         override fun onPositionDiscontinuity(
             oldPosition: Player.PositionInfo,
@@ -350,13 +394,27 @@ class TogetherManager(
             if (isHost && reason == Player.DISCONTINUITY_REASON_SEEK) {
                 broadcastRoomState()
             } else if (!isHost && reason == Player.DISCONTINUITY_REASON_SEEK) {
-                sendGuestUpdate()
+                if (!isGuestPlaybackRestricted) {
+                    sendGuestUpdate()
+                } else {
+                    val curr = (sessionState.value as? TogetherSessionState.Joined)?.roomState
+                    if (curr != null) {
+                        scope.launch { syncPlayerToState(curr) }
+                    }
+                }
             }
         }
     }
 
     init {
         player.addListener(playerListener)
+    }
+
+    private fun checkAndRemovePlayedRequest(mediaId: String?) {
+        if (mediaId == null) return
+        if (hostRequestedQueue.containsKey(mediaId)) {
+            hostRequestedQueue.remove(mediaId)
+        }
     }
 
     private fun getBroadcastAddresses(): List<InetAddress> {
@@ -499,7 +557,9 @@ class TogetherManager(
                 TogetherMessage.serializer(),
                 UpdatePlayback(
                     positionMs = player.currentPosition,
-                    isPlaying = player.isPlaying
+                    isPlaying = player.isPlaying,
+                    speed = player.playbackParameters.speed,
+                    pitch = player.playbackParameters.pitch
                 )
             )
             withContext(Dispatchers.IO) {
@@ -512,7 +572,7 @@ class TogetherManager(
         if (isHost || clientSession == null || mediaItem == null) return
         scope.launch(Dispatchers.Main) {
             val currentState = sessionState.value as? TogetherSessionState.Joined ?: return@launch
-            if (!currentState.roomState.settings.allowGuestsToAddTracks) return@launch
+            if (!currentState.roomState.settings.allowGuestsToControlPlayback) return@launch
 
             val customMeta = mediaItem.localConfiguration?.tag as? com.cgens67.avidtune.models.MediaMetadata
             val trackId = mediaItem.mediaId
@@ -530,38 +590,38 @@ class TogetherManager(
     }
 
     private fun getCurrentRoomState(sId: String): TogetherRoomState {
-        val currentItem = player.currentMediaItem
-        val customMeta = currentItem?.localConfiguration?.tag as? com.cgens67.avidtune.models.MediaMetadata
-
-        val trackId = currentItem?.mediaId ?: ""
-        val trackTitle = customMeta?.title ?: currentItem?.mediaMetadata?.title?.toString() ?: ""
-        val trackArtists = customMeta?.artists?.map { it.name } ?: listOf(currentItem?.mediaMetadata?.artist?.toString() ?: "")
-        val trackArt = customMeta?.thumbnailUrl ?: currentItem?.mediaMetadata?.artworkUri?.toString()
-        val durationSec = customMeta?.duration ?: -1
-
-        val currentTrack = TogetherTrack(
-            id = trackId,
-            title = trackTitle,
-            artists = trackArtists,
-            durationSec = durationSec,
-            thumbnailUrl = trackArt
-        )
+        val queueTracks = mutableListOf<TogetherTrack>()
+        for (i in 0 until player.mediaItemCount) {
+            val item = player.getMediaItemAt(i)
+            val customMeta = item.localConfiguration?.tag as? com.cgens67.avidtune.models.MediaMetadata
+            queueTracks.add(
+                TogetherTrack(
+                    id = item.mediaId,
+                    title = customMeta?.title ?: item.mediaMetadata.title?.toString() ?: "",
+                    artists = customMeta?.artists?.map { it.name } ?: listOf(item.mediaMetadata.artist?.toString() ?: ""),
+                    durationSec = customMeta?.duration ?: -1,
+                    thumbnailUrl = customMeta?.thumbnailUrl ?: item.mediaMetadata.artworkUri?.toString()
+                )
+            )
+        }
 
         val reqList = hostRequestedQueue.values.sortedByDescending { it.upvotes.size }.toList()
 
         return TogetherRoomState(
             sessionId = sId,
             hostId = hostParticipants.values.firstOrNull { it.isHost }?.id ?: "host",
-            participants = hostParticipants.values.toList(),
+            participants = hostParticipants.values.sortedBy { it.joinedAt }.toList(),
             settings = roomSettings,
-            queue = listOf(currentTrack),
+            queue = queueTracks,
             requestedQueue = reqList,
             queueHash = "",
-            currentIndex = 0,
+            currentIndex = player.currentMediaItemIndex.coerceAtLeast(0),
             isPlaying = player.isPlaying,
             positionMs = player.currentPosition,
             repeatMode = player.repeatMode,
             shuffleEnabled = player.shuffleModeEnabled,
+            speed = player.playbackParameters.speed,
+            pitch = player.playbackParameters.pitch,
             sentAtMs = System.currentTimeMillis()
         )
     }
@@ -607,6 +667,66 @@ class TogetherManager(
         }
     }
 
+    private fun trackToMediaItem(track: TogetherTrack): MediaItem {
+        val customMetadata = com.cgens67.avidtune.models.MediaMetadata(
+            id = track.id,
+            title = track.title,
+            artists = track.artists.map { com.cgens67.avidtune.models.MediaMetadata.Artist(id = null, name = it) },
+            duration = track.durationSec,
+            thumbnailUrl = track.thumbnailUrl,
+            album = null,
+            explicit = false,
+            liked = false
+        )
+
+        return MediaItem.Builder()
+            .setMediaId(track.id)
+            .setUri(track.id)
+            .setCustomCacheKey(track.id)
+            .setTag(customMetadata)
+            .setMediaMetadata(
+                androidx.media3.common.MediaMetadata.Builder()
+                    .setTitle(track.title)
+                    .setArtist(track.artists.joinToString(", "))
+                    .setArtworkUri(track.thumbnailUrl?.let { android.net.Uri.parse(it) })
+                    .setMediaType(androidx.media3.common.MediaMetadata.MEDIA_TYPE_MUSIC)
+                    .build()
+            )
+            .build()
+    }
+
+    private fun enqueueTrackAsHost(track: TogetherTrack) {
+        (context as? MusicService)?.let {
+            it.queueTitle = context.getString(R.string.music_together)
+        }
+        val mediaItem = trackToMediaItem(track)
+        if (player.currentMediaItem == null || player.playbackState == Player.STATE_IDLE || player.playbackState == Player.STATE_ENDED) {
+            player.setMediaItem(mediaItem)
+            player.prepare()
+            player.play()
+        } else {
+            player.addMediaItem(mediaItem)
+        }
+    }
+
+    private fun removeTrackFromQueueAsHost(trackId: String) {
+        scope.launch(Dispatchers.Main) {
+            for (i in player.mediaItemCount - 1 downTo 0) {
+                if (player.getMediaItemAt(i).mediaId == trackId) {
+                    if (i == player.currentMediaItemIndex) {
+                        if (player.hasNextMediaItem()) {
+                            player.seekToNext()
+                        } else {
+                            player.pause()
+                        }
+                    }
+                    player.removeMediaItem(i)
+                }
+            }
+            broadcastRoomState()
+        }
+    }
+
     private fun handleIncomingMessageAsHost(pId: String, txt: String, sId: String) {
         val msg = try {
             TogetherJson.json.decodeFromString<TogetherMessage>(txt)
@@ -614,6 +734,20 @@ class TogetherManager(
 
         when (msg) {
             is ClientHello -> {
+                if (bannedClientIds.contains(msg.clientId) || bannedClientIds.contains(pId)) {
+                    scope.launch {
+                        hostChannels[pId]?.send(
+                            TogetherJson.json.encodeToString(
+                                TogetherMessage.serializer(),
+                                JoinDecision(sId, pId, false)
+                            )
+                        )
+                        hostChannels[pId]?.close()
+                        hostChannels.remove(pId)
+                    }
+                    return
+                }
+
                 val isPending = roomSettings.requireHostApprovalToJoin
                 hostParticipants[pId] = TogetherParticipant(
                     id = pId,
@@ -621,7 +755,8 @@ class TogetherManager(
                     isHost = false,
                     isConnected = true,
                     isPending = isPending,
-                    avatar = msg.avatar
+                    avatar = msg.avatar,
+                    joinedAt = System.currentTimeMillis()
                 )
                 scope.launch {
                     val welcomeMsg = TogetherJson.json.encodeToString(
@@ -651,6 +786,11 @@ class TogetherManager(
                             if (kotlin.math.abs(player.currentPosition - msg.positionMs) > 1000L) {
                                 player.seekTo(msg.positionMs)
                             }
+
+                            if (kotlin.math.abs(player.playbackParameters.speed - msg.speed) > 0.01f ||
+                                kotlin.math.abs(player.playbackParameters.pitch - msg.pitch) > 0.01f) {
+                                player.playbackParameters = PlaybackParameters(msg.speed, msg.pitch)
+                            }
                             isSyncing = false
                             broadcastRoomState()
                         }
@@ -658,31 +798,35 @@ class TogetherManager(
                 }
             }
             is UpdateTrack -> {
-                if (roomSettings.allowGuestsToAddTracks) {
-                    val p = hostParticipants[pId]
-                    if (p != null && !p.isPending) {
+                val p = hostParticipants[pId]
+                if (p != null && !p.isPending) {
+                    if (roomSettings.allowGuestsToControlPlayback) {
                         scope.launch(Dispatchers.Main) {
                             isSyncing = true
                             playTrackInternal(msg.track)
                             isSyncing = false
                             broadcastRoomState()
                         }
+                    } else if (roomSettings.allowGuestsToAddTracks) {
+                        requestTrack(msg.track, pId, p.name)
                     }
                 }
             }
             is SendReaction -> {
-                reactionsFlow.tryEmit(FloatingReaction(id = msg.id, emoji = msg.emoji, senderName = msg.senderName))
-                val resendMsg = TogetherJson.json.encodeToString(TogetherMessage.serializer(), msg)
-                scope.launch(Dispatchers.IO) {
-                    if (isHostOnline && hostRelaySession != null) {
-                        val wrap = JSONObject().apply {
-                            put("type", "broadcast")
-                            put("message", resendMsg)
-                        }.toString()
-                        try { hostRelaySession?.send(wrap) } catch (e: Exception) {}
-                    } else {
-                        hostChannels.values.forEach { channel ->
-                            try { channel.send(resendMsg) } catch (e: Exception) {}
+                if (roomSettings.allowReactions) {
+                    reactionsFlow.tryEmit(FloatingReaction(id = msg.id, emoji = msg.emoji, senderName = msg.senderName))
+                    val resendMsg = TogetherJson.json.encodeToString(TogetherMessage.serializer(), msg)
+                    scope.launch(Dispatchers.IO) {
+                        if (isHostOnline && hostRelaySession != null) {
+                            val wrap = JSONObject().apply {
+                                put("type", "broadcast")
+                                put("message", resendMsg)
+                            }.toString()
+                            try { hostRelaySession?.send(wrap) } catch (e: Exception) {}
+                        } else {
+                            hostChannels.values.forEach { channel ->
+                                try { channel.send(resendMsg) } catch (e: Exception) {}
+                            }
                         }
                     }
                 }
@@ -697,7 +841,12 @@ class TogetherManager(
                             requesterName = msg.requesterName,
                             upvotes = listOf(msg.requesterId)
                         )
-                        broadcastRoomState()
+                        scope.launch(Dispatchers.Main) {
+                            if (roomSettings.autoEnqueueRequests) {
+                                enqueueTrackAsHost(msg.track)
+                            }
+                            broadcastRoomState()
+                        }
                     }
                 }
             }
@@ -716,7 +865,7 @@ class TogetherManager(
             }
             is RemoveRequestTrack -> {
                 hostRequestedQueue.remove(msg.trackId)
-                broadcastRoomState()
+                removeTrackFromQueueAsHost(msg.trackId)
             }
             else -> {}
         }
@@ -733,6 +882,9 @@ class TogetherManager(
         leaveTogether()
         isHost = true
         isHostOnline = isOnline
+        (context as? MusicService)?.let {
+            it.queueTitle = context.getString(R.string.music_together)
+        }
         scope.launch(Dispatchers.IO) {
             try {
                 roomSettings = settings
@@ -751,7 +903,8 @@ class TogetherManager(
                     name = displayName,
                     isHost = true,
                     isConnected = true,
-                    avatar = avatar
+                    avatar = avatar,
+                    joinedAt = System.currentTimeMillis()
                 )
 
                 if (isOnline) {
@@ -893,6 +1046,9 @@ class TogetherManager(
     ) {
         leaveTogether()
         isHost = false
+        (context as? MusicService)?.let {
+            it.queueTitle = context.getString(R.string.music_together)
+        }
         val joinJob = scope.launch(Dispatchers.IO) {
             val input = inputLink.trim()
             val info = TogetherLink.decode(input) ?: resolvePin(input, relayServerUrl)?.joinInfo
@@ -918,6 +1074,16 @@ class TogetherManager(
                             if (frame !is Frame.Text) continue
                             val msgText = frame.readText()
                             try {
+                                val rootJson = runCatching { JSONObject(msgText) }.getOrNull()
+                                val eventType = rootJson?.optString("type")
+
+                                if (eventType == "promoted_to_host") {
+                                    withContext(Dispatchers.Main) {
+                                        promoteGuestToHost(info.sessionId, info.isOnline)
+                                    }
+                                    continue
+                                }
+
                                 when (val msg = TogetherJson.json.decodeFromString<TogetherMessage>(msgText)) {
                                     is ServerWelcome -> {
                                         selfPId = msg.participantId
@@ -925,10 +1091,14 @@ class TogetherManager(
                                     is RoomStateMessage -> {
                                         val rs = msg.state
                                         withContext(Dispatchers.Main) {
-                                            sessionState.value = TogetherSessionState.Joined(TogetherRole.Guest, info.sessionId, selfPId, rs, isOnline = info.isOnline)
-                                            val isPending = rs.participants.find { it.id == selfPId }?.isPending == true
-                                            if (!isPending) {
-                                                syncPlayerToState(rs)
+                                            if (rs.hostId == selfPId && !isHost) {
+                                                promoteGuestToHost(info.sessionId, info.isOnline)
+                                            } else {
+                                                sessionState.value = TogetherSessionState.Joined(TogetherRole.Guest, info.sessionId, selfPId, rs, isOnline = info.isOnline)
+                                                val isPending = rs.participants.find { it.id == selfPId }?.isPending == true
+                                                if (!isPending) {
+                                                    syncPlayerToState(rs)
+                                                }
                                             }
                                         }
                                     }
@@ -941,6 +1111,13 @@ class TogetherManager(
                                                 sessionState.value = TogetherSessionState.Error(context.getString(R.string.together_disconnected_msg))
                                             }
                                             close()
+                                        } else if (msg.command == "TRANSFER_HOST") {
+                                            val newHostId = msg.args
+                                            if (newHostId == selfPId) {
+                                                withContext(Dispatchers.Main) {
+                                                    promoteGuestToHost(info.sessionId, info.isOnline)
+                                                }
+                                            }
                                         }
                                     }
                                     is JoinDecision -> {
@@ -1005,8 +1182,17 @@ class TogetherManager(
             isSyncing = false
         }
 
+        val currentParams = player.playbackParameters
+        if (kotlin.math.abs(currentParams.speed - state.speed) > 0.01f ||
+            kotlin.math.abs(currentParams.pitch - state.pitch) > 0.01f) {
+            isSyncing = true
+            player.playbackParameters = PlaybackParameters(state.speed, state.pitch)
+            isSyncing = false
+        }
+
         val expectedPosition = if (state.isPlaying && state.sentAtMs > 0) {
-            state.positionMs + (System.currentTimeMillis() - state.sentAtMs)
+            val elapsed = System.currentTimeMillis() - state.sentAtMs
+            state.positionMs + (elapsed * state.speed).toLong()
         } else {
             state.positionMs
         }
@@ -1019,37 +1205,17 @@ class TogetherManager(
     }
 
     private fun playTrackInternal(track: TogetherTrack) {
-        val customMetadata = com.cgens67.avidtune.models.MediaMetadata(
-            id = track.id,
-            title = track.title,
-            artists = track.artists.map { com.cgens67.avidtune.models.MediaMetadata.Artist(id = null, name = it) },
-            duration = track.durationSec,
-            thumbnailUrl = track.thumbnailUrl,
-            album = null,
-            explicit = false,
-            liked = false
-        )
-
-        val mediaItem = MediaItem.Builder()
-            .setMediaId(track.id)
-            .setUri(track.id)
-            .setCustomCacheKey(track.id)
-            .setTag(customMetadata)
-            .setMediaMetadata(
-                androidx.media3.common.MediaMetadata.Builder()
-                    .setTitle(track.title)
-                    .setArtist(track.artists.joinToString(", "))
-                    .setArtworkUri(track.thumbnailUrl?.let { android.net.Uri.parse(it) })
-                    .setMediaType(androidx.media3.common.MediaMetadata.MEDIA_TYPE_MUSIC)
-                    .build()
-            )
-            .build()
+        (context as? MusicService)?.let {
+            it.queueTitle = context.getString(R.string.music_together)
+        }
+        val mediaItem = trackToMediaItem(track)
         player.setMediaItem(mediaItem)
         player.prepare()
         player.play()
     }
 
     fun sendReaction(emoji: String, senderName: String) {
+        if (!roomSettings.allowReactions) return
         val msg = SendReaction(emoji = emoji, senderName = senderName)
         reactionsFlow.tryEmit(FloatingReaction(id = msg.id, emoji = emoji, senderName = senderName))
         scope.launch(Dispatchers.IO) {
@@ -1083,7 +1249,12 @@ class TogetherManager(
                     requesterName = requesterName,
                     upvotes = listOf(requesterId)
                 )
-                broadcastRoomState()
+                scope.launch(Dispatchers.Main) {
+                    if (roomSettings.autoEnqueueRequests) {
+                        enqueueTrackAsHost(track)
+                    }
+                    broadcastRoomState()
+                }
             }
         } else {
             scope.launch(Dispatchers.IO) {
@@ -1093,6 +1264,46 @@ class TogetherManager(
                 } catch (e: Exception) {}
             }
         }
+    }
+
+    fun requestLuckyTrack(requesterId: String, requesterName: String) {
+        scope.launch(Dispatchers.IO) {
+            try {
+                val surpriseQueries = listOf(
+                    "top hits", "trending songs", "popular songs", "greatest hits", "viral songs",
+                    "chill vibes", "party hits", "feel good music", "classic rock", "pop hits"
+                )
+                val searchResult = YouTube.search(surpriseQueries.random(), YouTube.SearchFilter.FILTER_SONG).getOrNull()
+                val song = searchResult?.items?.filterIsInstance<SongItem>()?.randomOrNull()
+                if (song != null) {
+                    val track = TogetherTrack(
+                        id = song.id,
+                        title = song.title,
+                        artists = song.artists.map { it.name },
+                        durationSec = song.duration ?: -1,
+                        thumbnailUrl = song.thumbnail
+                    )
+                    requestTrack(track, requesterId, requesterName)
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, context.getString(R.string.together_lucky_requested, song.title), Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, context.getString(R.string.together_lucky_failed), Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, context.getString(R.string.together_lucky_failed), Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    fun shuffleAndPlayRequestedTrack() {
+        if (!isHost || hostRequestedQueue.isEmpty()) return
+        val randomTrack = hostRequestedQueue.values.randomOrNull() ?: return
+        playRequestedTrack(randomTrack.track.id)
     }
 
     fun upvoteTrack(trackId: String, voterId: String) {
@@ -1124,7 +1335,19 @@ class TogetherManager(
         val reqTrack = hostRequestedQueue.remove(trackId) ?: return
         scope.launch(Dispatchers.Main) {
             isSyncing = true
-            playTrackInternal(reqTrack.track)
+            var foundIndex = -1
+            for (i in 0 until player.mediaItemCount) {
+                if (player.getMediaItemAt(i).mediaId == trackId) {
+                    foundIndex = i
+                    break
+                }
+            }
+            if (foundIndex != -1) {
+                player.seekToDefaultPosition(foundIndex)
+                player.play()
+            } else {
+                playTrackInternal(reqTrack.track)
+            }
             isSyncing = false
             broadcastRoomState()
         }
@@ -1133,7 +1356,7 @@ class TogetherManager(
     fun removeRequestedTrack(trackId: String) {
         if (isHost) {
             hostRequestedQueue.remove(trackId)
-            broadcastRoomState()
+            removeTrackFromQueueAsHost(trackId)
         } else {
             scope.launch(Dispatchers.IO) {
                 try {
@@ -1145,7 +1368,105 @@ class TogetherManager(
         }
     }
 
+    fun transferHost(newHostId: String) {
+        if (!isHost) return
+        val target = hostParticipants[newHostId] ?: return
+
+        val currentHostId = hostParticipants.values.firstOrNull { it.isHost }?.id
+        if (currentHostId != null) {
+            hostParticipants[currentHostId] = hostParticipants[currentHostId]!!.copy(isHost = false)
+        }
+        hostParticipants[newHostId] = target.copy(isHost = true, isPending = false)
+
+        val transferCommand = HostCommand("TRANSFER_HOST", newHostId)
+        val jsonMsg = TogetherJson.json.encodeToString(TogetherMessage.serializer(), transferCommand)
+
+        scope.launch(Dispatchers.IO) {
+            if (isHostOnline && hostRelaySession != null) {
+                val wrap = JSONObject().apply {
+                    put("type", "broadcast")
+                    put("message", jsonMsg)
+                }.toString()
+                try { hostRelaySession?.send(wrap) } catch (e: Exception) {}
+            } else {
+                hostChannels.values.forEach { channel ->
+                    try { channel.send(jsonMsg) } catch (e: Exception) {}
+                }
+            }
+        }
+
+        isHost = false
+        broadcastJob?.cancel()
+
+        val hostingState = sessionState.value as? TogetherSessionState.Hosting
+        if (hostingState != null) {
+            val updatedState = getCurrentRoomState(hostingState.sessionId).copy(
+                hostId = newHostId,
+                participants = hostParticipants.values.toList()
+            )
+            sessionState.value = TogetherSessionState.Joined(
+                role = TogetherRole.Guest,
+                sessionId = hostingState.sessionId,
+                selfParticipantId = currentHostId ?: "guest",
+                roomState = updatedState,
+                isOnline = hostingState.isOnline
+            )
+        }
+    }
+
+    private fun promoteGuestToHost(sessionId: String, isOnline: Boolean) {
+        val joinedState = sessionState.value as? TogetherSessionState.Joined ?: return
+        isHost = true
+        isHostOnline = isOnline
+
+        val updatedParticipants = joinedState.roomState.participants.map {
+            if (it.id == joinedState.selfParticipantId) it.copy(isHost = true, isPending = false)
+            else it.copy(isHost = false)
+        }
+
+        val newRoomState = joinedState.roomState.copy(
+            hostId = joinedState.selfParticipantId,
+            participants = updatedParticipants
+        )
+
+        hostParticipants.clear()
+        updatedParticipants.forEach { hostParticipants[it.id] = it }
+        hostRequestedQueue.clear()
+        joinedState.roomState.requestedQueue.forEach { hostRequestedQueue[it.track.id] = it }
+
+        if (isOnline) {
+            hostRelaySession = clientSession
+            clientSession = null
+        }
+
+        sessionState.value = TogetherSessionState.Hosting(
+            sessionId = sessionId,
+            joinLink = currentJoinInfo?.let { TogetherLink.encode(it) } ?: "",
+            pin = currentPin,
+            localAddressHint = null,
+            port = 0,
+            settings = newRoomState.settings,
+            roomState = newRoomState,
+            isOnline = isOnline
+        )
+
+        startPeriodicBroadcast()
+        scope.launch(Dispatchers.Main) {
+            Toast.makeText(context, R.string.together_promoted_to_host, Toast.LENGTH_LONG).show()
+        }
+    }
+
     fun leaveTogether() {
+        if (isHost) {
+            val secondPerson = hostParticipants.values
+                .filter { !it.isHost && !it.isPending && it.isConnected }
+                .minByOrNull { it.joinedAt }
+
+            if (secondPerson != null) {
+                transferHost(secondPerson.id)
+            }
+        }
+
         broadcastJob?.cancel()
         discoveryJob?.cancel()
         discoverySocket?.close()
@@ -1158,6 +1479,8 @@ class TogetherManager(
 
         sessionState.value = TogetherSessionState.Idle
 
+        player.playbackParameters = PlaybackParameters(1.0f, 1.0f)
+
         scope.launch(Dispatchers.IO) {
             try { engineToStop?.stop(100, 500) } catch (e: Exception) {}
             try { sessionToClose?.close() } catch (e: Exception) {}
@@ -1165,7 +1488,10 @@ class TogetherManager(
         }
     }
 
-    fun updateSettings(s: TogetherRoomSettings) { roomSettings = s }
+    fun updateSettings(s: TogetherRoomSettings) { 
+        roomSettings = s 
+        broadcastRoomState()
+    }
 
     fun kickParticipant(pId: String) {
         if (!isHost) return
@@ -1320,8 +1646,11 @@ private fun EmojiReactionsBar(
                 modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)
             )
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 TOGETHER_EMOJIS.forEach { emoji ->
@@ -1339,11 +1668,11 @@ private fun EmojiReactionsBar(
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                         interactionSource = interactionSource,
                         modifier = Modifier
-                            .size(44.dp)
+                            .size(46.dp)
                             .scale(scale)
                     ) {
                         Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                            Text(text = emoji, fontSize = 22.sp)
+                            Text(text = emoji, fontSize = 24.sp)
                         }
                     }
                 }
@@ -1409,7 +1738,7 @@ private fun ParticipantAvatar(
     }
 }
 
-// --- MAIN UI SCREEN ---
+// --- MAIN SCREEN ---
 
 @SuppressLint("LocalContextGetResourceValueCall")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1483,6 +1812,8 @@ fun MusicTogetherScreen(
     val (allowAddTracks, setAllowAddTracksRaw) = rememberPreference(TogetherAllowGuestsToAddTracksKey, defaultValue = true)
     val (allowControlPlayback, setAllowControlPlaybackRaw) = rememberPreference(TogetherAllowGuestsToControlPlaybackKey, defaultValue = false)
     val (requireApproval, setRequireApprovalRaw) = rememberPreference(TogetherRequireHostApprovalToJoinKey, defaultValue = false)
+    val (autoEnqueue, setAutoEnqueueRaw) = rememberPreference(TogetherAutoEnqueueRequestsKey, defaultValue = true)
+    val (allowReactions, setAllowReactionsRaw) = rememberPreference(TogetherAllowReactionsKey, defaultValue = true)
     val (lastJoinLink, setLastJoinLink) = rememberPreference(TogetherLastJoinLinkKey, defaultValue = "")
 
     val sessionStateFlow = remember(playerConnection) { playerConnection.service.togetherSessionState }
@@ -1531,8 +1862,10 @@ fun MusicTogetherScreen(
     val lanParticipants = hostingLan?.roomState?.participants.orEmpty()
     var confirmKickParticipantId by rememberSaveable { mutableStateOf<String?>(null) }
     var confirmBanParticipantId  by rememberSaveable { mutableStateOf<String?>(null) }
+    var confirmTransferHostParticipantId by rememberSaveable { mutableStateOf<String?>(null) }
     val confirmKickName = lanParticipants.firstOrNull { it.id == confirmKickParticipantId }?.name
     val confirmBanName  = lanParticipants.firstOrNull { it.id == confirmBanParticipantId  }?.name
+    val confirmTransferHostName = lanParticipants.firstOrNull { it.id == confirmTransferHostParticipantId }?.name
 
     var discoveredSessions by remember { mutableStateOf<List<DiscoveredSession>>(emptyList()) }
 
@@ -1552,15 +1885,31 @@ fun MusicTogetherScreen(
         if (disableJoinUi || isJoining || isHosting) showJoinDialog = false
     }
 
-    fun pushSettingsToActiveSession(addTracks: Boolean = allowAddTracks, controlPlayback: Boolean = allowControlPlayback, approval: Boolean = requireApproval) {
+    fun pushSettingsToActiveSession(
+        addTracks: Boolean = allowAddTracks, 
+        controlPlayback: Boolean = allowControlPlayback, 
+        approval: Boolean = requireApproval,
+        autoAdd: Boolean = autoEnqueue,
+        reactions: Boolean = allowReactions
+    ) {
         if (isHosting) {
-            playerConnection.service.updateTogetherSettings(TogetherRoomSettings(allowGuestsToAddTracks = addTracks, allowGuestsToControlPlayback = controlPlayback, requireHostApprovalToJoin = approval))
+            playerConnection.service.updateTogetherSettings(
+                TogetherRoomSettings(
+                    allowGuestsToAddTracks = addTracks, 
+                    allowGuestsToControlPlayback = controlPlayback, 
+                    requireHostApprovalToJoin = approval,
+                    autoEnqueueRequests = autoAdd,
+                    allowReactions = reactions
+                )
+            )
         }
     }
 
     val setAllowAddTracks: (Boolean) -> Unit = { v -> setAllowAddTracksRaw(v); pushSettingsToActiveSession(addTracks = v) }
     val setAllowControlPlayback: (Boolean) -> Unit = { v -> setAllowControlPlaybackRaw(v); pushSettingsToActiveSession(controlPlayback = v) }
     val setRequireApproval: (Boolean) -> Unit = { v -> setRequireApprovalRaw(v); pushSettingsToActiveSession(approval = v) }
+    val setAutoEnqueue: (Boolean) -> Unit = { v -> setAutoEnqueueRaw(v); pushSettingsToActiveSession(autoAdd = v) }
+    val setAllowReactions: (Boolean) -> Unit = { v -> setAllowReactionsRaw(v); pushSettingsToActiveSession(reactions = v) }
 
     if (showNameDialog) {
         com.cgens67.avidtune.ui.component.TextFieldDialog(
@@ -1618,9 +1967,37 @@ fun MusicTogetherScreen(
     if (showRequestTrackDialog) {
         SearchAndRequestTrackDialog(
             onDismiss = { showRequestTrackDialog = false },
-            onRequestTrack = { track ->
+            onRequestTrack = { track: TogetherTrack ->
                 showRequestTrackDialog = false
                 playerConnection.service.togetherManager.requestTrack(track, selfParticipantId, displayName)
+            }
+        )
+    }
+
+    if (confirmTransferHostParticipantId != null) {
+        AlertDialog(
+            onDismissRequest = { confirmTransferHostParticipantId = null },
+            shape = RoundedCornerShape(28.dp),
+            containerColor = MaterialTheme.colorScheme.surface,
+            title = { Text(stringResource(R.string.together_transfer_host)) },
+            text = { Text(stringResource(R.string.together_transfer_host_confirm, confirmTransferHostName ?: stringResource(R.string.unknown)), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val pid = confirmTransferHostParticipantId ?: return@Button
+                        confirmTransferHostParticipantId = null
+                        playerConnection.service.togetherManager.transferHost(pid)
+                    },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Text(stringResource(R.string.together_transfer_host), fontWeight = FontWeight.SemiBold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmTransferHostParticipantId = null }, shape = RoundedCornerShape(16.dp)) {
+                    Text(stringResource(R.string.dismiss))
+                }
             }
         )
     }
@@ -1708,6 +2085,12 @@ fun MusicTogetherScreen(
                         selfParticipantId = selfParticipantId,
                         isHost = isHostRole,
                         onRequestTrackClick = { showRequestTrackDialog = true },
+                        onLuckyTrackClick = {
+                            playerConnection.service.togetherManager.requestLuckyTrack(selfParticipantId, displayName)
+                        },
+                        onShuffleRequestsClick = {
+                            playerConnection.service.togetherManager.shuffleAndPlayRequestedTrack()
+                        },
                         onUpvoteTrack = { trackId ->
                             playerConnection.service.togetherManager.upvoteTrack(trackId, selfParticipantId)
                         },
@@ -1728,6 +2111,7 @@ fun MusicTogetherScreen(
                         onApprove = { pid, approved -> playerConnection.service.approveTogetherParticipant(pid, approved) }, 
                         onKick = { confirmKickParticipantId = it }, 
                         onBan = { confirmBanParticipantId = it }, 
+                        onTransferHost = { confirmTransferHostParticipantId = it },
                         modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)
                     )
                 }
@@ -1765,11 +2149,15 @@ fun MusicTogetherScreen(
                         allowAddTracks = allowAddTracks, 
                         allowControlPlayback = allowControlPlayback, 
                         requireApproval = requireApproval, 
+                        autoEnqueue = autoEnqueue,
+                        allowReactions = allowReactions,
                         onShowNameDialog = { showNameDialog = true }, 
                         onShowPortDialog = { showPortDialog = true }, 
                         onAllowAddTracksChange = setAllowAddTracks, 
                         onAllowControlPlaybackChange = setAllowControlPlayback, 
                         onRequireApprovalChange = setRequireApproval, 
+                        onAutoEnqueueChange = setAutoEnqueue,
+                        onAllowReactionsChange = setAllowReactions,
                         isStartEnabled = !isCreatingSessionLoading && !isJoining && !isHosting && sessionState !is TogetherSessionState.Joined, 
                         isLoading = isCreatingSessionLoading, 
                         onStartSession = { 
@@ -1779,7 +2167,9 @@ fun MusicTogetherScreen(
                                 settings = TogetherRoomSettings(
                                     allowGuestsToAddTracks = allowAddTracks, 
                                     allowGuestsToControlPlayback = allowControlPlayback, 
-                                    requireHostApprovalToJoin = requireApproval
+                                    requireHostApprovalToJoin = requireApproval,
+                                    autoEnqueueRequests = autoEnqueue,
+                                    allowReactions = allowReactions
                                 ), 
                                 avatar = currentAvatar,
                                 isOnline = isOnlineMode,
@@ -1859,11 +2249,15 @@ private fun HostSectionCard(
     allowAddTracks: Boolean, 
     allowControlPlayback: Boolean, 
     requireApproval: Boolean, 
+    autoEnqueue: Boolean,
+    allowReactions: Boolean,
     onShowNameDialog: () -> Unit, 
     onShowPortDialog: () -> Unit, 
     onAllowAddTracksChange: (Boolean) -> Unit, 
     onAllowControlPlaybackChange: (Boolean) -> Unit, 
     onRequireApprovalChange: (Boolean) -> Unit, 
+    onAutoEnqueueChange: (Boolean) -> Unit,
+    onAllowReactionsChange: (Boolean) -> Unit,
     isStartEnabled: Boolean, 
     isLoading: Boolean, 
     onStartSession: () -> Unit, 
@@ -1978,9 +2372,13 @@ private fun HostSectionCard(
             SettingsDivider()
             ToggleRow(icon = R.drawable.playlist_add, title = stringResource(R.string.together_allow_guests_add), checked = allowAddTracks, onCheckedChange = onAllowAddTracksChange)
             SettingsDivider()
+            ToggleRow(icon = R.drawable.playlist_play, title = stringResource(R.string.together_auto_enqueue_requests), checked = autoEnqueue, onCheckedChange = onAutoEnqueueChange)
+            SettingsDivider()
             ToggleRow(icon = R.drawable.play, title = stringResource(R.string.together_allow_guests_control), checked = allowControlPlayback, onCheckedChange = onAllowControlPlaybackChange)
             SettingsDivider()
             ToggleRow(icon = R.drawable.lock, title = stringResource(R.string.together_require_approval), checked = requireApproval, onCheckedChange = onRequireApprovalChange)
+            SettingsDivider()
+            ToggleRow(icon = R.drawable.auto_awesome, title = stringResource(R.string.together_allow_reactions), checked = allowReactions, onCheckedChange = onAllowReactionsChange)
             Spacer(Modifier.height(8.dp))
             
             val interactionSource = remember { MutableInteractionSource() }
@@ -2146,6 +2544,7 @@ private fun OnlineParticipantsCard(
     onApprove: (String, Boolean) -> Unit,
     onKick: (String) -> Unit,
     onBan: (String) -> Unit,
+    onTransferHost: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -2275,6 +2674,22 @@ private fun OnlineParticipantsCard(
                                             }
                                         }
                                     } else {
+                                        Surface(
+                                            onClick = { onTransferHost(participant.id) },
+                                            shape = CircleShape,
+                                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                                            modifier = Modifier.size(36.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(
+                                                    painter = painterResource(R.drawable.auto_awesome),
+                                                    contentDescription = stringResource(R.string.together_transfer_host),
+                                                    modifier = Modifier.size(18.dp),
+                                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                                )
+                                            }
+                                        }
+
                                         Surface(
                                             onClick = { onKick(participant.id) },
                                             shape = CircleShape,
@@ -2806,6 +3221,8 @@ private fun RequestedTracksCard(
     selfParticipantId: String,
     isHost: Boolean,
     onRequestTrackClick: () -> Unit,
+    onLuckyTrackClick: () -> Unit,
+    onShuffleRequestsClick: () -> Unit,
     onUpvoteTrack: (String) -> Unit,
     onPlayTrack: (String) -> Unit,
     onRemoveTrack: (String) -> Unit,
@@ -2818,6 +3235,7 @@ private fun RequestedTracksCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
+            // Header Row: Icon + Title on the left, Request Track Button on the right
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -2825,7 +3243,8 @@ private fun RequestedTracksCard(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.weight(1f, fill = false)
                 ) {
                     Box(
                         modifier = Modifier
@@ -2844,32 +3263,94 @@ private fun RequestedTracksCard(
                     Text(
                         text = stringResource(R.string.together_requests_count, requestedQueue.size),
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
                 Button(
                     onClick = onRequestTrackClick,
                     shape = RoundedCornerShape(12.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.add),
                         contentDescription = null,
                         modifier = Modifier.size(16.dp)
                     )
-                    Spacer(Modifier.width(4.dp))
-                    Text(stringResource(R.string.together_request_track), style = MaterialTheme.typography.labelMedium)
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = stringResource(R.string.together_request_track),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            // Action Pills Row: Lucky Pick & Shuffle without cramped wrapping
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                FilledTonalButton(
+                    onClick = onLuckyTrackClick,
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.auto_awesome),
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = stringResource(R.string.together_lucky_request),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                }
+
+                if (isHost && requestedQueue.isNotEmpty()) {
+                    FilledTonalButton(
+                        onClick = onShuffleRequestsClick,
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.shuffle),
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = stringResource(R.string.shuffle),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
                 }
             }
 
             Spacer(Modifier.height(12.dp))
 
             if (requestedQueue.isEmpty()) {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                    modifier = Modifier.fillMaxWidth()
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp),
+                    contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = stringResource(R.string.together_no_requests_placeholder),

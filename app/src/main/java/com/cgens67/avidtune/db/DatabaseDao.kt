@@ -14,6 +14,7 @@ import com.cgens67.innertube.models.PlaylistItem
 import com.cgens67.innertube.models.SongItem
 import com.cgens67.innertube.pages.AlbumPage
 import com.cgens67.innertube.pages.ArtistPage
+import com.cgens67.innertube.pages.PageHelper
 import com.cgens67.avidtune.constants.AlbumSortType
 import com.cgens67.avidtune.constants.ArtistSongSortType
 import com.cgens67.avidtune.constants.ArtistSortType
@@ -652,6 +653,9 @@ interface DatabaseDao {
     @Query("SELECT COUNT(*) FROM song_artist_map WHERE artistId = :artistId")
     suspend fun getSongCountForArtist(artistId: String): Int
 
+    @Query("DELETE FROM artist WHERE id LIKE 'LA%' AND id NOT IN (SELECT DISTINCT artistId FROM song_artist_map)")
+    fun deleteOrphanLocalArtists()
+
     fun artists(
         sortType: ArtistSortType,
         descending: Boolean,
@@ -1090,7 +1094,21 @@ interface DatabaseDao {
         block: (SongEntity) -> SongEntity = { it },
     ) {
         if (insert(mediaMetadata.toSongEntity().let(block)) == -1L) return
-        mediaMetadata.artists.forEachIndexed { index, artist ->
+
+        val expandedArtists = mediaMetadata.artists.flatMap { artist ->
+            if (artist.id == null || artist.id.startsWith("LA")) {
+                PageHelper.splitArtistNames(artist.name).map { name ->
+                    MediaMetadata.Artist(
+                        id = if (artist.name.equals(name, ignoreCase = true)) artist.id else null,
+                        name = name
+                    )
+                }
+            } else {
+                listOf(artist)
+            }
+        }.ifEmpty { mediaMetadata.artists }
+
+        expandedArtists.forEachIndexed { index, artist ->
             val artistId =
                 artist.id ?: artistByName(artist.name)?.id ?: ArtistEntity.generateArtistId()
             insert(
@@ -1107,6 +1125,7 @@ interface DatabaseDao {
                 ),
             )
         }
+        deleteOrphanLocalArtists()
     }
 
     @Transaction
@@ -1155,6 +1174,7 @@ interface DatabaseDao {
                     order = index,
                 )
             }?.forEach(::insert)
+        deleteOrphanLocalArtists()
     }
 
     @Transaction
@@ -1172,7 +1192,21 @@ interface DatabaseDao {
             ),
         )
         songArtistMap(song.id).forEach(::delete)
-        mediaMetadata.artists.forEachIndexed { index, artist ->
+
+        val expandedArtists = mediaMetadata.artists.flatMap { artist ->
+            if (artist.id == null || artist.id.startsWith("LA")) {
+                PageHelper.splitArtistNames(artist.name).map { name ->
+                    MediaMetadata.Artist(
+                        id = if (artist.name.equals(name, ignoreCase = true)) artist.id else null,
+                        name = name
+                    )
+                }
+            } else {
+                listOf(artist)
+            }
+        }.ifEmpty { mediaMetadata.artists }
+
+        expandedArtists.forEachIndexed { index, artist ->
             val artistId =
                 artist.id ?: artistByName(artist.name)?.id ?: ArtistEntity.generateArtistId()
             insert(
@@ -1189,6 +1223,7 @@ interface DatabaseDao {
                 ),
             )
         }
+        deleteOrphanLocalArtists()
     }
 
     @Update
@@ -1274,6 +1309,7 @@ interface DatabaseDao {
                     )
                 }.forEach(::insert)
         }
+        deleteOrphanLocalArtists()
     }
 
     @Update

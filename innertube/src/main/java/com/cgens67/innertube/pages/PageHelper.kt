@@ -18,6 +18,67 @@ object PageHelper {
         """(?i)\d+[\d.,\s]*[kmb万億]?\s*(views|plays|reproducciones|visualizaciones|vistas|aufrufe|vues|reproduções|escuchas|ecoutes|écoutes|visualizzazioni|weergaven|wyświetlenia|odtworzeń|zhlédnutí|visninger|katselukertaa|visningar|просмотров|прослушиваний|переглядів|회|回|次|再生|播放)"""
     )
 
+    private val ARTIST_SPLIT_REGEX = Regex(
+        """,?\s*&\s*|,?\s+(?i:and)\s+|\s+(?i:feat\.?|ft\.?|featuring)\s+|,+\s+|,\s*[/;]\s*|\s*[/;]\s*|,?\s+(?i:x)\s+"""
+    )
+
+    private val PRESERVED_ARTIST_NAMES = setOf(
+        "tyler, the creator",
+        "earth, wind & fire",
+        "earth, wind and fire",
+        "kool & the gang",
+        "kool and the gang",
+        "simon & garfunkel",
+        "simon and garfunkel",
+        "crosby, stills, nash & young",
+        "crosby, stills, nash and young",
+        "crosby, stills & nash",
+        "crosby, stills and nash",
+        "hall & oates",
+        "hall and oates",
+        "brooks & dunn",
+        "above & beyond",
+        "tom petty and the heartbreakers",
+        "tom petty & the heartbreakers",
+        "huey lewis & the news",
+        "huey lewis and the news",
+        "kc & the sunshine band",
+        "kc and the sunshine band",
+        "bob marley & the wailers",
+        "bob marley and the wailers",
+        "sly & the family stone",
+        "sly and the family stone",
+        "marina and the diamonds",
+        "mumford & sons",
+        "mumford and sons",
+        "of monsters and men",
+        "king gizzard & the lizard wizard",
+        "king gizzard and the lizard wizard",
+        "joan jett & the blackhearts",
+        "joan jett and the blackhearts",
+        "the mamas & the papas",
+        "the mamas and the papas",
+        "blood, sweat & tears",
+        "blood, sweat and tears",
+        "iron & wine",
+        "iron and wine",
+        "fitz and the tantrums",
+        "hootie & the blowfish",
+        "hootie and the blowfish"
+    )
+
+    fun splitArtistNames(raw: String): List<String> {
+        val trimmed = raw.trim()
+        if (trimmed.isEmpty()) return emptyList()
+        if (PRESERVED_ARTIST_NAMES.contains(trimmed.lowercase())) {
+            return listOf(trimmed)
+        }
+        val parts = trimmed.split(ARTIST_SPLIT_REGEX)
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+        return if (parts.isEmpty()) listOf(trimmed) else parts
+    }
+
     data class LibraryFeedbackTokens(
         val addToken: String?,
         val removeToken: String?,

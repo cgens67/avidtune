@@ -511,6 +511,67 @@ fun BottomSheetPlayer(
         return
     }
 
+    if (playerVersion == PlayerVersion.V3) {
+        BottomSheet(
+            state = state,
+            modifier = modifier,
+            slidingBackground = playerBackground == PlayerBackgroundStyle.APPLE_MUSIC,
+            background = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(bottomSheetBackgroundColor)
+                ) {
+                    if (isCustomBackground) {
+                        PlayerBackground(
+                            playerBackground = playerBackground,
+                            mediaMetadata = mediaMetadata,
+                            gradientColors = gradientColors,
+                            disableBlur = disableBlur
+                        )
+                        if (playerBackground != PlayerBackgroundStyle.APPLE_MUSIC) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color.Black.copy(alpha = if (useDarkTheme) 0.3f else 0.45f))
+                            )
+                        }
+                    }
+                }
+            },
+            onDismiss = {
+                coroutineScope.launch {
+                    val player = playerConnection.player
+                    val currentVol = player.volume
+                    val steps = 10
+                    val delayMs = 25L
+                    for (i in steps downTo 1) {
+                        player.volume = currentVol * (i / steps.toFloat())
+                        delay(delayMs)
+                    }
+                    player.pause()
+                    player.stop()
+                    player.clearMediaItems()
+                    player.volume = currentVol
+                }
+            },
+            collapsedContent = {
+                MiniPlayer(
+                    position = position,
+                    duration = duration,
+                )
+            },
+        ) {
+            PlayerV3(
+                state = state,
+                navController = navController,
+                onOpenFullscreenLyrics = onOpenFullscreenLyrics,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+        return
+    }
+
     BottomSheet(
         state = state,
         modifier = modifier,
@@ -595,7 +656,7 @@ fun BottomSheetPlayer(
                             .padding(end = 24.dp)
                             .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top)),
                     ) {
-                        mediaMetadata?.let {
+                        mediaMetadata?.let { currentMetadata ->
                             Row(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
@@ -605,7 +666,7 @@ fun BottomSheetPlayer(
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     PlayerTitleSection(
-                                        mediaMetadata = it,
+                                        mediaMetadata = currentMetadata,
                                         textBackgroundColor = TextBackgroundColor,
                                         navController = navController,
                                         state = state
@@ -616,7 +677,7 @@ fun BottomSheetPlayer(
 
                                 if (minimalPlayerDesign) {
                                     PlayerTopActionsV3(
-                                        mediaMetadata = it,
+                                        mediaMetadata = currentMetadata,
                                         textBackgroundColor = TextBackgroundColor,
                                         currentSongLiked = currentSongLiked,
                                         context = context,
@@ -624,7 +685,7 @@ fun BottomSheetPlayer(
                                         onMoreOptions = {
                                             menuState.show {
                                                 PlayerMenu(
-                                                    mediaMetadata = it,
+                                                    mediaMetadata = currentMetadata,
                                                     navController = navController,
                                                     playerBottomSheetState = state,
                                                     onShowDetailsDialog = { showDetailsDialog = true },
@@ -635,7 +696,7 @@ fun BottomSheetPlayer(
                                     )
                                 } else {
                                     PlayerTopActionsV4(
-                                        mediaMetadata = it,
+                                        mediaMetadata = currentMetadata,
                                         textBackgroundColor = TextBackgroundColor,
                                         currentSongLiked = currentSongLiked,
                                         onShare = {
@@ -644,7 +705,7 @@ fun BottomSheetPlayer(
                                                 type = "text/plain"
                                                 putExtra(
                                                     Intent.EXTRA_TEXT,
-                                                    "https://music.youtube.com/watch?v=${it.id}"
+                                                    "https://music.youtube.com/watch?v=${currentMetadata.id}"
                                                 )
                                             }
                                             context.startActivity(Intent.createChooser(intent, null))
@@ -653,7 +714,7 @@ fun BottomSheetPlayer(
                                         onMoreOptions = {
                                             menuState.show {
                                                 PlayerMenu(
-                                                    mediaMetadata = it,
+                                                    mediaMetadata = currentMetadata,
                                                     navController = navController,
                                                     playerBottomSheetState = state,
                                                     onShowDetailsDialog = { showDetailsDialog = true },
@@ -674,7 +735,7 @@ fun BottomSheetPlayer(
                                 duration = duration,
                                 isPlaying = isPlaying,
                                 textBackgroundColor = TextBackgroundColor,
-                                onValueChange = { sliderPosition = it },
+                                onValueChange = { pos -> sliderPosition = pos },
                                 onValueChangeFinished = {
                                     sliderPosition?.let { pos ->
                                         playerConnection.seekTo(pos)
@@ -755,7 +816,7 @@ fun BottomSheetPlayer(
                         }
                     }
 
-                    mediaMetadata?.let {
+                    mediaMetadata?.let { currentMetadata ->
                         Row(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
@@ -765,7 +826,7 @@ fun BottomSheetPlayer(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 PlayerTitleSection(
-                                    mediaMetadata = it,
+                                    mediaMetadata = currentMetadata,
                                     textBackgroundColor = TextBackgroundColor,
                                     navController = navController,
                                     state = state
@@ -776,7 +837,7 @@ fun BottomSheetPlayer(
 
                             if (minimalPlayerDesign) {
                                 PlayerTopActionsV3(
-                                    mediaMetadata = it,
+                                    mediaMetadata = currentMetadata,
                                     textBackgroundColor = TextBackgroundColor,
                                     currentSongLiked = currentSongLiked,
                                     context = context,
@@ -784,7 +845,7 @@ fun BottomSheetPlayer(
                                     onMoreOptions = {
                                         menuState.show {
                                             PlayerMenu(
-                                                mediaMetadata = it,
+                                                mediaMetadata = currentMetadata,
                                                 navController = navController,
                                                 playerBottomSheetState = state,
                                                 onShowDetailsDialog = { showDetailsDialog = true },
@@ -795,7 +856,7 @@ fun BottomSheetPlayer(
                                 )
                             } else {
                                 PlayerTopActionsV4(
-                                    mediaMetadata = it,
+                                    mediaMetadata = currentMetadata,
                                     textBackgroundColor = TextBackgroundColor,
                                     currentSongLiked = currentSongLiked,
                                     onShare = {
@@ -804,7 +865,7 @@ fun BottomSheetPlayer(
                                             type = "text/plain"
                                             putExtra(
                                                 Intent.EXTRA_TEXT,
-                                                "https://music.youtube.com/watch?v=${it.id}"
+                                                "https://music.youtube.com/watch?v=${currentMetadata.id}"
                                             )
                                         }
                                         context.startActivity(Intent.createChooser(intent, null))
@@ -813,7 +874,7 @@ fun BottomSheetPlayer(
                                     onMoreOptions = {
                                         menuState.show {
                                             PlayerMenu(
-                                                mediaMetadata = it,
+                                                mediaMetadata = currentMetadata,
                                                 navController = navController,
                                                 playerBottomSheetState = state,
                                                 onShowDetailsDialog = { showDetailsDialog = true },
@@ -834,7 +895,7 @@ fun BottomSheetPlayer(
                             duration = duration,
                             isPlaying = isPlaying,
                             textBackgroundColor = TextBackgroundColor,
-                            onValueChange = { sliderPosition = it },
+                            onValueChange = { pos -> sliderPosition = pos },
                             onValueChangeFinished = {
                                 sliderPosition?.let { pos ->
                                     playerConnection.seekTo(pos)

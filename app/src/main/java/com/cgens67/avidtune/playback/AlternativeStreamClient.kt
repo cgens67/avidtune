@@ -10,17 +10,18 @@ object AlternativeStreamClient {
     private const val TAG = "AlternativeStream"
 
     private val httpClient = OkHttpClient.Builder()
-        .connectTimeout(4, TimeUnit.SECONDS)
-        .readTimeout(4, TimeUnit.SECONDS)
+        .connectTimeout(5, TimeUnit.SECONDS)
+        .readTimeout(5, TimeUnit.SECONDS)
         .followRedirects(true)
         .build()
 
     // Active public Piped instances that proxy audio
     private val PIPED_INSTANCES = listOf(
-        "https://pipedapi.kavin.rocks",
         "https://pipedapi.adminforge.de",
         "https://piped-api.privacy.com.de",
-        "https://api.piped.yt"
+        "https://api.piped.private.coffee",
+        "https://pipedapi.drgns.space",
+        "https://pipedapi.leptons.xyz"
     )
 
     fun getStreamingUrl(videoId: String): String? {
@@ -28,7 +29,7 @@ object AlternativeStreamClient {
             try {
                 val request = Request.Builder()
                     .url("$instance/streams/$videoId")
-                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
                     .build()
 
                 httpClient.newCall(request).execute().use { response ->

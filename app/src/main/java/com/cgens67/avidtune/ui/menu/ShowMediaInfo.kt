@@ -30,6 +30,7 @@ import com.cgens67.avidtune.LocalDatabase
 import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 @Composable
 fun MediaInfoBottomSheet(videoId: String, onDismiss: () -> Unit) {
@@ -80,7 +81,6 @@ fun ColumnScope.ShowMediaInfo(videoId: String, onClose: () -> Unit) {
         item { val facts = listOfNotNull(format?.mimeType?.substringBefore(';')?.takeIf { it.isNotBlank() }?.let { R.drawable.graphic_eq to it }, format?.bitrate?.takeIf { it > 0 }?.let { R.drawable.waves to "${it / 1000} Kbps" }, format?.contentLength?.takeIf { it > 0 }?.let { R.drawable.storage to Formatter.formatShortFileSize(ctx, it) }); if (facts.isNotEmpty()) FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { facts.forEach { (i, t) -> AssistChip({ copyToClip(t) }, { Text(t, maxLines = 1, overflow = TextOverflow.Ellipsis) }, leadingIcon = { Icon(painterResource(i), null) }, colors = AssistChipDefaults.assistChipColors(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.onSurface)) } } }
         item { 
             val visTabs = Tab.entries.filter { it != Tab.Stats /* HIDDEN */ }
-            // Wrapped the row inside a full Surface background to clean up the connected edges glitch entirely
             Surface(Modifier.fillMaxWidth().height(48.dp), shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
                 Row(Modifier.fillMaxWidth()) { 
                     visTabs.forEach { t -> 
@@ -89,7 +89,7 @@ fun ColumnScope.ShowMediaInfo(videoId: String, onClose: () -> Unit) {
                             onCheckedChange = { if (it) tab = t }, 
                             modifier = Modifier.weight(1f).fillMaxHeight(), 
                             colors = ToggleButtonDefaults.toggleButtonColors(
-                                containerColor = Color.Transparent, // Transparent clears up any background clashing
+                                containerColor = Color.Transparent,
                                 contentColor = MaterialTheme.colorScheme.onSurfaceVariant, 
                                 checkedContainerColor = MaterialTheme.colorScheme.primaryContainer, 
                                 checkedContentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -107,7 +107,7 @@ fun ColumnScope.ShowMediaInfo(videoId: String, onClose: () -> Unit) {
                     val unk = stringResource(R.string.unknown); val wait = "${stringResource(R.string.please_wait)}..."
                     when (t) {
                         Tab.Info -> { CompactInfoGrid(listOf(stringResource(R.string.song_title) to (song?.title ?: unk), stringResource(R.string.artists) to (song?.artists?.takeIf { it.isNotEmpty() }?.joinToString { it.name } ?: unk), stringResource(R.string.media_id) to videoId), copyToClip); if (false) /* HIDDEN */ ElevatedCard(Modifier.fillMaxWidth(), colors = CardDefaults.elevatedCardColors(MaterialTheme.colorScheme.surfaceContainerLow)) { Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text(stringResource(R.string.description), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold); OutlinedButton({ copyToClip(unk) }) { Icon(painterResource(R.drawable.content_copy), null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.action_copy)) } }; Text(unk, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) } } }
-                        Tab.Details -> { val det = listOfNotNull(format?.itag?.let { stringResource(R.string.itag) to it.toString() }, format?.mimeType?.takeIf { it.isNotBlank() }?.let { stringResource(R.string.mime_type) to it }, format?.codecs?.takeIf { it.isNotBlank() }?.let { stringResource(R.string.codecs) to it }, format?.bitrate?.takeIf { it > 0 }?.let { stringResource(R.string.bitrate) to "${it / 1000} Kbps" }, format?.sampleRate?.takeIf { it > 0 }?.let { stringResource(R.string.sample_rate) to "$it Hz" }, format?.loudnessDb?.let { stringResource(R.string.loudness) to "$it dB" }, player?.volume?.let { stringResource(R.string.volume) to "${(it * 100).toInt()}%" }, format?.contentLength?.takeIf { it > 0 }?.let { stringResource(R.string.file_size) to Formatter.formatShortFileSize(ctx, it) }); if (det.isEmpty()) PendingCard(stringResource(R.string.details), wait) else CompactInfoGrid(det, copyToClip) }
+                        Tab.Details -> { val det = listOfNotNull(format?.itag?.let { stringResource(R.string.itag) to it.toString() }, format?.mimeType?.takeIf { it.isNotBlank() }?.let { stringResource(R.string.mime_type) to it }, format?.codecs?.takeIf { it.isNotBlank() }?.let { stringResource(R.string.codecs) to it }, format?.bitrate?.takeIf { it > 0 }?.let { stringResource(R.string.bitrate) to "${it / 1000} Kbps" }, format?.sampleRate?.takeIf { it > 0 }?.let { stringResource(R.string.sample_rate) to "$it Hz" }, format?.loudnessDb?.let { stringResource(R.string.loudness) to String.format(Locale.US, "%s%.1f dB", if (it > 0) "+" else "", it) }, player?.volume?.let { stringResource(R.string.volume) to "${(it * 100).toInt()}%" }, format?.contentLength?.takeIf { it > 0 }?.let { stringResource(R.string.file_size) to Formatter.formatShortFileSize(ctx, it) }); if (det.isEmpty()) PendingCard(stringResource(R.string.details), wait) else CompactInfoGrid(det, copyToClip) }
                         Tab.Stats -> { if (false) /* HIDDEN */ Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) { listOf(stringResource(R.string.subscribers) to unk, stringResource(R.string.views) to unk, stringResource(R.string.likes) to unk, stringResource(R.string.dislikes) to unk).chunked(2).forEach { row -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) { row.forEach { (l, v) -> ElevatedCard(Modifier.weight(1f), colors = CardDefaults.elevatedCardColors(MaterialTheme.colorScheme.surfaceContainerLow)) { Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { Text(l, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant); Text(v, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold) } } }; if (row.size == 1) Spacer(Modifier.weight(1f)) } } } }
                     }
                 }

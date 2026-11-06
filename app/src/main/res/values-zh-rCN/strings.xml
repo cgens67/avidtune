@@ -1042,16 +1042,20 @@
     <string name="random">随机</string>
     <string name="github_api_rate_limit_exceeded">超出 GitHub API 速率限制 (HTTP 403)。请稍后再试。</string>
     
-    <string name="playback_fallback_priority">播放后备优先级</string>
-    <string name="playback_fallback_priority_desc">重新排序用于获取流的客户端以绕过限制。</string>
-    <string name="client_desc_web_remix">直接拉取流，无需签名解密。</string>
-    <string name="client_desc_android_vr">虚拟现实客户端，无身份验证。</string>
-    <string name="client_desc_android">标准移动客户端。</string>
-    <string name="client_desc_tv_embedded">嵌入式电视播放器客户端。</string>
-    <string name="client_desc_ios">标准 iOS 客户端。</string>
-    <string name="client_desc_web">标准网页客户端。</string>
-    <string name="client_desc_web_creator">网页创作者工作室客户端。</string>
+    <!-- Playback Clients & Nerd Stats -->
     <string name="playback_client">播放客户端</string>
+    <string name="playback_fallback_priority">播放回退优先级</string>
+    <string name="playback_fallback_priority_desc">调整用于获取音频流的客户端顺序，以绕过访问限制。</string>
+    <string name="client_desc_visionos">Apple VisionOS 客户端；兼容性最佳</string>
+    <string name="client_desc_web_remix">YouTube Music 网页客户端；支持账号登录与同步</string>
+    <string name="client_desc_tvhtml5_simply">精简版智能电视客户端；轻量回退方案</string>
+    <string name="client_desc_tvhtml5">智能电视 HTML5 客户端；可靠的备用选择</string>
+    <string name="client_desc_web_creator">YouTube 工作室客户端；备用网页端接口</string>
+    <string name="client_desc_web">标准 YouTube 网页客户端；需要签名解密</string>
+    <string name="client_desc_android_vr">虚拟现实客户端；目前受 YouTube 限制</string>
+    <string name="client_desc_ios">标准 iOS 客户端；缺少原生请求头时会被拦截</string>
+    <string name="client_desc_android">标准移动端客户端；需要移动端身份验证</string>
+    <string name="client_desc_tv_embedded">嵌入式电视播放器客户端；网页 iframe 备选</string>
     
     <!-- Storage Settings -->
     <string name="manage_storage_categories">管理存储类别</string>
@@ -1433,5 +1437,23 @@
     <string name="enable_genius_desc">全球最大的众包歌词平台，仅提供无时间轴纯文本歌词</string>
     <string name="enable_yt_subtitle_desc">从 YouTube 视频字幕及原声转录中提取的同步歌词</string>
     <string name="enable_yt_music_lyrics_desc">来自 YouTube Music 官方曲库的静态歌词</string>
+    
+    <string name="tempo">速度</string>
+    <string name="pitch">音调</string>
+    <string name="merge_pitch_tempo">合并音调与速度（变速变调）</string>
+    <string name="pitch_tempo_merged">音调与速度已合并（已锁定）</string>
+    <string name="separate">独立</string>
+    <string name="merged">合并</string>
+    
+    <string name="together_transfer_host">设为房主</string>
+    <string name="together_transfer_host_confirm">是否将房主权限移交给 %1$s？</string>
+    <string name="together_promoted_to_host">您现在是房主！</string>
+    <string name="together_playback_controlled_by_host">播放由房主控制。</string>
+    <string name="together_submitted_as_request">已将“%1$s”添加到点歌队列。</string>
+    <string name="together_lucky_request">手气不错</string>
+    <string name="together_lucky_requested">已点播“%1$s”！</string>
+    <string name="together_lucky_failed">未找到惊喜曲目。</string>
+    <string name="together_auto_enqueue_requests">自动将点歌添加到播放队列</string>
+    <string name="together_allow_reactions">允许浮动表情互动</string>
     
 </resources>
