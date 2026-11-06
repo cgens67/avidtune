@@ -1479,4 +1479,9 @@
     <string name="together_auto_enqueue_requests">Auto-add requests to playback queue</string>
     <string name="together_allow_reactions">Allow floating reactions</string>
     
+    <!-- Player Design & Canvas Settings -->
+    <string name="player_design_expressive">Expressive (v3)</string>
+    <string name="enable_avidcanvas_artist_canvas_desc">Display animated canvas loops from AvidCanvas</string>
+    <string name="enable_apple_music_artist_canvas_desc">Display animated canvas loops from Apple Music</string>
+    
 </resources>

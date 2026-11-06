@@ -1454,5 +1454,10 @@
     <string name="together_lucky_failed">Impossible de trouver un morceau surprise.</string>
     <string name="together_auto_enqueue_requests">Ajouter automatiquement les demandes à la file d\'attente</string>
     <string name="together_allow_reactions">Autoriser les réactions flottantes</string>
+    
+    <!-- Conception du lecteur et paramètres de Canvas -->
+    <string name="player_design_expressive">Expressif (v3)</string>
+    <string name="enable_avidcanvas_artist_canvas_desc">Afficher les boucles de canvas animées d\'AvidCanvas</string>
+    <string name="enable_apple_music_artist_canvas_desc">Afficher les boucles de canvas animées d\'Apple Music</string>
 
 </resources>

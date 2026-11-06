@@ -4,23 +4,16 @@ package com.cgens67.avidtune.ui.screens.settings
 
 import android.content.Context
 import android.os.Build
-import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -36,7 +29,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -46,19 +38,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.RadioButton
@@ -92,6 +80,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import androidx.datastore.preferences.core.edit
@@ -207,7 +196,7 @@ fun AppearanceSettings(
         onAppFontStrChange(newFont.name)
     }
 
-    val (appTextSize, onAppTextSizeChange) = rememberEnumPreference(
+    val (appTextSize, _) = rememberEnumPreference(
         AppTextSizeKey,
         defaultValue = AppTextSize.SYSTEM
     )
@@ -629,7 +618,7 @@ fun AppearanceSettings(
                             when (it) {
                                 PlayerVersion.V1 -> stringResource(R.string.player_design_classic)
                                 PlayerVersion.V2 -> stringResource(R.string.player_design_modern)
-                                PlayerVersion.V3 -> "V3 (Expressive)"
+                                PlayerVersion.V3 -> stringResource(R.string.player_design_expressive)
                             }
                         },
                     )
@@ -1139,12 +1128,33 @@ fun ReorderCanvasProvidersBottomSheet(
 
                                 Spacer(Modifier.width(16.dp))
 
-                                Text(
-                                    text = item,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = if (index == 0) FontWeight.Bold else FontWeight.Normal,
-                                    modifier = Modifier.weight(1f)
-                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    val displayName = when (item) {
+                                        "AvidCanvas" -> stringResource(R.string.enable_avidcanvas_artist_canvas)
+                                        "Apple Music" -> stringResource(R.string.enable_apple_music_artist_canvas)
+                                        else -> item
+                                    }
+                                    Text(
+                                        text = displayName,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = if (index == 0) FontWeight.Bold else FontWeight.SemiBold
+                                    )
+                                    val desc = when (item) {
+                                        "AvidCanvas" -> stringResource(R.string.enable_avidcanvas_artist_canvas_desc)
+                                        "Apple Music" -> stringResource(R.string.enable_apple_music_artist_canvas_desc)
+                                        else -> null
+                                    }
+                                    if (!desc.isNullOrBlank()) {
+                                        Spacer(Modifier.height(2.dp))
+                                        Text(
+                                            text = desc,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
 
                                 Icon(
                                     painter = painterResource(R.drawable.drag_handle),

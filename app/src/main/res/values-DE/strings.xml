@@ -1471,5 +1471,10 @@
     <string name="together_lucky_failed">Es konnte kein Überraschungstitel gefunden werden.</string>
     <string name="together_auto_enqueue_requests">Anfragen automatisch zur Wiedergabeliste hinzufügen</string>
     <string name="together_allow_reactions">Schwebende Reaktionen erlauben</string>
+    
+    <!-- Player-Design und Canvas-Einstellungen -->
+    <string name="player_design_expressive">Expressiv (v3)</string>
+    <string name="enable_avidcanvas_artist_canvas_desc">Animierte Canvas-Schleifen von AvidCanvas anzeigen</string>
+    <string name="enable_apple_music_artist_canvas_desc">Animierte Canvas-Schleifen von Apple Music anzeigen</string>
 
 </resources>

@@ -1456,4 +1456,9 @@
     <string name="together_auto_enqueue_requests">自动将点歌添加到播放队列</string>
     <string name="together_allow_reactions">允许浮动表情互动</string>
     
+    <!-- 播放器样式与画布设置 -->
+    <string name="player_design_expressive">灵动 (v3)</string>
+    <string name="enable_avidcanvas_artist_canvas_desc">播放来自 AvidCanvas 的动态画布循环背景</string>
+    <string name="enable_apple_music_artist_canvas_desc">播放来自 Apple Music 的动态画布循环背景</string>
+    
 </resources>
