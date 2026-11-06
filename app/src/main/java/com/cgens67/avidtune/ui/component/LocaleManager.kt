@@ -152,15 +152,15 @@ class LocaleManager private constructor(private val context: Context) {
 
         // Flag and translation state mapping
         private val LANGUAGE_METADATA = mapOf(
-            "en" to LanguageMetadata("🇺🇸", CompletionStatus.COMPLETE, "v1.5.1"),
+            "en" to LanguageMetadata("🇺🇸", CompletionStatus.COMPLETE, "v1.5.2"),
             "es" to LanguageMetadata("🇪🇸", CompletionStatus.INCOMPLETE, "v0.9.4"),
-            "fr" to LanguageMetadata("🇫🇷", CompletionStatus.COMPLETE, "v1.5.1"),
-            "de" to LanguageMetadata("🇩🇪", CompletionStatus.COMPLETE, "v1.5.1"),
+            "fr" to LanguageMetadata("🇫🇷", CompletionStatus.COMPLETE, "v1.5.2"),
+            "de" to LanguageMetadata("🇩🇪", CompletionStatus.COMPLETE, "v1.5.2"),
             "it" to LanguageMetadata("🇮🇹", CompletionStatus.INCOMPLETE, "v0.9.4"),
             "pt" to LanguageMetadata("🇧🇷", CompletionStatus.INCOMPLETE, "v0.9.4"),
             "pt-PT" to LanguageMetadata("🇵🇹", CompletionStatus.INCOMPLETE, "v0.9.4"),
             "ru" to LanguageMetadata("🇷🇺", CompletionStatus.INCOMPLETE, "v0.9.4"),
-            "zh-CN" to LanguageMetadata("🇨🇳", CompletionStatus.COMPLETE, "v1.5.1"),
+            "zh-CN" to LanguageMetadata("🇨🇳", CompletionStatus.COMPLETE, "v1.5.2"),
             "zh-TW" to LanguageMetadata("🇹🇼", CompletionStatus.INCOMPLETE, "v1.5.0-rc1"),
             "ja" to LanguageMetadata("🇯🇵", CompletionStatus.INCOMPLETE, "v0.9.4"),
             "ko" to LanguageMetadata("🇰🇷", CompletionStatus.INCOMPLETE, "v0.9.4"),
