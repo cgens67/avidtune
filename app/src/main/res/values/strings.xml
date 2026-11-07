@@ -1484,4 +1484,27 @@
     <string name="enable_avidcanvas_artist_canvas_desc">Display animated canvas loops from AvidCanvas</string>
     <string name="enable_apple_music_artist_canvas_desc">Display animated canvas loops from Apple Music</string>
     
+    <!-- Share Format & Providers -->
+    <string name="share_format_avidtune">AvidTune (avidtune.vercel.app)</string>
+    <string name="share_format_youtube_music">YouTube Music (music.youtube.com)</string>
+    <string name="share_format_ask">Ask each time</string>
+    <string name="share_song_as">Share song as</string>
+
+    <string name="provider_avid_descriptions">AvidDescriptions</string>
+    <string name="provider_apple_music">Apple Music</string>
+    <string name="provider_wikipedia">Wikipedia</string>
+    <string name="provider_youtube_music">YouTube Music</string>
+
+    <string name="provider_avid_lyrics">AvidLyrics</string>
+    <string name="provider_lyrics_plus">LyricsPlus</string>
+    <string name="provider_better_lyrics">BetterLyrics</string>
+    <string name="provider_simpmusic">SimpMusic</string>
+    <string name="provider_paxsenix">Paxsenix</string>
+    <string name="provider_binilyrics">BiniLyrics</string>
+    <string name="provider_lrclib">LrcLib</string>
+    <string name="provider_kugou">Kugou</string>
+    <string name="provider_netease">NetEase</string>
+    <string name="provider_genius">Genius</string>
+    <string name="provider_youtube_subtitle">YouTube Subtitle</string>
+    
 </resources>

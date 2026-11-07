@@ -1459,5 +1459,28 @@
     <string name="player_design_expressive">Expressif (v3)</string>
     <string name="enable_avidcanvas_artist_canvas_desc">Afficher les boucles de canvas animées d\'AvidCanvas</string>
     <string name="enable_apple_music_artist_canvas_desc">Afficher les boucles de canvas animées d\'Apple Music</string>
+    
+    <!-- Share Format & Providers -->
+    <string name="share_format_avidtune">AvidTune (avidtune.vercel.app)</string>
+    <string name="share_format_youtube_music">YouTube Music (music.youtube.com)</string>
+    <string name="share_format_ask">Demander à chaque fois</string>
+    <string name="share_song_as">Partager le morceau sous</string>
+
+    <string name="provider_avid_descriptions">AvidDescriptions</string>
+    <string name="provider_apple_music">Apple Music</string>
+    <string name="provider_wikipedia">Wikipédia</string>
+    <string name="provider_youtube_music">YouTube Music</string>
+
+    <string name="provider_avid_lyrics">AvidLyrics</string>
+    <string name="provider_lyrics_plus">LyricsPlus</string>
+    <string name="provider_better_lyrics">BetterLyrics</string>
+    <string name="provider_simpmusic">SimpMusic</string>
+    <string name="provider_paxsenix">Paxsenix</string>
+    <string name="provider_binilyrics">BiniLyrics</string>
+    <string name="provider_lrclib">LrcLib</string>
+    <string name="provider_kugou">Kugou</string>
+    <string name="provider_netease">NetEase</string>
+    <string name="provider_genius">Genius</string>
+    <string name="provider_youtube_subtitle">Sous-titres YouTube</string>
 
 </resources>

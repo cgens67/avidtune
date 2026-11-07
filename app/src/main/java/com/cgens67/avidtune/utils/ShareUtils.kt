@@ -3,6 +3,7 @@ package com.cgens67.avidtune.utils
 import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
+import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.ShareLinkFormat
 import com.cgens67.avidtune.constants.ShareLinkFormatKey
 import com.cgens67.avidtune.extensions.toEnum
@@ -40,11 +41,10 @@ object ShareUtils {
         }
     }
 
-    private fun launchShareIntent(context: Context, url: String, title: String? = null) {
-        val shareText = if (!title.isNullOrBlank()) "$title: $url" else url
+    private fun launchShareIntent(context: Context, url: String) {
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, shareText)
+            putExtra(Intent.EXTRA_TEXT, url)
         }
         context.startActivity(Intent.createChooser(intent, null))
     }
@@ -60,27 +60,27 @@ object ShareUtils {
         when (format) {
             ShareLinkFormat.AVIDTUNE -> {
                 val url = buildAvidTuneUrl(videoId, positionMs)
-                launchShareIntent(context, url, title)
+                launchShareIntent(context, url)
             }
             ShareLinkFormat.YOUTUBE_MUSIC -> {
                 val url = buildYouTubeMusicUrl(videoId, positionMs)
-                launchShareIntent(context, url, title)
+                launchShareIntent(context, url)
             }
             ShareLinkFormat.ASK -> {
                 val avidTuneUrl = buildAvidTuneUrl(videoId, positionMs)
                 val ytmUrl = buildYouTubeMusicUrl(videoId, positionMs)
 
                 val options = arrayOf(
-                    "AvidTune ($avidTuneUrl)",
-                    "YouTube Music ($ytmUrl)"
+                    context.getString(R.string.share_format_avidtune),
+                    context.getString(R.string.share_format_youtube_music)
                 )
 
                 AlertDialog.Builder(context)
-                    .setTitle("Share song as")
+                    .setTitle(context.getString(R.string.share_song_as))
                     .setItems(options) { _, which ->
                         when (which) {
-                            0 -> launchShareIntent(context, avidTuneUrl, title)
-                            1 -> launchShareIntent(context, ytmUrl, title)
+                            0 -> launchShareIntent(context, avidTuneUrl)
+                            1 -> launchShareIntent(context, ytmUrl)
                         }
                     }
                     .setNegativeButton(android.R.string.cancel, null)

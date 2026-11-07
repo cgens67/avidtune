@@ -290,26 +290,30 @@ fun ContentSettings(
         SettingsGeneralCategory(
             title = stringResource(R.string.general),
             items = listOf(
-                {ListPreference(
-                    title = { Text(stringResource(R.string.content_language)) },
-                    icon = { Icon(painterResource(R.drawable.language), null) },
-                    selectedValue = contentLanguage,
-                    values = listOf(SYSTEM_DEFAULT) + LanguageCodeToName.keys.toList(),
-                    valueText = {
-                        LanguageCodeToName.getOrElse(it) { stringResource(R.string.system_default) }
-                    },
-                    onValueSelected = onContentLanguageChange,
-                )},
-                {ListPreference(
-                    title = { Text(stringResource(R.string.content_country)) },
-                    icon = { Icon(painterResource(R.drawable.location_on), null) },
-                    selectedValue = contentCountry,
-                    values = listOf(SYSTEM_DEFAULT) + CountryCodeToName.keys.toList(),
-                    valueText = {
-                        CountryCodeToName.getOrElse(it) { stringResource(R.string.system_default) }
-                    },
-                    onValueSelected = onContentCountryChange,
-                )},
+                {
+                    ListPreference(
+                        title = { Text(stringResource(R.string.content_language)) },
+                        icon = { Icon(painterResource(R.drawable.language), null) },
+                        selectedValue = contentLanguage,
+                        values = listOf(SYSTEM_DEFAULT) + LanguageCodeToName.keys.toList(),
+                        valueText = {
+                            LanguageCodeToName.getOrElse(it) { stringResource(R.string.system_default) }
+                        },
+                        onValueSelected = onContentLanguageChange,
+                    )
+                },
+                {
+                    ListPreference(
+                        title = { Text(stringResource(R.string.content_country)) },
+                        icon = { Icon(painterResource(R.drawable.location_on), null) },
+                        selectedValue = contentCountry,
+                        values = listOf(SYSTEM_DEFAULT) + CountryCodeToName.keys.toList(),
+                        valueText = {
+                            CountryCodeToName.getOrElse(it) { stringResource(R.string.system_default) }
+                        },
+                        onValueSelected = onContentCountryChange,
+                    )
+                },
 
                 // Share link format preference
                 {
@@ -324,9 +328,9 @@ fun ContentSettings(
                         ),
                         valueText = {
                             when (it) {
-                                ShareLinkFormat.AVIDTUNE -> "AvidTune (avidtune.vercel.app)"
-                                ShareLinkFormat.YOUTUBE_MUSIC -> "YouTube Music (music.youtube.com)"
-                                ShareLinkFormat.ASK -> "Ask each time"
+                                ShareLinkFormat.AVIDTUNE -> stringResource(R.string.share_format_avidtune)
+                                ShareLinkFormat.YOUTUBE_MUSIC -> stringResource(R.string.share_format_youtube_music)
+                                ShareLinkFormat.ASK -> stringResource(R.string.share_format_ask)
                             }
                         },
                         onValueSelected = onShareFormatChange
@@ -334,22 +338,26 @@ fun ContentSettings(
                 },
 
                 // Hide explicit content
-                {SwitchPreference(
-                    title = { Text(stringResource(R.string.hide_explicit)) },
-                    icon = { Icon(painterResource(R.drawable.explicit), null) },
-                    checked = hideExplicit,
-                    onCheckedChange = onHideExplicitChange,
-                )},
+                {
+                    SwitchPreference(
+                        title = { Text(stringResource(R.string.hide_explicit)) },
+                        icon = { Icon(painterResource(R.drawable.explicit), null) },
+                        checked = hideExplicit,
+                        onCheckedChange = onHideExplicitChange,
+                    )
+                },
 
                 // Hide music videos
-                {SwitchPreference(
-                    title = { Text(stringResource(R.string.hide_music_videos)) },
-                    icon = { Icon(painterResource(R.drawable.play), null) },
-                    checked = hideMusicVideos,
-                    onCheckedChange = onHideMusicVideosChange,
-                )},
+                {
+                    SwitchPreference(
+                        title = { Text(stringResource(R.string.hide_music_videos)) },
+                        icon = { Icon(painterResource(R.drawable.play), null) },
+                        checked = hideMusicVideos,
+                        onCheckedChange = onHideMusicVideosChange,
+                    )
+                },
 
-                {NotificationPermissionPreference()},
+                { NotificationPermissionPreference() },
             )
         )
         
@@ -357,29 +365,33 @@ fun ContentSettings(
         SettingsGeneralCategory(
             title = stringResource(R.string.ai_content_filter),
             items = listOf(
-                {SwitchPreference(
-                    title = { Text(stringResource(R.string.enable_ai_content_filter)) },
-                    description = stringResource(R.string.ai_content_filter_desc),
-                    icon = { Icon(painterResource(R.drawable.security), null) },
-                    checked = aiContentFilterEnabled,
-                    onCheckedChange = onAiContentFilterEnabledChange,
-                )},
-                {AnimatedVisibility(visible = aiContentFilterEnabled) {
-                    Column {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(start = 76.dp, end = 20.dp),
-                            thickness = 0.5.dp,
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                        )
-                        SwitchPreference(
-                            title = { Text(stringResource(R.string.include_moderate_confidence)) },
-                            description = stringResource(R.string.include_moderate_confidence_desc),
-                            icon = { Icon(painterResource(R.drawable.info), null) },
-                            checked = aiContentFilterIncludeModerate,
-                            onCheckedChange = onAiContentFilterIncludeModerateChange,
-                        )
+                {
+                    SwitchPreference(
+                        title = { Text(stringResource(R.string.enable_ai_content_filter)) },
+                        description = stringResource(R.string.ai_content_filter_desc),
+                        icon = { Icon(painterResource(R.drawable.security), null) },
+                        checked = aiContentFilterEnabled,
+                        onCheckedChange = onAiContentFilterEnabledChange,
+                    )
+                },
+                {
+                    AnimatedVisibility(visible = aiContentFilterEnabled) {
+                        Column {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(start = 76.dp, end = 20.dp),
+                                thickness = 0.5.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                            )
+                            SwitchPreference(
+                                title = { Text(stringResource(R.string.include_moderate_confidence)) },
+                                description = stringResource(R.string.include_moderate_confidence_desc),
+                                icon = { Icon(painterResource(R.drawable.info), null) },
+                                checked = aiContentFilterIncludeModerate,
+                                onCheckedChange = onAiContentFilterIncludeModerateChange,
+                            )
+                        }
                     }
-                }}
+                }
             )
         )
 
@@ -405,7 +417,7 @@ fun ContentSettings(
                                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                             )
                             SwitchPreference(
-                                title = { Text("AvidDescriptions") },
+                                title = { Text(stringResource(R.string.provider_avid_descriptions)) },
                                 description = stringResource(R.string.avid_descriptions_desc),
                                 icon = { Icon(painterResource(R.drawable.info), null) },
                                 checked = enableAvidDescriptions,
@@ -417,7 +429,7 @@ fun ContentSettings(
                                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                             )
                             SwitchPreference(
-                                title = { Text("Apple Music") },
+                                title = { Text(stringResource(R.string.provider_apple_music)) },
                                 description = stringResource(R.string.apple_music_desc),
                                 icon = { Icon(painterResource(R.drawable.info), null) },
                                 checked = enableAppleMusicDescriptions,
@@ -429,7 +441,7 @@ fun ContentSettings(
                                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                             )
                             SwitchPreference(
-                                title = { Text("Wikipedia") },
+                                title = { Text(stringResource(R.string.provider_wikipedia)) },
                                 description = stringResource(R.string.wikipedia_desc),
                                 icon = { Icon(painterResource(R.drawable.language), null) },
                                 checked = enableWikipediaDescriptions,
@@ -441,7 +453,7 @@ fun ContentSettings(
                                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                             )
                             SwitchPreference(
-                                title = { Text("YouTube Music") },
+                                title = { Text(stringResource(R.string.provider_youtube_music)) },
                                 description = stringResource(R.string.ytm_desc),
                                 icon = { Icon(painterResource(R.drawable.play), null) },
                                 checked = enableYouTubeMusicDescriptions,
@@ -468,28 +480,32 @@ fun ContentSettings(
         SettingsGeneralCategory(
             title = stringResource(R.string.proxy),
             items = listOf(
-                {SwitchPreference(
-                    title = { Text(stringResource(R.string.enable_proxy)) },
-                    icon = { Icon(painterResource(R.drawable.wifi_proxy), null) },
-                    checked = proxyEnabled,
-                    onCheckedChange = onProxyEnabledChange,
-                )},
-                {if (proxyEnabled) {
-                    Column {
-                        ListPreference(
-                            title = { Text(stringResource(R.string.proxy_type)) },
-                            selectedValue = proxyType,
-                            values = listOf(Proxy.Type.HTTP, Proxy.Type.SOCKS),
-                            valueText = { it.name },
-                            onValueSelected = onProxyTypeChange,
-                        )
-                        EditTextPreference(
-                            title = { Text(stringResource(R.string.proxy_url)) },
-                            value = proxyUrl,
-                            onValueChange = onProxyUrlChange,
-                        )
+                {
+                    SwitchPreference(
+                        title = { Text(stringResource(R.string.enable_proxy)) },
+                        icon = { Icon(painterResource(R.drawable.wifi_proxy), null) },
+                        checked = proxyEnabled,
+                        onCheckedChange = onProxyEnabledChange,
+                    )
+                },
+                {
+                    if (proxyEnabled) {
+                        Column {
+                            ListPreference(
+                                title = { Text(stringResource(R.string.proxy_type)) },
+                                selectedValue = proxyType,
+                                values = listOf(Proxy.Type.HTTP, Proxy.Type.SOCKS),
+                                valueText = { it.name },
+                                onValueSelected = onProxyTypeChange,
+                            )
+                            EditTextPreference(
+                                title = { Text(stringResource(R.string.proxy_url)) },
+                                value = proxyUrl,
+                                onValueChange = onProxyUrlChange,
+                            )
+                        }
                     }
-                }}
+                }
             )
         )
 
@@ -497,82 +513,104 @@ fun ContentSettings(
         SettingsGeneralCategory(
             title = stringResource(R.string.lyrics),
             items = listOf(
-                {SwitchPreference(
-                    title = { Text(stringResource(R.string.enable_avid_lyrics)) },
-                    description = stringResource(R.string.enable_avid_lyrics_desc),
-                    icon = { Icon(painterResource(R.drawable.lyrics), null) },
-                    checked = enableAvidLyrics,
-                    onCheckedChange = onEnableAvidLyricsChange,
-                )},
-                {SwitchPreference(
-                    title = { Text(stringResource(R.string.enable_lyrics_plus)) },
-                    description = stringResource(R.string.enable_lyrics_plus_desc),
-                    icon = { Icon(painterResource(R.drawable.lyrics), null) },
-                    checked = enableLyricsPlus,
-                    onCheckedChange = onEnableLyricsPlusChange,
-                )},
-                {SwitchPreference(
-                    title = { Text(stringResource(R.string.enable_better_lyrics)) },
-                    description = stringResource(R.string.enable_better_lyrics_desc),
-                    icon = { Icon(painterResource(R.drawable.lyrics), null) },
-                    checked = enableBetterLyrics,
-                    onCheckedChange = onEnableBetterLyricsChange,
-                )},
-                {SwitchPreference(
-                    title = { Text(stringResource(R.string.enable_simpmusic)) },
-                    description = stringResource(R.string.enable_simpmusic_desc),
-                    icon = { Icon(painterResource(R.drawable.lyrics), null) },
-                    checked = enableSimpMusic,
-                    onCheckedChange = onEnableSimpMusicChange,
-                )},
-                {SwitchPreference(
-                    title = { Text(stringResource(R.string.enable_paxsenix)) },
-                    description = stringResource(R.string.enable_paxsenix_desc),
-                    icon = { Icon(painterResource(R.drawable.lyrics), null) },
-                    checked = enablePaxsenix,
-                    onCheckedChange = onEnablePaxsenixChange,
-                )},
-                {SwitchPreference(
-                    title = { Text(stringResource(R.string.enable_binilyrics)) },
-                    description = stringResource(R.string.enable_binilyrics_desc),
-                    icon = { Icon(painterResource(R.drawable.lyrics), null) },
-                    checked = enableBiniLyrics,
-                    onCheckedChange = onEnableBiniLyricsChange,
-                )},
-                {SwitchPreference(
-                    title = { Text(stringResource(R.string.enable_lrclib)) },
-                    description = stringResource(R.string.enable_lrclib_desc),
-                    icon = { Icon(painterResource(R.drawable.lyrics), null) },
-                    checked = enableLrclib,
-                    onCheckedChange = onEnableLrclibChange,
-                )},
-                {SwitchPreference(
-                    title = { Text(stringResource(R.string.enable_kugou)) },
-                    description = stringResource(R.string.enable_kugou_desc),
-                    icon = { Icon(painterResource(R.drawable.lyrics), null) },
-                    checked = enableKugou,
-                    onCheckedChange = onEnableKugouChange,
-                )},
-                {SwitchPreference(
-                    title = { Text(stringResource(R.string.enable_netease)) },
-                    description = stringResource(R.string.enable_netease_desc),
-                    icon = { Icon(painterResource(R.drawable.lyrics), null) },
-                    checked = enableNetEase,
-                    onCheckedChange = onEnableNetEaseChange,
-                )},
-                {SwitchPreference(
-                    title = { Text(stringResource(R.string.enable_genius)) },
-                    description = stringResource(R.string.enable_genius_desc),
-                    icon = { Icon(painterResource(R.drawable.lyrics), null) },
-                    checked = enableGenius,
-                    onCheckedChange = onEnableGeniusChange,
-                )},
-                {PreferenceEntry(
-                    title = { Text(stringResource(R.string.lyrics_provider_priority)) },
-                    description = stringResource(R.string.lyrics_provider_priority_desc),
-                    icon = { Icon(painterResource(R.drawable.list), null) },
-                    onClick = { showReorderDialog = true }
-                )}
+                {
+                    SwitchPreference(
+                        title = { Text(stringResource(R.string.enable_avid_lyrics)) },
+                        description = stringResource(R.string.enable_avid_lyrics_desc),
+                        icon = { Icon(painterResource(R.drawable.lyrics), null) },
+                        checked = enableAvidLyrics,
+                        onCheckedChange = onEnableAvidLyricsChange,
+                    )
+                },
+                {
+                    SwitchPreference(
+                        title = { Text(stringResource(R.string.enable_lyrics_plus)) },
+                        description = stringResource(R.string.enable_lyrics_plus_desc),
+                        icon = { Icon(painterResource(R.drawable.lyrics), null) },
+                        checked = enableLyricsPlus,
+                        onCheckedChange = onEnableLyricsPlusChange,
+                    )
+                },
+                {
+                    SwitchPreference(
+                        title = { Text(stringResource(R.string.enable_better_lyrics)) },
+                        description = stringResource(R.string.enable_better_lyrics_desc),
+                        icon = { Icon(painterResource(R.drawable.lyrics), null) },
+                        checked = enableBetterLyrics,
+                        onCheckedChange = onEnableBetterLyricsChange,
+                    )
+                },
+                {
+                    SwitchPreference(
+                        title = { Text(stringResource(R.string.enable_simpmusic)) },
+                        description = stringResource(R.string.enable_simpmusic_desc),
+                        icon = { Icon(painterResource(R.drawable.lyrics), null) },
+                        checked = enableSimpMusic,
+                        onCheckedChange = onEnableSimpMusicChange,
+                    )
+                },
+                {
+                    SwitchPreference(
+                        title = { Text(stringResource(R.string.enable_paxsenix)) },
+                        description = stringResource(R.string.enable_paxsenix_desc),
+                        icon = { Icon(painterResource(R.drawable.lyrics), null) },
+                        checked = enablePaxsenix,
+                        onCheckedChange = onEnablePaxsenixChange,
+                    )
+                },
+                {
+                    SwitchPreference(
+                        title = { Text(stringResource(R.string.enable_binilyrics)) },
+                        description = stringResource(R.string.enable_binilyrics_desc),
+                        icon = { Icon(painterResource(R.drawable.lyrics), null) },
+                        checked = enableBiniLyrics,
+                        onCheckedChange = onEnableBiniLyricsChange,
+                    )
+                },
+                {
+                    SwitchPreference(
+                        title = { Text(stringResource(R.string.enable_lrclib)) },
+                        description = stringResource(R.string.enable_lrclib_desc),
+                        icon = { Icon(painterResource(R.drawable.lyrics), null) },
+                        checked = enableLrclib,
+                        onCheckedChange = onEnableLrclibChange,
+                    )
+                },
+                {
+                    SwitchPreference(
+                        title = { Text(stringResource(R.string.enable_kugou)) },
+                        description = stringResource(R.string.enable_kugou_desc),
+                        icon = { Icon(painterResource(R.drawable.lyrics), null) },
+                        checked = enableKugou,
+                        onCheckedChange = onEnableKugouChange,
+                    )
+                },
+                {
+                    SwitchPreference(
+                        title = { Text(stringResource(R.string.enable_netease)) },
+                        description = stringResource(R.string.enable_netease_desc),
+                        icon = { Icon(painterResource(R.drawable.lyrics), null) },
+                        checked = enableNetEase,
+                        onCheckedChange = onEnableNetEaseChange,
+                    )
+                },
+                {
+                    SwitchPreference(
+                        title = { Text(stringResource(R.string.enable_genius)) },
+                        description = stringResource(R.string.enable_genius_desc),
+                        icon = { Icon(painterResource(R.drawable.lyrics), null) },
+                        checked = enableGenius,
+                        onCheckedChange = onEnableGeniusChange,
+                    )
+                },
+                {
+                    PreferenceEntry(
+                        title = { Text(stringResource(R.string.lyrics_provider_priority)) },
+                        description = stringResource(R.string.lyrics_provider_priority_desc),
+                        icon = { Icon(painterResource(R.drawable.list), null) },
+                        onClick = { showReorderDialog = true }
+                    )
+                }
             )
         )
 
@@ -580,43 +618,49 @@ fun ContentSettings(
         SettingsGeneralCategory(
             title = stringResource(R.string.misc),
             items = listOf(
-                {EditTextPreference(
-                    title = { Text(stringResource(R.string.top_length)) },
-                    icon = { Icon(painterResource(R.drawable.trending_up), null) },
-                    value = lengthTop,
-                    isInputValid = { it.toIntOrNull()?.let { num -> num > 0 } == true },
-                    onValueChange = onLengthTopChange,
-                )},
-                {ListPreference(
-                    title = { Text(stringResource(R.string.set_quick_picks)) },
-                    icon = { Icon(painterResource(R.drawable.home_outlined), null) },
-                    selectedValue = quickPicks,
-                    values = listOf(QuickPicks.QUICK_PICKS, QuickPicks.LAST_LISTEN),
-                    valueText = {
-                        when (it) {
-                            QuickPicks.QUICK_PICKS -> stringResource(R.string.quick_picks)
-                            QuickPicks.LAST_LISTEN -> stringResource(R.string.last_song_listened)
+                {
+                    EditTextPreference(
+                        title = { Text(stringResource(R.string.top_length)) },
+                        icon = { Icon(painterResource(R.drawable.trending_up), null) },
+                        value = lengthTop,
+                        isInputValid = { it.toIntOrNull()?.let { num -> num > 0 } == true },
+                        onValueChange = onLengthTopChange,
+                    )
+                },
+                {
+                    ListPreference(
+                        title = { Text(stringResource(R.string.set_quick_picks)) },
+                        icon = { Icon(painterResource(R.drawable.home_outlined), null) },
+                        selectedValue = quickPicks,
+                        values = listOf(QuickPicks.QUICK_PICKS, QuickPicks.LAST_LISTEN),
+                        valueText = {
+                            when (it) {
+                                QuickPicks.QUICK_PICKS -> stringResource(R.string.quick_picks)
+                                QuickPicks.LAST_LISTEN -> stringResource(R.string.last_song_listened)
+                            }
+                        },
+                        onValueSelected = onQuickPicksChange,
+                    )
+                },
+                {
+                    SliderPreference(
+                        title = { Text(stringResource(R.string.history_duration)) },
+                        icon = { Icon(painterResource(R.drawable.history), null) },
+                        value = historyDuration,
+                        onValueChange = onHistoryDurationChange,
+                        dialogTitle = stringResource(R.string.history_duration),
+                        valueText = {
+                            Text(
+                                text = pluralStringResource(
+                                    R.plurals.seconds,
+                                    it.roundToInt(),
+                                    it.roundToInt()
+                                ),
+                                style = androidx.compose.material3.MaterialTheme.typography.bodyLarge,
+                            )
                         }
-                    },
-                    onValueSelected = onQuickPicksChange,
-                )},
-                {SliderPreference(
-                    title = { Text(stringResource(R.string.history_duration)) },
-                    icon = { Icon(painterResource(R.drawable.history), null) },
-                    value = historyDuration,
-                    onValueChange = onHistoryDurationChange,
-                    dialogTitle = stringResource(R.string.history_duration),
-                    valueText = {
-                        Text(
-                            text = pluralStringResource(
-                                R.plurals.seconds,
-                                it.roundToInt(),
-                                it.roundToInt()
-                            ),
-                            style = androidx.compose.material3.MaterialTheme.typography.bodyLarge,
-                        )
-                    }
-                )},
+                    )
+                },
             )
         )
     }
@@ -785,8 +829,15 @@ fun ReorderDescriptionProvidersBottomSheet(
                                 Spacer(Modifier.width(16.dp))
 
                                 Column(modifier = Modifier.weight(1f)) {
+                                    val displayName = when (item) {
+                                        "AvidDescriptions" -> stringResource(R.string.provider_avid_descriptions)
+                                        "Apple Music" -> stringResource(R.string.provider_apple_music)
+                                        "Wikipedia" -> stringResource(R.string.provider_wikipedia)
+                                        "YouTube Music" -> stringResource(R.string.provider_youtube_music)
+                                        else -> item
+                                    }
                                     Text(
-                                        text = item,
+                                        text = displayName,
                                         style = MaterialTheme.typography.bodyLarge,
                                         fontWeight = if (index == 0) FontWeight.Bold else FontWeight.SemiBold
                                     )
@@ -953,8 +1004,23 @@ fun ReorderLyricsProvidersBottomSheet(
                                 Spacer(Modifier.width(16.dp))
 
                                 Column(modifier = Modifier.weight(1f)) {
+                                    val displayName = when (item) {
+                                        "AvidLyrics" -> stringResource(R.string.provider_avid_lyrics)
+                                        "LyricsPlus" -> stringResource(R.string.provider_lyrics_plus)
+                                        "BetterLyrics" -> stringResource(R.string.provider_better_lyrics)
+                                        "SimpMusic" -> stringResource(R.string.provider_simpmusic)
+                                        "Paxsenix" -> stringResource(R.string.provider_paxsenix)
+                                        "BiniLyrics" -> stringResource(R.string.provider_binilyrics)
+                                        "LrcLib" -> stringResource(R.string.provider_lrclib)
+                                        "Kugou" -> stringResource(R.string.provider_kugou)
+                                        "NetEase" -> stringResource(R.string.provider_netease)
+                                        "Genius" -> stringResource(R.string.provider_genius)
+                                        "YouTube Subtitle" -> stringResource(R.string.provider_youtube_subtitle)
+                                        "YouTube Music" -> stringResource(R.string.provider_youtube_music)
+                                        else -> item
+                                    }
                                     Text(
-                                        text = item,
+                                        text = displayName,
                                         style = MaterialTheme.typography.bodyLarge,
                                         fontWeight = if (index == 0) FontWeight.Bold else FontWeight.SemiBold
                                     )

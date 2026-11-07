@@ -1461,4 +1461,27 @@
     <string name="enable_avidcanvas_artist_canvas_desc">播放来自 AvidCanvas 的动态画布循环背景</string>
     <string name="enable_apple_music_artist_canvas_desc">播放来自 Apple Music 的动态画布循环背景</string>
     
+    <!-- Share Format & Providers -->
+    <string name="share_format_avidtune">AvidTune (avidtune.vercel.app)</string>
+    <string name="share_format_youtube_music">YouTube Music (music.youtube.com)</string>
+    <string name="share_format_ask">每次询问</string>
+    <string name="share_song_as">分享歌曲为</string>
+
+    <string name="provider_avid_descriptions">AvidDescriptions</string>
+    <string name="provider_apple_music">Apple Music</string>
+    <string name="provider_wikipedia">维基百科</string>
+    <string name="provider_youtube_music">YouTube Music</string>
+
+    <string name="provider_avid_lyrics">AvidLyrics</string>
+    <string name="provider_lyrics_plus">LyricsPlus</string>
+    <string name="provider_better_lyrics">BetterLyrics</string>
+    <string name="provider_simpmusic">SimpMusic</string>
+    <string name="provider_paxsenix">Paxsenix</string>
+    <string name="provider_binilyrics">BiniLyrics</string>
+    <string name="provider_lrclib">LrcLib</string>
+    <string name="provider_kugou">酷狗音乐</string>
+    <string name="provider_netease">网易云音乐</string>
+    <string name="provider_genius">Genius</string>
+    <string name="provider_youtube_subtitle">YouTube 字幕</string>
+    
 </resources>
