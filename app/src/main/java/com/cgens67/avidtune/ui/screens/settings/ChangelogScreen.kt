@@ -100,6 +100,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -1207,7 +1208,7 @@ fun ReleasesContent(
                             colors = CardDefaults.elevatedCardColors(
                                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                             ),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             AsyncImage(
@@ -1241,7 +1242,7 @@ fun ReleasesContent(
                             colors = CardDefaults.elevatedCardColors(
                                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                             ),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             val annotatedDesc = buildAnnotatedString {
@@ -1270,7 +1271,7 @@ fun ReleasesContent(
                                 colors = CardDefaults.elevatedCardColors(
                                     containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                                 ),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Column(modifier = Modifier.padding(20.dp)) {
@@ -1831,7 +1832,17 @@ private fun parseSectionsFromArray(sectionsArray: JSONArray?): List<ChangelogSec
                         items.add(itemsArray.getString(j))
                     }
                 }
-                sections.add(ChangelogSection(title, items))
+                if (title.isNotBlank() || items.isNotEmpty()) {
+                    sections.add(ChangelogSection(title, items))
+                }
+            } else {
+                val item = changelogArray.optString(i, "")
+                if (item.isNotBlank()) {
+                    if (sections.isEmpty() || sections[0].title.isNotBlank()) {
+                        sections.add(0, ChangelogSection("", mutableListOf()))
+                    }
+                    (sections[0].items as MutableList<String>).add(item)
+                }
             }
         }
     }
