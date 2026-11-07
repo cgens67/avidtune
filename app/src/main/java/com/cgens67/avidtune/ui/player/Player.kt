@@ -147,6 +147,8 @@ import com.cgens67.avidtune.constants.PureBlackKey
 import com.cgens67.avidtune.constants.QueuePeekHeight
 import com.cgens67.avidtune.constants.SliderStyle
 import com.cgens67.avidtune.constants.SliderStyleKey
+import com.cgens67.avidtune.constants.SwipeThumbnailKey
+import com.cgens67.avidtune.constants.ThumbnailCornerRadius
 import com.cgens67.avidtune.models.MediaMetadata
 import com.cgens67.avidtune.playback.PlayerConnection
 import com.cgens67.avidtune.ui.component.BottomSheet
@@ -159,6 +161,7 @@ import com.cgens67.avidtune.ui.menu.PlayerMenu
 import com.cgens67.avidtune.ui.screens.settings.DarkMode
 import com.cgens67.avidtune.ui.screens.settings.PlayerTextAlignment
 import com.cgens67.avidtune.ui.theme.PlayerColorExtractor
+import com.cgens67.avidtune.utils.ShareUtils
 import com.cgens67.avidtune.utils.makeTimeString
 import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
@@ -700,15 +703,12 @@ fun BottomSheetPlayer(
                                         textBackgroundColor = TextBackgroundColor,
                                         currentSongLiked = currentSongLiked,
                                         onShare = {
-                                            val intent = Intent().apply {
-                                                action = Intent.ACTION_SEND
-                                                type = "text/plain"
-                                                putExtra(
-                                                    Intent.EXTRA_TEXT,
-                                                    "https://music.youtube.com/watch?v=${currentMetadata.id}"
-                                                )
-                                            }
-                                            context.startActivity(Intent.createChooser(intent, null))
+                                            ShareUtils.shareSong(
+                                                context = context,
+                                                videoId = currentMetadata.id,
+                                                title = currentMetadata.title,
+                                                positionMs = position
+                                            )
                                         },
                                         onToggleLike = { playerConnection.toggleLike() },
                                         onMoreOptions = {
@@ -860,15 +860,12 @@ fun BottomSheetPlayer(
                                     textBackgroundColor = TextBackgroundColor,
                                     currentSongLiked = currentSongLiked,
                                     onShare = {
-                                        val intent = Intent().apply {
-                                            action = Intent.ACTION_SEND
-                                            type = "text/plain"
-                                            putExtra(
-                                                Intent.EXTRA_TEXT,
-                                                "https://music.youtube.com/watch?v=${currentMetadata.id}"
-                                            )
-                                        }
-                                        context.startActivity(Intent.createChooser(intent, null))
+                                        ShareUtils.shareSong(
+                                            context = context,
+                                            videoId = currentMetadata.id,
+                                            title = currentMetadata.title,
+                                            positionMs = position
+                                        )
                                     },
                                     onToggleLike = { playerConnection.toggleLike() },
                                     onMoreOptions = {
@@ -1800,15 +1797,12 @@ fun PlayerTopActionsV3(
                 .size(36.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .clickable {
-                    val intent = Intent().apply {
-                        action = Intent.ACTION_SEND
-                        type = "text/plain"
-                        putExtra(
-                            Intent.EXTRA_TEXT,
-                            "https://music.youtube.com/watch?v=${mediaMetadata.id}"
-                        )
-                    }
-                    context.startActivity(Intent.createChooser(intent, null))
+                    ShareUtils.shareSong(
+                        context = context,
+                        videoId = mediaMetadata.id,
+                        title = mediaMetadata.title,
+                        positionMs = playerConnection.player.currentPosition
+                    )
                 },
             contentAlignment = Alignment.Center
         ) {

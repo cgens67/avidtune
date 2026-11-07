@@ -67,6 +67,7 @@ import com.cgens67.avidtune.LocalSyncUtils
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.ListItemHeight
 import com.cgens67.avidtune.constants.ListThumbnailSize
+import com.cgens67.avidtune.constants.ThumbnailCornerRadius
 import com.cgens67.avidtune.db.entities.Event
 import com.cgens67.avidtune.db.entities.PlaylistSong
 import com.cgens67.avidtune.db.entities.Song
@@ -83,6 +84,9 @@ import com.cgens67.avidtune.ui.component.MenuItemData
 import com.cgens67.avidtune.ui.component.MenuGroup
 import com.cgens67.avidtune.ui.component.NewAction
 import com.cgens67.avidtune.ui.component.NewActionGrid
+import com.cgens67.avidtune.utils.ShareUtils
+import com.cgens67.avidtune.utils.joinByBullet
+import com.cgens67.avidtune.utils.makeTimeString
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -131,7 +135,7 @@ fun SongMenu(
 
     if (showEditDialog) {
         TextFieldDialog(
-            icon = { Icon(painter = painterResource(R.drawable.edit), contentDescription = null) },
+            icon = { Icon(painterResource(R.drawable.edit), contentDescription = null) },
             title = { Text(text = stringResource(R.string.edit_song)) },
             onDismiss = { showEditDialog = false },
             initialTextFieldValue = TextFieldValue(
@@ -327,12 +331,11 @@ fun SongMenu(
                         text = stringResource(R.string.share),
                         onClick = {
                             onDismiss()
-                            val intent = Intent().apply {
-                                action = Intent.ACTION_SEND
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, "https://music.youtube.com/watch?v=${song.id}")
-                            }
-                            context.startActivity(Intent.createChooser(intent, null))
+                            ShareUtils.shareSong(
+                                context = context,
+                                videoId = song.id,
+                                title = song.song.title
+                            )
                         }
                     )
                 ),

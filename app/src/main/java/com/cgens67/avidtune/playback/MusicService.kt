@@ -781,6 +781,9 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 } else {
                     player.addMediaItems(initialStatus.items)
                 }
+                if (initialStatus.position > 0L) {
+                    player.seekTo(targetIndex, initialStatus.position)
+                }
             } else {
                 player.setMediaItems(
                     initialStatus.items,

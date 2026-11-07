@@ -140,11 +140,9 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAny
 import androidx.compose.ui.util.fastFirstOrNull
-import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.zIndex
-import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.core.util.Consumer
@@ -205,7 +203,6 @@ import com.cgens67.avidtune.ui.component.BottomSheetMenu
 import com.cgens67.avidtune.ui.component.FloatingNavigationToolbar
 import com.cgens67.avidtune.ui.component.IconButton
 import com.cgens67.avidtune.ui.component.LocalMenuState
-import com.cgens67.avidtune.ui.component.LocaleManager
 import com.cgens67.avidtune.ui.component.Lyrics
 import com.cgens67.avidtune.ui.component.SwitchPreference
 import com.cgens67.avidtune.ui.component.TopSearch
@@ -450,7 +447,7 @@ class MainActivity : ComponentActivity() {
                                         ImageRequest
                                             .Builder(this@MainActivity)
                                             .data(song.thumbnailUrl)
-                                            .allowHardware(false) // pixel access is not supported on Config#HARDWARE bitmaps
+                                            .allowHardware(false)
                                             .build(),
                                     )
                                 (result.drawable as? BitmapDrawable)?.bitmap?.extractThemeColor()
@@ -772,6 +769,7 @@ class MainActivity : ComponentActivity() {
                     var sharedSong: SongItem? by remember {
                         mutableStateOf(null)
                     }
+
                     DisposableEffect(Unit) {
                         val listener =
                             Consumer<Intent> { intent ->
@@ -807,20 +805,19 @@ class MainActivity : ComponentActivity() {
                                             navController.navigate("artist/$artistId")
                                         }
 
-                                    else ->
-                                        when {
-                                            path == "watch" -> uri.getQueryParameter("v")
-                                            uri.host == "youtu.be" -> path
-                                            else -> null
-                                        }?.let { videoId ->
+                                    else -> {
+                                        val parsed = parseSongAndTimestamp(uri)
+                                        if (parsed != null) {
+                                            val (videoId, timestampMs) = parsed
                                             coroutineScope.launch {
                                                 withContext(Dispatchers.IO) {
                                                     YouTube.queue(listOf(videoId))
                                                 }.onSuccess {
                                                     playerConnection?.playQueue(
                                                         YouTubeQueue(
-                                                            WatchEndpoint(videoId = it.firstOrNull()?.id),
-                                                            it.firstOrNull()?.toMediaMetadata()
+                                                            endpoint = WatchEndpoint(videoId = it.firstOrNull()?.id),
+                                                            preloadItem = it.firstOrNull()?.toMediaMetadata(),
+                                                            startPosition = timestampMs
                                                         )
                                                     )
                                                 }.onFailure {
@@ -828,6 +825,7 @@ class MainActivity : ComponentActivity() {
                                                 }
                                             }
                                         }
+                                    }
                                 }
                             }
 
@@ -925,28 +923,23 @@ class MainActivity : ComponentActivity() {
                                             exit = fadeOut(animationSpec = tween(300)) + slideOutVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { -it }
                                         ) {
                                             Box(modifier = Modifier.fillMaxWidth()) {
-                                                // Capa base con color de fondo siempre visible
                                                 Box(
                                                     modifier = Modifier
                                                         .matchParentSize()
                                                         .background(MaterialTheme.colorScheme.surface)
                                                 )
 
-                                                // Validación más segura para el background
                                                 val safeSelectedValue = when {
                                                     playerBackground == PlayerBackgroundStyle.BLUR &&
                                                             Build.VERSION.SDK_INT < Build.VERSION_CODES.S -> {
-                                                        PlayerBackgroundStyle.DEFAULT // Sin blur en versiones < Android 12 (S)
+                                                        PlayerBackgroundStyle.DEFAULT
                                                     }
-
                                                     else -> playerBackground
                                                 }
 
-                                                // Solo mostrar blur si safeSelectedValue es BLUR
                                                 if (safeSelectedValue == PlayerBackgroundStyle.BLUR) {
                                                     val playerConnection = LocalPlayerConnection.current
 
-                                                    // Verificación más segura del playerConnection
                                                     playerConnection?.let { connection ->
                                                         val mediaMetadata by connection.mediaMetadata.collectAsState()
 
@@ -977,7 +970,6 @@ class MainActivity : ComponentActivity() {
                                                                         )
                                                                     },
                                                                 onError = { error ->
-                                                                    // Log del error sin crashear la app
                                                                     Log.w(
                                                                         "PlayerBackground",
                                                                         "Error loading background image: ${error.result.throwable.message}"
@@ -988,7 +980,6 @@ class MainActivity : ComponentActivity() {
                                                     }
                                                 }
 
-                                                // Animaciones de Titulo
                                                 val infiniteTransition = rememberInfiniteTransition(label = "header_transition")
                                                 
                                                 val gradientOffset by infiniteTransition.animateFloat(
@@ -1045,7 +1036,6 @@ class MainActivity : ComponentActivity() {
                                                             val viewModel: NewReleaseViewModel = hiltViewModel()
                                                             val hasNewReleases by viewModel.hasNewReleases.collectAsState()
 
-                                                            // Notif Anim
                                                             val notifInteractionSource = remember { MutableInteractionSource() }
                                                             val isNotifPressed by notifInteractionSource.collectIsPressedAsState()
                                                             val notifScale by animateFloatAsState(
@@ -1054,7 +1044,6 @@ class MainActivity : ComponentActivity() {
                                                                 label = "notif_scale"
                                                             )
 
-                                                            // Ícono de notificación para nuevos lanzamientos
                                                             Box(
                                                                 modifier = Modifier
                                                                     .size(48.dp)
@@ -1063,7 +1052,6 @@ class MainActivity : ComponentActivity() {
                                                                 IconButton(
                                                                     onClick = {
                                                                         try {
-                                                                            // Marcar como vistos al navegar
                                                                             viewModel.markNewReleasesAsSeen()
                                                                             navController.navigate("new_release")
                                                                         } catch (e: Exception) {
@@ -1085,7 +1073,6 @@ class MainActivity : ComponentActivity() {
                                                                     )
                                                                 }
 
-                                                                // Badge para nuevos lanzamientos
                                                                 if (hasNewReleases) {
                                                                     val badgeScale by infiniteTransition.animateFloat(
                                                                         initialValue = 0.8f,
@@ -1193,7 +1180,6 @@ class MainActivity : ComponentActivity() {
                                         }
                                         }
 
-                                        // Verificación más segura para la ruta
                                         val isSearchRoute =
                                             navBackStackEntry?.destination?.route?.startsWith("search/") == true
 
@@ -1337,7 +1323,6 @@ class MainActivity : ComponentActivity() {
                                                                     )
                                                                     navController.navigate("search/$encodedQuery")
 
-                                                                    // Verificar preferencias antes de guardar historial
                                                                     if (dataStore[PauseSearchHistoryKey] != true) {
                                                                         database.query {
                                                                             insert(SearchHistory(query = searchQuery))
@@ -1380,7 +1365,6 @@ class MainActivity : ComponentActivity() {
                                                     animationSpec = tween(300)
                                                 ) + fadeOut(animationSpec = tween(300))
                                             ) {
-                                                // Usar directamente LyricsScreen que ya es una pantalla completa
                                                 val playerConnection = LocalPlayerConnection.current
                                                 val mediaMetadata by playerConnection?.mediaMetadata?.collectAsState()
                                                     ?: return@SimpleAnimatedVisibility
@@ -1395,7 +1379,6 @@ class MainActivity : ComponentActivity() {
                                                         modifier = Modifier.fillMaxSize()
                                                     )
                                                 } else {
-                                                    // Mostrar placeholder o cerrar
                                                     Box(
                                                         modifier = Modifier
                                                             .fillMaxSize()
@@ -1459,7 +1442,6 @@ class MainActivity : ComponentActivity() {
                                                             }
                                                         } else {
                                                             if (isSelected) {
-                                                                // Scroll to top en la pantalla actual
                                                                 navController.currentBackStackEntry?.savedStateHandle?.set(
                                                                     "scrollToTop",
                                                                     true
@@ -1526,7 +1508,6 @@ class MainActivity : ComponentActivity() {
                                                         .height(bottomInsetDp)
                                                 )
                                             } else {
-                                                // En tablets en landscape, solo mostrar el BottomSheetPlayer y el Box del inset
                                                 Box(
                                                     modifier = Modifier
                                                         .background(insetBg)
@@ -1613,7 +1594,7 @@ class MainActivity : ComponentActivity() {
                                                 slideOutHorizontally(
                                                     targetOffsetX = { it },
                                                     animationSpec = tween(350, easing = FastOutSlowInEasing)
-                                                ) + fadeOut(animationSpec = tween(200, easing = LinearEasing)) // Rapid fade to drop it from hit testing
+                                                ) + fadeOut(animationSpec = tween(200, easing = LinearEasing))
                                             }
                                         },
 
@@ -1706,26 +1687,76 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun parseSongAndTimestamp(uri: Uri): Pair<String, Long>? {
+        val host = uri.host?.lowercase() ?: ""
+        var videoId: String? = null
+        var timestampMs: Long = 0L
+
+        when {
+            // e.g. https://avidtune.vercel.app/ToSon4gWsX0 or https://avidtune.vercel.app/ToSon4gWsX0/45
+            host == "avidtune.vercel.app" -> {
+                val segments = uri.pathSegments.filter { it.isNotBlank() && it != "listen" && it != "listen.html" }
+                if (segments.isNotEmpty()) {
+                    videoId = segments[0]
+                    if (segments.size > 1) {
+                        val sec = segments[1].toLongOrNull() ?: parseTimeToSeconds(segments[1])
+                        timestampMs = sec * 1000L
+                    }
+                }
+                if (timestampMs == 0L) {
+                    val tParam = uri.getQueryParameter("t")?.let { it.toLongOrNull() ?: parseTimeToSeconds(it) } ?: 0L
+                    timestampMs = tParam * 1000L
+                }
+            }
+            // e.g. avidtune://play?v=ToSon4gWsX0&t=45
+            uri.scheme?.lowercase() == "avidtune" -> {
+                videoId = uri.getQueryParameter("v") ?: uri.lastPathSegment
+                val tParam = uri.getQueryParameter("t")?.let { it.toLongOrNull() ?: parseTimeToSeconds(it) } ?: 0L
+                timestampMs = tParam * 1000L
+            }
+            // Standard YouTube links
+            uri.pathSegments.firstOrNull() == "watch" -> {
+                videoId = uri.getQueryParameter("v")
+                val tParam = uri.getQueryParameter("t")?.let { it.toLongOrNull() ?: parseTimeToSeconds(it) } ?: 0L
+                timestampMs = tParam * 1000L
+            }
+            host == "youtu.be" -> {
+                videoId = uri.pathSegments.firstOrNull()
+                val tParam = uri.getQueryParameter("t")?.let { it.toLongOrNull() ?: parseTimeToSeconds(it) } ?: 0L
+                timestampMs = tParam * 1000L
+            }
+        }
+
+        return if (!videoId.isNullOrBlank()) videoId to timestampMs else null
+    }
+
+    private fun parseTimeToSeconds(value: String): Long {
+        var total = 0L
+        val mMatch = Regex("""(\d+)m""").find(value)
+        val sMatch = Regex("""(\d+)s""").find(value)
+        if (mMatch != null) total += (mMatch.groupValues[1].toLongOrNull() ?: 0L) * 60
+        if (sMatch != null) total += (sMatch.groupValues[1].toLongOrNull() ?: 0L)
+        return if (total > 0L) total else value.toLongOrNull() ?: 0L
+    }
+
     private fun handlevideoIdIntent(intent: Intent) {
         val uri = intent.data ?: intent.extras?.getString(Intent.EXTRA_TEXT)?.toUri() ?: return
-        when {
-            uri.pathSegments.firstOrNull() == "watch" -> uri.getQueryParameter("v")
-            uri.host == "youtu.be" -> uri.pathSegments.firstOrNull()
-            else -> null
-        }?.let { videoId ->
-            lifecycleScope.launch {
-                withContext(Dispatchers.IO) {
-                    YouTube.queue(listOf(videoId))
-                }.onSuccess {
-                    playerConnection?.playQueue(
-                        YouTubeQueue(
-                            WatchEndpoint(videoId = it.firstOrNull()?.id),
-                            it.firstOrNull()?.toMediaMetadata()
-                        )
+        val parsed = parseSongAndTimestamp(uri) ?: return
+        val (videoId, timestampMs) = parsed
+
+        lifecycleScope.launch {
+            withContext(Dispatchers.IO) {
+                YouTube.queue(listOf(videoId))
+            }.onSuccess {
+                playerConnection?.playQueue(
+                    YouTubeQueue(
+                        endpoint = WatchEndpoint(videoId = it.firstOrNull()?.id),
+                        preloadItem = it.firstOrNull()?.toMediaMetadata(),
+                        startPosition = timestampMs
                     )
-                }.onFailure {
-                    reportException(it)
-                }
+                )
+            }.onFailure {
+                reportException(it)
             }
         }
     }
@@ -1766,16 +1797,14 @@ fun NotificationPermissionPreference() {
     val context = LocalContext.current
     var permissionGranted by remember { mutableStateOf(false) }
 
-    // Función para verificar permisos extraída para mejor legibilidad
     val checkNotificationPermission = remember {
         {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 ContextCompat.checkSelfPermission(
                     context,
                     Manifest.permission.POST_NOTIFICATIONS
-                ) == PackageManager.PERMISSION_GRANTED // Usar PackageManager en lugar de PermissionChecker
+                ) == PackageManager.PERMISSION_GRANTED
             } else {
-                // Para versiones anteriores, verificar si las notificaciones están habilitadas
                 NotificationManagerCompat.from(context).areNotificationsEnabled()
             }
         }
@@ -1785,19 +1814,15 @@ fun NotificationPermissionPreference() {
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         permissionGranted = isGranted
-        // Opcional: agregar callback para manejar el resultado
         if (!isGranted) {
-            // Manejar caso cuando el usuario rechaza el permiso
             Log.d("NotificationPermission", "Permiso de notificaciones denegado")
         }
     }
 
-    // Verificar permisos al inicializar y cuando la app vuelve al foreground
     LaunchedEffect(Unit) {
         permissionGranted = checkNotificationPermission()
     }
 
-    // Escuchar cambios cuando la app vuelve del background
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -1832,13 +1857,11 @@ fun NotificationPermissionPreference() {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                     } else {
-                        // Para versiones anteriores, dirigir a configuración
                         openNotificationSettings(context)
                     }
                 }
 
                 !checked && permissionGranted -> {
-                    // Si el usuario intenta desactivar, dirigir a configuración del sistema
                     openNotificationSettings(context)
                 }
             }
@@ -1846,8 +1869,6 @@ fun NotificationPermissionPreference() {
     )
 }
 
-
-// Función auxiliar para abrir configuración de notificaciones
 private fun openNotificationSettings(context: Context) {
     val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
@@ -1863,7 +1884,6 @@ private fun openNotificationSettings(context: Context) {
         context.startActivity(intent)
     } catch (e: ActivityNotFoundException) {
         Log.e("NotificationSettings", "No se pudo abrir configuración de notificaciones", e)
-        // Fallback: abrir configuración general
         context.startActivity(Intent(Settings.ACTION_SETTINGS))
     }
 }
@@ -1907,7 +1927,6 @@ fun ProfileIconWithUpdateBadge(
     var showUpdateBadge by remember { mutableStateOf(false) }
     val updatedOnClick = rememberUpdatedState(onProfileClick)
 
-    // Animación del badge
     val infiniteTransition = rememberInfiniteTransition(label = "badge_animation")
     val scale by infiniteTransition.animateFloat(
         initialValue = 1f,
@@ -1937,7 +1956,6 @@ fun ProfileIconWithUpdateBadge(
         label = "press_scale"
     )
 
-    // Control seguro de updates
     LaunchedEffect(currentVersion) {
         try {
             val latestVersion = withContext(Dispatchers.IO) { checkForUpdates() }
@@ -1964,7 +1982,6 @@ fun ProfileIconWithUpdateBadge(
                 }
             }
     ) {
-        // Avatar usando el nuevo sistema
         Box(contentAlignment = Alignment.Center) {
             when (currentSelection) {
                 is AvatarSelection.Custom -> {
@@ -2009,14 +2026,12 @@ fun ProfileIconWithUpdateBadge(
             }
         }
 
-        // Badge de actualización mejorado - dentro del avatar
         if (showUpdateBadge) {
             Box(
                 modifier = Modifier
                     .align(Alignment.Center)
                     .size(28.dp)
             ) {
-                // Anillo de pulso exterior
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -2032,7 +2047,6 @@ fun ProfileIconWithUpdateBadge(
                         )
                 )
 
-                // Overlay semi-transparente
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -2042,7 +2056,6 @@ fun ProfileIconWithUpdateBadge(
                         )
                 )
 
-                // Ícono de actualización con animación
                 Icon(
                     painter = painterResource(R.drawable.update),
                     contentDescription = "Actualización disponible",

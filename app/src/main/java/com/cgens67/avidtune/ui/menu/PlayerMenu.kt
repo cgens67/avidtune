@@ -124,6 +124,7 @@ import com.cgens67.avidtune.ui.component.MenuItemData
 import com.cgens67.avidtune.ui.component.MenuGroup
 import com.cgens67.avidtune.ui.component.NewAction
 import com.cgens67.avidtune.ui.component.NewActionGrid
+import com.cgens67.avidtune.utils.ShareUtils
 import com.cgens67.avidtune.utils.joinByBullet
 import com.cgens67.avidtune.utils.makeTimeString
 import com.cgens67.innertube.YouTube
@@ -568,15 +569,12 @@ fun ColumnScope.PlayerMenu(
                         },
                         text = stringResource(R.string.share),
                         onClick = {
-                            val intent = Intent().apply {
-                                action = Intent.ACTION_SEND
-                                type = "text/plain"
-                                putExtra(
-                                    Intent.EXTRA_TEXT,
-                                    "https://music.youtube.com/watch?v=${mediaMetadata.id}"
-                                )
-                            }
-                            context.startActivity(Intent.createChooser(intent, null))
+                            ShareUtils.shareSong(
+                                context = context,
+                                videoId = mediaMetadata.id,
+                                title = mediaMetadata.title,
+                                positionMs = playerConnection.player.currentPosition
+                            )
                             onDismiss()
                         }
                     )
@@ -957,7 +955,6 @@ fun TempoPitchBottomSheet(onDismiss: () -> Unit) {
         mutableFloatStateOf(playerConnection.player.playbackParameters.pitch)
     }
 
-    // Whether pitch and tempo are merged together into a unified control
     var isMerged by rememberSaveable {
         mutableStateOf(false)
     }
@@ -1001,7 +998,6 @@ fun TempoPitchBottomSheet(onDismiss: () -> Unit) {
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
-            // Segmented Toggle: Separate | Merged
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1045,7 +1041,6 @@ fun TempoPitchBottomSheet(onDismiss: () -> Unit) {
                 }
             }
 
-            // Smooth animated collapse / expand between Unified and Separate modes
             AnimatedContent(
                 targetState = isMerged,
                 transitionSpec = {
@@ -1057,7 +1052,6 @@ fun TempoPitchBottomSheet(onDismiss: () -> Unit) {
                 label = "tempoPitchModeTransition"
             ) { merged ->
                 if (merged) {
-                    // Merged Mode: One clean, unified Speed & Pitch control
                     Column(
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -1076,7 +1070,6 @@ fun TempoPitchBottomSheet(onDismiss: () -> Unit) {
                         )
                     }
                 } else {
-                    // Separate Mode: Independent Tempo and Pitch sliders
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(20.dp)
