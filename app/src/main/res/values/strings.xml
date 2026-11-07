@@ -1489,6 +1489,9 @@
     <string name="share_format_youtube_music">YouTube Music (music.youtube.com)</string>
     <string name="share_format_ask">Ask each time</string>
     <string name="share_song_as">Share song as</string>
+    <string name="share_dialog_description">Choose how you want to share this song</string>
+    <string name="share_avidtune_desc">Web player &amp; app link</string>
+    <string name="share_ytm_desc">Official YouTube Music link</string>
 
     <string name="provider_avid_descriptions">AvidDescriptions</string>
     <string name="provider_apple_music">Apple Music</string>

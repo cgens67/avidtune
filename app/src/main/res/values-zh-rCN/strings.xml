@@ -1466,6 +1466,9 @@
     <string name="share_format_youtube_music">YouTube Music (music.youtube.com)</string>
     <string name="share_format_ask">每次询问</string>
     <string name="share_song_as">分享歌曲为</string>
+    <string name="share_dialog_description">选择您要分享此歌曲的方式</string>
+    <string name="share_avidtune_desc">网页播放器与应用链接</string>
+    <string name="share_ytm_desc">YouTube Music 官方链接</string>
 
     <string name="provider_avid_descriptions">AvidDescriptions</string>
     <string name="provider_apple_music">Apple Music</string>

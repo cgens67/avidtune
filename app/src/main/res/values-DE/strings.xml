@@ -1487,6 +1487,9 @@
     <string name="provider_apple_music">Apple Music</string>
     <string name="provider_wikipedia">Wikipedia</string>
     <string name="provider_youtube_music">YouTube Music</string>
+    <string name="share_dialog_description">Wähle, wie du diesen Song teilen möchtest</string>
+    <string name="share_avidtune_desc">Webplayer &amp; App-Link</string>
+    <string name="share_ytm_desc">Offizieller YouTube Music-Link</string>
 
     <string name="provider_avid_lyrics">AvidLyrics</string>
     <string name="provider_lyrics_plus">LyricsPlus</string>
