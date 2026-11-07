@@ -100,7 +100,6 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -309,31 +308,71 @@ private suspend fun translateChangelogData(
     original: CachedChangelogData,
     targetLang: String
 ): CachedChangelogData = withContext(Dispatchers.IO) {
-    val translatedDesc = original.description?.let { desc ->
-        if (desc.isNotBlank()) TranslationHelper.translate(desc, targetLang) ?: desc else desc
+    val texts = mutableListOf<String>()
+    val descIdx = if (!original.description.isNullOrBlank()) {
+        texts.add(original.description)
+        texts.lastIndex
+    } else -1
+
+    val warnIdx = if (!original.warning.isNullOrBlank()) {
+        texts.add(original.warning)
+        texts.lastIndex
+    } else -1
+
+    data class ItemRef(val sectionIndex: Int, val itemIndex: Int, val textIndex: Int)
+    val titleIndices = mutableMapOf<Int, Int>()
+    val itemRefs = mutableListOf<ItemRef>()
+
+    original.sections.forEachIndexed { sIdx, section ->
+        if (section.title.isNotBlank()) {
+            texts.add(section.title)
+            titleIndices[sIdx] = texts.lastIndex
+        }
+        section.items.forEachIndexed { iIdx, item ->
+            if (item.isNotBlank()) {
+                texts.add(item)
+                itemRefs.add(ItemRef(sIdx, iIdx, texts.lastIndex))
+            }
+        }
     }
-    val translatedWarning = original.warning?.let { warn ->
-        if (warn.isNotBlank()) TranslationHelper.translate(warn, targetLang) ?: warn else warn
-    }
-    val translatedSections = original.sections.map { section ->
-        val transTitle = if (section.title.isNotBlank()) {
-            TranslationHelper.translate(section.title, targetLang) ?: section.title
+
+    if (texts.isEmpty()) return@withContext original
+
+    val delimiter = "\n---§---\n"
+    val combinedText = texts.joinToString(delimiter)
+    val translatedCombined = TranslationHelper.translate(combinedText, targetLang)
+
+    val translatedList = if (translatedCombined != null) {
+        val split = translatedCombined.split(Regex("""\s*---§---\s*"""))
+        if (split.size == texts.size) {
+            split
+        } else null
+    } else null
+
+    val translatedDesc = if (descIdx != -1) {
+        translatedList?.getOrNull(descIdx)
+            ?: original.description?.let { TranslationHelper.translate(it, targetLang) }
+            ?: original.description
+    } else original.description
+
+    val translatedWarning = if (warnIdx != -1) {
+        translatedList?.getOrNull(warnIdx)
+            ?: original.warning?.let { TranslationHelper.translate(it, targetLang) }
+            ?: original.warning
+    } else original.warning
+
+    val translatedSections = original.sections.mapIndexed { sIdx, section ->
+        val tIdx = titleIndices[sIdx]
+        val transTitle = if (tIdx != null) {
+            translatedList?.getOrNull(tIdx) ?: section.title
         } else section.title
 
-        val transItems = if (section.items.isNotEmpty()) {
-            val joined = section.items.joinToString("\n")
-            val transJoined = TranslationHelper.translate(joined, targetLang)
-            if (transJoined != null) {
-                val lines = transJoined.lines().map { it.trim() }.filter { it.isNotEmpty() }
-                if (lines.size == section.items.size) lines else {
-                    section.items.map { item ->
-                        TranslationHelper.translate(item, targetLang) ?: item
-                    }
-                }
-            } else {
-                section.items
-            }
-        } else section.items
+        val transItems = section.items.mapIndexed { iIdx, item ->
+            val ref = itemRefs.find { it.sectionIndex == sIdx && it.itemIndex == iIdx }
+            if (ref != null) {
+                translatedList?.getOrNull(ref.textIndex) ?: item
+            } else item
+        }
 
         ChangelogSection(transTitle, transItems)
     }
@@ -681,7 +720,7 @@ fun ReleasesContent(
 
                 var fetchedSuccess = false
 
-                // 1. If not English, attempt to fetch localized changelog (e.g., changelog_cn.json, changelog_es.json)
+                // 1. If not English, attempt to fetch localized changelog from GitHub assets directly (zero Google Translate quota used)
                 if (!isEnglish) {
                     val candidates = getLocalizedChangelogCandidates(context)
                     for (candidate in candidates) {
@@ -729,7 +768,7 @@ fun ReleasesContent(
 
                 if (fetchedSuccess) return@launch
 
-                // 2. Fallback to default changelog.json
+                // 2. Fallback to default changelog.json (do NOT auto-translate across all releases; translation is done on-demand when requested)
                 val defaultUrl = release?.assetUrls?.get("changelog.json")
                     ?: release?.changelogUrl
                     ?: "https://github.com/cgens67/AvidTune/releases/download/$tag/changelog.json"
@@ -756,20 +795,9 @@ fun ReleasesContent(
                         originalWarning = meta.third
                     )
 
-                    // Auto-translate if not in English
-                    val finalData = if (!isEnglish) {
-                        try {
-                            translateChangelogData(baseData, normalizedLang)
-                        } catch (e: Exception) {
-                            baseData
-                        }
-                    } else {
-                        baseData
-                    }
-
-                    saveChangelogToCache(context, tag, langCacheKey, finalData)
+                    saveChangelogToCache(context, tag, langCacheKey, baseData)
                     withContext(Dispatchers.Main) {
-                        allChangelogsData[tag] = finalData
+                        allChangelogsData[tag] = baseData
                         changelogLoadingStates[tag] = false
                     }
                 } else {
@@ -901,12 +929,6 @@ fun ReleasesContent(
         fetchOldReleases(false)
     }
 
-    LaunchedEffect(availableReleases) {
-        availableReleases.forEach { release ->
-            ensureChangelogFetched(release.tagName, release, false)
-        }
-    }
-
     val filteredReleases = availableReleases.filter { it.isPrerelease == isBetaTab }
     val allChangelogsValues = allChangelogsData.toMap()
     
@@ -923,6 +945,7 @@ fun ReleasesContent(
                         section.items.forEach { append(it).append(" ") }
                     }
                     append(changelogData?.description.orEmpty())
+                    append(release.body)
                 }
 
                 matchesVersion(release.tagName, searchQuery) ||
@@ -1184,7 +1207,7 @@ fun ReleasesContent(
                             colors = CardDefaults.elevatedCardColors(
                                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                             ),
-                            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             AsyncImage(
@@ -1218,7 +1241,7 @@ fun ReleasesContent(
                             colors = CardDefaults.elevatedCardColors(
                                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                             ),
-                            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             val annotatedDesc = buildAnnotatedString {
@@ -1247,7 +1270,7 @@ fun ReleasesContent(
                                 colors = CardDefaults.elevatedCardColors(
                                     containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                                 ),
-                                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Column(modifier = Modifier.padding(20.dp)) {
