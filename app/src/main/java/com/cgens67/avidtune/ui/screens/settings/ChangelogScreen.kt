@@ -1836,7 +1836,7 @@ private fun parseSectionsFromArray(sectionsArray: JSONArray?): List<ChangelogSec
                     sections.add(ChangelogSection(title, items))
                 }
             } else {
-                val item = changelogArray.optString(i, "")
+                val item = sectionsArray.optString(i, "")
                 if (item.isNotBlank()) {
                     if (sections.isEmpty() || sections[0].title.isNotBlank()) {
                         sections.add(0, ChangelogSection("", mutableListOf()))
