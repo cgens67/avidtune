@@ -2,6 +2,7 @@ package com.cgens67.avidtune
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.NotificationManager
 import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Context
@@ -1693,7 +1694,6 @@ class MainActivity : ComponentActivity() {
         var timestampMs: Long = 0L
 
         when {
-            // e.g. https://avidtune.vercel.app/ToSon4gWsX0 or https://avidtune.vercel.app/ToSon4gWsX0/45
             host == "avidtune.vercel.app" -> {
                 val segments = uri.pathSegments.filter { it.isNotBlank() && it != "listen" && it != "listen.html" }
                 if (segments.isNotEmpty()) {
@@ -1708,13 +1708,11 @@ class MainActivity : ComponentActivity() {
                     timestampMs = tParam * 1000L
                 }
             }
-            // e.g. avidtune://play?v=ToSon4gWsX0&t=45
             uri.scheme?.lowercase() == "avidtune" -> {
                 videoId = uri.getQueryParameter("v") ?: uri.lastPathSegment
                 val tParam = uri.getQueryParameter("t")?.let { it.toLongOrNull() ?: parseTimeToSeconds(it) } ?: 0L
                 timestampMs = tParam * 1000L
             }
-            // Standard YouTube links
             uri.pathSegments.firstOrNull() == "watch" -> {
                 videoId = uri.getQueryParameter("v")
                 val tParam = uri.getQueryParameter("t")?.let { it.toLongOrNull() ?: parseTimeToSeconds(it) } ?: 0L
@@ -1805,7 +1803,9 @@ fun NotificationPermissionPreference() {
                     Manifest.permission.POST_NOTIFICATIONS
                 ) == PackageManager.PERMISSION_GRANTED
             } else {
-                NotificationManagerCompat.from(context).areNotificationsEnabled()
+                val notificationManager =
+                    context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                notificationManager?.areNotificationsEnabled() ?: true
             }
         }
     }
