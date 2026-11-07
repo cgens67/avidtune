@@ -46,7 +46,6 @@
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.AvidTune"
         android:usesCleartextTraffic="true"
@@ -169,7 +168,7 @@
             </intent-filter>
         </service>
 
-        <!-- App Widget Provider -->
+        <!-- App Widget Receiver -->
         <receiver
             android:name=".MusicWidget"
             android:exported="true">
@@ -185,9 +184,6 @@
                 <action android:name="com.cgens67.avidtune.ACTION_STATE_CHANGED" />
                 <action android:name="com.cgens67.avidtune.ACTION_UPDATE_PROGRESS" />
             </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/music_widget_info" />
         </receiver>
 
         <!-- File Provider for APK updates and Image Sharing -->

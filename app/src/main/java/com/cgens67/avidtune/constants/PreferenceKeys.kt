@@ -204,6 +204,15 @@ enum class MiniPlayerStyle {
     DEFAULT, APPLE, MODERN
 }
 
+// Share Link Format settings
+val ShareLinkFormatKey = stringPreferencesKey("shareLinkFormat")
+
+enum class ShareLinkFormat {
+    AVIDTUNE,
+    YOUTUBE_MUSIC,
+    ASK
+}
+
 enum class LibraryViewType {
     LIST,
     GRID,

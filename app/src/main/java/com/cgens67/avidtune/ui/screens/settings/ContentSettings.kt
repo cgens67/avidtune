@@ -59,6 +59,8 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.cgens67.avidtune.NotificationPermissionPreference
 import com.cgens67.avidtune.R
+import com.cgens67.avidtune.constants.AiContentFilterEnabledKey
+import com.cgens67.avidtune.constants.AiContentFilterIncludeModerateKey
 import com.cgens67.avidtune.constants.ContentCountryKey
 import com.cgens67.avidtune.constants.ContentLanguageKey
 import com.cgens67.avidtune.constants.CountryCodeToName
@@ -89,9 +91,9 @@ import com.cgens67.avidtune.constants.ProxyUrlKey
 import com.cgens67.avidtune.constants.QuickPicks
 import com.cgens67.avidtune.constants.QuickPicksKey
 import com.cgens67.avidtune.constants.SYSTEM_DEFAULT
+import com.cgens67.avidtune.constants.ShareLinkFormat
+import com.cgens67.avidtune.constants.ShareLinkFormatKey
 import com.cgens67.avidtune.constants.TopSize
-import com.cgens67.avidtune.constants.AiContentFilterEnabledKey
-import com.cgens67.avidtune.constants.AiContentFilterIncludeModerateKey
 import com.cgens67.avidtune.ui.component.EditTextPreference
 import com.cgens67.avidtune.ui.component.ListPreference
 import com.cgens67.avidtune.ui.component.PreferenceEntry
@@ -153,6 +155,12 @@ fun ContentSettings(
     val (quickPicks, onQuickPicksChange) = rememberEnumPreference(
         key = QuickPicksKey,
         defaultValue = QuickPicks.QUICK_PICKS
+    )
+
+    // Share link format
+    val (shareFormat, onShareFormatChange) = rememberEnumPreference(
+        key = ShareLinkFormatKey,
+        defaultValue = ShareLinkFormat.AVIDTUNE
     )
 
     // Descriptions settings states
@@ -303,6 +311,28 @@ fun ContentSettings(
                     onValueSelected = onContentCountryChange,
                 )},
 
+                // Share link format preference
+                {
+                    ListPreference(
+                        title = { Text(stringResource(R.string.share)) },
+                        icon = { Icon(painterResource(R.drawable.share), null) },
+                        selectedValue = shareFormat,
+                        values = listOf(
+                            ShareLinkFormat.AVIDTUNE,
+                            ShareLinkFormat.YOUTUBE_MUSIC,
+                            ShareLinkFormat.ASK
+                        ),
+                        valueText = {
+                            when (it) {
+                                ShareLinkFormat.AVIDTUNE -> "AvidTune (avidtune.vercel.app)"
+                                ShareLinkFormat.YOUTUBE_MUSIC -> "YouTube Music (music.youtube.com)"
+                                ShareLinkFormat.ASK -> "Ask each time"
+                            }
+                        },
+                        onValueSelected = onShareFormatChange
+                    )
+                },
+
                 // Hide explicit content
                 {SwitchPreference(
                     title = { Text(stringResource(R.string.hide_explicit)) },
@@ -353,7 +383,7 @@ fun ContentSettings(
             )
         )
 
-        // Descriptions provider settings (Canvas-style)
+        // Descriptions provider settings
         SettingsGeneralCategory(
             title = stringResource(R.string.description),
             items = listOf(
