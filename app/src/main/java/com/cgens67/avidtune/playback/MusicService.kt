@@ -1255,7 +1255,8 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             val playerContentLength = ContentMetadata.getContentLength(playerCache.getContentMetadata(mediaId))
             val isFullyPlayerCached = playerContentLength > 0L && playerCache.isCached(mediaId, 0L, playerContentLength)
 
-            if (isFullyDownloaded || (!isNetworkConnected.value && isFullyPlayerCached)) {
+            // It plays instantly if it's in the cache.
+            if (isFullyDownloaded || isFullyPlayerCached) {
                 scope.launch(Dispatchers.IO) {
                     recoverSong(mediaId)
                 }
