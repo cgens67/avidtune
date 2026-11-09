@@ -4,7 +4,19 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 import timber.log.Timber
+import java.net.URI
 import java.util.concurrent.TimeUnit
+
+data class AlternativeStreamData(
+    val streamUrl: String,
+    val clientName: String,
+    val itag: Int = 0,
+    val mimeType: String = "audio/webm",
+    val codecs: String = "opus",
+    val bitrate: Int = 0,
+    val sampleRate: Int? = 48000,
+    val contentLength: Long = 0L,
+)
 
 object AlternativeStreamClient {
     private const val TAG = "AlternativeStream"
@@ -24,7 +36,7 @@ object AlternativeStreamClient {
         "https://yt.chocolatemoo53.com"
     )
 
-    fun getStreamingUrl(videoId: String): String? {
+    fun getStreamData(videoId: String): AlternativeStreamData? {
         Timber.tag(TAG).i("Starting alternative stream resolution for video ID: $videoId")
 
         // 1. Try Piped instances
@@ -45,12 +57,7 @@ object AlternativeStreamClient {
                         return@use
                     }
 
-                    val body = response.body?.string()
-                    if (body.isNullOrBlank()) {
-                        Timber.tag(TAG).w("[Piped] $instance returned an empty response body")
-                        return@use
-                    }
-
+                    val body = response.body?.string() ?: return@use
                     val json = JSONObject(body)
                     val audioStreams = json.optJSONArray("audioStreams")
 
@@ -59,7 +66,7 @@ object AlternativeStreamClient {
                         return@use
                     }
 
-                    var bestUrl: String? = null
+                    var bestStreamObj: JSONObject? = null
                     var bestBitrate = -1
 
                     for (i in 0 until audioStreams.length()) {
@@ -69,13 +76,31 @@ object AlternativeStreamClient {
 
                         if (streamUrl.isNotBlank() && bitrate > bestBitrate) {
                             bestBitrate = bitrate
-                            bestUrl = streamUrl
+                            bestStreamObj = stream
                         }
                     }
 
-                    if (bestUrl != null) {
+                    if (bestStreamObj != null) {
+                        val streamUrl = bestStreamObj.optString("url")
+                        val host = runCatching { URI(instance).host }.getOrNull() ?: instance
+                        val rawMime = bestStreamObj.optString("mimeType", "audio/webm")
+                        val mimeType = rawMime.substringBefore(";").trim()
+                        val codecs = bestStreamObj.optString("codec", "opus")
+                        val itag = bestStreamObj.optInt("itag", 251)
+                        val contentLength = bestStreamObj.optLong("contentLength", 0L)
+
                         Timber.tag(TAG).i("[Piped] Resolved stream from $instance (bitrate: ${bestBitrate / 1000} kbps)")
-                        return bestUrl
+
+                        return AlternativeStreamData(
+                            streamUrl = streamUrl,
+                            clientName = "Piped ($host)",
+                            itag = itag,
+                            mimeType = mimeType,
+                            codecs = codecs,
+                            bitrate = bestBitrate,
+                            sampleRate = 48000,
+                            contentLength = contentLength
+                        )
                     }
                 }
             } catch (e: Exception) {
@@ -85,7 +110,7 @@ object AlternativeStreamClient {
 
         Timber.tag(TAG).d("Piped instances exhausted. Falling back to Invidious with proxying...")
 
-        // 2. Try Invidious with ?local=true to avoid IP mismatch 403 Forbidden
+        // 2. Try Invidious with ?local=true
         for (instance in INVIDIOUS_INSTANCES) {
             val url = "$instance/api/v1/videos/$videoId?local=true"
             Timber.tag(TAG).d("[Invidious] Requesting: $url")
@@ -103,13 +128,9 @@ object AlternativeStreamClient {
                         return@use
                     }
 
-                    val body = response.body?.string()
-                    if (body.isNullOrBlank()) {
-                        Timber.tag(TAG).w("[Invidious] $instance returned an empty response body")
-                        return@use
-                    }
-
+                    val body = response.body?.string() ?: return@use
                     val json = JSONObject(body)
+
                     if (json.has("error")) {
                         Timber.tag(TAG).w("[Invidious] $instance returned error: ${json.optString("error")}")
                         return@use
@@ -121,7 +142,7 @@ object AlternativeStreamClient {
                         return@use
                     }
 
-                    var bestUrl: String? = null
+                    var bestFormatObj: JSONObject? = null
                     var bestBitrate = -1
 
                     for (i in 0 until adaptiveFormats.length()) {
@@ -129,26 +150,46 @@ object AlternativeStreamClient {
                         val type = format.optString("type", "")
 
                         if (type.startsWith("audio/")) {
-                            var streamUrl = format.optString("url")
+                            val streamUrl = format.optString("url")
                             val bitrate = format.optInt("bitrate", 0)
 
-                            if (streamUrl.isNotBlank()) {
-                                // If Invidious returns a relative path like "/videoplayback?...", prepend the domain
-                                if (streamUrl.startsWith("/")) {
-                                    streamUrl = "$instance$streamUrl"
-                                }
-
-                                if (bitrate > bestBitrate) {
-                                    bestBitrate = bitrate
-                                    bestUrl = streamUrl
-                                }
+                            if (streamUrl.isNotBlank() && bitrate > bestBitrate) {
+                                bestBitrate = bitrate
+                                bestFormatObj = format
                             }
                         }
                     }
 
-                    if (bestUrl != null) {
-                        Timber.tag(TAG).i("[Invidious] Resolved proxied stream from $instance (bitrate: ${bestBitrate / 1000} kbps)")
-                        return bestUrl
+                    if (bestFormatObj != null) {
+                        var streamUrl = bestFormatObj.optString("url")
+                        if (streamUrl.startsWith("/")) {
+                            streamUrl = "$instance$streamUrl"
+                        }
+
+                        val host = runCatching { URI(instance).host }.getOrNull() ?: instance
+                        val rawType = bestFormatObj.optString("type", "audio/webm; codecs=\"opus\"")
+                        val mimeType = rawType.substringBefore(";").trim()
+                        val codecs = if (rawType.contains("codecs=")) {
+                            rawType.substringAfter("codecs=").replace("\"", "").replace("'", "").trim()
+                        } else {
+                            "opus"
+                        }
+                        val itag = bestFormatObj.optInt("itag", 251)
+                        val contentLength = bestFormatObj.optLong("clen", bestFormatObj.optLong("contentLength", 0L))
+                        val sampleRate = bestFormatObj.optInt("audioSampleRate", 48000)
+
+                        Timber.tag(TAG).i("[Invidious] Resolved stream from $instance (bitrate: ${bestBitrate / 1000} kbps)")
+
+                        return AlternativeStreamData(
+                            streamUrl = streamUrl,
+                            clientName = "Invidious ($host)",
+                            itag = itag,
+                            mimeType = mimeType,
+                            codecs = codecs,
+                            bitrate = bestBitrate,
+                            sampleRate = sampleRate,
+                            contentLength = contentLength
+                        )
                     }
                 }
             } catch (e: Exception) {
@@ -159,4 +200,7 @@ object AlternativeStreamClient {
         Timber.tag(TAG).e("All alternative stream providers failed for video ID: $videoId")
         return null
     }
+
+    // Retained for backward compatibility if called elsewhere
+    fun getStreamingUrl(videoId: String): String? = getStreamData(videoId)?.streamUrl
 }

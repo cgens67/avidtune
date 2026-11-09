@@ -1325,19 +1325,37 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             } catch (e: Exception) {
                 Timber.tag(ytLogTag).e(e, "YouTube stream resolution failed, attempting alternative stream fallback...")
 
-                val alternativeUrl = runCatching {
+                val fallbackData = runCatching {
                     runBlocking(Dispatchers.IO) {
-                        AlternativeStreamClient.getStreamingUrl(mediaId)
+                        AlternativeStreamClient.getStreamData(mediaId)
                     }
                 }.getOrNull()
 
-                if (alternativeUrl != null) {
-                    Timber.tag("AlternativeStream").i("Using fallback stream URL: $alternativeUrl")
-                    currentPlaybackClient.value = "Piped (Fallback)"
+                if (fallbackData != null) {
+                    Timber.tag("AlternativeStream").i("Using fallback stream URL: ${fallbackData.streamUrl} via ${fallbackData.clientName}")
+                    currentPlaybackClient.value = fallbackData.clientName
+
+                    // Save the format to the database so Nerd Stats can display bitrate, codecs, and file size
+                    database.query {
+                        upsert(
+                            FormatEntity(
+                                id = mediaId,
+                                itag = fallbackData.itag,
+                                mimeType = fallbackData.mimeType,
+                                codecs = fallbackData.codecs,
+                                bitrate = fallbackData.bitrate,
+                                sampleRate = fallbackData.sampleRate,
+                                contentLength = fallbackData.contentLength,
+                                loudnessDb = null,
+                                playbackUrl = fallbackData.streamUrl
+                            )
+                        )
+                    }
+
                     scope.launch(Dispatchers.IO) {
                         recoverSong(mediaId)
                     }
-                    return@Factory dataSpec.withUri(alternativeUrl.toUri())
+                    return@Factory dataSpec.withUri(fallbackData.streamUrl.toUri())
                 }
 
                 throw e
