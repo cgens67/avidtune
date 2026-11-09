@@ -10,18 +10,16 @@ object AlternativeStreamClient {
     private const val TAG = "AlternativeStream"
 
     private val httpClient = OkHttpClient.Builder()
-        .connectTimeout(6, TimeUnit.SECONDS)
-        .readTimeout(6, TimeUnit.SECONDS)
+        .connectTimeout(8, TimeUnit.SECONDS)
+        .readTimeout(8, TimeUnit.SECONDS)
         .followRedirects(true)
         .build()
 
-    // Verified Piped instances
     private val PIPED_INSTANCES = listOf(
         "https://pipedapi.ducks.party",
         "https://api.piped.private.coffee"
     )
 
-    // Verified Invidious instances
     private val INVIDIOUS_INSTANCES = listOf(
         "https://yt.chocolatemoo53.com"
     )
@@ -57,7 +55,7 @@ object AlternativeStreamClient {
                     val audioStreams = json.optJSONArray("audioStreams")
 
                     if (audioStreams == null || audioStreams.length() == 0) {
-                        Timber.tag(TAG).w("[Piped] $instance returned 0 audio streams (audioStreams array is empty)")
+                        Timber.tag(TAG).w("[Piped] $instance returned 0 audio streams")
                         return@use
                     }
 
@@ -78,8 +76,6 @@ object AlternativeStreamClient {
                     if (bestUrl != null) {
                         Timber.tag(TAG).i("[Piped] Resolved stream from $instance (bitrate: ${bestBitrate / 1000} kbps)")
                         return bestUrl
-                    } else {
-                        Timber.tag(TAG).w("[Piped] $instance had ${audioStreams.length()} audio streams but none had a valid URL")
                     }
                 }
             } catch (e: Exception) {
@@ -87,11 +83,11 @@ object AlternativeStreamClient {
             }
         }
 
-        Timber.tag(TAG).d("Piped instances exhausted or returned no audio. Falling back to Invidious...")
+        Timber.tag(TAG).d("Piped instances exhausted. Falling back to Invidious with proxying...")
 
-        // 2. Fallback to Invidious instances
+        // 2. Try Invidious with ?local=true to avoid IP mismatch 403 Forbidden
         for (instance in INVIDIOUS_INSTANCES) {
-            val url = "$instance/api/v1/videos/$videoId"
+            val url = "$instance/api/v1/videos/$videoId?local=true"
             Timber.tag(TAG).d("[Invidious] Requesting: $url")
 
             try {
@@ -114,7 +110,6 @@ object AlternativeStreamClient {
                     }
 
                     val json = JSONObject(body)
-
                     if (json.has("error")) {
                         Timber.tag(TAG).w("[Invidious] $instance returned error: ${json.optString("error")}")
                         return@use
@@ -134,21 +129,26 @@ object AlternativeStreamClient {
                         val type = format.optString("type", "")
 
                         if (type.startsWith("audio/")) {
-                            val streamUrl = format.optString("url")
+                            var streamUrl = format.optString("url")
                             val bitrate = format.optInt("bitrate", 0)
 
-                            if (streamUrl.isNotBlank() && bitrate > bestBitrate) {
-                                bestBitrate = bitrate
-                                bestUrl = streamUrl
+                            if (streamUrl.isNotBlank()) {
+                                // If Invidious returns a relative path like "/videoplayback?...", prepend the domain
+                                if (streamUrl.startsWith("/")) {
+                                    streamUrl = "$instance$streamUrl"
+                                }
+
+                                if (bitrate > bestBitrate) {
+                                    bestBitrate = bitrate
+                                    bestUrl = streamUrl
+                                }
                             }
                         }
                     }
 
                     if (bestUrl != null) {
-                        Timber.tag(TAG).i("[Invidious] Resolved stream from $instance (bitrate: ${bestBitrate / 1000} kbps)")
+                        Timber.tag(TAG).i("[Invidious] Resolved proxied stream from $instance (bitrate: ${bestBitrate / 1000} kbps)")
                         return bestUrl
-                    } else {
-                        Timber.tag(TAG).w("[Invidious] $instance returned adaptiveFormats, but none with type 'audio/'")
                     }
                 }
             } catch (e: Exception) {
