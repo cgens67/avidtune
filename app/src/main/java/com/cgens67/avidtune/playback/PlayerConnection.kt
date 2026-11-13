@@ -208,6 +208,12 @@ class PlayerConnection(
         }
 
         scope.launch {
+            service.queueTitleFlow.collect { title ->
+                _queueTitle.value = title
+            }
+        }
+
+        scope.launch {
             service.togetherSessionState.collect { state ->
                 if (state is TogetherSessionState.Hosting || state is TogetherSessionState.Joined) {
                     service.queueTitle = context.getString(R.string.music_together)

@@ -359,7 +359,7 @@ fun SelectionMediaMetadataMenu(
                                 text = stringResource(R.string.start_radio),
                                 onClick = {
                                     onDismiss()
-                                    playerConnection.playQueue(YouTubeQueue.radio(singleSong))
+                                    playerConnection.playQueue(YouTubeQueue.radio(singleSong, isRadio = true))
                                     clearAction()
                                 }
                             )
@@ -865,7 +865,7 @@ fun SelectionSongMenu(
                                 text = stringResource(R.string.start_radio),
                                 onClick = {
                                     onDismiss()
-                                    playerConnection.playQueue(YouTubeQueue.radio(singleSong.toMediaMetadata()))
+                                    playerConnection.playQueue(YouTubeQueue.radio(singleSong.toMediaMetadata(), isRadio = true))
                                     clearAction()
                                 }
                             )

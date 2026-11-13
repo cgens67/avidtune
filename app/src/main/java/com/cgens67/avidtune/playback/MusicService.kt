@@ -205,7 +205,12 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     )
 
     private var currentQueue: Queue = EmptyQueue
-    var queueTitle: String? = null
+    val queueTitleFlow = MutableStateFlow<String?>(null)
+    var queueTitle: String?
+        get() = queueTitleFlow.value
+        set(value) {
+            queueTitleFlow.value = value
+        }
     val currentMediaMetadata = MutableStateFlow<com.cgens67.avidtune.models.MediaMetadata?>(null)
     val currentPlaybackClient = MutableStateFlow<String?>(null)
 
@@ -747,7 +752,13 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     fun playQueue(queue: Queue, playWhenReady: Boolean = true) {
         if (!scope.isActive) scope = CoroutineScope(Dispatchers.Main) + Job()
         currentQueue = queue
-        queueTitle = null
+        queueTitle = if (togetherSessionState.value is TogetherSessionState.Hosting || togetherSessionState.value is TogetherSessionState.Joined) {
+            getString(R.string.music_together)
+        } else if (queue is YouTubeQueue && queue.isSongRadioQueue && queue.preloadItem != null) {
+            if (queue.isRadio) "Radio" else "${queue.preloadItem.title} Mix"
+        } else {
+            null
+        }
         player.shuffleModeEnabled = false
 
         if (queue.preloadItem != null) {
@@ -764,7 +775,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
 
             if (togetherSessionState.value is TogetherSessionState.Hosting || togetherSessionState.value is TogetherSessionState.Joined) {
                 queueTitle = getString(R.string.music_together)
-            } else if (initialStatus.title != null) {
+            } else {
                 queueTitle = initialStatus.title
             }
 
@@ -806,11 +817,11 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         }
 
         scope.launch(SilentHandler) {
-            val radioQueue = YouTubeQueue.radio(currentMediaMetadata)
+            val radioQueue = YouTubeQueue.radio(currentMediaMetadata, isRadio = true)
             val initialStatus = radioQueue.getInitialStatus()
             if (togetherSessionState.value is TogetherSessionState.Hosting || togetherSessionState.value is TogetherSessionState.Joined) {
                 queueTitle = getString(R.string.music_together)
-            } else if (initialStatus.title != null) {
+            } else {
                 queueTitle = initialStatus.title
             }
             player.addMediaItems(initialStatus.items.drop(1))

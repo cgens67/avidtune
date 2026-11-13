@@ -7,15 +7,10 @@
 
 package com.cgens67.avidtune.ui.player
 
-import android.content.Context
-import android.content.Intent
 import android.content.res.Configuration
-import android.media.AudioManager
-import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
@@ -26,11 +21,12 @@ import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -42,37 +38,44 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.CachePolicy
 import coil.request.ImageRequest
+import com.cgens67.avidtune.LocalDatabase
 import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.*
 import com.cgens67.avidtune.db.entities.LyricsEntity
 import com.cgens67.avidtune.db.entities.Song
+import com.cgens67.avidtune.extensions.currentMetadata
+import com.cgens67.avidtune.extensions.metadata
 import com.cgens67.avidtune.extensions.togglePlayPause
 import com.cgens67.avidtune.extensions.toggleRepeatMode
 import com.cgens67.avidtune.models.MediaMetadata
@@ -87,12 +90,19 @@ import com.cgens67.avidtune.ui.utils.resize
 import com.cgens67.avidtune.utils.makeTimeString
 import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
+import com.cgens67.innertube.YouTube
+import com.cgens67.innertube.models.WatchEndpoint
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import me.saket.squiggles.SquigglySlider
-import kotlin.math.abs
+import java.util.concurrent.ConcurrentHashMap
 
 enum class PlayerInternalState { COVER, LYRICS, QUEUE }
+
+private val explicitStatusCache = ConcurrentHashMap<String, Boolean>()
 
 fun Modifier.customSoftShadow(
     elevation: Dp,
@@ -343,12 +353,177 @@ fun PlayerV2Slider(
 }
 
 @Composable
+fun PlayerV2ArtistDisplay(
+    artists: List<MediaMetadata.Artist>,
+    isExplicit: Boolean,
+    textStyle: TextStyle,
+    color: Color,
+    state: BottomSheetState,
+    navController: NavController,
+    onShowArtistChooser: (List<MediaMetadata.Artist>) -> Unit,
+    modifier: Modifier = Modifier,
+    mediaId: String? = null,
+    iconSize: Dp = 16.dp,
+    marqueeVelocity: Dp = 30.dp,
+    marqueeInitialDelay: Int = 2000
+) {
+    val coroutineScope = rememberCoroutineScope()
+    val database = LocalDatabase.current
+
+    val explicitTransitionState = remember(mediaId) {
+        MutableTransitionState(false)
+    }
+
+    LaunchedEffect(isExplicit, mediaId) {
+        explicitTransitionState.targetState = isExplicit
+    }
+
+    val linkStyles = remember(color) {
+        val spanStyle = SpanStyle(
+            color = color,
+            textDecoration = TextDecoration.None
+        )
+        TextLinkStyles(
+            style = spanStyle,
+            focusedStyle = spanStyle,
+            hoveredStyle = spanStyle,
+            pressedStyle = spanStyle
+        )
+    }
+
+    val annotatedArtistString = remember(artists, linkStyles) {
+        buildAnnotatedString {
+            artists.forEachIndexed { index, artist ->
+                val link = LinkAnnotation.Clickable(
+                    tag = artist.id ?: artist.name,
+                    styles = linkStyles
+                ) {
+                    coroutineScope.launch {
+                        val targetId = artist.id ?: withContext(Dispatchers.IO) {
+                            database.artistByName(artist.name)?.id
+                        }
+                        if (!targetId.isNullOrBlank()) {
+                            state.collapseSoft()
+                            navController.navigate("artist/$targetId")
+                        } else if (artists.size > 1) {
+                            onShowArtistChooser(artists)
+                        } else {
+                            state.collapseSoft()
+                            navController.navigate("search/${artist.name}")
+                        }
+                    }
+                }
+                withLink(link) {
+                    append(artist.name)
+                }
+                if (index != artists.lastIndex) {
+                    append(", ")
+                }
+            }
+        }
+    }
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = {
+                    if (artists.size > 1) {
+                        onShowArtistChooser(artists)
+                    } else if (artists.size == 1) {
+                        coroutineScope.launch {
+                            val single = artists.first()
+                            val targetId = single.id ?: withContext(Dispatchers.IO) {
+                                database.artistByName(single.name)?.id
+                            }
+                            if (!targetId.isNullOrBlank()) {
+                                state.collapseSoft()
+                                navController.navigate("artist/$targetId")
+                            } else {
+                                state.collapseSoft()
+                                navController.navigate("search/${single.name}")
+                            }
+                        }
+                    }
+                }
+            )
+    ) {
+        AnimatedVisibility(
+            visibleState = explicitTransitionState,
+            enter = fadeIn(tween(350)) +
+                expandHorizontally(
+                    spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessMediumLow
+                    ),
+                    expandFrom = Alignment.Start
+                ) +
+                scaleIn(
+                    initialScale = 0.3f,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessMediumLow
+                    )
+                ),
+            exit = fadeOut(tween(200)) +
+                shrinkHorizontally(
+                    spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessMediumLow
+                    ),
+                    shrinkTowards = Alignment.Start
+                ) +
+                scaleOut(
+                    targetScale = 0.3f,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessMediumLow
+                    )
+                )
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.explicit),
+                contentDescription = stringResource(R.string.hide_explicit),
+                tint = color,
+                modifier = Modifier
+                    .padding(end = 6.dp)
+                    .size(iconSize)
+            )
+        }
+
+        if (artists.isEmpty()) {
+            Text(
+                text = stringResource(R.string.unknown),
+                style = textStyle,
+                color = color,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        } else {
+            Text(
+                text = annotatedArtistString,
+                style = textStyle.copy(color = color),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .weight(1f, fill = false)
+                    .basicMarquee(iterations = 1, initialDelayMillis = marqueeInitialDelay, velocity = marqueeVelocity)
+            )
+        }
+    }
+}
+
+@Composable
 fun PlayerV2(
     state: BottomSheetState,
     navController: NavController,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val database = LocalDatabase.current
+    val coroutineScope = rememberCoroutineScope()
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
@@ -370,6 +545,96 @@ fun PlayerV2(
     val canSkipPrevious by playerConnection.canSkipPrevious.collectAsState()
     val canSkipNext by playerConnection.canSkipNext.collectAsState()
     val playerVolume by playerConnection.service.playerVolume.collectAsState()
+
+    var showArtistChooserDialog by rememberSaveable { mutableStateOf(false) }
+    var artistsForChooser by remember { mutableStateOf<List<MediaMetadata.Artist>>(emptyList()) }
+    val onShowArtistChooser: (List<MediaMetadata.Artist>) -> Unit = { list ->
+        artistsForChooser = list
+        showArtistChooserDialog = true
+    }
+
+    val rawMediaMetadata = mediaMetadata ?: playerConnection.player.currentMediaItem?.metadata ?: playerConnection.player.currentMetadata
+    val currentSongMetadata = currentSong?.toMediaMetadata()
+    val currentMediaId = rawMediaMetadata?.id ?: currentSongMetadata?.id
+    val currentAlbumId = rawMediaMetadata?.album?.id ?: currentSongMetadata?.album?.id
+
+    var fetchedExplicit by remember(currentMediaId) {
+        mutableStateOf(currentMediaId?.let { explicitStatusCache[it] })
+    }
+
+    LaunchedEffect(currentMediaId, currentAlbumId, rawMediaMetadata?.explicit, currentSongMetadata?.explicit) {
+        val id = currentMediaId ?: return@LaunchedEffect
+        if (rawMediaMetadata?.explicit == true || currentSongMetadata?.explicit == true) {
+            explicitStatusCache[id] = true
+            fetchedExplicit = true
+            return@LaunchedEffect
+        }
+        explicitStatusCache[id]?.let { cached ->
+            fetchedExplicit = cached
+            return@LaunchedEffect
+        }
+
+        val resolvedExplicit = withContext(Dispatchers.IO) {
+            val queueResult = YouTube.queue(listOf(id)).getOrNull()
+                ?.firstOrNull { it.id == id }
+            if (queueResult?.explicit == true) {
+                return@withContext true
+            }
+
+            val fromAlbum = currentAlbumId?.takeIf { it.isNotBlank() }?.let { albumId ->
+                YouTube.album(albumId).getOrNull()?.songs?.find { it.id == id }?.explicit
+            }
+            if (fromAlbum == true) {
+                return@withContext true
+            }
+
+            if (queueResult == null) {
+                val fromNext = YouTube.next(WatchEndpoint(videoId = id)).getOrNull()
+                    ?.items?.firstOrNull { it.id == id }?.explicit
+                if (fromNext != null) {
+                    return@withContext fromNext
+                }
+            }
+
+            if (queueResult != null || fromAlbum != null) false else null
+        }
+
+        if (resolvedExplicit != null) {
+            explicitStatusCache[id] = resolvedExplicit
+            fetchedExplicit = resolvedExplicit
+        }
+    }
+
+    val resolvedMetadata = remember(currentSongMetadata, rawMediaMetadata, currentSong, fetchedExplicit) {
+        val base = currentSongMetadata ?: rawMediaMetadata
+        val isExplicit = rawMediaMetadata?.explicit == true ||
+                currentSongMetadata?.explicit == true ||
+                fetchedExplicit == true ||
+                currentSong?.song?.title?.contains("explicit", ignoreCase = true) == true ||
+                rawMediaMetadata?.title?.contains("explicit", ignoreCase = true) == true
+
+        val artists = base?.artists?.mapIndexed { index, artist ->
+            if (artist.id != null && !artist.id.startsWith("LA")) artist
+            else {
+                val fromRaw = rawMediaMetadata?.artists?.getOrNull(index)?.takeIf { it.id != null }
+                val fromSong = currentSong?.artists?.find { it.name.equals(artist.name, ignoreCase = true) }
+                when {
+                    fromRaw?.id != null && !fromRaw.id.startsWith("LA") -> artist.copy(id = fromRaw.id)
+                    fromSong?.id != null && !fromSong.id.startsWith("LA") -> artist.copy(id = fromSong.id)
+                    fromRaw?.id != null -> artist.copy(id = fromRaw.id)
+                    fromSong?.id != null -> artist.copy(id = fromSong.id)
+                    else -> artist
+                }
+            }
+        } ?: emptyList()
+
+        base?.copy(
+            explicit = isExplicit,
+            artists = artists,
+            isVideo = rawMediaMetadata?.isVideo ?: (base?.isVideo ?: false),
+            setVideoId = rawMediaMetadata?.setVideoId ?: base?.setVideoId
+        )
+    }
 
     BackHandler(enabled = playerState != PlayerInternalState.COVER) {
         playerState = PlayerInternalState.COVER
@@ -426,7 +691,7 @@ fun PlayerV2(
         }
     }
 
-    LaunchedEffect(mediaMetadata?.id) {
+    LaunchedEffect(resolvedMetadata?.id) {
         val rawDuration = playerConnection.player.duration
         position = playerConnection.player.currentPosition.coerceAtLeast(0L)
         duration = if (rawDuration == C.TIME_UNSET || rawDuration < 0) 0L else rawDuration
@@ -438,6 +703,7 @@ fun PlayerV2(
             PlayerBackgroundStyle.BLUR,
             PlayerBackgroundStyle.GRADIENT,
             PlayerBackgroundStyle.APPLE_MUSIC,
+            PlayerBackgroundStyle.IMMERSIVE_ARTWORK,
             PlayerBackgroundStyle.LIVE_MESH -> Color.White
         },
         label = "adaptivePrimary"
@@ -448,6 +714,7 @@ fun PlayerV2(
             PlayerBackgroundStyle.BLUR,
             PlayerBackgroundStyle.GRADIENT,
             PlayerBackgroundStyle.APPLE_MUSIC,
+            PlayerBackgroundStyle.IMMERSIVE_ARTWORK,
             PlayerBackgroundStyle.LIVE_MESH -> Color.White.copy(alpha = 0.7f)
         },
         label = "adaptiveSecondary"
@@ -458,6 +725,7 @@ fun PlayerV2(
             PlayerBackgroundStyle.BLUR,
             PlayerBackgroundStyle.GRADIENT,
             PlayerBackgroundStyle.APPLE_MUSIC,
+            PlayerBackgroundStyle.IMMERSIVE_ARTWORK,
             PlayerBackgroundStyle.LIVE_MESH -> Color.White.copy(alpha = 0.2f)
         },
         label = "adaptiveSurface"
@@ -467,7 +735,7 @@ fun PlayerV2(
         PlayerV2Landscape(
             state = state,
             navController = navController,
-            mediaMetadata = currentSong?.toMediaMetadata() ?: mediaMetadata,
+            mediaMetadata = resolvedMetadata,
             currentSong = currentSong,
             currentLyrics = currentLyrics,
             isPlaying = isPlaying,
@@ -482,6 +750,7 @@ fun PlayerV2(
             },
             playerState = playerState,
             onPlayerStateChange = { playerState = it },
+            onShowArtistChooser = onShowArtistChooser,
             canSkipPrevious = canSkipPrevious,
             canSkipNext = canSkipNext,
             isListenTogetherGuest = isListenTogetherGuest,
@@ -506,7 +775,7 @@ fun PlayerV2(
         PlayerV2Portrait(
             state = state,
             navController = navController,
-            mediaMetadata = currentSong?.toMediaMetadata() ?: mediaMetadata,
+            mediaMetadata = resolvedMetadata,
             currentSong = currentSong,
             currentLyrics = currentLyrics,
             isPlaying = isPlaying,
@@ -523,6 +792,7 @@ fun PlayerV2(
             onPlayerStateChange = { playerState = it },
             controlsVisible = controlsVisible,
             onToggleControlsVisible = { controlsVisible = !controlsVisible },
+            onShowArtistChooser = onShowArtistChooser,
             canSkipPrevious = canSkipPrevious,
             canSkipNext = canSkipNext,
             isListenTogetherGuest = isListenTogetherGuest,
@@ -544,6 +814,63 @@ fun PlayerV2(
             modifier = modifier
         )
     }
+
+    if (showArtistChooserDialog && artistsForChooser.isNotEmpty()) {
+        ListDialog(
+            onDismiss = { showArtistChooserDialog = false },
+        ) {
+            item {
+                Text(
+                    text = stringResource(R.string.artists),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
+                )
+            }
+            items(
+                items = artistsForChooser,
+                key = { it.id ?: it.name }
+            ) { artist ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(ListItemHeight)
+                        .clickable {
+                            showArtistChooserDialog = false
+                            state.collapseSoft()
+                            coroutineScope.launch {
+                                val targetId = artist.id ?: withContext(Dispatchers.IO) {
+                                    database.artistByName(artist.name)?.id
+                                }
+                                if (!targetId.isNullOrBlank()) {
+                                    navController.navigate("artist/$targetId")
+                                } else {
+                                    navController.navigate("search/${artist.name}")
+                                }
+                            }
+                        }
+                        .padding(horizontal = 24.dp),
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.artist),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text(
+                        text = artist.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -561,6 +888,7 @@ private fun PlayerV2Landscape(
     onSeekTo: (Long) -> Unit,
     playerState: PlayerInternalState,
     onPlayerStateChange: (PlayerInternalState) -> Unit,
+    onShowArtistChooser: (List<MediaMetadata.Artist>) -> Unit,
     canSkipPrevious: Boolean,
     canSkipNext: Boolean,
     isListenTogetherGuest: Boolean,
@@ -585,7 +913,7 @@ private fun PlayerV2Landscape(
     val menuState = LocalMenuState.current
     val bottomSheetPageState = LocalBottomSheetPageState.current
     val coverRadius = thumbnailCornerRadius.dp
-    val isAppleMusicBg = playerBackground == PlayerBackgroundStyle.APPLE_MUSIC
+    val isAppleMusicBg = playerBackground == PlayerBackgroundStyle.APPLE_MUSIC || playerBackground == PlayerBackgroundStyle.IMMERSIVE_ARTWORK
 
     val isLiked = currentSong?.song?.liked == true
     val currentPos = sliderPosition ?: position
@@ -778,19 +1106,17 @@ private fun PlayerV2Landscape(
                                 }
                         )
                         Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = mediaMetadata?.artists?.firstOrNull()?.name ?: stringResource(R.string.unknown),
-                            style = if (minimalPlayerDesign) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
+                        PlayerV2ArtistDisplay(
+                            artists = mediaMetadata?.artists.orEmpty(),
+                            isExplicit = mediaMetadata?.explicit == true,
+                            textStyle = if (minimalPlayerDesign) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium,
                             color = adaptiveSecondary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier
-                                .basicMarquee(iterations = 1, initialDelayMillis = 2000, velocity = 30.dp)
-                                .clickable {
-                                    state.collapseSoft()
-                                    mediaMetadata?.artists?.firstOrNull()?.id?.let { navController.navigate("artist/$it") }
-                                }
+                            state = state,
+                            navController = navController,
+                            onShowArtistChooser = onShowArtistChooser,
+                            mediaId = mediaMetadata?.id,
+                            iconSize = if (minimalPlayerDesign) 14.dp else 16.dp,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
 
@@ -1128,12 +1454,17 @@ private fun PlayerV2Landscape(
                                 modifier = Modifier.basicMarquee()
                             )
                             Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = mediaMetadata?.artists?.firstOrNull()?.name ?: stringResource(R.string.unknown),
-                                style = MaterialTheme.typography.bodySmall,
+                            PlayerV2ArtistDisplay(
+                                artists = mediaMetadata?.artists.orEmpty(),
+                                isExplicit = mediaMetadata?.explicit == true,
+                                textStyle = MaterialTheme.typography.bodySmall,
                                 color = adaptiveSecondary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                state = state,
+                                navController = navController,
+                                onShowArtistChooser = onShowArtistChooser,
+                                mediaId = mediaMetadata?.id,
+                                iconSize = 14.dp,
+                                modifier = Modifier.fillMaxWidth()
                             )
                         }
 
@@ -1257,7 +1588,7 @@ private fun PlayerV2Landscape(
                 ) {
                     if (currentUiState == PlayerInternalState.LYRICS) {
                         LyricsV2(
-                            mediaMetadata = currentSong?.toMediaMetadata() ?: mediaMetadata,
+                            mediaMetadata = mediaMetadata,
                             showLyrics = true,
                             positionProvider = { sliderPosition ?: playerConnection.player.currentPosition },
                             textColor = adaptivePrimary
@@ -1292,6 +1623,7 @@ private fun PlayerV2Portrait(
     onPlayerStateChange: (PlayerInternalState) -> Unit,
     controlsVisible: Boolean,
     onToggleControlsVisible: () -> Unit,
+    onShowArtistChooser: (List<MediaMetadata.Artist>) -> Unit,
     canSkipPrevious: Boolean,
     canSkipNext: Boolean,
     isListenTogetherGuest: Boolean,
@@ -1319,7 +1651,7 @@ private fun PlayerV2Portrait(
 
     val isLiked = currentSong?.song?.liked == true
     val coverRadius = thumbnailCornerRadius.dp
-    val isAppleMusicBg = playerBackground == PlayerBackgroundStyle.APPLE_MUSIC
+    val isAppleMusicBg = playerBackground == PlayerBackgroundStyle.APPLE_MUSIC || playerBackground == PlayerBackgroundStyle.IMMERSIVE_ARTWORK
 
     Box(
         modifier = modifier
@@ -1340,7 +1672,7 @@ private fun PlayerV2Portrait(
     ) {
         val overlayAlpha by animateFloatAsState(
             targetValue = if (
-                playerBackground == PlayerBackgroundStyle.APPLE_MUSIC &&
+                (playerBackground == PlayerBackgroundStyle.APPLE_MUSIC || playerBackground == PlayerBackgroundStyle.IMMERSIVE_ARTWORK) &&
                 (playerState == PlayerInternalState.LYRICS || playerState == PlayerInternalState.QUEUE)
             ) {
                 0.75f
@@ -1486,23 +1818,25 @@ private fun PlayerV2Portrait(
                                         }
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = mediaMetadata?.artists?.firstOrNull()?.name ?: stringResource(R.string.unknown),
-                                        style = MaterialTheme.typography.titleMedium,
+                                    PlayerV2ArtistDisplay(
+                                        artists = mediaMetadata?.artists.orEmpty(),
+                                        isExplicit = mediaMetadata?.explicit == true,
+                                        textStyle = MaterialTheme.typography.titleMedium,
                                         color = adaptiveSecondary,
-                                        fontWeight = FontWeight.Medium,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.sharedBounds(
-                                            rememberSharedContentState(key = "artist"),
-                                            animatedVisibilityScope = this@AnimatedContent,
-                                            boundsTransform = BoundsTransform { _, _ ->
-                                                tween(durationMillis = 500, easing = FastOutSlowInEasing)
-                                            }
-                                        ).clickable {
-                                            state.collapseSoft()
-                                            mediaMetadata?.artists?.firstOrNull()?.id?.let { navController.navigate("artist/$it") }
-                                        }
+                                        state = state,
+                                        navController = navController,
+                                        onShowArtistChooser = onShowArtistChooser,
+                                        mediaId = mediaMetadata?.id,
+                                        iconSize = 18.dp,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .sharedBounds(
+                                                rememberSharedContentState(key = "artist"),
+                                                animatedVisibilityScope = this@AnimatedContent,
+                                                boundsTransform = BoundsTransform { _, _ ->
+                                                    tween(durationMillis = 500, easing = FastOutSlowInEasing)
+                                                }
+                                            )
                                     )
                                 }
 
@@ -1619,7 +1953,6 @@ private fun PlayerV2Portrait(
                     } else if (targetState == PlayerInternalState.LYRICS || targetState == PlayerInternalState.QUEUE) {
                         Column(modifier = Modifier.fillMaxSize()) {
                             val miniRadius = (thumbnailCornerRadius / 2f).coerceAtLeast(4f).dp
-                            val isAppleMusicBg = playerBackground == PlayerBackgroundStyle.APPLE_MUSIC
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -1691,18 +2024,24 @@ private fun PlayerV2Portrait(
                                             exit = fadeOut(tween(300))
                                         )
                                     )
-                                    Text(
-                                        text = mediaMetadata?.artists?.firstOrNull()?.name ?: stringResource(R.string.unknown),
-                                        style = MaterialTheme.typography.titleSmall,
+                                    PlayerV2ArtistDisplay(
+                                        artists = mediaMetadata?.artists.orEmpty(),
+                                        isExplicit = mediaMetadata?.explicit == true,
+                                        textStyle = MaterialTheme.typography.titleSmall,
                                         color = adaptiveSecondary,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.sharedBounds(
-                                            rememberSharedContentState(key = "artist"),
-                                            animatedVisibilityScope = this@AnimatedContent,
-                                            enter = fadeIn(tween(400)),
-                                            exit = fadeOut(tween(300))
-                                        )
+                                        state = state,
+                                        navController = navController,
+                                        onShowArtistChooser = onShowArtistChooser,
+                                        mediaId = mediaMetadata?.id,
+                                        iconSize = 14.dp,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .sharedBounds(
+                                                rememberSharedContentState(key = "artist"),
+                                                animatedVisibilityScope = this@AnimatedContent,
+                                                enter = fadeIn(tween(400)),
+                                                exit = fadeOut(tween(300))
+                                            )
                                     )
                                 }
 
@@ -1778,7 +2117,7 @@ private fun PlayerV2Portrait(
                                 if (targetState == PlayerInternalState.LYRICS) {
                                     Box(modifier = Modifier.fillMaxSize()) {
                                         LyricsV2(
-                                            mediaMetadata = currentSong?.toMediaMetadata() ?: mediaMetadata,
+                                            mediaMetadata = mediaMetadata,
                                             showLyrics = true,
                                             positionProvider = { sliderPosition ?: playerConnection.player.currentPosition },
                                             textColor = adaptivePrimary

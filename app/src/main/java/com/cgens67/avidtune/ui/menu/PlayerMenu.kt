@@ -540,7 +540,8 @@ fun ColumnScope.PlayerMenu(
                             playerConnection.playQueue(
                                 YouTubeQueue(
                                     WatchEndpoint(videoId = mediaMetadata.id),
-                                    mediaMetadata
+                                    mediaMetadata,
+                                    isRadio = true
                                 )
                             )
                             onDismiss()

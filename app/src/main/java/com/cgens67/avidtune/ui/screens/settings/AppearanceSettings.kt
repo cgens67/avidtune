@@ -636,6 +636,7 @@ fun AppearanceSettings(
                                 PlayerBackgroundStyle.GRADIENT -> stringResource(R.string.gradient)
                                 PlayerBackgroundStyle.BLUR -> stringResource(R.string.player_background_blur)
                                 PlayerBackgroundStyle.APPLE_MUSIC -> stringResource(R.string.apple_music)
+                                PlayerBackgroundStyle.IMMERSIVE_ARTWORK -> stringResource(R.string.immersive_artwork)
                                 PlayerBackgroundStyle.LIVE_MESH -> stringResource(R.string.live_mesh)
                             }
                         },

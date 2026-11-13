@@ -345,7 +345,7 @@ fun QueueV2(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        if (queueTitle != null) {
+                        if (!queueTitle.isNullOrBlank()) {
                             Text(
                                 text = stringResource(R.string.playing_from),
                                 style = MaterialTheme.typography.labelMedium,

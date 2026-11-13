@@ -2,19 +2,23 @@
 
 package com.cgens67.avidtune.ui.player
 
-import android.content.res.Configuration
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -48,7 +52,6 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
@@ -56,7 +59,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -73,7 +75,6 @@ import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
@@ -99,15 +100,82 @@ import com.cgens67.avidtune.constants.PlayerBackgroundStyleKey
 import com.cgens67.avidtune.constants.PureBlackKey
 import com.cgens67.avidtune.constants.SwipeThumbnailKey
 import com.cgens67.avidtune.constants.ThumbnailCornerRadius
+import com.cgens67.avidtune.extensions.currentMetadata
+import com.cgens67.avidtune.extensions.metadata
 import com.cgens67.avidtune.models.MediaMetadata
+import com.cgens67.avidtune.models.toMediaMetadata
 import com.cgens67.avidtune.playback.PlayerConnection
 import com.cgens67.avidtune.ui.screens.settings.DarkMode
 import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
+import com.cgens67.innertube.YouTube
+import com.cgens67.innertube.models.WatchEndpoint
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
+
+private val miniPlayerExplicitStatusCache = ConcurrentHashMap<String, Boolean>()
+
+@Composable
+private fun MiniPlayerExplicitIcon(
+    isExplicit: Boolean,
+    mediaId: String?,
+    tint: Color,
+    modifier: Modifier = Modifier
+) {
+    val explicitTransitionState = remember(mediaId) {
+        MutableTransitionState(false)
+    }
+
+    LaunchedEffect(isExplicit, mediaId) {
+        explicitTransitionState.targetState = isExplicit
+    }
+
+    AnimatedVisibility(
+        visibleState = explicitTransitionState,
+        enter = fadeIn(tween(350)) +
+            expandHorizontally(
+                spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                ),
+                expandFrom = Alignment.Start
+            ) +
+            scaleIn(
+                initialScale = 0.3f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            ),
+        exit = fadeOut(tween(200)) +
+            shrinkHorizontally(
+                spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                ),
+                shrinkTowards = Alignment.Start
+            ) +
+            scaleOut(
+                targetScale = 0.3f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            )
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.explicit),
+            contentDescription = stringResource(R.string.hide_explicit),
+            tint = tint,
+            modifier = modifier
+        )
+    }
+}
 
 @Composable
 fun MiniPlayer(
@@ -123,12 +191,70 @@ fun MiniPlayer(
     val coroutineScope = rememberCoroutineScope()
     val swipeSensitivity = 0.73f
     val swipeThumbnail by rememberPreference(SwipeThumbnailKey, true)
-    
+
     val playerBackground by rememberEnumPreference(
         key = PlayerBackgroundStyleKey,
         defaultValue = PlayerBackgroundStyle.DEFAULT
     )
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
+    val currentSong by playerConnection.currentSong.collectAsState(initial = null)
+    val rawMediaMetadata = mediaMetadata ?: playerConnection.player.currentMediaItem?.metadata ?: playerConnection.player.currentMetadata
+    val currentSongMetadata = currentSong?.toMediaMetadata()
+    val currentMediaId = rawMediaMetadata?.id ?: currentSongMetadata?.id
+    val currentAlbumId = rawMediaMetadata?.album?.id ?: currentSongMetadata?.album?.id
+
+    var fetchedExplicit by remember(currentMediaId) {
+        mutableStateOf(currentMediaId?.let { miniPlayerExplicitStatusCache[it] })
+    }
+
+    LaunchedEffect(currentMediaId, currentAlbumId, rawMediaMetadata?.explicit, currentSongMetadata?.explicit) {
+        val id = currentMediaId ?: return@LaunchedEffect
+        if (rawMediaMetadata?.explicit == true || currentSongMetadata?.explicit == true) {
+            miniPlayerExplicitStatusCache[id] = true
+            fetchedExplicit = true
+            return@LaunchedEffect
+        }
+        miniPlayerExplicitStatusCache[id]?.let { cached ->
+            fetchedExplicit = cached
+            return@LaunchedEffect
+        }
+
+        val resolvedExplicit = withContext(Dispatchers.IO) {
+            val queueResult = YouTube.queue(listOf(id)).getOrNull()
+                ?.firstOrNull { it.id == id }
+            if (queueResult?.explicit == true) {
+                return@withContext true
+            }
+
+            val fromAlbum = currentAlbumId?.takeIf { it.isNotBlank() }?.let { albumId ->
+                YouTube.album(albumId).getOrNull()?.songs?.find { it.id == id }?.explicit
+            }
+            if (fromAlbum == true) {
+                return@withContext true
+            }
+
+            if (queueResult == null) {
+                val fromNext = YouTube.next(WatchEndpoint(videoId = id)).getOrNull()
+                    ?.items?.firstOrNull { it.id == id }?.explicit
+                if (fromNext != null) {
+                    return@withContext fromNext
+                }
+            }
+
+            if (queueResult != null || fromAlbum != null) false else null
+        }
+
+        if (resolvedExplicit != null) {
+            miniPlayerExplicitStatusCache[id] = resolvedExplicit
+            fetchedExplicit = resolvedExplicit
+        }
+    }
+
+    val isExplicit = rawMediaMetadata?.explicit == true ||
+        currentSongMetadata?.explicit == true ||
+        fetchedExplicit == true ||
+        currentSong?.song?.title?.contains("explicit", ignoreCase = true) == true ||
+        rawMediaMetadata?.title?.contains("explicit", ignoreCase = true) == true
 
     SwipeableMiniPlayerBox(
         modifier = modifier,
@@ -149,7 +275,8 @@ fun MiniPlayer(
                     playerConnection = playerConnection,
                     pureBlack = pureBlack,
                     playerBackground = playerBackground,
-                    isLiveMesh = playerBackground == PlayerBackgroundStyle.LIVE_MESH
+                    isLiveMesh = playerBackground == PlayerBackgroundStyle.LIVE_MESH,
+                    isExplicit = isExplicit
                 )
             }
             MiniPlayerStyle.MODERN -> {
@@ -160,7 +287,8 @@ fun MiniPlayer(
                     playerConnection = playerConnection,
                     pureBlack = pureBlack,
                     playerBackground = playerBackground,
-                    isLiveMesh = playerBackground == PlayerBackgroundStyle.LIVE_MESH
+                    isLiveMesh = playerBackground == PlayerBackgroundStyle.LIVE_MESH,
+                    isExplicit = isExplicit
                 )
             }
             else -> {
@@ -183,7 +311,7 @@ fun MiniPlayer(
                             label = "mini_mesh_rot"
                         )
                         val saturationMatrix = remember { ColorMatrix().apply { setToSaturation(1.6f) } }
-                        
+
                         Box(modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = 1.5f; scaleY = 1.5f }) {
                             AsyncImage(
                                 model = ImageRequest.Builder(LocalContext.current)
@@ -208,7 +336,8 @@ fun MiniPlayer(
                         position = position,
                         duration = duration,
                         playerConnection = playerConnection,
-                        isLiveMesh = playerBackground == PlayerBackgroundStyle.LIVE_MESH
+                        isLiveMesh = playerBackground == PlayerBackgroundStyle.LIVE_MESH,
+                        isExplicit = isExplicit
                     )
                 }
             }
@@ -225,7 +354,8 @@ fun ModernMiniPlayerContent(
     playerConnection: PlayerConnection,
     pureBlack: Boolean,
     playerBackground: PlayerBackgroundStyle,
-    isLiveMesh: Boolean
+    isLiveMesh: Boolean,
+    isExplicit: Boolean = false
 ) {
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
     val isPlaying by playerConnection.isPlaying.collectAsState()
@@ -233,7 +363,7 @@ fun ModernMiniPlayerContent(
     val canSkipPrevious by playerConnection.canSkipPrevious.collectAsState()
     val canSkipNext by playerConnection.canSkipNext.collectAsState()
     val error by playerConnection.error.collectAsState()
-    
+
     val isSystemInDarkTheme = isSystemInDarkTheme()
     val darkTheme by rememberEnumPreference(DarkModeKey, defaultValue = DarkMode.AUTO)
     val useDarkTheme = remember(darkTheme, isSystemInDarkTheme) {
@@ -241,7 +371,7 @@ fun ModernMiniPlayerContent(
     }
 
     val backgroundColor = if (pureBlack && useDarkTheme) Color.Black else MaterialTheme.colorScheme.surfaceContainerHigh
-    
+
     val primaryColor = if (isLiveMesh) Color.White else MaterialTheme.colorScheme.primary
     val outlineColor = if (isLiveMesh) Color.White.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outline
     val onSurfaceColor = if (isLiveMesh) Color.White else MaterialTheme.colorScheme.onSurface
@@ -265,7 +395,7 @@ fun ModernMiniPlayerContent(
                 label = "mini_mesh_rot"
             )
             val saturationMatrix = remember { ColorMatrix().apply { setToSaturation(1.6f) } }
-            
+
             Box(modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = 1.5f; scaleY = 1.5f }) {
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
@@ -284,7 +414,7 @@ fun ModernMiniPlayerContent(
                 Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f)))
             }
         }
-        
+
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxSize().padding(horizontal = 6.dp, vertical = 6.dp),
@@ -328,14 +458,14 @@ fun ModernMiniPlayerContent(
                         horizontalArrangement = Arrangement.Start,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        if (metadata.explicit) {
-                            Icon(
-                                painter = painterResource(R.drawable.explicit),
-                                contentDescription = null,
-                                tint = onSurfaceColor.copy(alpha = 0.7f),
-                                modifier = Modifier.size(14.dp).padding(end = 4.dp)
-                            )
-                        }
+                        MiniPlayerExplicitIcon(
+                            isExplicit = isExplicit || metadata.explicit,
+                            mediaId = metadata.id,
+                            tint = onSurfaceColor.copy(alpha = 0.7f),
+                            modifier = Modifier
+                                .padding(end = 4.dp)
+                                .size(14.dp)
+                        )
                         if (metadata.artists.any { it.name.isNotBlank() }) {
                             Text(
                                 text = metadata.artists.joinToString { it.name },
@@ -343,7 +473,9 @@ fun ModernMiniPlayerContent(
                                 fontSize = 13.sp,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.basicMarquee(iterations = 1, initialDelayMillis = 3000, velocity = 30.dp),
+                                modifier = Modifier
+                                    .weight(1f, fill = false)
+                                    .basicMarquee(iterations = 1, initialDelayMillis = 3000, velocity = 30.dp),
                             )
                         }
                     }
@@ -413,14 +545,15 @@ fun AppleMiniPlayerContent(
     playerConnection: PlayerConnection,
     pureBlack: Boolean,
     playerBackground: PlayerBackgroundStyle,
-    isLiveMesh: Boolean
+    isLiveMesh: Boolean,
+    isExplicit: Boolean = false
 ) {
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
     val isPlaying by playerConnection.isPlaying.collectAsState()
     val playbackState by playerConnection.playbackState.collectAsState()
     val canSkipNext by playerConnection.canSkipNext.collectAsState()
     val error by playerConnection.error.collectAsState()
-    
+
     val isSystemInDarkTheme = isSystemInDarkTheme()
     val darkTheme by rememberEnumPreference(DarkModeKey, defaultValue = DarkMode.AUTO)
     val useDarkTheme = remember(darkTheme, isSystemInDarkTheme) {
@@ -428,7 +561,7 @@ fun AppleMiniPlayerContent(
     }
 
     val backgroundColor = if (pureBlack && useDarkTheme) Color.Black else MaterialTheme.colorScheme.surfaceContainer
-    
+
     val primaryColor = if (isLiveMesh) Color.White else MaterialTheme.colorScheme.primary
     val outlineColor = if (isLiveMesh) Color.White.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outline
     val onSurfaceColor = if (isLiveMesh) Color.White else MaterialTheme.colorScheme.onSurface
@@ -451,7 +584,7 @@ fun AppleMiniPlayerContent(
                 label = "mini_mesh_rot"
             )
             val saturationMatrix = remember { ColorMatrix().apply { setToSaturation(1.6f) } }
-            
+
             Box(modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = 1.5f; scaleY = 1.5f }) {
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
@@ -470,7 +603,7 @@ fun AppleMiniPlayerContent(
                 Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f)))
             }
         }
-        
+
         // Bottom Progress Bar
         Box(
             modifier = Modifier
@@ -525,17 +658,17 @@ fun AppleMiniPlayerContent(
                         modifier = Modifier.basicMarquee(iterations = 1, initialDelayMillis = 3000, velocity = 30.dp),
                     )
                     Row(
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        horizontalArrangement = Arrangement.Start,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        if (metadata.explicit) {
-                            Icon(
-                                painter = painterResource(R.drawable.explicit),
-                                contentDescription = null,
-                                tint = onSurfaceColor.copy(alpha = 0.7f),
-                                modifier = Modifier.size(14.dp).padding(end = 2.dp)
-                            )
-                        }
+                        MiniPlayerExplicitIcon(
+                            isExplicit = isExplicit || metadata.explicit,
+                            mediaId = metadata.id,
+                            tint = onSurfaceColor.copy(alpha = 0.7f),
+                            modifier = Modifier
+                                .padding(end = 4.dp)
+                                .size(14.dp)
+                        )
                         if (metadata.artists.any { it.name.isNotBlank() }) {
                             Text(
                                 text = metadata.artists.joinToString { it.name },
@@ -543,7 +676,9 @@ fun AppleMiniPlayerContent(
                                 fontSize = 12.sp,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.basicMarquee(iterations = 1, initialDelayMillis = 3000, velocity = 30.dp),
+                                modifier = Modifier
+                                    .weight(1f, fill = false)
+                                    .basicMarquee(iterations = 1, initialDelayMillis = 3000, velocity = 30.dp),
                             )
                         }
                     }
@@ -751,6 +886,7 @@ fun SwipeableMiniPlayerBox(
 @Composable
 fun RowScope.MiniPlayerInfo(
     mediaMetadata: MediaMetadata,
+    isExplicit: Boolean = mediaMetadata.explicit,
     primaryTextColor: Color = MaterialTheme.colorScheme.onSurface,
     secondaryTextColor: Color = MaterialTheme.colorScheme.onSurfaceVariant
 ) {
@@ -775,19 +911,33 @@ fun RowScope.MiniPlayerInfo(
             )
         }
 
-        AnimatedContent(
-            targetState = mediaMetadata.artists,
-            transitionSpec = { fadeIn() togetherWith fadeOut() },
-            label = "artist"
-        ) { artists ->
-            Text(
-                text = artists.joinToString { it.name },
-                style = MaterialTheme.typography.bodySmall,
-                color = secondaryTextColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.basicMarquee()
+        Row(
+            horizontalArrangement = Arrangement.Start,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            MiniPlayerExplicitIcon(
+                isExplicit = isExplicit,
+                mediaId = mediaMetadata.id,
+                tint = secondaryTextColor,
+                modifier = Modifier
+                    .padding(end = 4.dp)
+                    .size(14.dp)
             )
+            AnimatedContent(
+                targetState = mediaMetadata.artists,
+                transitionSpec = { fadeIn() togetherWith fadeOut() },
+                label = "artist",
+                modifier = Modifier.weight(1f, fill = false)
+            ) { artists ->
+                Text(
+                    text = artists.joinToString { it.name },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = secondaryTextColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.basicMarquee()
+                )
+            }
         }
     }
 }
@@ -979,7 +1129,8 @@ fun NewMiniPlayerContent(
     position: Long,
     duration: Long,
     playerConnection: PlayerConnection,
-    isLiveMesh: Boolean = false
+    isLiveMesh: Boolean = false,
+    isExplicit: Boolean = false
 ) {
     val isPlaying by playerConnection.isPlaying.collectAsState()
     val playbackState by playerConnection.playbackState.collectAsState()
@@ -1016,6 +1167,7 @@ fun NewMiniPlayerContent(
         mediaMetadata?.let {
             MiniPlayerInfo(
                 mediaMetadata = it,
+                isExplicit = isExplicit || it.explicit,
                 primaryTextColor = primaryTextColor,
                 secondaryTextColor = secondaryTextColor
             )

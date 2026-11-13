@@ -242,7 +242,7 @@ fun YouTubeSongMenu(
                         },
                         text = stringResource(R.string.start_radio),
                         onClick = {
-                            playerConnection.playQueue(YouTubeQueue.radio(song.toMediaMetadata()))
+                            playerConnection.playQueue(YouTubeQueue.radio(song.toMediaMetadata(), isRadio = true))
                             onDismiss()
                         }
                     ),

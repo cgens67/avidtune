@@ -1041,17 +1041,25 @@
     <!-- Playback Clients & Nerd Stats -->
     <string name="playback_client">Client de lecture</string>
     <string name="playback_fallback_priority">Priorité de secours de lecture</string>
-    <string name="playback_fallback_priority_desc">Réorganiser les clients utilisés pour récupérer les flux afin de contourner les restrictions.</string>
-    <string name="client_desc_visionos">Client Apple VisionOS ; fonctionne le mieux</string>
-    <string name="client_desc_web_remix">Client web YouTube Music ; prend en charge la connexion et la synchronisation</string>
-    <string name="client_desc_tvhtml5_simply">Client Smart TV simplifié ; solution de secours légère</string>
-    <string name="client_desc_tvhtml5">Client Smart TV HTML5 ; alternative fiable</string>
-    <string name="client_desc_web_creator">Client YouTube Studio ; point de terminaison web alternatif</string>
-    <string name="client_desc_web">Client web YouTube standard ; nécessite le déchiffrement de signature</string>
+    <string name="playback_fallback_priority_desc">Réorganiser les clients de streaming pour optimiser la stabilité et contourner les blocages YouTube.</string>
+    <string name="client_desc_android_no_sdk">Client Android sans SDK ; aucun PoToken requis, très haute fiabilité</string>
+    <string name="client_desc_visionos">Client Apple VisionOS ; rapide et efficace, mais peut cesser de fonctionner à tout moment</string>
+    <string name="client_desc_android_creator">Client Android YouTube Studio ; fiable pour la musique et le contenu pour enfants</string>
+    <string name="client_desc_android_vr_1_43_32">Client Android VR v1.43 ; débit binaire non adaptatif, évite les saccades et les erreurs 403</string>
+    <string name="client_desc_tv_embedded">Lecteur TV intégré ; contourne les restrictions d\'âge sans connexion</string>
+    <string name="client_desc_web_remix">Client web YouTube Music ; prend en charge la connexion et la synchronisation (nécessite PoToken)</string>
+    <string name="client_desc_tvhtml5">Client Smart TV HTML5 ; alternative pour plateformes TV</string>
+    <string name="client_desc_tvhtml5_simply">Client Smart TV simplifié ; secours léger (nécessite PoToken)</string>
+    <string name="client_desc_web_creator">Client web YouTube Studio ; point de terminaison alternatif nécessitant une connexion</string>
+    <string name="client_desc_mweb">Client Web mobile ; sans PoToken, mais peut manquer de formats audio</string>
+    <string name="client_desc_web">Client web standard YouTube ; nécessite le déchiffrement du cipher et PoToken</string>
+    <string name="client_desc_ios">Client iOS standard ; produit souvent des erreurs HTTP 403 sans en-têtes natifs</string>
+    <string name="client_desc_ipados">Client iPadOS ; sans décodage matériel AV1 et sensible aux blocages HTTP 403</string>
+    <string name="client_desc_android">Client Android standard ; nécessite une attestation mobile</string>
+    <string name="client_desc_android_vr_1_65_10">Client Android VR v1.65 ; point de terminaison Quest 3 sujet aux erreurs HTTP 403</string>
+    <string name="client_desc_android_vr_1_61_48">Client Android VR v1.61 ; utilisable uniquement déconnecté, restreint par YouTube</string>
+    <string name="client_desc_android_vr_no_auth">Client Android VR sans authentification ; actuellement restreint</string>
     <string name="client_desc_android_vr">Client de réalité virtuelle ; actuellement restreint par YouTube</string>
-    <string name="client_desc_ios">Client iOS standard ; actuellement bloqué sans en-têtes natifs</string>
-    <string name="client_desc_android">Client mobile standard ; nécessite une authentification mobile</string>
-    <string name="client_desc_tv_embedded">Client lecteur TV intégré ; solution de secours iframe web</string>
     
     <!-- Storage Settings -->
     <string name="manage_storage_categories">Gérer les catégories de stockage</string>
@@ -1485,5 +1493,7 @@
     <string name="provider_netease">NetEase</string>
     <string name="provider_genius">Genius</string>
     <string name="provider_youtube_subtitle">Sous-titres YouTube</string>
+    
+    <string name="immersive_artwork">Pochette immersive</string>
 
 </resources>

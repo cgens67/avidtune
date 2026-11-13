@@ -99,6 +99,7 @@ import com.cgens67.avidtune.ui.component.PreferenceEntry
 import com.cgens67.avidtune.ui.component.SettingsGeneralCategory
 import com.cgens67.avidtune.ui.component.SettingsPage
 import com.cgens67.avidtune.ui.component.SwitchPreference
+import com.cgens67.avidtune.utils.YTPlayerUtils
 import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
 import kotlinx.coroutines.delay
@@ -157,15 +158,18 @@ fun PlayerSettings(
         defaultValue = false
     )
 
-    val defaultClientOrder = listOf("VISIONOS", "WEB_REMIX", "TVHTML5_SIMPLY", "TVHTML5", "WEB_CREATOR")
+    val defaultClientOrder = YTPlayerUtils.DEFAULT_CLIENT_FALLBACK_CHAIN
+    val allClientKeys = YTPlayerUtils.AVAILABLE_CLIENTS.keys.toList()
+
     val (clientOrderStr, onClientOrderChange) = rememberPreference(
         PlaybackClientOrderKey,
         defaultClientOrder.joinToString(",")
     )
+
     val currentClientOrder = remember(clientOrderStr) {
-        val saved = clientOrderStr.split(",").map { it.trim() }.filter { it.isNotBlank() }
-        val validSaved = saved.filter { it in defaultClientOrder }
-        val missing = defaultClientOrder.filter { it !in validSaved }
+        val saved = clientOrderStr.split(",").map { it.trim().uppercase() }.filter { it.isNotBlank() }
+        val validSaved = saved.filter { it in allClientKeys }
+        val missing = allClientKeys.filter { it !in validSaved }
         (validSaved + missing).distinct()
     }
     var showClientReorderDialog by remember { mutableStateOf(false) }
@@ -326,19 +330,29 @@ fun PlayerSettings(
 }
 
 @Composable
-private fun getPlaybackClientDescription(clientName: String): String? {
-    return when (clientName) {
+private fun getPlaybackClientDescription(clientName: String): String {
+    return when (clientName.trim().uppercase()) {
+        "ANDROID_NO_SDK" -> stringResource(R.string.client_desc_android_no_sdk)
         "VISIONOS" -> stringResource(R.string.client_desc_visionos)
+        "ANDROID_CREATOR" -> stringResource(R.string.client_desc_android_creator)
+        "ANDROID_VR_1_43_32" -> stringResource(R.string.client_desc_android_vr_1_43_32)
+        "TVHTML5_SIMPLY_EMBEDDED_PLAYER" -> stringResource(R.string.client_desc_tv_embedded)
         "WEB_REMIX" -> stringResource(R.string.client_desc_web_remix)
-        "TVHTML5_SIMPLY" -> stringResource(R.string.client_desc_tvhtml5_simply)
         "TVHTML5" -> stringResource(R.string.client_desc_tvhtml5)
+        "TVHTML5_SIMPLY" -> stringResource(R.string.client_desc_tvhtml5_simply)
         "WEB_CREATOR" -> stringResource(R.string.client_desc_web_creator)
+        "MWEB" -> stringResource(R.string.client_desc_mweb)
         "WEB" -> stringResource(R.string.client_desc_web)
-        "ANDROID_VR" -> stringResource(R.string.client_desc_android_vr)
         "IOS" -> stringResource(R.string.client_desc_ios)
-        "ANDROID" -> stringResource(R.string.client_desc_android)
-        "TV_EMBEDDED" -> stringResource(R.string.client_desc_tv_embedded)
-        else -> null
+        "IPADOS" -> stringResource(R.string.client_desc_ipados)
+        "MOBILE" -> stringResource(R.string.client_desc_android)
+        "ANDROID_VR_1_65_10" -> stringResource(R.string.client_desc_android_vr_1_65_10)
+        "ANDROID_VR_1_61_48" -> stringResource(R.string.client_desc_android_vr_1_61_48)
+        "ANDROID_VR_NO_AUTH" -> stringResource(R.string.client_desc_android_vr_no_auth)
+        "ANDROID_VR" -> stringResource(R.string.client_desc_android_vr)
+        else -> YTPlayerUtils.AVAILABLE_CLIENTS[clientName]?.friendlyName
+            ?: YTPlayerUtils.AVAILABLE_CLIENTS[clientName]?.clientName
+            ?: "YouTube Client"
     }
 }
 
@@ -468,13 +482,15 @@ fun ReorderPlaybackClientsBottomSheet(
                                 Spacer(Modifier.width(16.dp))
 
                                 Column(modifier = Modifier.weight(1f)) {
+                                    val clientObj = YTPlayerUtils.AVAILABLE_CLIENTS[item]
+                                    val displayName = clientObj?.friendlyName ?: item
                                     Text(
-                                        text = item,
+                                        text = displayName,
                                         style = MaterialTheme.typography.bodyLarge,
                                         fontWeight = if (index == 0) FontWeight.Bold else FontWeight.SemiBold
                                     )
                                     val desc = getPlaybackClientDescription(item)
-                                    if (!desc.isNullOrBlank()) {
+                                    if (desc.isNotBlank()) {
                                         Spacer(Modifier.height(2.dp))
                                         Text(
                                             text = desc,
@@ -562,7 +578,6 @@ private fun NerdStatsSection(playerConnection: PlayerConnection?) {
         }
     }
 
-    // Clean client label (e.g., VISIONOS instead of YouTubeClient(clientName=VISIONOS, ...))
     val cleanClientName = remember(playbackClient) {
         playbackClient?.let { raw ->
             if (raw.contains("clientName=")) {
@@ -629,7 +644,6 @@ private fun NerdStatsSection(playerConnection: PlayerConnection?) {
                     accentColor = MaterialTheme.colorScheme.primary
                 )
 
-                // Row for Playback Client & Codec
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)

@@ -37,33 +37,58 @@ object YTPlayerUtils {
         val clientName: String = "",
     )
 
-    // Allowed clients for fallback configuration (excluding WEB, ANDROID, etc.)
-    val DEFAULT_CLIENT_FALLBACK_CHAIN = listOf(
-        YouTubeClient.VISIONOS,
-        YouTubeClient.WEB_REMIX,
-        YouTubeClient.TVHTML5_SIMPLY,
-        YouTubeClient.TVHTML5,
-        YouTubeClient.WEB_CREATOR
+    val AVAILABLE_CLIENTS = mapOf(
+        "ANDROID_NO_SDK" to YouTubeClient.ANDROID_NO_SDK,
+        "VISIONOS" to YouTubeClient.VISIONOS,
+        "ANDROID_CREATOR" to YouTubeClient.ANDROID_CREATOR,
+        "ANDROID_VR_1_43_32" to YouTubeClient.ANDROID_VR_1_43_32,
+        "TVHTML5_SIMPLY_EMBEDDED_PLAYER" to YouTubeClient.TVHTML5_SIMPLY_EMBEDDED_PLAYER,
+        "WEB_REMIX" to YouTubeClient.WEB_REMIX,
+        "TVHTML5" to YouTubeClient.TVHTML5,
+        "TVHTML5_SIMPLY" to YouTubeClient.TVHTML5_SIMPLY,
+        "WEB_CREATOR" to YouTubeClient.WEB_CREATOR,
+        "MWEB" to YouTubeClient.MWEB,
+        "WEB" to YouTubeClient.WEB,
+        "IOS" to YouTubeClient.IOS,
+        "IPADOS" to YouTubeClient.IPADOS,
+        "MOBILE" to YouTubeClient.MOBILE,
+        "ANDROID_VR_NO_AUTH" to YouTubeClient.ANDROID_VR_NO_AUTH,
+        "ANDROID_VR_1_65_10" to YouTubeClient.ANDROID_VR_1_65_10,
+        "ANDROID_VR_1_61_48" to YouTubeClient.ANDROID_VR_1_61_48
     )
 
-    fun getClientForName(name: String): YouTubeClient? = when (name.trim().uppercase()) {
-        "VISIONOS" -> YouTubeClient.VISIONOS
-        "WEB_REMIX" -> YouTubeClient.WEB_REMIX
-        "TVHTML5_SIMPLY" -> YouTubeClient.TVHTML5_SIMPLY
-        "TVHTML5" -> YouTubeClient.TVHTML5
-        "WEB_CREATOR" -> YouTubeClient.WEB_CREATOR
-        else -> null
-    }
+    val DEFAULT_CLIENT_FALLBACK_CHAIN = listOf(
+        "ANDROID_NO_SDK",
+        "VISIONOS",
+        "ANDROID_CREATOR",
+        "ANDROID_VR_1_43_32",
+        "TVHTML5_SIMPLY_EMBEDDED_PLAYER",
+        "WEB_REMIX",
+        "TVHTML5",
+        "TVHTML5_SIMPLY",
+        "WEB_CREATOR",
+        "MWEB",
+        "WEB",
+        "IOS",
+        "IPADOS",
+        "MOBILE",
+        "ANDROID_VR_NO_AUTH",
+        "ANDROID_VR_1_65_10",
+        "ANDROID_VR_1_61_48"
+    )
 
-    fun getClientFallbackChain(): List<YouTubeClient> {
+    fun getClientForName(name: String): YouTubeClient? = AVAILABLE_CLIENTS[name.trim().uppercase()]
+
+    fun getClientFallbackChain(): List<Pair<String, YouTubeClient>> {
         val orderStr = runCatching { App.instance.dataStore[PlaybackClientOrderKey] }.getOrNull()
         if (orderStr.isNullOrBlank()) {
-            return DEFAULT_CLIENT_FALLBACK_CHAIN
+            return DEFAULT_CLIENT_FALLBACK_CHAIN.mapNotNull { key -> AVAILABLE_CLIENTS[key]?.let { key to it } }
         }
-        val names = orderStr.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-        val mapped = names.mapNotNull { getClientForName(it) }
-        val missing = DEFAULT_CLIENT_FALLBACK_CHAIN.filter { it !in mapped }
-        return (mapped + missing).distinct()
+        val names = orderStr.split(",").map { it.trim().uppercase() }.filter { it.isNotEmpty() }
+        val mapped = names.mapNotNull { key -> AVAILABLE_CLIENTS[key]?.let { key to it } }
+        val missingKeys = AVAILABLE_CLIENTS.keys - names.toSet()
+        val missing = missingKeys.mapNotNull { key -> AVAILABLE_CLIENTS[key]?.let { key to it } }
+        return (mapped + missing).distinctBy { it.first }
     }
 
     suspend fun playerResponseForPlayback(
@@ -86,20 +111,18 @@ object YTPlayerUtils {
 
         val clientChain = getClientFallbackChain()
 
-        for (client in clientChain) {
+        for ((clientKey, client) in clientChain) {
             if (client.loginRequired && !isLoggedIn) {
                 continue
             }
 
-            val clientPoToken = if (client == YouTubeClient.WEB_REMIX || client == YouTubeClient.WEB) {
+            val clientPoToken = if (clientKey == "WEB_REMIX" || clientKey == "WEB") {
                 webPoToken
             } else {
                 null
             }
 
-            val clientNameFormatted = runCatching { client.clientName }.getOrNull()
-                ?: (client as? Enum<*>)?.name
-                ?: client.toString().substringAfter("clientName=").substringBefore(",").substringBefore(")")
+            val clientNameFormatted = clientKey
 
             Timber.tag(logTag).d("Attempting player fetch with client: $clientNameFormatted for videoId: $videoId")
             val playerRes = YouTube.player(videoId, playlistId, client, signatureTimestamp, clientPoToken).getOrNull()
@@ -174,9 +197,9 @@ object YTPlayerUtils {
         val validStreams = mutableListOf<Pair<PlayerResponse.StreamingData.Format, String>>()
         val clientChain = getClientFallbackChain()
 
-        for (client in clientChain) {
+        for ((clientKey, client) in clientChain) {
             if (client.loginRequired && !isLoggedIn) continue
-            val clientPoToken = if (client == YouTubeClient.WEB_REMIX || client == YouTubeClient.WEB) webPoToken else null
+            val clientPoToken = if (clientKey == "WEB_REMIX" || clientKey == "WEB") webPoToken else null
             val response = YouTube.player(videoId, playlistId, client, signatureTimestamp, clientPoToken).getOrNull()
 
             if (response?.playabilityStatus?.status == "OK") {

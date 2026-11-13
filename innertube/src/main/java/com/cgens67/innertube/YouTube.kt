@@ -25,6 +25,8 @@ import com.cgens67.innertube.models.WatchEndpoint.WatchEndpointMusicSupportedCon
 import com.cgens67.innertube.models.YTItem
 import com.cgens67.innertube.models.YouTubeAccount
 import com.cgens67.innertube.models.YouTubeClient
+import com.cgens67.innertube.models.YouTubeClient.Companion.WEB
+import com.cgens67.innertube.models.YouTubeClient.Companion.WEB_REMIX
 import com.cgens67.innertube.models.YouTubeLocale
 import com.cgens67.innertube.models.extractYouTubeAccounts
 import com.cgens67.innertube.models.getContinuation
@@ -69,8 +71,6 @@ import com.cgens67.innertube.pages.SearchSuggestionPage
 import com.cgens67.innertube.pages.SearchSummary
 import com.cgens67.innertube.pages.SearchSummaryPage
 import com.cgens67.innertube.pages.NewPipeExtractor
-import com.metrolist.innertubex.models.YouTubeClient.Companion.WEB
-import com.metrolist.innertubex.models.YouTubeClient.Companion.WEB_REMIX
 import io.ktor.client.call.body
 import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.async

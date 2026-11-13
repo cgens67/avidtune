@@ -273,7 +273,7 @@ fun PlayerV3(
         defaultValue = PlayerBackgroundStyle.DEFAULT
     )
 
-    val isAppleMusicStyle = playerBackground == PlayerBackgroundStyle.APPLE_MUSIC
+    val isAppleMusicStyle = playerBackground == PlayerBackgroundStyle.APPLE_MUSIC || playerBackground == PlayerBackgroundStyle.IMMERSIVE_ARTWORK
 
     val (coverResolution) = rememberEnumPreference(
         key = CoverResolutionKey,
@@ -998,7 +998,6 @@ private fun TanksAndPlayRow(
 
         var isUserDragging by remember { mutableStateOf(false) }
 
-        // Animate smoothly during discrete jumps (fast forward / backtrack), but track 1:1 with zero lag while dragging
         val animatedProgress by animateFloatAsState(
             targetValue = progressFraction,
             animationSpec = if (isUserDragging) {
@@ -1247,9 +1246,6 @@ private fun BottomPillControlsRow(
     }
 }
 
-/**
- * Vertical capsule tank slider with animated text color transition when liquid crosses text.
- */
 @Composable
 private fun VerticalTankSlider(
     label: String,
@@ -1267,7 +1263,6 @@ private fun VerticalTankSlider(
         label = "tankFraction"
     )
 
-    // Smooth transition for text color: inverts when liquid fills above ~87% (where text is situated)
     val isSubmerged = animatedFraction >= 0.87f
     val targetTextColor = if (isSubmerged) {
         if (fillColor.luminance() > 0.5f) Color(0xFF161616) else Color.White

@@ -463,7 +463,11 @@ fun Lyrics(
 
     val textBackgroundColor = when (playerBackground) {
         PlayerBackgroundStyle.DEFAULT -> MaterialTheme.colorScheme.onBackground
-        PlayerBackgroundStyle.BLUR, PlayerBackgroundStyle.GRADIENT, PlayerBackgroundStyle.APPLE_MUSIC, PlayerBackgroundStyle.LIVE_MESH -> Color.White
+        PlayerBackgroundStyle.BLUR, 
+        PlayerBackgroundStyle.GRADIENT, 
+        PlayerBackgroundStyle.APPLE_MUSIC, 
+        PlayerBackgroundStyle.IMMERSIVE_ARTWORK, 
+        PlayerBackgroundStyle.LIVE_MESH -> Color.White
     }
 
     val primaryColor = MaterialTheme.colorScheme.primary
@@ -474,7 +478,7 @@ fun Lyrics(
     val gradientColorsCache = remember { mutableMapOf<String, List<Color>>() }
 
     LaunchedEffect(currentMetadata?.id, playerBackground) {
-        if ((playerBackground == PlayerBackgroundStyle.GRADIENT || playerBackground == PlayerBackgroundStyle.APPLE_MUSIC) && currentMetadata?.thumbnailUrl != null) {
+        if ((playerBackground == PlayerBackgroundStyle.GRADIENT || playerBackground == PlayerBackgroundStyle.APPLE_MUSIC || playerBackground == PlayerBackgroundStyle.IMMERSIVE_ARTWORK) && currentMetadata?.thumbnailUrl != null) {
             val cachedColors = gradientColorsCache[currentMetadata.id]
             if (cachedColors != null) {
                 gradientColors = cachedColors
@@ -939,6 +943,36 @@ fun Lyrics(
                                         radius = size.width * 0.9f
                                     )
                                 }
+                            }
+                        }
+                    }
+                    PlayerBackgroundStyle.IMMERSIVE_ARTWORK -> {
+                        currentMetadata?.let { metadata ->
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context)
+                                        .data(metadata.thumbnailUrl)
+                                        .size(128, 128)
+                                        .crossfade(600)
+                                        .allowHardware(false)
+                                        .build(),
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .let { if (!disableBlur) it.blur(100.dp) else it }
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(
+                                            Brush.verticalGradient(
+                                                0.00f to Color.Black.copy(alpha = 0.45f),
+                                                0.55f to Color.Black.copy(alpha = 0.65f),
+                                                1.00f to Color.Black.copy(alpha = 0.85f)
+                                            )
+                                        )
+                                )
                             }
                         }
                     }
@@ -1809,7 +1843,6 @@ fun Lyrics(
             }
         }
 
-        // Auto-scroll Floating Pill (Matching LyricsV2 Animation & Mechanics)
         AnimatedVisibility(
             visible = !isAutoScrollEnabled && isSynced && !isSelectionModeActive,
             enter = slideInVertically { it } + fadeIn(),
@@ -1829,7 +1862,6 @@ fun Lyrics(
             )
         }
 
-        // Floating Action Bar for Selection Mode (Cancel & Share Dock)
         AnimatedVisibility(
             visible = isSelectionModeActive,
             enter = fadeIn(tween(300)) + slideInVertically(tween(300)) { it },
@@ -2045,7 +2077,6 @@ fun LyricsSelectionActionDock(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Cancel Button
             val cancelInteraction = remember { MutableInteractionSource() }
             val cancelPressed by cancelInteraction.collectIsPressedAsState()
             val cancelScale by animateFloatAsState(
@@ -2073,7 +2104,6 @@ fun LyricsSelectionActionDock(
                 }
             }
 
-            // Count Badge Indicator
             Surface(
                 shape = RoundedCornerShape(12.dp),
                 color = Color.White.copy(alpha = 0.08f),
@@ -2092,7 +2122,6 @@ fun LyricsSelectionActionDock(
                 }
             }
 
-            // Share Pill Button
             val shareInteraction = remember { MutableInteractionSource() }
             val sharePressed by shareInteraction.collectIsPressedAsState()
             val shareScale by animateFloatAsState(

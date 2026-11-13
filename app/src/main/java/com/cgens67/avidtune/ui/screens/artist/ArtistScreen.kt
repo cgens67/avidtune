@@ -774,7 +774,7 @@ fun ArtistScreen(
                                     ToggleButton(
                                         checked = false,
                                         onCheckedChange = {
-                                            playerConnection.playQueue(YouTubeQueue(radioEndpoint))
+                                            playerConnection.playQueue(YouTubeQueue(radioEndpoint, isRadio = true))
                                         },
                                         modifier = Modifier.weight(1f).semantics { role = Role.Button },
                                         shapes = ButtonGroupDefaults.connectedMiddleButtonShapes(),

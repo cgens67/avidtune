@@ -604,7 +604,7 @@ fun HomeScreen(
                             when (val luckyItem = allYtItems.random()) {
                                 is SongItem -> playerConnection.playQueue(YouTubeQueue.radio(luckyItem.toMediaMetadata()))
                                 is AlbumItem -> playerConnection.playQueue(YouTubeAlbumRadio(luckyItem.playlistId))
-                                is ArtistItem -> luckyItem.radioEndpoint?.let { playerConnection.playQueue(YouTubeQueue(it)) }
+                                is ArtistItem -> luckyItem.radioEndpoint?.let { playerConnection.playQueue(YouTubeQueue(it, isRadio = true)) }
                                 is PlaylistItem -> luckyItem.playEndpoint?.let { playerConnection.playQueue(YouTubeQueue(it)) }
                                 is EpisodeItem -> playerConnection.playQueue(YouTubeQueue.radio(luckyItem.asSongItem().toMediaMetadata()))
                                 is PodcastItem -> luckyItem.playEndpoint?.let { playerConnection.playQueue(YouTubeQueue(it)) }

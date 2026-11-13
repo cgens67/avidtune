@@ -6,6 +6,7 @@ import com.cgens67.innertube.models.YouTubeClient
 import com.cgens67.innertube.models.YouTubeLocale
 import com.cgens67.innertube.models.response.NextResponse
 import com.metrolist.innertubex.InnerTube as InnerTubeX
+import com.metrolist.innertubex.models.YouTubeClient as InnerTubeXClient
 import com.metrolist.innertubex.InnerTubeHttpException
 import com.metrolist.innertubex.models.response.PlayerResponse
 import io.ktor.client.HttpClient
@@ -31,6 +32,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.encodeToString
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
@@ -45,6 +47,14 @@ class InnerTube(
     private var httpClient = client ?: createClient()
     private var innerTubeX = InnerTubeX(httpClient)
     private var transportGeneration = 0L
+    
+    private val jsonMapper = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    
+    // Safely transforms the custom, updated client to the library's accepted object layout
+    private fun YouTubeClient.toInnerTubeX(): InnerTubeXClient {
+        val jsonString = jsonMapper.encodeToString(YouTubeClient.serializer(), this)
+        return jsonMapper.decodeFromString(InnerTubeXClient.serializer(), jsonString)
+    }
 
     class ExtractionTransport internal constructor(
         val innerTube: InnerTubeX,
@@ -193,7 +203,7 @@ class InnerTube(
         params: String? = null,
         continuation: String? = null,
         setLogin: Boolean = false,
-    ) = innerTubeX.search(client, query, params, continuation, setLogin = setLogin)
+    ) = innerTubeX.search(client.toInnerTubeX(), query, params, continuation, setLogin = setLogin)
 
     suspend fun player(
         client: YouTubeClient,
@@ -201,7 +211,7 @@ class InnerTube(
         playlistId: String?,
         signatureTimestamp: Int?,
         poToken: String? = null,
-    ) = innerTubeX.player(client, videoId, playlistId, signatureTimestamp, poToken)
+    ) = innerTubeX.player(client.toInnerTubeX(), videoId, playlistId, signatureTimestamp, poToken)
 
     suspend fun registerPlayback(
         videoId: String,
@@ -212,7 +222,7 @@ class InnerTube(
         val session = transport.sessionSnapshot()
         if (session.cookie.isNullOrBlank() || !isHistoryEnabled()) return false
         val response = transport.playerWithSessionBound(
-            client = YouTubeClient.WEB_REMIX,
+            client = YouTubeClient.WEB_REMIX.toInnerTubeX(),
             videoId = videoId,
             playlistId = null,
             signatureTimestamp = null,
@@ -226,7 +236,7 @@ class InnerTube(
         require(Url(trackingUrl).encodedPath == "/api/stats/playback") { "Invalid playback tracking URL" }
         if (transport !== innerTubeX || transport.sessionSnapshot() != session || !isHistoryEnabled()) return false
         transport.registerPlaybackWithSession(
-            client = YouTubeClient.WEB_REMIX,
+            client = YouTubeClient.WEB_REMIX.toInnerTubeX(),
             url = trackingUrl,
             cpn = cpn,
             playlistId = null,
@@ -241,7 +251,7 @@ class InnerTube(
         params: String? = null,
         continuation: String? = null,
         setLogin: Boolean = false,
-    ) = innerTubeX.browse(client, browseId, params, continuation, setLogin)
+    ) = innerTubeX.browse(client.toInnerTubeX(), browseId, params, continuation, setLogin)
 
     suspend fun next(
         client: YouTubeClient,
@@ -251,119 +261,119 @@ class InnerTube(
         index: Int?,
         params: String?,
         continuation: String? = null,
-    ) = innerTubeX.next(client, videoId, playlistId, playlistSetVideoId, index, params, continuation)
+    ) = innerTubeX.next(client.toInnerTubeX(), videoId, playlistId, playlistSetVideoId, index, params, continuation)
 
     suspend fun feedback(
         client: YouTubeClient,
         tokens: List<String>,
-    ) = innerTubeX.feedback(client, tokens).requireSuccess("feedback")
+    ) = innerTubeX.feedback(client.toInnerTubeX(), tokens).requireSuccess("feedback")
 
     suspend fun getSearchSuggestions(
         client: YouTubeClient,
         input: String,
-    ) = innerTubeX.getSearchSuggestions(client, input, setLogin = false)
+    ) = innerTubeX.getSearchSuggestions(client.toInnerTubeX(), input, setLogin = false)
 
     suspend fun getQueue(
         client: YouTubeClient,
         videoIds: List<String>?,
         playlistId: String?,
-    ) = innerTubeX.getQueue(client, videoIds, playlistId)
+    ) = innerTubeX.getQueue(client.toInnerTubeX(), videoIds, playlistId)
 
     suspend fun getTranscript(
         client: YouTubeClient,
         videoId: String,
-    ) = innerTubeX.getTranscript(client, videoId)
+    ) = innerTubeX.getTranscript(client.toInnerTubeX(), videoId)
 
     suspend fun fetchFreshVisitorData() = innerTubeX.fetchFreshVisitorData()
 
-    suspend fun accountMenu(client: YouTubeClient) = innerTubeX.accountMenu(client).requireSuccess("accountMenu")
+    suspend fun accountMenu(client: YouTubeClient) = innerTubeX.accountMenu(client.toInnerTubeX()).requireSuccess("accountMenu")
 
-    suspend fun accountsList() = innerTubeX.accountsList(YouTubeClient.WEB).requireSuccess("accountsList")
+    suspend fun accountsList() = innerTubeX.accountsList(YouTubeClient.WEB.toInnerTubeX()).requireSuccess("accountsList")
 
     suspend fun likeVideo(
         client: YouTubeClient,
         videoId: String,
-    ) = innerTubeX.likeVideo(client, videoId).requireSuccess("likeVideo")
+    ) = innerTubeX.likeVideo(client.toInnerTubeX(), videoId).requireSuccess("likeVideo")
 
     suspend fun unlikeVideo(
         client: YouTubeClient,
         videoId: String,
-    ) = innerTubeX.unlikeVideo(client, videoId).requireSuccess("unlikeVideo")
+    ) = innerTubeX.unlikeVideo(client.toInnerTubeX(), videoId).requireSuccess("unlikeVideo")
 
     suspend fun subscribeChannel(
         client: YouTubeClient,
         channelId: String,
         params: String? = null,
-    ) = innerTubeX.subscribeChannel(client, channelId, params).requireSuccess("subscribeChannel")
+    ) = innerTubeX.subscribeChannel(client.toInnerTubeX(), channelId, params).requireSuccess("subscribeChannel")
 
     suspend fun unsubscribeChannel(
         client: YouTubeClient,
         channelId: String,
         params: String? = null,
-    ) = innerTubeX.unsubscribeChannel(client, channelId, params).requireSuccess("unsubscribeChannel")
+    ) = innerTubeX.unsubscribeChannel(client.toInnerTubeX(), channelId, params).requireSuccess("unsubscribeChannel")
 
     suspend fun likePlaylist(
         client: YouTubeClient,
         playlistId: String,
-    ) = innerTubeX.likePlaylist(client, playlistId).requireSuccess("likePlaylist")
+    ) = innerTubeX.likePlaylist(client.toInnerTubeX(), playlistId).requireSuccess("likePlaylist")
 
     suspend fun unlikePlaylist(
         client: YouTubeClient,
         playlistId: String,
-    ) = innerTubeX.unlikePlaylist(client, playlistId).requireSuccess("unlikePlaylist")
+    ) = innerTubeX.unlikePlaylist(client.toInnerTubeX(), playlistId).requireSuccess("unlikePlaylist")
 
     suspend fun addToPlaylist(
         client: YouTubeClient,
         playlistId: String,
         videoId: String,
-    ) = innerTubeX.addToPlaylist(client, playlistId, videoId).requireSuccess("addToPlaylist")
+    ) = innerTubeX.addToPlaylist(client.toInnerTubeX(), playlistId, videoId).requireSuccess("addToPlaylist")
 
     suspend fun addPlaylistToPlaylist(
         client: YouTubeClient,
         playlistId: String,
         addedPlaylistId: String,
-    ) = innerTubeX.addPlaylistToPlaylist(client, playlistId, addedPlaylistId).requireSuccess("addPlaylistToPlaylist")
+    ) = innerTubeX.addPlaylistToPlaylist(client.toInnerTubeX(), playlistId, addedPlaylistId).requireSuccess("addPlaylistToPlaylist")
 
     suspend fun removeFromPlaylist(
         client: YouTubeClient,
         playlistId: String,
         videoId: String,
         setVideoId: String,
-    ) = innerTubeX.removePlaylistSong(client, playlistId, setVideoId, videoId).requireSuccess("removeFromPlaylist")
+    ) = innerTubeX.removePlaylistSong(client.toInnerTubeX(), playlistId, setVideoId, videoId).requireSuccess("removeFromPlaylist")
 
     suspend fun moveSongPlaylist(
         client: YouTubeClient,
         playlistId: String,
         setVideoId: String,
         successorSetVideoId: String?,
-    ) = innerTubeX.movePlaylistSong(client, playlistId, setVideoId, successorSetVideoId).requireSuccess("moveSongPlaylist")
+    ) = innerTubeX.movePlaylistSong(client.toInnerTubeX(), playlistId, setVideoId, successorSetVideoId).requireSuccess("moveSongPlaylist")
 
     suspend fun createPlaylist(
         client: YouTubeClient,
         title: String,
-    ) = innerTubeX.createPlaylist(client, title).requireSuccess("createPlaylist")
+    ) = innerTubeX.createPlaylist(client.toInnerTubeX(), title).requireSuccess("createPlaylist")
 
     suspend fun renamePlaylist(
         client: YouTubeClient,
         playlistId: String,
         name: String,
-    ) = innerTubeX.renamePlaylist(client, playlistId, name).requireSuccess("renamePlaylist")
+    ) = innerTubeX.renamePlaylist(client.toInnerTubeX(), playlistId, name).requireSuccess("renamePlaylist")
 
     suspend fun setPlaylistThumbnail(
         client: YouTubeClient,
         playlistId: String,
         image: ByteArray,
-    ) = innerTubeX.setPlaylistThumbnail(client, playlistId, image).requireSuccess("setPlaylistThumbnail")
+    ) = innerTubeX.setPlaylistThumbnail(client.toInnerTubeX(), playlistId, image).requireSuccess("setPlaylistThumbnail")
 
     suspend fun removePlaylistThumbnail(
         client: YouTubeClient,
         playlistId: String,
-    ) = innerTubeX.removePlaylistThumbnail(client, playlistId).requireSuccess("removePlaylistThumbnail")
+    ) = innerTubeX.removePlaylistThumbnail(client.toInnerTubeX(), playlistId).requireSuccess("removePlaylistThumbnail")
 
     suspend fun deletePlaylist(
         client: YouTubeClient,
         playlistId: String,
-    ) = innerTubeX.deletePlaylist(client, playlistId).requireSuccess("deletePlaylist")
+    ) = innerTubeX.deletePlaylist(client.toInnerTubeX(), playlistId).requireSuccess("deletePlaylist")
 
     suspend fun uploadSong(
         filename: String,
@@ -378,7 +388,7 @@ class InnerTube(
 
     suspend fun deletePrivatelyOwnedEntity(entityId: String) =
         innerTubeX
-            .deletePrivatelyOwnedEntity(YouTubeClient.WEB_REMIX, entityId)
+            .deletePrivatelyOwnedEntity(YouTubeClient.WEB_REMIX.toInnerTubeX(), entityId)
             .requireSuccess("deletePrivatelyOwnedEntity")
 
     private suspend fun HttpResponse.requireSuccess(operation: String): HttpResponse {

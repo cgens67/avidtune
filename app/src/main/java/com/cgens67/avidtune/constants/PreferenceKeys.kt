@@ -361,6 +361,7 @@ enum class PlayerBackgroundStyle {
     GRADIENT,
     BLUR,
     APPLE_MUSIC,
+    IMMERSIVE_ARTWORK,
     LIVE_MESH,
 }
 

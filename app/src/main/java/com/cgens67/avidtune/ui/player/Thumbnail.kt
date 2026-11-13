@@ -79,7 +79,7 @@ fun Thumbnail(
         defaultValue = CoverResolution.RES_1080
     )
 
-    val isAppleMusicStyle = playerBackground == PlayerBackgroundStyle.APPLE_MUSIC
+    val isAppleMusicStyle = playerBackground == PlayerBackgroundStyle.APPLE_MUSIC || playerBackground == PlayerBackgroundStyle.IMMERSIVE_ARTWORK
 
     var thumbnailCornerRadius by remember { mutableStateOf(16f) }
     LaunchedEffect(Unit) {
@@ -120,14 +120,12 @@ fun Thumbnail(
         )
     }
 
-    // Ensure grid scrolls back to the current track when the song actually changes
     LaunchedEffect(currentMediaItem) {
         if (currentMediaIndex != -1) {
             thumbnailLazyGridState.scrollToItem(currentMediaIndex)
         }
     }
 
-    // Detect when user has finished swiping to change the song
     LaunchedEffect(thumbnailLazyGridState.isScrollInProgress) {
         if (!thumbnailLazyGridState.isScrollInProgress) {
             val visibleIndex = thumbnailLazyGridState.firstVisibleItemIndex
@@ -137,7 +135,6 @@ fun Thumbnail(
                 } else if (visibleIndex > currentMediaIndex && canSkipNext) {
                     playerConnection.player.seekToNext()
                 }
-                // Reset scroll back so the next currentMediaItem trigger updates smoothly
                 thumbnailLazyGridState.scrollToItem(currentMediaIndex)
             }
         }
@@ -154,7 +151,6 @@ fun Thumbnail(
     }
 
     Box(modifier = modifier) {
-
         AnimatedVisibility(
             visible = error == null,
             enter = fadeIn(),
@@ -165,7 +161,8 @@ fun Thumbnail(
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                if (!isAppleMusicStyle && !isLandscape) {
+                val playingFrom = queueTitle
+                if (!isAppleMusicStyle && !isLandscape && !playingFrom.isNullOrBlank()) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.padding(horizontal = 32.dp, vertical = 16.dp)
@@ -176,17 +173,14 @@ fun Thumbnail(
                             color = textBackgroundColor
                         )
 
-                        val playingFrom = queueTitle ?: mediaMetadata?.album?.title
-                        if (!playingFrom.isNullOrBlank()) {
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = playingFrom,
-                                style = MaterialTheme.typography.titleMedium,
-                                color = textBackgroundColor.copy(alpha = 0.8f),
-                                maxLines = 1,
-                                modifier = Modifier.basicMarquee()
-                            )
-                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = playingFrom,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = textBackgroundColor.copy(alpha = 0.8f),
+                            maxLines = 1,
+                            modifier = Modifier.basicMarquee()
+                        )
                     }
                 } else if (!isLandscape) {
                     Spacer(modifier = Modifier.height(24.dp))
@@ -227,7 +221,6 @@ fun Thumbnail(
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
-
                                 if (isAppleMusicStyle) {
                                     // CARÁTULA OCULTA
                                     Box(modifier = Modifier.size(size))
@@ -269,7 +262,6 @@ fun Thumbnail(
             }
         }
         
-        // DISPLAY THE ERROR DESIGN WHEN IT OCCURS
         AnimatedVisibility(
             visible = error != null,
             enter = fadeIn(),
