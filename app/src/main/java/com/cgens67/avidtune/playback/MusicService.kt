@@ -58,6 +58,7 @@ import androidx.media3.session.MediaLibraryService.MediaLibrarySession
 import androidx.media3.session.MediaSession
 import androidx.media3.session.SessionToken
 import com.cgens67.avidtune.MainActivity
+import com.cgens67.avidtune.MusicWidget
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.AudioNormalizationKey
 import com.cgens67.avidtune.constants.AudioQualityKey
@@ -81,7 +82,6 @@ import com.cgens67.avidtune.constants.ShowLyricsKey
 import com.cgens67.avidtune.constants.SimilarContent
 import com.cgens67.avidtune.constants.SkipSilenceKey
 import com.cgens67.avidtune.constants.SponsorBlockEnabledKey
-import com.cgens67.avidtune.constants.StopMusicOnTaskClearKey
 import com.cgens67.avidtune.db.MusicDatabase
 import com.cgens67.avidtune.db.entities.Event
 import com.cgens67.avidtune.db.entities.FormatEntity
@@ -102,7 +102,6 @@ import com.cgens67.avidtune.lyrics.LyricsHelper
 import com.cgens67.avidtune.models.PersistPlayerState
 import com.cgens67.avidtune.models.PersistQueue
 import com.cgens67.avidtune.models.toMediaMetadata
-import com.cgens67.avidtune.playback.AlternativeStreamClient
 import com.cgens67.avidtune.playback.queues.EmptyQueue
 import com.cgens67.avidtune.playback.queues.Queue
 import com.cgens67.avidtune.playback.queues.YouTubeQueue
@@ -168,7 +167,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
 
     @Inject
     lateinit var mediaLibrarySessionCallback: MediaLibrarySessionCallback
-    
+
     @Inject
     lateinit var equalizerService: EqualizerService
 
@@ -219,6 +218,9 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             database.song(mediaMetadata?.id)
         }.stateIn(scope, SharingStarted.Lazily, null)
 
+    val isCurrentSongLiked: Boolean
+        get() = currentSong.value?.song?.liked == true
+
     private val currentFormat = currentMediaMetadata.flatMapLatest { mediaMetadata ->
         database.format(mediaMetadata?.id)
     }
@@ -249,8 +251,9 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate() {
         super.onCreate()
+        instance = this
         val seekIncrementMs = dataStore.get(SeekIncrementKey, 5) * 1000L
-        
+
         equalizerService.add(customEqualizerAudioProcessor)
 
         setMediaNotificationProvider(
@@ -347,6 +350,10 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             dataStore.edit { settings ->
                 settings[PlayerVolumeKey] = volume
             }
+        }
+
+        currentSong.distinctUntilChanged().collect(scope) {
+            MusicWidget.updateAllWidgets(this@MusicService)
         }
 
         currentSong.debounce(1000).collect(scope) { song ->
@@ -544,6 +551,24 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         }
     }
 
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_WIDGET_PLAY) {
+            scope.launch {
+                delay(350)
+                if (player.mediaItemCount > 0) {
+                    if (player.playbackState == STATE_IDLE) {
+                        player.prepare()
+                    }
+                    player.playWhenReady = true
+                    MusicWidget.updateAllWidgets(this@MusicService)
+                } else {
+                    stopSelf()
+                }
+            }
+        }
+        return super.onStartCommand(intent, flags, startId)
+    }
+
     @RequiresApi(Build.VERSION_CODES.O)
     private fun setupAudioFocusRequest() {
         audioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
@@ -735,7 +760,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 upsert(currentDbFormat.copy(loudnessDb = loudnessDb))
             }
         }
-        
+
         if (!database.hasRelatedSongs(mediaId)) {
             val relatedEndpoint = YouTube.next(WatchEndpoint(videoId = mediaId)).getOrNull()?.relatedEndpoint ?: return
             val relatedPage = YouTube.related(relatedEndpoint).getOrNull() ?: return
@@ -870,7 +895,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             player.play()
             return
         }
-        
+
         val insertIndex = player.currentMediaItemIndex + 1
         val shuffleEnabled = player.shuffleModeEnabled
         player.addMediaItems(insertIndex, items)
@@ -889,7 +914,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                     if (idx == C.INDEX_UNSET) break
                     if (idx != currentIndex) orderAfter.add(idx)
                 }
-                
+
                 val prevList = mutableListOf<Int>()
                 var pIdx = currentIndex
                 while (true) {
@@ -898,16 +923,16 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                     if (pIdx != currentIndex) prevList.add(pIdx)
                 }
                 prevList.reverse()
-                
+
                 val existingOrder = (prevList + orderAfter).filter { it != currentIndex && it !in newIndices }
                 val nextBlock = (insertIndex until (insertIndex + items.size)).toList()
                 val finalOrder = IntArray(size)
                 var pos = 0
                 finalOrder[pos++] = currentIndex
-                
+
                 nextBlock.forEach { if (it in 0 until size) finalOrder[pos++] = it }
                 existingOrder.forEach { if (pos < size) finalOrder[pos++] = it }
-                
+
                 if (pos < size) {
                     for (i in 0 until size) {
                         if (!finalOrder.contains(i)) {
@@ -956,7 +981,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             Log.w(TAG, "setupLoudnessEnhancer: invalid audioSessionId ($audioSessionId), cannot create effect yet")
             return
         }
-        
+
         if (loudnessEnhancer == null) {
             try {
                 loudnessEnhancer = LoudnessEnhancer(audioSessionId)
@@ -967,7 +992,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 return
             }
         }
-        
+
         scope.launch {
             try {
                 val currentMediaId = withContext(Dispatchers.Main) {
@@ -976,7 +1001,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 val normalizeAudio = withContext(Dispatchers.IO) {
                     dataStore.data.map { it[AudioNormalizationKey] ?: true }.first()
                 }
-                
+
                 if (normalizeAudio && currentMediaId != null) {
                     val format = withContext(Dispatchers.IO) {
                         database.format(currentMediaId).first()
@@ -1054,7 +1079,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         setupLoudnessEnhancer()
         discordUpdateJob?.cancel()
         consecutivePlaybackErr = 0
-        
+
         if (dataStore.get(AutoLoadMoreKey, true) &&
             reason != Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT &&
             player.mediaItemCount - player.currentMediaItemIndex <= 5 &&
@@ -1068,7 +1093,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 }
             }
         }
-        
+
         if (dataStore.get(PersistentQueueKey, true)) {
             scope.launch {
                 delay(500)
@@ -1121,7 +1146,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 }
             }
         }
-        
+
         if (events.containsAny(EVENT_TIMELINE_CHANGED, EVENT_POSITION_DISCONTINUITY)) {
             currentMediaMetadata.value = player.currentMetadata
             scope.launch {
@@ -1129,7 +1154,19 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 updateNotification()
             }
         }
-        
+
+        if (events.containsAny(
+                Player.EVENT_PLAYBACK_STATE_CHANGED,
+                Player.EVENT_PLAY_WHEN_READY_CHANGED,
+                Player.EVENT_MEDIA_ITEM_TRANSITION,
+                Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED,
+                Player.EVENT_REPEAT_MODE_CHANGED,
+                Player.EVENT_IS_PLAYING_CHANGED,
+            )
+        ) {
+            MusicWidget.updateAllWidgets(this)
+        }
+
         if (events.containsAny(Player.EVENT_IS_PLAYING_CHANGED)) {
             if (player.isPlaying) {
                 currentSong.value?.let { song ->
@@ -1181,7 +1218,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     override fun onPlayerError(error: PlaybackException) {
         super.onPlayerError(error)
         Log.e(TAG, "Player error: ${error.errorCodeName}, message: ${error.message}", error)
-        
+
         player.currentMediaItem?.mediaId?.let { id ->
             songUrlCache.remove(id)
             runCatching { playerCache.removeResource(id) }
@@ -1273,7 +1310,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 }
                 return@Factory dataSpec
             }
-            
+
             val ytLogTag = "YouTube"
             try {
                 val playbackData = runBlocking(Dispatchers.IO) {
@@ -1306,7 +1343,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                         )
                     }
                 }
-                
+
                 val format = playbackData.format
                 val loudnessDb = playbackData.audioConfig?.loudnessDb
 
@@ -1325,11 +1362,11 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                         )
                     )
                 }
-                
+
                 scope.launch(Dispatchers.IO) {
                     recoverSong(mediaId, playbackData)
                 }
-                
+
                 val streamUrl = playbackData.streamUrl
                 currentPlaybackClient.value = playbackData.clientName
                 songUrlCache[mediaId] = streamUrl to System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L)
@@ -1456,7 +1493,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 playWhenReady = player.playWhenReady,
                 playbackState = player.playbackState
             )
-            
+
             runCatching {
                 filesDir.resolve(PERSISTENT_QUEUE_FILE).outputStream().use { fos ->
                     ObjectOutputStream(fos).use { oos ->
@@ -1467,7 +1504,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 Log.e(TAG, "Error saving queue to disk", it)
                 reportException(it)
             }
-            
+
             runCatching {
                 filesDir.resolve(PERSISTENT_AUTOMIX_FILE).outputStream().use { fos ->
                     ObjectOutputStream(fos).use { oos ->
@@ -1478,7 +1515,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 Log.e(TAG, "Error saving automix to disk", it)
                 reportException(it)
             }
-            
+
             runCatching {
                 filesDir.resolve(PERSISTENT_PLAYER_STATE_FILE).outputStream().use { fos ->
                     ObjectOutputStream(fos).use { oos ->
@@ -1497,6 +1534,9 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
 
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onDestroy() {
+        if (instance === this) {
+            instance = null
+        }
         if (dataStore.get(PersistentQueueKey, true)) {
             saveQueueToDisk()
         }
@@ -1514,14 +1554,14 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     }
 
     override fun onBind(intent: Intent?) = super.onBind(intent) ?: binder
-    
+
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
         stopSelf()
     }
-    
+
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo) = mediaSession
-    
+
     inner class MusicBinder : Binder() {
         val service: MusicService
             get() = this@MusicService
@@ -1540,8 +1580,13 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         const val CHUNK_LENGTH = 512 * 1024L
         const val PERSISTENT_QUEUE_FILE = "persistent_queue.data"
         const val PERSISTENT_AUTOMIX_FILE = "persistent_automix.data"
+        const val ACTION_WIDGET_PLAY = "com.cgens67.avidtune.ACTION_WIDGET_PLAY"
         private const val MAX_GAIN_MB = 800
         private const val MIN_GAIN_MB = -800
         private const val TAG = "MusicService"
+
+        @Volatile
+        var instance: MusicService? = null
+            private set
     }
 }
