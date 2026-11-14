@@ -184,6 +184,10 @@
                 <action android:name="com.cgens67.avidtune.ACTION_STATE_CHANGED" />
                 <action android:name="com.cgens67.avidtune.ACTION_UPDATE_PROGRESS" />
             </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_music_info" />
         </receiver>
 
         <!-- File Provider for APK updates and Image Sharing -->

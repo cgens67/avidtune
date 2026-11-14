@@ -1,201 +1,411 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:background="@drawable/widget_background"
-    android:minHeight="120dp"
-    android:padding="16dp">
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_container_bg"
+    android:clipToOutline="true">
 
+    <!-- Layer 1: Crossfading Dynamic Blurred Album Backdrop -->
+    <ViewFlipper
+        android:id="@+id/widget_bg_flipper"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:inAnimation="@anim/widget_bg_in"
+        android:outAnimation="@anim/widget_bg_out">
+
+        <ImageView
+            android:id="@+id/widget_bg_0"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:contentDescription="@null"
+            android:scaleType="centerCrop" />
+
+        <ImageView
+            android:id="@+id/widget_bg_1"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:contentDescription="@null"
+            android:scaleType="centerCrop" />
+    </ViewFlipper>
+
+    <!-- Layer 2: Contrast Scrim -->
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="@null"
+        android:src="@drawable/widget_glass_overlay" />
+
+    <!-- Layer 3: Foreground Content -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:layout_height="match_parent"
+        android:gravity="center_vertical"
+        android:orientation="vertical"
+        android:padding="14dp">
 
-        <!-- Contenido -->
+        <!-- Top Row: Artwork + Track Info + Live Equalizer -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_centerInParent="true"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
-            <!-- Portada -->
-            <ImageView
-                android:id="@+id/widget_album_art"
-                android:layout_width="80dp"
-                android:layout_height="80dp"
-                android:background="@drawable/rounded_image_bg"
-                android:clipToOutline="true"
-                android:contentDescription="@string/albums"
-                android:scaleType="centerCrop"
-                android:src="@drawable/music_note" />
+            <!-- Animated Artwork Container -->
+            <FrameLayout
+                android:layout_width="58dp"
+                android:layout_height="58dp"
+                android:background="@drawable/widget_art_clip_bg"
+                android:clipToOutline="true">
 
-            <!-- Información -->
-            <LinearLayout
+                <ViewFlipper
+                    android:id="@+id/widget_art_flipper"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:inAnimation="@anim/widget_art_in"
+                    android:outAnimation="@anim/widget_art_out">
+
+                    <ImageView
+                        android:id="@+id/widget_art_0"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:contentDescription="@null"
+                        android:scaleType="centerCrop"
+                        android:src="@drawable/music_note" />
+
+                    <ImageView
+                        android:id="@+id/widget_art_1"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:contentDescription="@null"
+                        android:scaleType="centerCrop"
+                        android:src="@drawable/music_note" />
+                </ViewFlipper>
+            </FrameLayout>
+
+            <!-- Sliding Track Info Container -->
+            <ViewFlipper
+                android:id="@+id/widget_info_flipper"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginLeft="12dp"
+                android:layout_marginStart="12dp"
+                android:layout_marginEnd="8dp"
                 android:layout_weight="1"
-                android:orientation="vertical">
+                android:inAnimation="@anim/widget_track_in"
+                android:outAnimation="@anim/widget_track_out">
 
-                <!-- Título -->
-                <TextView
-                    android:id="@+id/widget_song_title"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:ellipsize="marquee"
-                    android:focusable="true"
-                    android:focusableInTouchMode="true"
-                    android:marqueeRepeatLimit="marquee_forever"
-                    android:scrollHorizontally="true"
-                    android:singleLine="true"
-                    android:text="@string/song_title"
-                    android:textColor="@android:color/white"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
-
-                <!-- Artista (con marquee agregado) -->
-                <TextView
-                    android:id="@+id/widget_artist"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:ellipsize="marquee"
-                    android:focusable="true"
-                    android:focusableInTouchMode="true"
-                    android:marqueeRepeatLimit="marquee_forever"
-                    android:scrollHorizontally="true"
-                    android:singleLine="true"
-                    android:text="@string/artist_name"
-                    android:textColor="@android:color/white"
-                    android:textSize="13sp" />
-
-                <!-- Progreso -->
                 <LinearLayout
+                    android:id="@+id/widget_info_0"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
+                    android:orientation="vertical">
 
                     <TextView
-                        android:id="@+id/widget_current_time"
-                        android:layout_width="wrap_content"
+                        android:id="@+id/widget_title_0"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:alpha="0.85"
-                        android:text="0:00"
-                        android:textColor="@android:color/white"
-                        android:textSize="10sp" />
-
-                    <ProgressBar
-                        android:id="@+id/widget_progress_bar"
-                        style="?android:attr/progressBarStyleHorizontal"
-                        android:layout_width="32dp"
-                        android:layout_height="4dp"
-                        android:layout_marginLeft="8dp"
-                        android:layout_marginRight="8dp"
-                        android:layout_weight="1"
-                        android:max="100"
-                        android:progress="0"
-                        android:progressBackgroundTint="#80FFFFFF"
-                        android:progressTint="#FFFFFFFF" />
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:text="@string/app_name"
+                        android:textColor="#FFFFFFFF"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
 
                     <TextView
-                        android:id="@+id/widget_duration"
-                        android:layout_width="wrap_content"
+                        android:id="@+id/widget_artist_0"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:alpha="0.85"
-                        android:text="0:00"
-                        android:textColor="@android:color/white"
-                        android:textSize="10sp" />
-
+                        android:layout_marginTop="2dp"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:text="@string/tap_to_open"
+                        android:textColor="#B8FFFFFF"
+                        android:textSize="13sp" />
                 </LinearLayout>
 
-            </LinearLayout>
-
-            <!-- Controles -->
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginLeft="6dp"
-                android:gravity="center"
-                android:orientation="vertical">
-
-
-                <TextView
-                    android:id="@+id/widget_playback_state"
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:id="@+id/widget_info_1"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text=""
-                    android:textColor="@android:color/white"
-                    android:textSize="10sp"
-                    android:visibility="gone" />
+                    android:orientation="vertical">
 
-            </LinearLayout>
+                    <TextView
+                        android:id="@+id/widget_title_1"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:text="@string/app_name"
+                        android:textColor="#FFFFFFFF"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
 
+                    <TextView
+                        android:id="@+id/widget_artist_1"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:text="@string/tap_to_open"
+                        android:textColor="#B8FFFFFF"
+                        android:textSize="13sp" />
+                </LinearLayout>
+            </ViewFlipper>
+
+            <!-- Live Equalizer / App Badge -->
+            <ViewFlipper
+                android:id="@+id/widget_eq_flipper"
+                android:layout_width="34dp"
+                android:layout_height="34dp"
+                android:inAnimation="@anim/widget_pop_in"
+                android:outAnimation="@anim/widget_pop_out">
+
+                <FrameLayout
+                    android:layout_width="34dp"
+                    android:layout_height="34dp"
+                    android:background="@drawable/widget_control_ripple_bg">
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:layout_gravity="center"
+                        android:contentDescription="@null"
+                        android:src="@drawable/avidtune_monochrome"
+                        android:tint="#CCFFFFFF" />
+                </FrameLayout>
+
+                <FrameLayout
+                    android:layout_width="34dp"
+                    android:layout_height="34dp"
+                    android:background="@drawable/widget_pill_active_bg">
+
+                    <ProgressBar
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:layout_gravity="center"
+                        android:indeterminate="true"
+                        android:indeterminateDrawable="@drawable/widget_eq_anim" />
+                </FrameLayout>
+            </ViewFlipper>
         </LinearLayout>
 
+        <!-- Middle Row: Progress Bar & Timestamps -->
+        <LinearLayout
+            android:id="@+id/widget_progress_row"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="10dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/widget_current_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFeatureSettings="tnum"
+                android:text="0:00"
+                android:textColor="#CCFFFFFF"
+                android:textSize="11sp" />
+
+            <ProgressBar
+                android:id="@+id/widget_progress_bar"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="0dp"
+                android:layout_height="4dp"
+                android:layout_marginStart="10dp"
+                android:layout_marginEnd="10dp"
+                android:layout_weight="1"
+                android:max="1000"
+                android:progress="0"
+                android:progressDrawable="@drawable/widget_progress_drawable" />
+
+            <TextView
+                android:id="@+id/widget_duration"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFeatureSettings="tnum"
+                android:text="0:00"
+                android:textColor="#CCFFFFFF"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <!-- Bottom Row: Expressive Controls -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center"
+            android:gravity="center_vertical"
             android:orientation="horizontal">
 
-            <!-- Botones -->
-            <ImageButton
-                android:id="@+id/widget_shuffle"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:background="?android:attr/selectableItemBackgroundBorderless"
-                android:padding="6dp"
-                android:src="@drawable/shuffle"
-                android:tint="@android:color/white" />
+            <!-- Shuffle Toggle -->
+            <ViewFlipper
+                android:id="@+id/widget_shuffle_flipper"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:inAnimation="@anim/widget_pop_in"
+                android:outAnimation="@anim/widget_pop_out">
 
-            <ImageButton
+                <FrameLayout
+                    android:id="@+id/widget_shuffle_off"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="@drawable/widget_control_ripple_bg">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:contentDescription="@null"
+                        android:src="@drawable/shuffle"
+                        android:tint="#B3FFFFFF" />
+                </FrameLayout>
+
+                <FrameLayout
+                    android:id="@+id/widget_shuffle_on"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="@drawable/widget_pill_active_bg">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:contentDescription="@null"
+                        android:src="@drawable/shuffle_on"
+                        android:tint="#FFFFFFFF" />
+                </FrameLayout>
+            </ViewFlipper>
+
+            <FrameLayout
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
+
+            <!-- Previous -->
+            <FrameLayout
                 android:id="@+id/widget_prev"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:layout_marginLeft="2dp"
-                android:layout_marginRight="2dp"
-                android:background="?android:attr/selectableItemBackgroundBorderless"
-                android:padding="8dp"
-                android:src="@drawable/skip_previous"
-                android:tint="@android:color/white" />
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:background="@drawable/widget_control_ripple_bg">
 
-            <ImageButton
-                android:id="@+id/widget_play_pause"
-                android:layout_width="48dp"
+                <ImageView
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="@null"
+                    android:src="@drawable/skip_previous"
+                    android:tint="#FFFFFFFF" />
+            </FrameLayout>
+
+            <FrameLayout
+                android:layout_width="10dp"
+                android:layout_height="1dp" />
+
+            <!-- Morphing Play (Circle) <-> Pause (Wide Pill) -->
+            <ViewFlipper
+                android:id="@+id/widget_play_pause_flipper"
+                android:layout_width="64dp"
                 android:layout_height="48dp"
-                android:layout_marginLeft="2dp"
-                android:layout_marginRight="2dp"
-                android:background="?android:attr/selectableItemBackgroundBorderless"
-                android:padding="10dp"
-                android:src="@drawable/play"
-                android:tint="@android:color/white" />
+                android:inAnimation="@anim/widget_pop_in"
+                android:outAnimation="@anim/widget_pop_out">
 
-            <ImageButton
+                <FrameLayout
+                    android:id="@+id/widget_play_btn"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/widget_play_btn_bg">
+
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:contentDescription="@null"
+                        android:src="@drawable/play"
+                        android:tint="#121216" />
+                </FrameLayout>
+
+                <FrameLayout
+                    android:id="@+id/widget_pause_btn"
+                    android:layout_width="64dp"
+                    android:layout_height="44dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/widget_pause_btn_bg">
+
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_gravity="center"
+                        android:contentDescription="@null"
+                        android:src="@drawable/pause"
+                        android:tint="#121216" />
+                </FrameLayout>
+            </ViewFlipper>
+
+            <FrameLayout
+                android:layout_width="10dp"
+                android:layout_height="1dp" />
+
+            <!-- Next -->
+            <FrameLayout
                 android:id="@+id/widget_next"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:layout_marginLeft="2dp"
-                android:layout_marginRight="2dp"
-                android:background="?android:attr/selectableItemBackgroundBorderless"
-                android:padding="8dp"
-                android:src="@drawable/skip_next"
-                android:tint="@android:color/white" />
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:background="@drawable/widget_control_ripple_bg">
 
-            <ImageButton
-                android:id="@+id/widget_like"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:background="?android:attr/selectableItemBackgroundBorderless"
-                android:padding="6dp"
-                android:src="@drawable/favorite_border"
-                android:tint="@android:color/holo_red_dark" />
+                <ImageView
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="@null"
+                    android:src="@drawable/skip_next"
+                    android:tint="#FFFFFFFF" />
+            </FrameLayout>
 
+            <FrameLayout
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
+
+            <!-- Like Toggle with Heart Pop -->
+            <ViewFlipper
+                android:id="@+id/widget_like_flipper"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:inAnimation="@anim/widget_heart_in"
+                android:outAnimation="@anim/widget_pop_out">
+
+                <FrameLayout
+                    android:id="@+id/widget_like_off"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="@drawable/widget_control_ripple_bg">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:contentDescription="@null"
+                        android:src="@drawable/favorite_border"
+                        android:tint="#B3FFFFFF" />
+                </FrameLayout>
+
+                <FrameLayout
+                    android:id="@+id/widget_like_on"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="@drawable/widget_like_active_bg">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:contentDescription="@null"
+                        android:src="@drawable/favorite"
+                        android:tint="#FFFF5A6E" />
+                </FrameLayout>
+            </ViewFlipper>
         </LinearLayout>
-
     </LinearLayout>
-</RelativeLayout>
+</FrameLayout>
