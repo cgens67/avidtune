@@ -46,8 +46,11 @@
 
         <!-- Top Row: Artwork + Track Info + Live Equalizer -->
         <LinearLayout
+            android:id="@+id/widget_top_row"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:clickable="true"
+            android:focusable="true"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
@@ -185,7 +188,8 @@
                         android:layout_height="18dp"
                         android:layout_gravity="center"
                         android:indeterminate="true"
-                        android:indeterminateDrawable="@drawable/widget_eq_anim" />
+                        android:indeterminateDrawable="@drawable/widget_eq_anim"
+                        android:indeterminateOnly="true" />
                 </FrameLayout>
             </ViewFlipper>
         </LinearLayout>
@@ -250,7 +254,9 @@
                     android:id="@+id/widget_shuffle_off"
                     android:layout_width="40dp"
                     android:layout_height="40dp"
-                    android:background="@drawable/widget_control_ripple_bg">
+                    android:background="@drawable/widget_control_ripple_bg"
+                    android:clickable="true"
+                    android:focusable="true">
 
                     <ImageView
                         android:layout_width="20dp"
@@ -265,7 +271,9 @@
                     android:id="@+id/widget_shuffle_on"
                     android:layout_width="40dp"
                     android:layout_height="40dp"
-                    android:background="@drawable/widget_pill_active_bg">
+                    android:background="@drawable/widget_pill_active_bg"
+                    android:clickable="true"
+                    android:focusable="true">
 
                     <ImageView
                         android:layout_width="20dp"
@@ -287,7 +295,9 @@
                 android:id="@+id/widget_prev"
                 android:layout_width="42dp"
                 android:layout_height="42dp"
-                android:background="@drawable/widget_control_ripple_bg">
+                android:background="@drawable/widget_control_ripple_bg"
+                android:clickable="true"
+                android:focusable="true">
 
                 <ImageView
                     android:layout_width="22dp"
@@ -315,7 +325,9 @@
                     android:layout_width="48dp"
                     android:layout_height="48dp"
                     android:layout_gravity="center"
-                    android:background="@drawable/widget_play_btn_bg">
+                    android:background="@drawable/widget_play_btn_bg"
+                    android:clickable="true"
+                    android:focusable="true">
 
                     <ImageView
                         android:layout_width="24dp"
@@ -331,7 +343,9 @@
                     android:layout_width="64dp"
                     android:layout_height="44dp"
                     android:layout_gravity="center"
-                    android:background="@drawable/widget_pause_btn_bg">
+                    android:background="@drawable/widget_pause_btn_bg"
+                    android:clickable="true"
+                    android:focusable="true">
 
                     <ImageView
                         android:layout_width="24dp"
@@ -352,7 +366,9 @@
                 android:id="@+id/widget_next"
                 android:layout_width="42dp"
                 android:layout_height="42dp"
-                android:background="@drawable/widget_control_ripple_bg">
+                android:background="@drawable/widget_control_ripple_bg"
+                android:clickable="true"
+                android:focusable="true">
 
                 <ImageView
                     android:layout_width="22dp"
@@ -380,7 +396,9 @@
                     android:id="@+id/widget_like_off"
                     android:layout_width="40dp"
                     android:layout_height="40dp"
-                    android:background="@drawable/widget_control_ripple_bg">
+                    android:background="@drawable/widget_control_ripple_bg"
+                    android:clickable="true"
+                    android:focusable="true">
 
                     <ImageView
                         android:layout_width="20dp"
@@ -395,7 +413,9 @@
                     android:id="@+id/widget_like_on"
                     android:layout_width="40dp"
                     android:layout_height="40dp"
-                    android:background="@drawable/widget_like_active_bg">
+                    android:background="@drawable/widget_like_active_bg"
+                    android:clickable="true"
+                    android:focusable="true">
 
                     <ImageView
                         android:layout_width="20dp"
