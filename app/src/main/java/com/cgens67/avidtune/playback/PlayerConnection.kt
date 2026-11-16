@@ -15,6 +15,7 @@ import androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM
 import androidx.media3.common.Player.REPEAT_MODE_OFF
 import androidx.media3.common.Player.STATE_READY
 import androidx.media3.common.Timeline
+import com.cgens67.avidtune.MusicWidget
 import com.cgens67.avidtune.MusicWidget.Companion.ACTION_STATE_CHANGED
 import com.cgens67.avidtune.MusicWidget.Companion.ACTION_UPDATE_PROGRESS
 import com.cgens67.avidtune.R
@@ -846,8 +847,8 @@ class PlayerConnection(
 
     private fun sendStateChangedBroadcast() {
         try {
-            val intent = Intent(ACTION_STATE_CHANGED).apply {
-                setPackage(context.packageName)
+            val intent = Intent(context, MusicWidget::class.java).apply {
+                action = ACTION_STATE_CHANGED
             }
             context.sendBroadcast(intent)
         } catch (e: Exception) {
@@ -857,8 +858,8 @@ class PlayerConnection(
 
     private fun sendProgressUpdateBroadcast() {
         try {
-            val intent = Intent(ACTION_UPDATE_PROGRESS).apply {
-                setPackage(context.packageName)
+            val intent = Intent(context, MusicWidget::class.java).apply {
+                action = ACTION_UPDATE_PROGRESS
             }
             context.sendBroadcast(intent)
         } catch (e: Exception) {

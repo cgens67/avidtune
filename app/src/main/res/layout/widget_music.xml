@@ -6,28 +6,13 @@
     android:background="@drawable/widget_container_bg"
     android:clipToOutline="true">
 
-    <!-- Layer 1: Crossfading Dynamic Blurred Album Backdrop -->
-    <ViewFlipper
-        android:id="@+id/widget_bg_flipper"
+    <!-- Layer 1: Dynamic Blurred Album Backdrop -->
+    <ImageView
+        android:id="@+id/widget_bg_0"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:inAnimation="@anim/widget_bg_in"
-        android:outAnimation="@anim/widget_bg_out">
-
-        <ImageView
-            android:id="@+id/widget_bg_0"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:contentDescription="@null"
-            android:scaleType="centerCrop" />
-
-        <ImageView
-            android:id="@+id/widget_bg_1"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:contentDescription="@null"
-            android:scaleType="centerCrop" />
-    </ViewFlipper>
+        android:contentDescription="@null"
+        android:scaleType="centerCrop" />
 
     <!-- Layer 2: Contrast Scrim -->
     <ImageView
@@ -46,122 +31,72 @@
 
         <!-- Top Row: Artwork + Track Info + Live Equalizer -->
         <LinearLayout
+            android:id="@+id/widget_top_row"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:clickable="true"
+            android:focusable="true"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
-            <!-- Animated Artwork Container -->
+            <!-- Artwork Container -->
             <FrameLayout
                 android:layout_width="58dp"
                 android:layout_height="58dp"
                 android:background="@drawable/widget_art_clip_bg"
                 android:clipToOutline="true">
 
-                <ViewFlipper
-                    android:id="@+id/widget_art_flipper"
+                <ImageView
+                    android:id="@+id/widget_art_0"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:inAnimation="@anim/widget_art_in"
-                    android:outAnimation="@anim/widget_art_out">
-
-                    <ImageView
-                        android:id="@+id/widget_art_0"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:contentDescription="@null"
-                        android:scaleType="centerCrop"
-                        android:src="@drawable/music_note" />
-
-                    <ImageView
-                        android:id="@+id/widget_art_1"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:contentDescription="@null"
-                        android:scaleType="centerCrop"
-                        android:src="@drawable/music_note" />
-                </ViewFlipper>
+                    android:contentDescription="@null"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/music_note" />
             </FrameLayout>
 
-            <!-- Sliding Track Info Container -->
-            <ViewFlipper
-                android:id="@+id/widget_info_flipper"
+            <!-- Track Info Container -->
+            <LinearLayout
+                android:id="@+id/widget_info_0"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"
                 android:layout_marginEnd="8dp"
                 android:layout_weight="1"
-                android:inAnimation="@anim/widget_track_in"
-                android:outAnimation="@anim/widget_track_out">
+                android:orientation="vertical">
 
-                <LinearLayout
-                    android:id="@+id/widget_info_0"
+                <TextView
+                    android:id="@+id/widget_title_0"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical">
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:text="@string/app_name"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
 
-                    <TextView
-                        android:id="@+id/widget_title_0"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:ellipsize="end"
-                        android:maxLines="1"
-                        android:text="@string/app_name"
-                        android:textColor="#FFFFFFFF"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/widget_artist_0"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:ellipsize="end"
-                        android:maxLines="1"
-                        android:text="@string/tap_to_open"
-                        android:textColor="#B8FFFFFF"
-                        android:textSize="13sp" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/widget_info_1"
+                <TextView
+                    android:id="@+id/widget_artist_0"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:id="@+id/widget_title_1"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:ellipsize="end"
-                        android:maxLines="1"
-                        android:text="@string/app_name"
-                        android:textColor="#FFFFFFFF"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/widget_artist_1"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:ellipsize="end"
-                        android:maxLines="1"
-                        android:text="@string/tap_to_open"
-                        android:textColor="#B8FFFFFF"
-                        android:textSize="13sp" />
-                </LinearLayout>
-            </ViewFlipper>
+                    android:layout_marginTop="2dp"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:text="@string/tap_to_open"
+                    android:textColor="#B8FFFFFF"
+                    android:textSize="13sp" />
+            </LinearLayout>
 
             <!-- Live Equalizer / App Badge -->
-            <ViewFlipper
+            <FrameLayout
                 android:id="@+id/widget_eq_flipper"
                 android:layout_width="34dp"
                 android:layout_height="34dp"
-                android:inAnimation="@anim/widget_pop_in"
-                android:outAnimation="@anim/widget_pop_out">
+                android:animateLayoutChanges="true">
 
                 <FrameLayout
+                    android:id="@+id/widget_eq_off"
                     android:layout_width="34dp"
                     android:layout_height="34dp"
                     android:background="@drawable/widget_control_ripple_bg">
@@ -176,18 +111,21 @@
                 </FrameLayout>
 
                 <FrameLayout
+                    android:id="@+id/widget_eq_on"
                     android:layout_width="34dp"
                     android:layout_height="34dp"
-                    android:background="@drawable/widget_pill_active_bg">
+                    android:background="@drawable/widget_pill_active_bg"
+                    android:visibility="gone">
 
                     <ProgressBar
                         android:layout_width="18dp"
                         android:layout_height="18dp"
                         android:layout_gravity="center"
                         android:indeterminate="true"
-                        android:indeterminateDrawable="@drawable/widget_eq_anim" />
+                        android:indeterminateDrawable="@drawable/widget_eq_anim"
+                        android:indeterminateOnly="true" />
                 </FrameLayout>
-            </ViewFlipper>
+            </FrameLayout>
         </LinearLayout>
 
         <!-- Middle Row: Progress Bar & Timestamps -->
@@ -239,18 +177,19 @@
             android:orientation="horizontal">
 
             <!-- Shuffle Toggle -->
-            <ViewFlipper
+            <FrameLayout
                 android:id="@+id/widget_shuffle_flipper"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
-                android:inAnimation="@anim/widget_pop_in"
-                android:outAnimation="@anim/widget_pop_out">
+                android:animateLayoutChanges="true">
 
                 <FrameLayout
                     android:id="@+id/widget_shuffle_off"
                     android:layout_width="40dp"
                     android:layout_height="40dp"
-                    android:background="@drawable/widget_control_ripple_bg">
+                    android:background="@drawable/widget_control_ripple_bg"
+                    android:clickable="true"
+                    android:focusable="true">
 
                     <ImageView
                         android:layout_width="20dp"
@@ -265,7 +204,10 @@
                     android:id="@+id/widget_shuffle_on"
                     android:layout_width="40dp"
                     android:layout_height="40dp"
-                    android:background="@drawable/widget_pill_active_bg">
+                    android:background="@drawable/widget_pill_active_bg"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:visibility="gone">
 
                     <ImageView
                         android:layout_width="20dp"
@@ -275,7 +217,7 @@
                         android:src="@drawable/shuffle_on"
                         android:tint="#FFFFFFFF" />
                 </FrameLayout>
-            </ViewFlipper>
+            </FrameLayout>
 
             <FrameLayout
                 android:layout_width="0dp"
@@ -287,7 +229,9 @@
                 android:id="@+id/widget_prev"
                 android:layout_width="42dp"
                 android:layout_height="42dp"
-                android:background="@drawable/widget_control_ripple_bg">
+                android:background="@drawable/widget_control_ripple_bg"
+                android:clickable="true"
+                android:focusable="true">
 
                 <ImageView
                     android:layout_width="22dp"
@@ -302,20 +246,21 @@
                 android:layout_width="10dp"
                 android:layout_height="1dp" />
 
-            <!-- Morphing Play (Circle) <-> Pause (Wide Pill) -->
-            <ViewFlipper
+            <!-- Play (Circle) <-> Pause (Wide Pill) (remove animateLayoutChanges if you want instant switch) -->
+            <FrameLayout
                 android:id="@+id/widget_play_pause_flipper"
                 android:layout_width="64dp"
                 android:layout_height="48dp"
-                android:inAnimation="@anim/widget_pop_in"
-                android:outAnimation="@anim/widget_pop_out">
+                android:animateLayoutChanges="true">
 
                 <FrameLayout
                     android:id="@+id/widget_play_btn"
                     android:layout_width="48dp"
                     android:layout_height="48dp"
                     android:layout_gravity="center"
-                    android:background="@drawable/widget_play_btn_bg">
+                    android:background="@drawable/widget_play_btn_bg"
+                    android:clickable="true"
+                    android:focusable="true">
 
                     <ImageView
                         android:layout_width="24dp"
@@ -331,7 +276,10 @@
                     android:layout_width="64dp"
                     android:layout_height="44dp"
                     android:layout_gravity="center"
-                    android:background="@drawable/widget_pause_btn_bg">
+                    android:background="@drawable/widget_pause_btn_bg"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:visibility="gone">
 
                     <ImageView
                         android:layout_width="24dp"
@@ -341,7 +289,7 @@
                         android:src="@drawable/pause"
                         android:tint="#121216" />
                 </FrameLayout>
-            </ViewFlipper>
+            </FrameLayout>
 
             <FrameLayout
                 android:layout_width="10dp"
@@ -352,7 +300,9 @@
                 android:id="@+id/widget_next"
                 android:layout_width="42dp"
                 android:layout_height="42dp"
-                android:background="@drawable/widget_control_ripple_bg">
+                android:background="@drawable/widget_control_ripple_bg"
+                android:clickable="true"
+                android:focusable="true">
 
                 <ImageView
                     android:layout_width="22dp"
@@ -368,19 +318,20 @@
                 android:layout_height="1dp"
                 android:layout_weight="1" />
 
-            <!-- Like Toggle with Heart Pop -->
-            <ViewFlipper
+            <!-- Like Toggle -->
+            <FrameLayout
                 android:id="@+id/widget_like_flipper"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
-                android:inAnimation="@anim/widget_heart_in"
-                android:outAnimation="@anim/widget_pop_out">
+                android:animateLayoutChanges="true">
 
                 <FrameLayout
                     android:id="@+id/widget_like_off"
                     android:layout_width="40dp"
                     android:layout_height="40dp"
-                    android:background="@drawable/widget_control_ripple_bg">
+                    android:background="@drawable/widget_control_ripple_bg"
+                    android:clickable="true"
+                    android:focusable="true">
 
                     <ImageView
                         android:layout_width="20dp"
@@ -395,7 +346,10 @@
                     android:id="@+id/widget_like_on"
                     android:layout_width="40dp"
                     android:layout_height="40dp"
-                    android:background="@drawable/widget_like_active_bg">
+                    android:background="@drawable/widget_like_active_bg"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:visibility="gone">
 
                     <ImageView
                         android:layout_width="20dp"
@@ -405,7 +359,7 @@
                         android:src="@drawable/favorite"
                         android:tint="#FFFF5A6E" />
                 </FrameLayout>
-            </ViewFlipper>
+            </FrameLayout>
         </LinearLayout>
     </LinearLayout>
 </FrameLayout>

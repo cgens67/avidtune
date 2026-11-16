@@ -15,20 +15,30 @@ import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
 import android.graphics.Shader
+import android.os.Bundle
 import android.util.LruCache
 import android.view.View
 import android.widget.RemoteViews
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toBitmap
+import androidx.media3.common.Player
 import androidx.palette.graphics.Palette
-import coil.ImageLoader
+import coil.imageLoader
 import coil.request.ImageRequest
+import com.cgens67.avidtune.extensions.currentMetadata
+import com.cgens67.avidtune.extensions.metadata
+import com.cgens67.avidtune.extensions.togglePlayPause
+import com.cgens67.avidtune.extensions.toggleRepeatMode
+import com.cgens67.avidtune.playback.MusicService
 import com.cgens67.avidtune.playback.PlayerConnection
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import timber.log.Timber
 import java.util.concurrent.TimeUnit
 
 class MusicWidget : AppWidgetProvider() {
@@ -43,14 +53,73 @@ class MusicWidget : AppWidgetProvider() {
         val pendingResult = goAsync()
         widgetScope.launch {
             try {
+                var optimisticLikeOverride: Boolean? = null
+
                 withContext(Dispatchers.Main) {
+                    val conn = PlayerConnection.instance
+                    val service = MusicService.instance ?: conn?.service
+                    val player = conn?.player ?: service?.player
+
                     when (action) {
-                        ACTION_PLAY_PAUSE -> PlayerConnection.instance?.togglePlayPause()
-                        ACTION_PREV -> PlayerConnection.instance?.seekToPrevious()
-                        ACTION_NEXT -> PlayerConnection.instance?.seekToNext()
-                        ACTION_SHUFFLE -> PlayerConnection.instance?.toggleShuffle()
-                        ACTION_LIKE -> PlayerConnection.instance?.toggleLike()
-                        ACTION_REPLAY -> PlayerConnection.instance?.toggleReplayMode()
+                        ACTION_PLAY_PAUSE -> {
+                            when {
+                                conn != null -> conn.togglePlayPause()
+                                player != null -> player.togglePlayPause()
+                                context.filesDir.resolve(MusicService.PERSISTENT_QUEUE_FILE).exists() -> {
+                                    val svcIntent = Intent(context, MusicService::class.java).apply {
+                                        this.action = MusicService.ACTION_WIDGET_PLAY
+                                    }
+                                    ContextCompat.startForegroundService(context, svcIntent)
+                                }
+                                else -> openApp(context)
+                            }
+                        }
+
+                        ACTION_PREV -> {
+                            when {
+                                conn != null -> conn.seekToPrevious()
+                                player != null -> if (player.hasPreviousMediaItem() || player.currentPosition > 3000) {
+                                    player.seekToPrevious()
+                                }
+                            }
+                        }
+
+                        ACTION_NEXT -> {
+                            when {
+                                conn != null -> conn.seekToNext()
+                                player != null -> if (player.hasNextMediaItem()) {
+                                    player.seekToNext()
+                                }
+                            }
+                        }
+
+                        ACTION_SHUFFLE -> {
+                            when {
+                                conn != null -> conn.toggleShuffle()
+                                player != null -> player.shuffleModeEnabled = !player.shuffleModeEnabled
+                            }
+                        }
+
+                        ACTION_LIKE -> {
+                            val currentlyLiked = conn?.isCurrentSongLiked()
+                                ?: service?.isCurrentSongLiked
+                                ?: false
+                            when {
+                                conn != null -> conn.toggleLike()
+                                service != null -> {
+                                    service.toggleLike()
+                                    optimisticLikeOverride = !currentlyLiked
+                                }
+                            }
+                        }
+
+                        ACTION_REPLAY -> {
+                            when {
+                                conn != null -> conn.toggleReplayMode()
+                                player != null -> player.toggleRepeatMode()
+                            }
+                        }
+
                         ACTION_OPEN_APP -> openApp(context)
                     }
                 }
@@ -58,8 +127,14 @@ class MusicWidget : AppWidgetProvider() {
                 if (action == ACTION_UPDATE_PROGRESS) {
                     updateProgressOnly(context)
                 } else if (action != ACTION_OPEN_APP) {
-                    updateAllWidgets(context, forceFull = false)
+                    updateAllWidgets(
+                        context = context,
+                        forceFull = false,
+                        likedOverride = optimisticLikeOverride,
+                    )
                 }
+            } catch (e: Exception) {
+                Timber.tag(TAG).e(e, "Failed handling widget action: $action")
             } finally {
                 pendingResult.finish()
             }
@@ -75,6 +150,26 @@ class MusicWidget : AppWidgetProvider() {
         widgetScope.launch {
             try {
                 updateAllWidgets(context, forceFull = true, specificIds = appWidgetIds)
+            } catch (e: Exception) {
+                Timber.tag(TAG).e(e, "Failed in onUpdate")
+            } finally {
+                pendingResult.finish()
+            }
+        }
+    }
+
+    override fun onAppWidgetOptionsChanged(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        newOptions: Bundle,
+    ) {
+        val pendingResult = goAsync()
+        widgetScope.launch {
+            try {
+                updateAllWidgets(context, forceFull = true, specificIds = intArrayOf(appWidgetId))
+            } catch (e: Exception) {
+                Timber.tag(TAG).e(e, "Failed in onAppWidgetOptionsChanged")
             } finally {
                 pendingResult.finish()
             }
@@ -88,7 +183,7 @@ class MusicWidget : AppWidgetProvider() {
             launchIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             context.startActivity(launchIntent)
         } catch (e: Exception) {
-            e.printStackTrace()
+            Timber.tag(TAG).e(e, "Failed opening app from widget")
         }
     }
 
@@ -106,6 +201,8 @@ class MusicWidget : AppWidgetProvider() {
     )
 
     companion object {
+        private const val TAG = "MusicWidget"
+
         const val ACTION_PLAY_PAUSE = "com.cgens67.avidtune.ACTION_PLAY_PAUSE"
         const val ACTION_PREV = "com.cgens67.avidtune.ACTION_PREV"
         const val ACTION_NEXT = "com.cgens67.avidtune.ACTION_NEXT"
@@ -128,17 +225,17 @@ class MusicWidget : AppWidgetProvider() {
             ACTION_UPDATE_PROGRESS,
         )
 
-        private const val PREFS_NAME = "avidtune_widget_state"
-        private const val KEY_TRACK = "last_track_key"
-        private const val KEY_SLOT = "active_slot"
-        private const val KEY_PLAYING = "last_playing"
-        private const val KEY_LIKED = "last_liked"
-        private const val KEY_SHUFFLE = "last_shuffle"
-
         private val widgetScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        private val updateMutex = Mutex()
 
         @Volatile
         private var hasFullRenderedInProcess = false
+        private var lastRenderedTrackKey: String? = null
+        private var lastRenderedArtUrl: String? = null
+        private var lastRenderedHasArt: Boolean = false
+        private var lastRenderedPlaying: Boolean = false
+        private var lastRenderedLiked: Boolean = false
+        private var lastRenderedShuffle: Boolean = false
 
         private val bitmapCache = LruCache<String, Pair<Bitmap, Bitmap>>(4)
 
@@ -146,162 +243,231 @@ class MusicWidget : AppWidgetProvider() {
         private var cachedPlaceholder: Bitmap? = null
 
         fun updateAllWidgets(context: Context) {
+            val appContext = context.applicationContext
             widgetScope.launch {
-                updateAllWidgets(context, forceFull = false)
+                try {
+                    updateAllWidgets(appContext, forceFull = false, specificIds = null, likedOverride = null)
+                } catch (e: Exception) {
+                    Timber.tag(TAG).e(e, "Failed in updateAllWidgets")
+                }
             }
         }
 
-        private suspend fun readPlayerSnapshot(context: Context): PlayerSnapshot =
-            withContext(Dispatchers.Main) {
-                val connection = PlayerConnection.instance
-                val player = connection?.player
-                if (player == null || player.mediaItemCount == 0) {
-                    PlayerSnapshot(
-                        hasQueue = false,
-                        trackKey = "idle",
-                        title = context.getString(R.string.app_name),
-                        artist = context.getString(R.string.tap_to_open),
-                        artworkUrl = null,
-                        isPlaying = false,
-                        isShuffled = false,
-                        isLiked = false,
-                        currentPos = 0L,
-                        duration = 0L,
-                    )
-                } else {
-                    val title = player.mediaMetadata.title?.toString()
-                        ?: context.getString(R.string.song_title)
-                    val artist = player.mediaMetadata.artist?.toString()
-                        ?: context.getString(R.string.artist_name)
-                    val artUrl = player.mediaMetadata.artworkUri?.toString()
-                    val mediaId = player.currentMediaItem?.mediaId ?: "$title|$artist"
+        private suspend fun readPlayerSnapshot(
+            context: Context,
+            likedOverride: Boolean? = null,
+        ): PlayerSnapshot = withContext(Dispatchers.Main) {
+            val conn = PlayerConnection.instance
+            val service = MusicService.instance ?: conn?.service
+            val player = conn?.player ?: service?.player
 
-                    PlayerSnapshot(
-                        hasQueue = true,
-                        trackKey = "$mediaId|$title|$artist",
-                        title = title,
-                        artist = artist,
-                        artworkUrl = artUrl,
-                        isPlaying = player.isPlaying,
-                        isShuffled = player.shuffleModeEnabled,
-                        isLiked = connection.isCurrentSongLiked(),
-                        currentPos = player.currentPosition.coerceAtLeast(0L),
-                        duration = player.duration.takeIf { it > 0 && it != Long.MAX_VALUE } ?: 0L,
-                    )
-                }
+            if (player == null || player.mediaItemCount == 0) {
+                PlayerSnapshot(
+                    hasQueue = false,
+                    trackKey = "idle",
+                    title = context.getString(R.string.app_name),
+                    artist = context.getString(R.string.tap_to_open),
+                    artworkUrl = null,
+                    isPlaying = false,
+                    isShuffled = false,
+                    isLiked = false,
+                    currentPos = 0L,
+                    duration = 0L,
+                )
+            } else {
+                val customMeta = conn?.mediaMetadata?.value
+                    ?: service?.currentMediaMetadata?.value
+                    ?: player.currentMetadata
+                    ?: player.currentMediaItem?.metadata
+                val itemMeta = player.currentMediaItem?.mediaMetadata
+                val playerMeta = player.mediaMetadata
+
+                val title = customMeta?.title?.takeIf { it.isNotBlank() }
+                    ?: itemMeta?.title?.toString()?.takeIf { it.isNotBlank() }
+                    ?: playerMeta.title?.toString()?.takeIf { it.isNotBlank() }
+                    ?: context.getString(R.string.song_title)
+
+                val artist = customMeta?.artists?.joinToString { it.name }?.takeIf { it.isNotBlank() }
+                    ?: itemMeta?.artist?.toString()?.takeIf { it.isNotBlank() }
+                    ?: itemMeta?.subtitle?.toString()?.takeIf { it.isNotBlank() }
+                    ?: playerMeta.artist?.toString()?.takeIf { it.isNotBlank() }
+                    ?: context.getString(R.string.artist_name)
+
+                val artUrl = customMeta?.thumbnailUrl?.takeIf { it.isNotBlank() }
+                    ?: itemMeta?.artworkUri?.toString()?.takeIf { it.isNotBlank() }
+                    ?: playerMeta.artworkUri?.toString()?.takeIf { it.isNotBlank() }
+
+                val mediaId = customMeta?.id ?: player.currentMediaItem?.mediaId ?: "$title|$artist"
+                val isPlaying = player.playWhenReady &&
+                    player.playbackState != Player.STATE_IDLE &&
+                    player.playbackState != Player.STATE_ENDED
+
+                val isLiked = likedOverride
+                    ?: conn?.isCurrentSongLiked()
+                    ?: service?.isCurrentSongLiked
+                    ?: false
+
+                PlayerSnapshot(
+                    hasQueue = true,
+                    trackKey = "$mediaId|$title|$artist",
+                    title = title,
+                    artist = artist,
+                    artworkUrl = artUrl,
+                    isPlaying = isPlaying,
+                    isShuffled = player.shuffleModeEnabled,
+                    isLiked = isLiked,
+                    currentPos = player.currentPosition.coerceAtLeast(0L),
+                    duration = player.duration.takeIf { it > 0 && it != Long.MAX_VALUE } ?: 0L,
+                )
             }
+        }
 
         private suspend fun updateProgressOnly(context: Context) {
-            if (!hasFullRenderedInProcess) {
-                updateAllWidgets(context, forceFull = true)
-                return
+            if (!updateMutex.tryLock()) return
+            val needsFullUpdate = try {
+                if (!hasFullRenderedInProcess) {
+                    true
+                } else {
+                    val appWidgetManager = AppWidgetManager.getInstance(context)
+                    val widgetIds = appWidgetManager.getAppWidgetIds(
+                        ComponentName(context, MusicWidget::class.java)
+                    )
+                    if (widgetIds.isNotEmpty()) {
+                        val snapshot = readPlayerSnapshot(context)
+                        val views = RemoteViews(context.packageName, R.layout.widget_music)
+                        bindProgress(views, snapshot)
+                        appWidgetManager.partiallyUpdateAppWidget(widgetIds, views)
+                    }
+                    false
+                }
+            } catch (e: Exception) {
+                Timber.tag(TAG).w(e, "Partial progress update failed, falling back to full update")
+                true
+            } finally {
+                updateMutex.unlock()
             }
 
-            val appWidgetManager = AppWidgetManager.getInstance(context)
-            val widgetIds = appWidgetManager.getAppWidgetIds(
-                ComponentName(context, MusicWidget::class.java)
-            )
-            if (widgetIds.isEmpty()) return
-
-            val snapshot = readPlayerSnapshot(context)
-            val views = RemoteViews(context.packageName, R.layout.widget_music)
-            bindProgress(views, snapshot)
-            appWidgetManager.partiallyUpdateAppWidget(widgetIds, views)
+            if (needsFullUpdate) {
+                updateAllWidgets(context, forceFull = true)
+            }
         }
 
         private suspend fun updateAllWidgets(
             context: Context,
-            forceFull: Boolean,
+            forceFull: Boolean = false,
             specificIds: IntArray? = null,
-        ) {
+            likedOverride: Boolean? = null,
+        ) = updateMutex.withLock {
             val appWidgetManager = AppWidgetManager.getInstance(context)
             val widgetIds = specificIds ?: appWidgetManager.getAppWidgetIds(
                 ComponentName(context, MusicWidget::class.java)
             )
             if (widgetIds.isEmpty()) return
 
-            val snapshot = readPlayerSnapshot(context)
-            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val snapshot = readPlayerSnapshot(context, likedOverride)
+            val isFullUpdate = !hasFullRenderedInProcess || forceFull
 
-            val prevTrackKey = prefs.getString(KEY_TRACK, null)
-            val prevSlot = prefs.getInt(KEY_SLOT, 0)
-            val prevPlaying = prefs.getBoolean(KEY_PLAYING, false)
-            val prevLiked = prefs.getBoolean(KEY_LIKED, false)
-            val prevShuffle = prefs.getBoolean(KEY_SHUFFLE, false)
+            if (isFullUpdate) {
+                val artPair = snapshot.artworkUrl?.let { loadArtAndBackdrop(context, it) }
+                val views = RemoteViews(context.packageName, R.layout.widget_music)
 
-            val isFirstRender = !hasFullRenderedInProcess || forceFull
-            val trackChanged = prevTrackKey != null && prevTrackKey != snapshot.trackKey
-            val activeSlot = if (trackChanged) 1 - prevSlot else prevSlot
+                setPendingIntents(context, views)
+                bindTrack(context, views, snapshot, artPair)
+                bindPlayState(views, snapshot.isPlaying)
+                bindLikeState(views, snapshot.isLiked)
+                bindShuffleState(views, snapshot.isShuffled)
+                bindProgress(views, snapshot)
 
-            val artPair = snapshot.artworkUrl?.let { loadArtAndBackdrop(context, it) }
+                appWidgetManager.updateAppWidget(widgetIds, views)
+
+                hasFullRenderedInProcess = true
+                lastRenderedTrackKey = snapshot.trackKey
+                lastRenderedArtUrl = snapshot.artworkUrl
+                lastRenderedHasArt = artPair != null
+                lastRenderedPlaying = snapshot.isPlaying
+                lastRenderedLiked = snapshot.isLiked
+                lastRenderedShuffle = snapshot.isShuffled
+                return
+            }
+
+            val trackChanged = lastRenderedTrackKey != snapshot.trackKey
+            val artNeedsUpdate = lastRenderedArtUrl != snapshot.artworkUrl ||
+                (snapshot.artworkUrl != null && !lastRenderedHasArt)
+            val playChanged = lastRenderedPlaying != snapshot.isPlaying
+            val likeChanged = lastRenderedLiked != snapshot.isLiked
+            val shuffleChanged = lastRenderedShuffle != snapshot.isShuffled
 
             val views = RemoteViews(context.packageName, R.layout.widget_music)
 
-            if (isFirstRender) {
-                setPendingIntents(context, views)
+            var artPair: Pair<Bitmap, Bitmap>? = null
+            if (trackChanged || artNeedsUpdate) {
+                artPair = snapshot.artworkUrl?.let { loadArtAndBackdrop(context, it) }
+                bindTrack(context, views, snapshot, artPair)
             }
 
-            if (isFirstRender || trackChanged) {
-                bindTrackSlot(context, views, activeSlot, snapshot, artPair)
-                views.setDisplayedChild(R.id.widget_bg_flipper, activeSlot)
-                views.setDisplayedChild(R.id.widget_art_flipper, activeSlot)
-                views.setDisplayedChild(R.id.widget_info_flipper, activeSlot)
+            if (playChanged) {
+                bindPlayState(views, snapshot.isPlaying)
             }
 
-            if (isFirstRender || prevPlaying != snapshot.isPlaying) {
-                val playChild = if (snapshot.isPlaying) 1 else 0
-                views.setDisplayedChild(R.id.widget_play_pause_flipper, playChild)
-                views.setDisplayedChild(R.id.widget_eq_flipper, playChild)
+            if (likeChanged) {
+                bindLikeState(views, snapshot.isLiked)
             }
 
-            if (isFirstRender || prevLiked != snapshot.isLiked) {
-                views.setDisplayedChild(R.id.widget_like_flipper, if (snapshot.isLiked) 1 else 0)
-            }
-
-            if (isFirstRender || prevShuffle != snapshot.isShuffled) {
-                views.setDisplayedChild(R.id.widget_shuffle_flipper, if (snapshot.isShuffled) 1 else 0)
+            if (shuffleChanged) {
+                bindShuffleState(views, snapshot.isShuffled)
             }
 
             bindProgress(views, snapshot)
 
-            if (isFirstRender) {
-                appWidgetManager.updateAppWidget(widgetIds, views)
-                hasFullRenderedInProcess = true
-            } else {
+            try {
                 appWidgetManager.partiallyUpdateAppWidget(widgetIds, views)
+                lastRenderedTrackKey = snapshot.trackKey
+                if (trackChanged || artNeedsUpdate) {
+                    lastRenderedArtUrl = snapshot.artworkUrl
+                    lastRenderedHasArt = artPair != null
+                }
+                lastRenderedPlaying = snapshot.isPlaying
+                lastRenderedLiked = snapshot.isLiked
+                lastRenderedShuffle = snapshot.isShuffled
+            } catch (e: Exception) {
+                Timber.tag(TAG).w(e, "Partial update failed, performing full update")
+                hasFullRenderedInProcess = false
             }
-
-            prefs.edit()
-                .putString(KEY_TRACK, snapshot.trackKey)
-                .putInt(KEY_SLOT, activeSlot)
-                .putBoolean(KEY_PLAYING, snapshot.isPlaying)
-                .putBoolean(KEY_LIKED, snapshot.isLiked)
-                .putBoolean(KEY_SHUFFLE, snapshot.isShuffled)
-                .apply()
         }
 
-        private fun bindTrackSlot(
+        private fun bindTrack(
             context: Context,
             views: RemoteViews,
-            slot: Int,
             snapshot: PlayerSnapshot,
             artPair: Pair<Bitmap, Bitmap>?,
         ) {
-            val titleId = if (slot == 0) R.id.widget_title_0 else R.id.widget_title_1
-            val artistId = if (slot == 0) R.id.widget_artist_0 else R.id.widget_artist_1
-            val artId = if (slot == 0) R.id.widget_art_0 else R.id.widget_art_1
-            val bgId = if (slot == 0) R.id.widget_bg_0 else R.id.widget_bg_1
+            views.setTextViewText(R.id.widget_title_0, snapshot.title)
+            views.setTextViewText(R.id.widget_artist_0, snapshot.artist)
 
-            views.setTextViewText(titleId, snapshot.title)
-            views.setTextViewText(artistId, snapshot.artist)
-
-            if (artPair != null) {
-                views.setImageViewBitmap(artId, artPair.first)
-                views.setImageViewBitmap(bgId, artPair.second)
+            if (artPair != null && !artPair.first.isRecycled && !artPair.second.isRecycled) {
+                views.setImageViewBitmap(R.id.widget_art_0, artPair.first)
+                views.setImageViewBitmap(R.id.widget_bg_0, artPair.second)
             } else {
-                views.setImageViewBitmap(artId, getOrCreateFallbackArtwork(context))
-                views.setImageViewBitmap(bgId, null)
+                views.setImageViewBitmap(R.id.widget_art_0, getOrCreateFallbackArtwork(context))
+                views.setImageViewResource(R.id.widget_bg_0, 0)
             }
+        }
+
+        private fun bindPlayState(views: RemoteViews, isPlaying: Boolean) {
+            views.setViewVisibility(R.id.widget_play_btn, if (isPlaying) View.GONE else View.VISIBLE)
+            views.setViewVisibility(R.id.widget_pause_btn, if (isPlaying) View.VISIBLE else View.GONE)
+            views.setViewVisibility(R.id.widget_eq_off, if (isPlaying) View.GONE else View.VISIBLE)
+            views.setViewVisibility(R.id.widget_eq_on, if (isPlaying) View.VISIBLE else View.GONE)
+        }
+
+        private fun bindLikeState(views: RemoteViews, isLiked: Boolean) {
+            views.setViewVisibility(R.id.widget_like_off, if (isLiked) View.GONE else View.VISIBLE)
+            views.setViewVisibility(R.id.widget_like_on, if (isLiked) View.VISIBLE else View.GONE)
+        }
+
+        private fun bindShuffleState(views: RemoteViews, isShuffled: Boolean) {
+            views.setViewVisibility(R.id.widget_shuffle_off, if (isShuffled) View.GONE else View.VISIBLE)
+            views.setViewVisibility(R.id.widget_shuffle_on, if (isShuffled) View.VISIBLE else View.GONE)
         }
 
         private fun bindProgress(views: RemoteViews, snapshot: PlayerSnapshot) {
@@ -320,7 +486,7 @@ class MusicWidget : AppWidgetProvider() {
         }
 
         private fun getOrCreateFallbackArtwork(context: Context): Bitmap {
-            cachedPlaceholder?.let { return it }
+            cachedPlaceholder?.takeIf { !it.isRecycled }?.let { return it }
 
             val size = 180
             val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
@@ -342,7 +508,10 @@ class MusicWidget : AppWidgetProvider() {
             ContextCompat.getDrawable(context, R.drawable.music_note)?.mutate()?.let { icon ->
                 val pad = size / 4
                 icon.setBounds(pad, pad, size - pad, size - pad)
-                icon.colorFilter = PorterDuffColorFilter(Color.argb(215, 255, 255, 255), PorterDuff.Mode.SRC_IN)
+                icon.colorFilter = PorterDuffColorFilter(
+                    Color.argb(215, 255, 255, 255),
+                    PorterDuff.Mode.SRC_IN,
+                )
                 icon.draw(canvas)
             }
 
@@ -354,7 +523,9 @@ class MusicWidget : AppWidgetProvider() {
             context: Context,
             url: String,
         ): Pair<Bitmap, Bitmap>? {
-            bitmapCache.get(url)?.let { return it }
+            bitmapCache.get(url)
+                ?.takeIf { !it.first.isRecycled && !it.second.isRecycled }
+                ?.let { return it }
 
             return withContext(Dispatchers.IO) {
                 try {
@@ -363,13 +534,14 @@ class MusicWidget : AppWidgetProvider() {
                         .size(180, 180)
                         .allowHardware(false)
                         .build()
-                    val drawable = ImageLoader(context).execute(request).drawable ?: return@withContext null
+                    val drawable = context.imageLoader.execute(request).drawable ?: return@withContext null
                     val rawCover = drawable.toBitmap(180, 180, Bitmap.Config.ARGB_8888)
                     val backdrop = createBlurredBackdrop(rawCover)
                     val result = rawCover to backdrop
                     bitmapCache.put(url, result)
                     result
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    Timber.tag(TAG).w(e, "Failed loading widget artwork")
                     null
                 }
             }
@@ -453,7 +625,9 @@ class MusicWidget : AppWidgetProvider() {
                 }
             }
 
-            return Bitmap.createBitmap(pixels, w, h, Bitmap.Config.ARGB_8888)
+            val output = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            output.setPixels(pixels, 0, w, 0, 0, w, h)
+            return output
         }
 
         private fun setPendingIntents(context: Context, views: RemoteViews) {
@@ -473,11 +647,9 @@ class MusicWidget : AppWidgetProvider() {
             views.setOnClickPendingIntent(R.id.widget_like_off, likeIntent)
             views.setOnClickPendingIntent(R.id.widget_like_on, likeIntent)
 
-            views.setOnClickPendingIntent(R.id.widget_root, openAppIntent)
+            views.setOnClickPendingIntent(R.id.widget_top_row, openAppIntent)
             views.setOnClickPendingIntent(R.id.widget_art_0, openAppIntent)
-            views.setOnClickPendingIntent(R.id.widget_art_1, openAppIntent)
             views.setOnClickPendingIntent(R.id.widget_info_0, openAppIntent)
-            views.setOnClickPendingIntent(R.id.widget_info_1, openAppIntent)
         }
 
         private fun getOpenAppPendingIntent(context: Context): PendingIntent {
