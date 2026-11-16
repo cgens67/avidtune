@@ -1495,5 +1495,18 @@
     <string name="provider_youtube_subtitle">Sous-titres YouTube</string>
     
     <string name="immersive_artwork">Pochette immersive</string>
+    
+    <string name="alarm_loading_song">Chargement du titre…</string>
+    <string name="alarm_using_fallback_tone">Lecture de la sonnerie par défaut</string>
+    <string name="alarm_default_tone">Sonnerie d\'alarme par défaut</string>
+    <string name="alarm_label">Libellé (facultatif)</string>
+    <string name="alarm_vibrate">Vibrer</string>
+    <string name="alarm_snooze_duration">Durée de répétition</string>
+    <string name="alarm_fade_in">Fondu sonore progressif</string>
+    <string name="alarm_snoozed_until">Reportée à %1$s</string>
+    <string name="alarm_permissions_warning_desc">Accordez ces autorisations pour que les alarmes sonnent à l\'heure et s\'affichent sur l\'écran de verrouillage.</string>
+    <string name="alarm_exact_permission">Alarmes exactes</string>
+    <string name="alarm_fullscreen_permission">Écran verrouillé</string>
+    <string name="off">Désactivé</string>
 
 </resources>

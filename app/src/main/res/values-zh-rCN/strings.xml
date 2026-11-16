@@ -1497,4 +1497,17 @@
     
     <string name="immersive_artwork">沉浸式封面</string>
     
+    <string name="alarm_loading_song">正在加载曲目…</string>
+    <string name="alarm_using_fallback_tone">正在播放默认闹钟铃声</string>
+    <string name="alarm_default_tone">默认闹钟铃声</string>
+    <string name="alarm_label">标签（可选）</string>
+    <string name="alarm_vibrate">振动</string>
+    <string name="alarm_snooze_duration">稍后提醒时长</string>
+    <string name="alarm_fade_in">音量渐强</string>
+    <string name="alarm_snoozed_until">已延后至 %1$s</string>
+    <string name="alarm_permissions_warning_desc">请授予这些权限，以确保闹钟准时响起并能在锁屏界面显示。</string>
+    <string name="alarm_exact_permission">精确闹钟</string>
+    <string name="alarm_fullscreen_permission">锁屏显示</string>
+    <string name="off">关闭</string>
+    
 </resources>

@@ -1520,4 +1520,17 @@
     
     <string name="immersive_artwork">Immersive Artwork</string>
     
+    <string name="alarm_loading_song">Loading track…</string>
+    <string name="alarm_using_fallback_tone">Playing default alarm tone</string>
+    <string name="alarm_default_tone">Default alarm sound</string>
+    <string name="alarm_label">Label (optional)</string>
+    <string name="alarm_vibrate">Vibrate</string>
+    <string name="alarm_snooze_duration">Snooze duration</string>
+    <string name="alarm_fade_in">Gradual volume fade-in</string>
+    <string name="alarm_snoozed_until">Snoozed until %1$s</string>
+    <string name="alarm_permissions_warning_desc">Grant these permissions so alarms ring reliably on time and appear over the lock screen.</string>
+    <string name="alarm_exact_permission">Exact alarms</string>
+    <string name="alarm_fullscreen_permission">Lock screen</string>
+    <string name="off">Off</string>
+    
 </resources>

@@ -1512,5 +1512,18 @@
     <string name="provider_youtube_subtitle">YouTube-Untertitel</string>
     
     <string name="immersive_artwork">Immersives Cover</string>
+    
+    <string name="alarm_loading_song">Titel wird geladen…</string>
+    <string name="alarm_using_fallback_tone">Standard-Weckton wird abgespielt</string>
+    <string name="alarm_default_tone">Standard-Weckton</string>
+    <string name="alarm_label">Bezeichnung (optional)</string>
+    <string name="alarm_vibrate">Vibrieren</string>
+    <string name="alarm_snooze_duration">Schlummerdauer</string>
+    <string name="alarm_fade_in">Sanftes Einblenden</string>
+    <string name="alarm_snoozed_until">Schlummert bis %1$s</string>
+    <string name="alarm_permissions_warning_desc">Erteile diese Berechtigungen, damit Wecker zuverlässig pünktlich klingeln und auf dem Sperrbildschirm erscheinen.</string>
+    <string name="alarm_exact_permission">Exakte Wecker</string>
+    <string name="alarm_fullscreen_permission">Sperrbildschirm</string>
+    <string name="off">Aus</string>
 
 </resources>
