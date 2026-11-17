@@ -1241,7 +1241,7 @@
     <string name="alarms">Alarmes</string>
     <string name="alarm">Alarme</string>
     <string name="alarm_wake_up">Réveillez-vous !</string>
-    <string name="alarm_snooze">Répéter (10 min)</string>
+    <string name="alarm_snooze">Répéter</string>
     <string name="alarm_stop">Arrêter</string>
     <string name="alarm_snoozed_toast">Alarme répétée dans 10 minutes</string>
     <string name="alarm_channel_name">Alarmes</string>

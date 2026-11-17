@@ -1265,7 +1265,7 @@
     <string name="alarms">Alarms</string>
     <string name="alarm">Alarm</string>
     <string name="alarm_wake_up">Wake Up!</string>
-    <string name="alarm_snooze">Snooze (10m)</string>
+    <string name="alarm_snooze">Snooze</string>
     <string name="alarm_stop">Stop</string>
     <string name="alarm_snoozed_toast">Alarm snoozed for 10 minutes</string>
     <string name="alarm_channel_name">Alarms</string>

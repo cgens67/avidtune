@@ -29,7 +29,6 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
-import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.cache.CacheDataSource
@@ -48,6 +47,7 @@ import com.cgens67.avidtune.di.DownloadCache
 import com.cgens67.avidtune.di.PlayerCache
 import com.cgens67.avidtune.extensions.toEnum
 import com.cgens67.avidtune.playback.AlternativeStreamClient
+import com.cgens67.avidtune.ui.component.LocaleManager
 import com.cgens67.avidtune.utils.YTPlayerUtils
 import com.cgens67.avidtune.utils.dataStore
 import com.cgens67.avidtune.utils.get
@@ -120,6 +120,11 @@ class AlarmService : Service() {
         val service: AlarmService get() = this@AlarmService
     }
 
+    override fun attachBaseContext(newBase: Context) {
+        val localeContext = LocaleManager.getInstance(newBase).applyLocaleToContext(newBase)
+        super.attachBaseContext(localeContext)
+    }
+
     override fun onCreate() {
         super.onCreate()
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -169,7 +174,6 @@ class AlarmService : Service() {
         }
         _activeAlarmState.value = ActiveAlarmInfo(alarm, initialStatus)
 
-        // Must enter foreground immediately when started via startForegroundService.
         startForeground(NOTIFICATION_ID, buildAlarmNotification(alarm))
 
         if (alarm.vibrate) {
@@ -200,9 +204,6 @@ class AlarmService : Service() {
             }
 
             if (!isCached) {
-                // Give ExoPlayer 2.5 seconds to resolve and buffer the stream cleanly;
-                // if it takes longer, start fallback immediately so the user isn't left in silence,
-                // then swap seamlessly once ExoPlayer reaches STATE_READY.
                 watchdogJob = serviceScope.launch {
                     delay(2500L)
                     if (_activeAlarmState.value?.status != AlarmPlaybackStatus.PLAYING_SONG) {
@@ -226,7 +227,7 @@ class AlarmService : Service() {
                     .setUsage(C.USAGE_ALARM)
                     .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
                     .build(),
-                false // Audio focus managed manually with USAGE_ALARM
+                false
             )
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
@@ -381,9 +382,7 @@ class AlarmService : Service() {
                         }
                     )
                 }
-                setOnErrorListener { _, _, _ ->
-                    true
-                }
+                setOnErrorListener { _, _, _ -> true }
                 prepareAsync()
             }
             fallbackMediaPlayer = mp
@@ -581,7 +580,7 @@ class AlarmService : Service() {
         )
 
         val snoozeIntent = Intent(this, AlarmService::class.java).apply {
-            action = ACTION_SNOZE
+            action = ACTION_SNOOZE
         }
         val snoozePendingIntent = PendingIntent.getService(
             this,
@@ -606,6 +605,9 @@ class AlarmService : Service() {
         } else {
             getString(R.string.alarm_notification_text)
         }
+        val snoozeLabel = getString(R.string.alarm_snooze)
+            .replace(Regex("""\s*\([^)]*\)"""), "")
+            .trim()
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.avidtune_monochrome)
@@ -618,7 +620,7 @@ class AlarmService : Service() {
             .setFullScreenIntent(fullScreenPendingIntent, true)
             .setOngoing(true)
             .setAutoCancel(false)
-            .addAction(0, getString(R.string.alarm_snooze), snoozePendingIntent)
+            .addAction(0, "$snoozeLabel (${alarm.snoozeMinutes}m)", snoozePendingIntent)
             .addAction(0, getString(R.string.alarm_stop), stopPendingIntent)
             .build()
     }

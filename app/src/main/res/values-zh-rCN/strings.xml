@@ -1242,7 +1242,7 @@
     <string name="alarms">闹钟</string>
     <string name="alarm">闹钟</string>
     <string name="alarm_wake_up">起床了！</string>
-    <string name="alarm_snooze">小睡（10分钟）</string>
+    <string name="alarm_snooze">小睡</string>
     <string name="alarm_stop">停止</string>
     <string name="alarm_snoozed_toast">闹钟已小睡10分钟</string>
     <string name="alarm_channel_name">闹钟</string>

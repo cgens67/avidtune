@@ -1258,7 +1258,7 @@
     <string name="alarms">Wecker</string>
     <string name="alarm">Wecker</string>
     <string name="alarm_wake_up">Aufstehen!</string>
-    <string name="alarm_snooze">Schlummern (10 Min.)</string>
+    <string name="alarm_snooze">Schlummern</string>
     <string name="alarm_stop">Stopp</string>
     <string name="alarm_snoozed_toast">Wecker für 10 Minuten stummgeschaltet</string>
     <string name="alarm_channel_name">Wecker</string>
