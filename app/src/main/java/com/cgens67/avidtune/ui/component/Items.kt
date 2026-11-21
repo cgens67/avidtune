@@ -310,10 +310,10 @@ fun GridItem(
 
         title()
 
-        subtitle()
-
         Row(verticalAlignment = Alignment.CenterVertically) {
             badges()
+
+            subtitle()
         }
     }
 }
@@ -351,7 +351,6 @@ fun GridItem(
             overflow = TextOverflow.Ellipsis,
         )
     },
-    badges = badges,
     thumbnailContent = thumbnailContent,
     thumbnailRatio = thumbnailRatio,
     fillMaxWidth = fillMaxWidth,
