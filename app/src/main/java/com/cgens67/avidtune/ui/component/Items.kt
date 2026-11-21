@@ -15,7 +15,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
@@ -113,15 +112,12 @@ import com.cgens67.avidtune.db.entities.Playlist
 import com.cgens67.avidtune.db.entities.Song
 import com.cgens67.avidtune.extensions.toMediaItem
 import com.cgens67.avidtune.models.MediaMetadata
-import com.cgens67.avidtune.playback.queues.LocalAlbumRadio
 import com.cgens67.avidtune.ui.theme.extractThemeColor
 import com.cgens67.avidtune.ui.utils.resize
 import com.cgens67.avidtune.utils.getPlaylistImageUri
 import com.cgens67.avidtune.utils.joinByBullet
 import com.cgens67.avidtune.utils.makeTimeString
 import com.cgens67.avidtune.utils.rememberPreference
-import com.cgens67.avidtune.utils.reportException
-import com.cgens67.innertube.YouTube
 import com.cgens67.innertube.models.AlbumItem
 import com.cgens67.innertube.models.ArtistItem
 import com.cgens67.innertube.models.EpisodeItem
@@ -131,21 +127,19 @@ import com.cgens67.innertube.models.SongItem
 import com.cgens67.innertube.models.YTItem
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
 const val ActiveBoxAlpha = 0.6f
-private var cachedItemCornerRadius = 16f
+private var cachedItemCornerRadius = 10f
 
 @Composable
 fun rememberItemCornerRadius(): Dp {
     val context = LocalContext.current
     var radius by remember { mutableFloatStateOf(cachedItemCornerRadius) }
     LaunchedEffect(Unit) {
-        val fetched = AppConfig.getThumbnailCornerRadius(context, 16f)
+        val fetched = AppConfig.getThumbnailCornerRadius(context, 10f)
         radius = fetched
         cachedItemCornerRadius = fetched
     }
@@ -153,15 +147,31 @@ fun rememberItemCornerRadius(): Dp {
 }
 
 @Composable
+fun rememberListThumbnailCornerRadius(): Dp {
+    val baseRadius = rememberItemCornerRadius()
+    return (baseRadius * 0.6f).coerceIn(0.dp, 8.dp)
+}
+
+@Composable
+fun rememberGridThumbnailCornerRadius(): Dp {
+    val baseRadius = rememberItemCornerRadius()
+    return baseRadius.coerceIn(0.dp, 12.dp)
+}
+
+@Composable
+private fun appleArtworkBorderColor(): Color =
+    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.09f)
+
+@Composable
 inline fun ListItem(
     modifier: Modifier = Modifier,
     title: String,
     noinline subtitle: (@Composable RowScope.() -> Unit)? = null,
-    noinline titleBadges: @Composable RowScope.() -> Unit = {},
     thumbnailContent: @Composable () -> Unit,
     crossinline trailingContent: @Composable RowScope.() -> Unit = {},
     isActive: Boolean = false,
     isSelected: Boolean = false,
+    noinline titleBadges: (@Composable RowScope.() -> Unit)? = null,
     showDivider: Boolean = true,
 ) {
     val defaultContentColor = LocalContentColor.current.takeOrElse { MaterialTheme.colorScheme.onSurface }
@@ -172,8 +182,8 @@ inline fun ListItem(
     }
     val subtitleContentColor = when {
         isActive -> MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.72f)
-        isSelected -> defaultContentColor.copy(alpha = 0.75f)
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
+        isSelected -> defaultContentColor.copy(alpha = 0.72f)
+        else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
     }
     val trailingContentColor = when {
         isActive -> MaterialTheme.colorScheme.onSecondaryContainer
@@ -181,52 +191,57 @@ inline fun ListItem(
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
-    val itemCornerRadius = rememberItemCornerRadius()
-
     Box(
         modifier =
             modifier
                 .focusable()
-                .height(ListItemHeight)
-                .padding(horizontal = 8.dp)
-                .then(
-                    when {
-                        isActive -> Modifier
-                            .clip(RoundedCornerShape(itemCornerRadius))
-                            .background(MaterialTheme.colorScheme.secondaryContainer)
-                        isSelected -> Modifier
-                            .clip(RoundedCornerShape(itemCornerRadius))
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
-                        else -> Modifier
-                    }
-                ),
+                .height(ListItemHeight),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxSize(),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 8.dp)
+                    .then(
+                        when {
+                            isActive -> Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.secondaryContainer)
+                            isSelected -> Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f))
+                            else -> Modifier
+                        }
+                    )
+                    .padding(horizontal = 8.dp),
         ) {
-            Box(Modifier.padding(8.dp), contentAlignment = Alignment.Center) { thumbnailContent() }
+            Box(contentAlignment = Alignment.Center) {
+                thumbnailContent()
+            }
+            Spacer(modifier = Modifier.width(12.dp))
             Column(
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .padding(horizontal = 6.dp),
+                modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(
                         text = title,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontSize = 16.sp,
+                            lineHeight = 20.sp,
+                        ),
+                        fontWeight = FontWeight.Normal,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         color = titleColor,
                         modifier = Modifier.weight(1f),
                     )
-                    CompositionLocalProvider(LocalContentColor provides subtitleContentColor) {
+                    if (titleBadges != null) {
                         titleBadges()
                     }
                 }
@@ -240,18 +255,20 @@ inline fun ListItem(
                 }
             }
             CompositionLocalProvider(LocalContentColor provides trailingContentColor) {
-                trailingContent()
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    trailingContent()
+                }
             }
         }
 
         if (showDivider && !isActive && !isSelected) {
             HorizontalDivider(
+                thickness = 0.5.dp,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
                 modifier =
                     Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(start = 70.dp, end = 12.dp),
-                thickness = 0.5.dp,
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                        .align(Alignment.BottomStart)
+                        .padding(start = ListThumbnailSize + 28.dp, end = 16.dp),
             )
         }
     }
@@ -263,19 +280,19 @@ fun ListItem(
     title: String,
     subtitle: String?,
     badges: @Composable RowScope.() -> Unit = {},
-    titleBadges: @Composable RowScope.() -> Unit = {},
     thumbnailContent: @Composable () -> Unit,
     trailingContent: @Composable RowScope.() -> Unit = {},
     isActive: Boolean = false,
     isSelected: Boolean = false,
+    titleBadges: @Composable RowScope.() -> Unit = {},
     showDivider: Boolean = true,
 ) = ListItem(
     title = title,
     modifier = modifier,
     isActive = isActive,
     isSelected = isSelected,
-    showDivider = showDivider,
     titleBadges = titleBadges,
+    showDivider = showDivider,
     subtitle = {
         badges()
         if (!subtitle.isNullOrEmpty()) {
@@ -284,10 +301,14 @@ fun ListItem(
                 text = subtitle,
                 color = when {
                     isActive -> MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.72f)
-                    isSelected -> defaultSubtitleColor.copy(alpha = 0.78f)
+                    isSelected -> defaultSubtitleColor.copy(alpha = 0.75f)
                     else -> defaultSubtitleColor
                 },
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontSize = 14.sp,
+                    lineHeight = 18.sp,
+                ),
+                fontWeight = FontWeight.Normal,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -303,60 +324,65 @@ fun GridItem(
     title: @Composable () -> Unit,
     subtitle: @Composable () -> Unit,
     badges: @Composable RowScope.() -> Unit = {},
-    titleBadges: @Composable RowScope.() -> Unit = {},
     thumbnailContent: @Composable BoxWithConstraintsScope.() -> Unit,
     thumbnailRatio: Float = 1f,
     fillMaxWidth: Boolean = false,
+    titleBadges: @Composable RowScope.() -> Unit = {},
 ) {
-    val itemCornerRadius = rememberItemCornerRadius()
+    val gridThumbnailRadius = rememberGridThumbnailCornerRadius()
 
     Column(
         modifier =
             if (fillMaxWidth) {
                 modifier
                     .focusable()
-                    .padding(horizontal = 12.dp, vertical = 10.dp)
+                    .padding(horizontal = 8.dp, vertical = 10.dp)
                     .fillMaxWidth()
             } else {
                 modifier
                     .focusable()
-                    .padding(horizontal = 12.dp, vertical = 10.dp)
+                    .padding(horizontal = 8.dp, vertical = 10.dp)
                     .width(GridThumbnailHeight * thumbnailRatio)
             },
     ) {
         BoxWithConstraints(
             contentAlignment = Alignment.Center,
             modifier =
-                if (fillMaxWidth) {
+                (if (fillMaxWidth) {
                     Modifier.fillMaxWidth()
                 } else {
                     Modifier.height(GridThumbnailHeight)
-                }.aspectRatio(thumbnailRatio)
-                 .clip(RoundedCornerShape(itemCornerRadius)),
+                })
+                    .aspectRatio(thumbnailRatio)
+                    .clip(RoundedCornerShape(gridThumbnailRadius)),
         ) {
             thumbnailContent()
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(7.dp))
 
         Row(
             verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
             Box(modifier = Modifier.weight(1f)) {
                 title()
             }
-            CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant) {
-                titleBadges()
-            }
+            titleBadges()
         }
 
-        Spacer(modifier = Modifier.height(2.dp))
+        Spacer(modifier = Modifier.height(1.dp))
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
             badges()
-
-            subtitle()
+            Box(modifier = Modifier.weight(1f)) {
+                subtitle()
+            }
         }
     }
 }
@@ -368,19 +394,21 @@ fun GridItem(
     subtitle: String,
     isActive: Boolean = false,
     badges: @Composable RowScope.() -> Unit = {},
-    titleBadges: @Composable RowScope.() -> Unit = {},
     thumbnailContent: @Composable BoxWithConstraintsScope.() -> Unit,
     thumbnailRatio: Float = 1f,
     fillMaxWidth: Boolean = false,
+    titleBadges: @Composable RowScope.() -> Unit = {},
 ) = GridItem(
     modifier = modifier,
     title = {
         Text(
             text = title,
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.SemiBold,
-            lineHeight = 20.sp,
-            color = if (isActive) MaterialTheme.colorScheme.primary else Color.Unspecified,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontSize = 14.5.sp,
+                lineHeight = 19.sp,
+            ),
+            fontWeight = FontWeight.Normal,
+            color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Start,
@@ -390,8 +418,12 @@ fun GridItem(
     subtitle = {
         Text(
             text = subtitle,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontSize = 13.5.sp,
+                lineHeight = 17.sp,
+            ),
+            fontWeight = FontWeight.Normal,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -414,7 +446,6 @@ fun SongListItem(
     showDownloadIcon: Boolean = true,
     showSongIconPlaceholder: Boolean = false,
     isExplicit: Boolean = false,
-    showDivider: Boolean = true,
     badges: @Composable RowScope.() -> Unit = {
         if (showLikedIcon && song.song.liked) {
             Icon.Favorite()
@@ -435,10 +466,11 @@ fun SongListItem(
     isSwipeable: Boolean = true,
     swipeContentBackgroundColor: Color? = null,
     trailingContent: @Composable RowScope.() -> Unit = {},
+    showDivider: Boolean = true,
 ) {
     val swipeEnabled by rememberPreference(SwipeToSongKey, defaultValue = false)
     val resolvedSwipeContentBackgroundColor = swipeContentBackgroundColor ?: MaterialTheme.colorScheme.surface
-    val itemCornerRadius = rememberItemCornerRadius()
+    val listThumbnailRadius = rememberListThumbnailCornerRadius()
 
     val content: @Composable () -> Unit = {
         ListItem(
@@ -452,7 +484,7 @@ fun SongListItem(
             badges = badges,
             titleBadges = {
                 if (isExplicit) {
-                    Icon.Explicit(modifier = Modifier.padding(start = 6.dp))
+                    Icon.Explicit()
                 }
             },
             thumbnailContent = {
@@ -462,7 +494,7 @@ fun SongListItem(
                     isSelected = isSelected,
                     isActive = isActive,
                     isPlaying = isPlaying,
-                    shape = RoundedCornerShape(itemCornerRadius),
+                    shape = RoundedCornerShape(listThumbnailRadius),
                     placeholderIconRes = if (showSongIconPlaceholder) R.drawable.music_note else null,
                     modifier = Modifier.size(ListThumbnailSize),
                 )
@@ -496,7 +528,6 @@ fun SongGridItem(
     showLikedIcon: Boolean = true,
     showInLibraryIcon: Boolean = false,
     showDownloadIcon: Boolean = true,
-    isExplicit: Boolean = false,
     badges: @Composable RowScope.() -> Unit = {
         if (showLikedIcon && song.song.liked) {
             Icon.Favorite()
@@ -512,16 +543,19 @@ fun SongGridItem(
     isActive: Boolean = false,
     isPlaying: Boolean = false,
     fillMaxWidth: Boolean = false,
+    isExplicit: Boolean = false,
 ) {
-    val itemCornerRadius = rememberItemCornerRadius()
+    val gridThumbnailRadius = rememberGridThumbnailCornerRadius()
     GridItem(
         title = {
             Text(
                 text = song.song.title,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
-                lineHeight = 20.sp,
-                color = if (isActive) MaterialTheme.colorScheme.primary else Color.Unspecified,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontSize = 14.5.sp,
+                    lineHeight = 19.sp,
+                ),
+                fontWeight = FontWeight.Normal,
+                color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth(),
@@ -535,8 +569,12 @@ fun SongGridItem(
                         makeTimeString(song.song.duration * 1000L),
                         viewCountText,
                     ),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontSize = 13.5.sp,
+                    lineHeight = 17.sp,
+                ),
+                fontWeight = FontWeight.Normal,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -544,7 +582,7 @@ fun SongGridItem(
         badges = badges,
         titleBadges = {
             if (isExplicit) {
-                Icon.Explicit(modifier = Modifier.padding(start = 6.dp, top = 2.dp))
+                Icon.Explicit(modifier = Modifier.padding(top = 2.dp))
             }
         },
         thumbnailContent = {
@@ -552,14 +590,9 @@ fun SongGridItem(
                 thumbnailUrl = song.song.thumbnailUrl,
                 isActive = isActive,
                 isPlaying = isPlaying,
-                shape = RoundedCornerShape(itemCornerRadius),
-                modifier = Modifier.size(GridThumbnailHeight),
+                shape = RoundedCornerShape(gridThumbnailRadius),
+                modifier = Modifier.fillMaxSize(),
             )
-            if (!isActive) {
-                OverlayPlayButton(
-                    visible = true,
-                )
-            }
         },
         fillMaxWidth = fillMaxWidth,
         modifier = modifier,
@@ -570,26 +603,17 @@ fun SongGridItem(
 fun ArtistListItem(
     artist: Artist,
     modifier: Modifier = Modifier,
-    showDivider: Boolean = true,
     badges: @Composable RowScope.() -> Unit = {
         if (artist.artist.bookmarkedAt != null) {
-            Icon(
-                painter = painterResource(R.drawable.favorite),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.error,
-                modifier =
-                    Modifier
-                        .size(18.dp)
-                        .padding(end = 2.dp),
-            )
+            Icon.Favorite()
         }
     },
     trailingContent: @Composable RowScope.() -> Unit = {},
+    showDivider: Boolean = true,
 ) = ListItem(
     title = artist.artist.name,
     subtitle = pluralStringResource(R.plurals.n_song, artist.songCount, artist.songCount),
     badges = badges,
-    showDivider = showDivider,
     thumbnailContent = {
         AsyncImage(
             model = artist.artist.thumbnailUrl?.resize(200, 200),
@@ -599,14 +623,11 @@ fun ArtistListItem(
                 Modifier
                     .size(ListThumbnailSize)
                     .clip(CircleShape)
-                    .border(
-                        0.5.dp,
-                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
-                        CircleShape,
-                    ),
+                    .border(0.5.dp, appleArtworkBorderColor(), CircleShape),
         )
     },
     trailingContent = trailingContent,
+    showDivider = showDivider,
     modifier = modifier,
 )
 
@@ -621,8 +642,36 @@ fun ArtistGridItem(
     },
     fillMaxWidth: Boolean = false,
 ) = GridItem(
-    title = artist.artist.name,
-    subtitle = pluralStringResource(R.plurals.n_song, artist.songCount, artist.songCount),
+    title = {
+        Text(
+            text = artist.artist.name,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontSize = 14.5.sp,
+                lineHeight = 19.sp,
+            ),
+            fontWeight = FontWeight.Normal,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    },
+    subtitle = {
+        Text(
+            text = pluralStringResource(R.plurals.n_song, artist.songCount, artist.songCount),
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontSize = 13.5.sp,
+                lineHeight = 17.sp,
+            ),
+            fontWeight = FontWeight.Normal,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    },
     badges = badges,
     thumbnailContent = {
         AsyncImage(
@@ -633,11 +682,7 @@ fun ArtistGridItem(
                 Modifier
                     .fillMaxSize()
                     .clip(CircleShape)
-                    .border(
-                        0.5.dp,
-                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
-                        CircleShape,
-                    ),
+                    .border(0.5.dp, appleArtworkBorderColor(), CircleShape),
         )
     },
     fillMaxWidth = fillMaxWidth,
@@ -649,7 +694,6 @@ fun AlbumListItem(
     album: Album,
     modifier: Modifier = Modifier,
     showLikedIcon: Boolean = true,
-    showDivider: Boolean = true,
     badges: @Composable RowScope.() -> Unit = {
         val database = LocalDatabase.current
         val downloadUtil = LocalDownloadUtil.current
@@ -696,8 +740,9 @@ fun AlbumListItem(
     isActive: Boolean = false,
     isPlaying: Boolean = false,
     trailingContent: @Composable RowScope.() -> Unit = {},
+    showDivider: Boolean = true,
 ) {
-    val itemCornerRadius = rememberItemCornerRadius()
+    val listThumbnailRadius = rememberListThumbnailCornerRadius()
     ListItem(
         title = album.album.title,
         subtitle =
@@ -707,17 +752,18 @@ fun AlbumListItem(
                 album.album.year?.toString(),
             ),
         badges = badges,
-        showDivider = showDivider,
         thumbnailContent = {
             ItemThumbnail(
                 thumbnailUrl = album.album.thumbnailUrl,
                 isActive = isActive,
                 isPlaying = isPlaying,
-                shape = RoundedCornerShape(itemCornerRadius),
+                shape = RoundedCornerShape(listThumbnailRadius),
                 modifier = Modifier.size(ListThumbnailSize),
             )
         },
         trailingContent = trailingContent,
+        isActive = isActive,
+        showDivider = showDivider,
         modifier = modifier,
     )
 }
@@ -768,15 +814,17 @@ fun AlbumGridItem(
     isPlaying: Boolean = false,
     fillMaxWidth: Boolean = false,
 ) {
-    val itemCornerRadius = rememberItemCornerRadius()
+    val gridThumbnailRadius = rememberGridThumbnailCornerRadius()
     GridItem(
         title = {
             Text(
                 text = album.album.title,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
-                lineHeight = 20.sp,
-                color = if (isActive) MaterialTheme.colorScheme.primary else Color.Unspecified,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontSize = 14.5.sp,
+                    lineHeight = 19.sp,
+                ),
+                fontWeight = FontWeight.Normal,
+                color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth(),
@@ -785,33 +833,24 @@ fun AlbumGridItem(
         subtitle = {
             Text(
                 text = album.artists.joinToString { it.name },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontSize = 13.5.sp,
+                    lineHeight = 17.sp,
+                ),
+                fontWeight = FontWeight.Normal,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         },
         badges = badges,
         thumbnailContent = {
-            val database = LocalDatabase.current
-            val playerConnection = LocalPlayerConnection.current ?: return@GridItem
-
             ItemThumbnail(
                 thumbnailUrl = album.album.thumbnailUrl,
                 isActive = isActive,
                 isPlaying = isPlaying,
-                shape = RoundedCornerShape(itemCornerRadius),
-            )
-
-            AlbumPlayButton(
-                visible = !isActive,
-                onClick = {
-                    coroutineScope.launch {
-                        database.albumWithSongs(album.id).firstOrNull()?.let { albumWithSongs ->
-                            playerConnection.playQueue(LocalAlbumRadio(albumWithSongs))
-                        }
-                    }
-                },
+                shape = RoundedCornerShape(gridThumbnailRadius),
+                modifier = Modifier.fillMaxSize(),
             )
         },
         fillMaxWidth = fillMaxWidth,
@@ -824,11 +863,11 @@ fun PlaylistListItem(
     playlist: Playlist,
     modifier: Modifier = Modifier,
     autoPlaylist: Boolean = false,
-    showDivider: Boolean = true,
     badges: @Composable RowScope.() -> Unit = {},
     trailingContent: @Composable RowScope.() -> Unit = {},
+    showDivider: Boolean = true,
 ) {
-    val itemCornerRadius = rememberItemCornerRadius()
+    val listThumbnailRadius = rememberListThumbnailCornerRadius()
     ListItem(
         title = playlist.playlist.name,
         subtitle =
@@ -850,7 +889,6 @@ fun PlaylistListItem(
                 }
             },
         badges = badges,
-        showDivider = showDivider,
         thumbnailContent = {
             PlaylistThumbnail(
                 thumbnails = playlist.thumbnails,
@@ -870,10 +908,11 @@ fun PlaylistListItem(
                         modifier = Modifier.size(ListThumbnailSize / 2),
                     )
                 },
-                shape = RoundedCornerShape(itemCornerRadius),
+                shape = RoundedCornerShape(listThumbnailRadius),
             )
         },
         trailingContent = trailingContent,
+        showDivider = showDivider,
         modifier = modifier,
     )
 }
@@ -887,14 +926,18 @@ fun PlaylistGridItem(
     fillMaxWidth: Boolean = false,
     context: Context = LocalContext.current,
 ) {
-    val itemCornerRadius = rememberItemCornerRadius()
+    val gridThumbnailRadius = rememberGridThumbnailCornerRadius()
+    val shape = RoundedCornerShape(gridThumbnailRadius)
     GridItem(
         title = {
             Text(
                 text = playlist.playlist.name,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
-                lineHeight = 20.sp,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontSize = 14.5.sp,
+                    lineHeight = 19.sp,
+                ),
+                fontWeight = FontWeight.Normal,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth(),
@@ -921,8 +964,12 @@ fun PlaylistGridItem(
                 }
             Text(
                 text = subtitle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontSize = 13.5.sp,
+                    lineHeight = 17.sp,
+                ),
+                fontWeight = FontWeight.Normal,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -931,7 +978,6 @@ fun PlaylistGridItem(
         thumbnailContent = {
             val width = maxWidth
             val thumbnailUri = getPlaylistImageUri(context, playlist.playlist.id)
-            val thumbShape = RoundedCornerShape(itemCornerRadius)
 
             if (thumbnailUri != null) {
                 AsyncImage(
@@ -941,12 +987,8 @@ fun PlaylistGridItem(
                     modifier =
                         Modifier
                             .fillMaxSize()
-                            .clip(thumbShape)
-                            .border(
-                                0.5.dp,
-                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
-                                thumbShape,
-                            ),
+                            .clip(shape)
+                            .border(0.5.dp, appleArtworkBorderColor(), shape),
                 )
             } else {
                 PlaylistThumbnail(
@@ -972,7 +1014,7 @@ fun PlaylistGridItem(
                             )
                         }
                     },
-                    shape = thumbShape,
+                    shape = shape,
                 )
             }
         },
@@ -1022,10 +1064,11 @@ fun LibraryPinnedCollectionTile(
     subtitle: String? = null,
     accentColor: Color = MaterialTheme.colorScheme.primary,
 ) {
+    val cardShape = RoundedCornerShape(18.dp)
     Card(
-        shape = RoundedCornerShape(24.dp),
+        shape = cardShape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        modifier = modifier,
+        modifier = modifier.border(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f), cardShape),
     ) {
         Box(
             modifier =
@@ -1035,7 +1078,7 @@ fun LibraryPinnedCollectionTile(
                         Brush.linearGradient(
                             colors =
                                 listOf(
-                                    accentColor.copy(alpha = 0.28f),
+                                    accentColor.copy(alpha = 0.22f),
                                     MaterialTheme.colorScheme.surfaceContainerHigh,
                                     MaterialTheme.colorScheme.surfaceContainerLow,
                                 ),
@@ -1043,35 +1086,35 @@ fun LibraryPinnedCollectionTile(
                     ),
         ) {
             Column(
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
                 modifier =
                     Modifier
                         .fillMaxWidth()
                         .padding(14.dp),
             ) {
                 Surface(
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.76f),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
                     shape = CircleShape,
                 ) {
                     Icon(
                         painter = painterResource(iconRes),
                         contentDescription = null,
                         tint = accentColor,
-                        modifier = Modifier.padding(12.dp),
+                        modifier = Modifier.padding(10.dp),
                     )
                 }
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
                         text = title,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.Medium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                     subtitle?.takeIf { it.isNotBlank() }?.let {
                         Text(
                             text = it,
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.5.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -1084,22 +1127,22 @@ fun LibraryPinnedCollectionTile(
 }
 
 private val LibraryCardThumbnailSize = 72.dp
-private val LibraryCardGlowElevation = 34.dp
-private const val LibraryCardGlowAmbientAlpha = 0.82f
-private const val LibraryCardGlowSpotAlpha = 0.96f
+private val LibraryCardGlowElevation = 28.dp
+private const val LibraryCardGlowAmbientAlpha = 0.72f
+private const val LibraryCardGlowSpotAlpha = 0.88f
 
 @Composable
 fun LibraryPlaylistFeatureCard(
     playlist: Playlist,
     modifier: Modifier = Modifier,
-    shape: Shape = RoundedCornerShape(26.dp),
+    shape: Shape = RoundedCornerShape(18.dp),
     autoPlaylist: Boolean = false,
     trailingContent: @Composable RowScope.() -> Unit = {},
 ) {
     val subtitleText = playlistCountText(playlist = playlist, autoPlaylist = autoPlaylist)
     val thumbnailSize = LibraryCardThumbnailSize
-    val itemCornerRadius = rememberItemCornerRadius()
-    val thumbnailShape = RoundedCornerShape(itemCornerRadius)
+    val thumbnailRadius = rememberListThumbnailCornerRadius().coerceAtLeast(8.dp)
+    val thumbnailShape = RoundedCornerShape(thumbnailRadius)
     val context = LocalContext.current
     val primaryThumbnailUrl = playlist.thumbnails.getOrNull(0)
     var extractedGlowColor by remember(primaryThumbnailUrl) { mutableStateOf(Color.Transparent) }
@@ -1128,7 +1171,7 @@ fun LibraryPlaylistFeatureCard(
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
         shape = shape,
-        modifier = modifier,
+        modifier = modifier.border(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f), shape),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -1165,21 +1208,21 @@ fun LibraryPlaylistFeatureCard(
             }
             Spacer(Modifier.width(16.dp))
             Column(
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
                 modifier = Modifier.weight(1f),
             ) {
                 Text(
                     text = playlist.playlist.name,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.Medium,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     text = subtitleText,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.5.sp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
@@ -1198,13 +1241,14 @@ fun LibraryPlaylistFeatureCard(
 fun LibraryAlbumSpotlightCard(
     album: Album,
     modifier: Modifier = Modifier,
-    shape: Shape = RoundedCornerShape(26.dp),
+    shape: Shape = RoundedCornerShape(18.dp),
     isActive: Boolean = false,
     isPlaying: Boolean = false,
     onPlay: (() -> Unit)? = null,
     trailingContent: @Composable RowScope.() -> Unit = {},
 ) {
-    val itemCornerRadius = rememberItemCornerRadius()
+    val thumbnailRadius = rememberListThumbnailCornerRadius().coerceAtLeast(8.dp)
+    val thumbnailShape = RoundedCornerShape(thumbnailRadius)
     val subtitle =
         joinByBullet(
             album.artists.joinToString { it.name },
@@ -1246,7 +1290,7 @@ fun LibraryAlbumSpotlightCard(
                         MaterialTheme.colorScheme.surfaceContainerLow
                     },
             ),
-        modifier = modifier,
+        modifier = modifier.border(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f), shape),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -1261,7 +1305,7 @@ fun LibraryAlbumSpotlightCard(
                         .size(LibraryCardThumbnailSize)
                         .shadow(
                             elevation = LibraryCardGlowElevation,
-                            shape = RoundedCornerShape(itemCornerRadius),
+                            shape = thumbnailShape,
                             clip = false,
                             ambientColor = glowColor.copy(alpha = LibraryCardGlowAmbientAlpha),
                             spotColor = glowColor.copy(alpha = LibraryCardGlowSpotAlpha),
@@ -1271,7 +1315,7 @@ fun LibraryAlbumSpotlightCard(
                     thumbnailUrl = album.album.thumbnailUrl,
                     isActive = isActive,
                     isPlaying = isPlaying,
-                    shape = RoundedCornerShape(itemCornerRadius),
+                    shape = thumbnailShape,
                     modifier = Modifier.fillMaxSize(),
                 )
                 if (onPlay != null) {
@@ -1283,26 +1327,26 @@ fun LibraryAlbumSpotlightCard(
             }
             Spacer(Modifier.width(16.dp))
             Column(
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
                 modifier = Modifier.weight(1f),
             ) {
                 Text(
                     text = album.album.title,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.Medium,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.5.sp),
                     color =
                         if (isActive) {
                             MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.78f)
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
                         },
-                    maxLines = 2,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
@@ -1321,7 +1365,7 @@ fun LibraryAlbumSpotlightCard(
 fun LibraryArtistSpotlightCard(
     artist: Artist,
     modifier: Modifier = Modifier,
-    shape: Shape = RoundedCornerShape(26.dp),
+    shape: Shape = RoundedCornerShape(18.dp),
     trailingContent: @Composable RowScope.() -> Unit = {},
 ) {
     val context = LocalContext.current
@@ -1351,7 +1395,7 @@ fun LibraryArtistSpotlightCard(
     Card(
         shape = shape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        modifier = modifier,
+        modifier = modifier.border(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f), shape),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -1382,19 +1426,19 @@ fun LibraryArtistSpotlightCard(
             }
             Spacer(Modifier.width(16.dp))
             Column(
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
                 modifier = Modifier.weight(1f),
             ) {
                 Text(
                     text = artist.artist.name,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.Medium,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     text = pluralStringResource(R.plurals.n_song, artist.songCount, artist.songCount),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.5.sp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -1420,10 +1464,10 @@ fun MediaMetadataListItem(
     isActive: Boolean = false,
     isPlaying: Boolean = false,
     shouldLoadImage: Boolean = true,
-    showDivider: Boolean = false,
     trailingContent: @Composable RowScope.() -> Unit = {},
+    showDivider: Boolean = true,
 ) {
-    val itemCornerRadius = rememberItemCornerRadius()
+    val listThumbnailRadius = rememberListThumbnailCornerRadius()
     ListItem(
         title = mediaMetadata.title,
         subtitle =
@@ -1432,11 +1476,6 @@ fun MediaMetadataListItem(
                 makeTimeString(mediaMetadata.duration * 1000L),
                 viewCountText,
             ),
-        titleBadges = {
-            if (mediaMetadata.explicit) {
-                Icon.Explicit(modifier = Modifier.padding(start = 6.dp))
-            }
-        },
         thumbnailContent = {
             ItemThumbnail(
                 thumbnailUrl = mediaMetadata.thumbnailUrl,
@@ -1445,7 +1484,7 @@ fun MediaMetadataListItem(
                 isActive = isActive,
                 isPlaying = isPlaying,
                 shouldLoadImage = shouldLoadImage,
-                shape = RoundedCornerShape(itemCornerRadius),
+                shape = RoundedCornerShape(listThumbnailRadius),
                 modifier = Modifier.size(ListThumbnailSize),
             )
         },
@@ -1468,8 +1507,6 @@ fun YouTubeListItem(
     isActive: Boolean = false,
     isPlaying: Boolean = false,
     isSwipeable: Boolean = true,
-    showExplicitBadge: Boolean = true,
-    showDivider: Boolean = true,
     trailingContent: @Composable RowScope.() -> Unit = {},
     badges: @Composable RowScope.() -> Unit = {
         val database = LocalDatabase.current
@@ -1490,9 +1527,10 @@ fun YouTubeListItem(
             Icon.Download(download?.state, percent = download?.percentDownloaded ?: -1f)
         }
     },
+    showDivider: Boolean = true,
 ) {
     val swipeEnabled by rememberPreference(SwipeToSongKey, defaultValue = false)
-    val itemCornerRadius = rememberItemCornerRadius()
+    val listThumbnailRadius = rememberListThumbnailCornerRadius()
 
     val content: @Composable () -> Unit = {
         ListItem(
@@ -1549,8 +1587,8 @@ fun YouTubeListItem(
                 },
             badges = badges,
             titleBadges = {
-                if (showExplicitBadge && item.explicit) {
-                    Icon.Explicit(modifier = Modifier.padding(start = 6.dp))
+                if (item.explicit) {
+                    Icon.Explicit()
                 }
             },
             thumbnailContent = {
@@ -1560,7 +1598,7 @@ fun YouTubeListItem(
                     isSelected = isSelected,
                     isActive = isActive,
                     isPlaying = isPlaying,
-                    shape = if (item is ArtistItem) CircleShape else RoundedCornerShape(itemCornerRadius),
+                    shape = if (item is ArtistItem) CircleShape else RoundedCornerShape(listThumbnailRadius),
                     modifier = Modifier.size(ListThumbnailSize),
                 )
             },
@@ -1590,7 +1628,6 @@ fun YouTubeGridItem(
     modifier: Modifier = Modifier,
     viewCountText: String? = null,
     coroutineScope: CoroutineScope? = null,
-    showExplicitBadge: Boolean = true,
     badges: @Composable RowScope.() -> Unit = {
         val database = LocalDatabase.current
         val song by database.song(item.id).collectAsState(initial = null)
@@ -1608,21 +1645,23 @@ fun YouTubeGridItem(
             Icon.Download(download?.state, percent = download?.percentDownloaded ?: -1f)
         }
     },
-    thumbnailRatio: Float = if (item is SongItem) 16f / 9 else 1f,
+    thumbnailRatio: Float = 1f,
     isActive: Boolean = false,
     isPlaying: Boolean = false,
     fillMaxWidth: Boolean = false,
 ) {
-    val itemCornerRadius = rememberItemCornerRadius()
+    val gridThumbnailRadius = rememberGridThumbnailCornerRadius()
     GridItem(
         title = {
             Text(
                 text = item.title,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
-                lineHeight = 20.sp,
-                color = if (isActive) MaterialTheme.colorScheme.primary else Color.Unspecified,
-                maxLines = if (item is ArtistItem) 1 else 2,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontSize = 14.5.sp,
+                    lineHeight = 19.sp,
+                ),
+                fontWeight = FontWeight.Normal,
+                color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = if (item is ArtistItem) TextAlign.Center else TextAlign.Start,
                 modifier = Modifier.fillMaxWidth(),
@@ -1668,8 +1707,12 @@ fun YouTubeGridItem(
             if (subtitle != null) {
                 Text(
                     text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontSize = 13.5.sp,
+                        lineHeight = 17.sp,
+                    ),
+                    fontWeight = FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -1677,14 +1720,12 @@ fun YouTubeGridItem(
         },
         badges = badges,
         titleBadges = {
-            if (showExplicitBadge && item.explicit) {
-                Icon.Explicit(modifier = Modifier.padding(start = 6.dp, top = 2.dp))
+            if (item.explicit) {
+                Icon.Explicit(modifier = Modifier.padding(top = 2.dp))
             }
         },
         thumbnailContent = {
-            val database = LocalDatabase.current
-            val playerConnection = LocalPlayerConnection.current ?: return@GridItem
-            val shape = if (item is ArtistItem) CircleShape else RoundedCornerShape(itemCornerRadius)
+            val shape = if (item is ArtistItem) CircleShape else RoundedCornerShape(gridThumbnailRadius)
 
             ItemThumbnail(
                 thumbnailUrl = item.thumbnail,
@@ -1692,39 +1733,6 @@ fun YouTubeGridItem(
                 isPlaying = isPlaying,
                 shape = shape,
                 thumbnailRatio = thumbnailRatio,
-            )
-
-            if ((item is SongItem && !isActive) || (item is EpisodeItem && !isActive)) {
-                OverlayPlayButton(
-                    visible = true,
-                )
-            }
-
-            AlbumPlayButton(
-                visible = item is AlbumItem && !isActive,
-                onClick = {
-                    coroutineScope?.launch(Dispatchers.IO) {
-                        var albumWithSongs = database.albumWithSongs(item.id).first()
-                        var playlistId = ""
-                        if (albumWithSongs?.songs.isNullOrEmpty()) {
-                            YouTube
-                                .album(item.id)
-                                .onSuccess { albumPage ->
-                                    playlistId = albumPage.album.playlistId
-                                    database.transaction { insert(albumPage) }
-                                    albumWithSongs = database.albumWithSongs(item.id).first()
-                                }.onFailure { reportException(it) }
-                        }
-                        albumWithSongs?.let {
-                            withContext(Dispatchers.Main) {
-                                if (playlistId.isNotEmpty()) {
-                                    playerConnection.service.getAutomix(playlistId)
-                                }
-                                playerConnection.playQueue(LocalAlbumRadio(it))
-                            }
-                        }
-                    }
-                },
             )
         },
         thumbnailRatio = thumbnailRatio,
@@ -1744,7 +1752,7 @@ fun LocalSongsGrid(
     fillMaxWidth: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
-    val itemCornerRadius = rememberItemCornerRadius()
+    val gridThumbnailRadius = rememberGridThumbnailCornerRadius()
     GridItem(
         title = title,
         subtitle = subtitle,
@@ -1755,9 +1763,9 @@ fun LocalSongsGrid(
                 thumbnailUrl = thumbnailUrl,
                 isActive = isActive,
                 isPlaying = isPlaying,
-                shape = RoundedCornerShape(itemCornerRadius),
+                shape = RoundedCornerShape(gridThumbnailRadius),
                 modifier = if (fillMaxWidth) Modifier.fillMaxWidth() else Modifier,
-                showCenterPlay = true,
+                showCenterPlay = false,
                 playButtonVisible = false,
             )
         },
@@ -1777,9 +1785,36 @@ fun LocalArtistsGrid(
     fillMaxWidth: Boolean = false,
     modifier: Modifier = Modifier,
 ) = GridItem(
-    title = title,
-    subtitle = subtitle,
-    isActive = isActive,
+    title = {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontSize = 14.5.sp,
+                lineHeight = 19.sp,
+            ),
+            fontWeight = FontWeight.Normal,
+            color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    },
+    subtitle = {
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontSize = 13.5.sp,
+                lineHeight = 17.sp,
+            ),
+            fontWeight = FontWeight.Normal,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    },
     badges = badges,
     thumbnailContent = {
         LocalThumbnail(
@@ -1807,7 +1842,7 @@ fun LocalAlbumsGrid(
     fillMaxWidth: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
-    val itemCornerRadius = rememberItemCornerRadius()
+    val gridThumbnailRadius = rememberGridThumbnailCornerRadius()
     GridItem(
         title = title,
         subtitle = subtitle,
@@ -1818,10 +1853,10 @@ fun LocalAlbumsGrid(
                 thumbnailUrl = thumbnailUrl,
                 isActive = isActive,
                 isPlaying = isPlaying,
-                shape = RoundedCornerShape(itemCornerRadius),
+                shape = RoundedCornerShape(gridThumbnailRadius),
                 modifier = if (fillMaxWidth) Modifier.fillMaxWidth() else Modifier,
                 showCenterPlay = false,
-                playButtonVisible = true,
+                playButtonVisible = false,
             )
         },
         fillMaxWidth = fillMaxWidth,
@@ -1854,19 +1889,12 @@ fun ItemThumbnail(
                 .clip(shape)
                 .then(
                     if (albumIndex == null) {
-                        Modifier.border(
-                            0.5.dp,
-                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
-                            shape,
-                        )
+                        Modifier.border(0.5.dp, appleArtworkBorderColor(), shape)
                     } else {
                         Modifier
                     }
                 ),
     ) {
-        val cropThumbnailToSquare = false
-        val isYouTubeThumb = thumbnailUrl?.contains("ytimg.com", ignoreCase = true) == true
-        val shouldApplySquareCrop = cropThumbnailToSquare && isYouTubeThumb && kotlin.math.abs(thumbnailRatio - 1f) < 0.001f
         val widthPx = if (maxWidth == Dp.Infinity) null else with(density) { maxWidth.roundToPx().coerceAtLeast(1) }
         val heightPx = if (maxHeight == Dp.Infinity) null else with(density) { maxHeight.roundToPx().coerceAtLeast(1) }
 
@@ -1876,7 +1904,7 @@ fun ItemThumbnail(
                     modifier =
                         Modifier
                             .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -1904,18 +1932,15 @@ fun ItemThumbnail(
                 AsyncImage(
                     model = request,
                     contentDescription = null,
-                    contentScale = if (shouldApplySquareCrop) ContentScale.Crop else ContentScale.Fit,
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .let { if (shouldApplySquareCrop) it.aspectRatio(1f) else it },
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
                 )
             } else if (placeholderIconRes == null) {
                 Box(
                     modifier =
                         Modifier
                             .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                 )
             }
         }
@@ -1928,7 +1953,8 @@ fun ItemThumbnail(
             ) {
                 Text(
                     text = albumIndex.toString(),
-                    style = MaterialTheme.typography.labelLarge,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -1945,10 +1971,11 @@ fun ItemThumbnail(
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(24.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary),
+                    modifier =
+                        Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary),
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.done),
@@ -1983,7 +2010,7 @@ fun ItemThumbnail(
                             if (albumIndex != null || showCircularPlay) {
                                 Color.Transparent
                             } else {
-                                Color.Black.copy(alpha = ActiveBoxAlpha)
+                                Color.Black.copy(alpha = 0.48f)
                             },
                         shape = shape,
                     ),
@@ -2011,15 +2038,8 @@ fun LocalThumbnail(
             modifier
                 .aspectRatio(thumbnailRatio)
                 .clip(shape)
-                .border(
-                    0.5.dp,
-                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
-                    shape,
-                ),
+                .border(0.5.dp, appleArtworkBorderColor(), shape),
     ) {
-        val cropThumbnailToSquare = false
-        val isYouTubeThumb = thumbnailUrl?.contains("ytimg.com", ignoreCase = true) == true
-        val shouldApplySquareCrop = cropThumbnailToSquare && isYouTubeThumb && kotlin.math.abs(thumbnailRatio - 1f) < 0.001f
         val widthPx = if (maxWidth == Dp.Infinity) null else with(density) { maxWidth.roundToPx().coerceAtLeast(1) }
         val heightPx = if (maxHeight == Dp.Infinity) null else with(density) { maxHeight.roundToPx().coerceAtLeast(1) }
         val request =
@@ -2037,8 +2057,8 @@ fun LocalThumbnail(
         AsyncImage(
             model = request,
             contentDescription = null,
-            contentScale = if (shouldApplySquareCrop) ContentScale.Crop else ContentScale.Fit,
-            modifier = Modifier.fillMaxSize().let { if (shouldApplySquareCrop) it.aspectRatio(1f) else it },
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
         )
 
         AnimatedVisibility(
@@ -2051,7 +2071,7 @@ fun LocalThumbnail(
                 modifier =
                     Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f), shape),
+                        .background(Color.Black.copy(alpha = if (isPlaying) 0.45f else 0f), shape),
             ) {
                 if (isPlaying) {
                     PlayingIndicator(
@@ -2061,16 +2081,17 @@ fun LocalThumbnail(
                 } else {
                     Box(
                         contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        modifier =
+                            Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primaryContainer),
                     ) {
                         Icon(
                             painter = painterResource(R.drawable.play),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(28.dp),
+                            modifier = Modifier.size(26.dp),
                         )
                     }
                 }
@@ -2144,7 +2165,6 @@ fun PlaylistThumbnail(
     val context = LocalContext.current
     val density = LocalDensity.current
     val sizePx = with(density) { size.roundToPx().coerceAtLeast(1) }
-    val borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)
 
     when (thumbnails.size) {
         0 -> {
@@ -2154,8 +2174,8 @@ fun PlaylistThumbnail(
                     Modifier
                         .size(size)
                         .clip(shape)
-                        .background(MaterialTheme.colorScheme.surfaceContainer)
-                        .border(0.5.dp, borderColor, shape),
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                        .border(0.5.dp, appleArtworkBorderColor(), shape),
             ) {
                 placeHolder()
             }
@@ -2179,7 +2199,7 @@ fun PlaylistThumbnail(
                     Modifier
                         .size(size)
                         .clip(shape)
-                        .border(0.5.dp, borderColor, shape),
+                        .border(0.5.dp, appleArtworkBorderColor(), shape),
             )
         }
 
@@ -2189,7 +2209,7 @@ fun PlaylistThumbnail(
                     Modifier
                         .size(size)
                         .clip(shape)
-                        .border(0.5.dp, borderColor, shape),
+                        .border(0.5.dp, appleArtworkBorderColor(), shape),
             ) {
                 listOf(
                     Alignment.TopStart,
@@ -2352,9 +2372,7 @@ fun SwipeToSongBox(
             Box(
                 modifier =
                     Modifier
-                        .fillMaxWidth()
-                        .height(60.dp)
-                        .align(Alignment.Center)
+                        .matchParentSize()
                         .background(bg),
                 contentAlignment = align,
             ) {
@@ -2364,7 +2382,7 @@ fun SwipeToSongBox(
                     modifier =
                         Modifier
                             .padding(horizontal = 24.dp)
-                            .size(30.dp)
+                            .size(28.dp)
                             .alpha(0.9f),
                     tint = tint,
                 )
@@ -2411,7 +2429,7 @@ private object Icon {
             tint = MaterialTheme.colorScheme.error,
             modifier =
                 Modifier
-                    .size(18.dp)
+                    .size(14.dp)
                     .padding(end = 2.dp),
         )
     }
@@ -2421,9 +2439,10 @@ private object Icon {
         Icon(
             painter = painterResource(R.drawable.library_add_check),
             contentDescription = null,
+            tint = LocalContentColor.current.copy(alpha = 0.85f),
             modifier =
                 Modifier
-                    .size(18.dp)
+                    .size(14.dp)
                     .padding(end = 2.dp),
         )
     }
@@ -2438,9 +2457,10 @@ private object Icon {
                 Icon(
                     painter = painterResource(R.drawable.offline),
                     contentDescription = null,
+                    tint = LocalContentColor.current.copy(alpha = 0.85f),
                     modifier =
                         Modifier
-                            .size(18.dp)
+                            .size(14.dp)
                             .padding(end = 2.dp),
                 )
             }
@@ -2450,14 +2470,14 @@ private object Icon {
                     Box(contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(
                             progress = { percent / 100f },
-                            modifier = Modifier.size(20.dp),
+                            modifier = Modifier.size(18.dp),
                             strokeWidth = 2.dp,
                             trackColor = MaterialTheme.colorScheme.outlineVariant,
                         )
                         Text(
                             text = "${percent.toInt()}%",
                             style = MaterialTheme.typography.labelSmall,
-                            fontSize = 8.sp,
+                            fontSize = 7.sp,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                     }
@@ -2465,7 +2485,7 @@ private object Icon {
                     CircularWavyProgressIndicator(
                         modifier =
                             Modifier
-                                .size(16.dp)
+                                .size(14.dp)
                                 .padding(end = 2.dp),
                     )
                 }
@@ -2480,7 +2500,8 @@ private object Icon {
         Icon(
             painter = painterResource(R.drawable.explicit),
             contentDescription = null,
-            modifier = modifier.size(16.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+            modifier = modifier.size(15.dp),
         )
     }
 }
@@ -2491,11 +2512,11 @@ fun SmallGridItem(
     title: String,
     subtitle: String? = null,
     isActive: Boolean = false,
-    titleBadges: @Composable RowScope.() -> Unit = {},
     thumbnailContent: @Composable BoxWithConstraintsScope.() -> Unit,
     thumbnailShape: Shape,
     thumbnailRatio: Float = 1f,
     isArtist: Boolean? = false,
+    titleBadges: @Composable RowScope.() -> Unit = {},
 ) {
     Column(
         verticalArrangement = Arrangement.Center,
@@ -2503,57 +2524,56 @@ fun SmallGridItem(
         modifier =
             modifier
                 .fillMaxHeight()
-                .width(GridThumbnailHeight * thumbnailRatio)
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+                .padding(horizontal = 8.dp, vertical = 10.dp)
+                .width(SmallGridThumbnailHeight * thumbnailRatio),
     ) {
         BoxWithConstraints(
             modifier =
                 Modifier
                     .height(SmallGridThumbnailHeight)
                     .aspectRatio(thumbnailRatio)
-                    .clip(thumbnailShape)
-                    .border(
-                        0.5.dp,
-                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
-                        thumbnailShape,
-                    ),
+                    .clip(thumbnailShape),
         ) {
             thumbnailContent()
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(7.dp))
 
         Column(
             horizontalAlignment = if (isArtist == true) Alignment.CenterHorizontally else Alignment.Start,
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-            modifier = Modifier.width(SmallGridThumbnailHeight),
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxWidth(),
         ) {
             Row(
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (isActive) MaterialTheme.colorScheme.primary else Color.Unspecified,
-                    maxLines = 1,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontSize = 13.5.sp,
+                        lineHeight = 17.sp,
+                    ),
+                    fontWeight = FontWeight.Normal,
+                    color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     textAlign = if (isArtist == true) TextAlign.Center else TextAlign.Start,
-                    modifier =
-                        Modifier
-                            .weight(1f)
-                            .basicMarquee(),
+                    modifier = Modifier.weight(1f),
                 )
-                CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant) {
-                    titleBadges()
-                }
+                titleBadges()
             }
             if (!subtitle.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(1.dp))
                 Text(
                     text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 12.5.sp,
+                        lineHeight = 16.sp,
+                    ),
+                    fontWeight = FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     textAlign = if (isArtist == true) TextAlign.Center else TextAlign.Start,
@@ -2569,11 +2589,10 @@ fun SongSmallGridItem(
     song: Song,
     modifier: Modifier = Modifier,
     viewCountText: String? = null,
-    isExplicit: Boolean = false,
     isActive: Boolean = false,
     isPlaying: Boolean = false,
 ) {
-    val itemCornerRadius = rememberItemCornerRadius()
+    val thumbShape = RoundedCornerShape(rememberGridThumbnailCornerRadius())
     val subtitle = joinByBullet(
         song.artists.joinToString { it.name },
         viewCountText,
@@ -2582,11 +2601,6 @@ fun SongSmallGridItem(
         title = song.song.title,
         subtitle = subtitle,
         isActive = isActive,
-        titleBadges = {
-            if (isExplicit) {
-                Icon.Explicit(modifier = Modifier.padding(start = 4.dp))
-            }
-        },
         thumbnailContent = {
             AsyncImage(
                 model = song.song.thumbnailUrl,
@@ -2595,7 +2609,8 @@ fun SongSmallGridItem(
                 modifier =
                     Modifier
                         .fillMaxSize()
-                        .clip(RoundedCornerShape(itemCornerRadius)),
+                        .clip(thumbShape)
+                        .border(0.5.dp, appleArtworkBorderColor(), thumbShape),
             )
 
             AnimatedVisibility(
@@ -2609,60 +2624,36 @@ fun SongSmallGridItem(
                         Modifier
                             .fillMaxSize()
                             .background(
-                                color = Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f),
-                                shape = RoundedCornerShape(itemCornerRadius),
+                                color = Color.Black.copy(alpha = if (isPlaying) 0.45f else 0f),
+                                shape = thumbShape,
                             ),
                 ) {
                     if (isPlaying) {
                         PlayingIndicator(
                             color = Color.White,
-                            modifier = Modifier.height(24.dp),
+                            modifier = Modifier.height(22.dp),
                         )
                     } else {
                         Box(
                             contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            modifier =
+                                Modifier
+                                    .size(44.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primaryContainer),
                         ) {
                             Icon(
                                 painter = painterResource(R.drawable.play),
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(28.dp),
+                                modifier = Modifier.size(26.dp),
                             )
                         }
                     }
                 }
             }
-
-            AnimatedVisibility(
-                visible = !isActive,
-                enter = fadeIn(),
-                exit = fadeOut(),
-                modifier =
-                    Modifier
-                        .align(Alignment.Center)
-                        .padding(8.dp),
-            ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier =
-                        Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(Color.Black.copy(alpha = 0.6f)),
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.play),
-                        contentDescription = null,
-                        tint = Color.White,
-                    )
-                }
-            }
         },
-        thumbnailShape = RoundedCornerShape(itemCornerRadius),
+        thumbnailShape = thumbShape,
         modifier = modifier,
     )
 }
@@ -2678,7 +2669,11 @@ fun ArtistSmallGridItem(
             model = artist.artist.thumbnailUrl,
             contentDescription = null,
             contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .clip(CircleShape)
+                    .border(0.5.dp, appleArtworkBorderColor(), CircleShape),
         )
     },
     thumbnailShape = CircleShape,
@@ -2693,7 +2688,7 @@ fun AlbumSmallGridItem(
     isActive: Boolean = false,
     isPlaying: Boolean = false,
 ) {
-    val itemCornerRadius = rememberItemCornerRadius()
+    val thumbShape = RoundedCornerShape(rememberGridThumbnailCornerRadius())
     song.song.albumName?.let {
         SmallGridItem(
             title = it,
@@ -2703,7 +2698,11 @@ fun AlbumSmallGridItem(
                     model = song.song.thumbnailUrl,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .clip(thumbShape)
+                            .border(0.5.dp, appleArtworkBorderColor(), thumbShape),
                 )
 
                 AnimatedVisibility(
@@ -2717,35 +2716,36 @@ fun AlbumSmallGridItem(
                             Modifier
                                 .fillMaxSize()
                                 .background(
-                                    color = Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f),
-                                    shape = RoundedCornerShape(itemCornerRadius),
+                                    color = Color.Black.copy(alpha = if (isPlaying) 0.45f else 0f),
+                                    shape = thumbShape,
                                 ),
                     ) {
                         if (isPlaying) {
                             PlayingIndicator(
                                 color = Color.White,
-                                modifier = Modifier.height(24.dp),
+                                modifier = Modifier.height(22.dp),
                             )
                         } else {
                             Box(
                                 contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                                modifier =
+                                    Modifier
+                                        .size(44.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.primaryContainer),
                             ) {
                                 Icon(
                                     painter = painterResource(R.drawable.play),
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.size(28.dp),
+                                    modifier = Modifier.size(26.dp),
                                 )
                             }
                         }
                     }
                 }
             },
-            thumbnailShape = RoundedCornerShape(itemCornerRadius),
+            thumbnailShape = thumbShape,
             modifier = modifier,
         )
     }
@@ -2757,12 +2757,12 @@ fun YouTubeSmallGridItem(
     modifier: Modifier = Modifier,
     viewCountText: String? = null,
     coroutineScope: CoroutineScope? = null,
-    showExplicitBadge: Boolean = true,
     isActive: Boolean = false,
     isPlaying: Boolean = false,
     fillMaxWidth: Boolean = false,
 ) {
-    val itemCornerRadius = rememberItemCornerRadius()
+    val gridThumbnailRadius = rememberGridThumbnailCornerRadius()
+    val thumbShape = if (item is ArtistItem) CircleShape else RoundedCornerShape(gridThumbnailRadius)
     val subtitle = when (item) {
         is SongItem -> {
             val rawViews = item.views ?: (if (item.chartPosition != null) "#${item.chartPosition}" else null) ?: item.chartChange ?: viewCountText
@@ -2798,8 +2798,8 @@ fun YouTubeSmallGridItem(
         subtitle = subtitle,
         isActive = isActive,
         titleBadges = {
-            if (showExplicitBadge && item.explicit) {
-                Icon.Explicit(modifier = Modifier.padding(start = 4.dp))
+            if (item.explicit) {
+                Icon.Explicit(modifier = Modifier.padding(top = 1.dp))
             }
         },
         thumbnailContent = {
@@ -2810,7 +2810,8 @@ fun YouTubeSmallGridItem(
                 modifier =
                     Modifier
                         .fillMaxSize()
-                        .clip(if (item is ArtistItem) CircleShape else RoundedCornerShape(itemCornerRadius)),
+                        .clip(thumbShape)
+                        .border(0.5.dp, appleArtworkBorderColor(), thumbShape),
             )
             if (item is SongItem || item is EpisodeItem) {
                 AnimatedVisibility(
@@ -2824,61 +2825,37 @@ fun YouTubeSmallGridItem(
                             Modifier
                                 .fillMaxSize()
                                 .background(
-                                    color = Color.Black.copy(alpha = if (isPlaying) 0.4f else 0f),
-                                    shape = RoundedCornerShape(itemCornerRadius),
+                                    color = Color.Black.copy(alpha = if (isPlaying) 0.45f else 0f),
+                                    shape = thumbShape,
                                 ),
                     ) {
                         if (isPlaying) {
                             PlayingIndicator(
                                 color = Color.White,
-                                modifier = Modifier.height(24.dp),
+                                modifier = Modifier.height(22.dp),
                             )
                         } else {
                             Box(
                                 contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                                modifier =
+                                    Modifier
+                                        .size(44.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.primaryContainer),
                             ) {
                                 Icon(
                                     painter = painterResource(R.drawable.play),
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.size(28.dp),
+                                    modifier = Modifier.size(26.dp),
                                 )
                             }
                         }
                     }
                 }
-
-                AnimatedVisibility(
-                    visible = !isActive,
-                    enter = fadeIn(),
-                    exit = fadeOut(),
-                    modifier =
-                        Modifier
-                            .align(Alignment.Center)
-                            .padding(8.dp),
-                ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier =
-                            Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(Color.Black.copy(alpha = 0.6f)),
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.play),
-                            contentDescription = null,
-                            tint = Color.White,
-                        )
-                    }
-                }
             }
         },
-        thumbnailShape = if (item is ArtistItem) CircleShape else RoundedCornerShape(itemCornerRadius),
+        thumbnailShape = thumbShape,
         modifier = modifier,
         isArtist = item is ArtistItem,
     )
