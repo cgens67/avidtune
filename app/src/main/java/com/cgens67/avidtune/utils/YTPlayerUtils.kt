@@ -35,6 +35,7 @@ object YTPlayerUtils {
         val streamUrl: String,
         val streamExpiresInSeconds: Int,
         val clientName: String = "",
+        val musicVideoType: String? = null,
     )
 
     val AVAILABLE_CLIENTS = mapOf(
@@ -172,7 +173,8 @@ object YTPlayerUtils {
             format = chosenFormat,
             streamUrl = chosenStreamUrl,
             streamExpiresInSeconds = chosenExpiresInSeconds ?: 21600,
-            clientName = chosenClientName
+            clientName = chosenClientName,
+            musicVideoType = successfulResponse.videoDetails?.musicVideoType,
         )
     }
 
@@ -229,8 +231,8 @@ object YTPlayerUtils {
         audioQuality: AudioQuality,
         connectivityManager: ConnectivityManager?,
     ): List<PlayerResponse.StreamingData.Format> {
-        val formats = (playerResponse.streamingData?.adaptiveFormats.orEmpty() + 
-                       playerResponse.streamingData?.formats.orEmpty())
+        val formats = (playerResponse.streamingData?.adaptiveFormats.orEmpty() +
+            playerResponse.streamingData?.formats.orEmpty())
             .filter { it.isAudio || it.audioSampleRate != null || (it.bitrate > 0 && it.width == null) }
             .ifEmpty { return emptyList() }
 

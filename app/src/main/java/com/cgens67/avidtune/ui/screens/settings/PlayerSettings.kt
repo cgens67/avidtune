@@ -89,6 +89,7 @@ import com.cgens67.avidtune.constants.AutoSkipNextOnErrorKey
 import com.cgens67.avidtune.constants.PersistentQueueKey
 import com.cgens67.avidtune.constants.PlaybackClientOrderKey
 import com.cgens67.avidtune.constants.SeekIncrementKey
+import com.cgens67.avidtune.constants.ShowMusicVideosKey
 import com.cgens67.avidtune.constants.SkipSilenceKey
 import com.cgens67.avidtune.constants.SponsorBlockEnabledKey
 import com.cgens67.avidtune.constants.StopMusicOnTaskClearKey
@@ -119,6 +120,10 @@ fun PlayerSettings(
     val (audioQuality, onAudioQualityChange) = rememberEnumPreference(
         AudioQualityKey,
         defaultValue = AudioQuality.AUTO
+    )
+    val (showMusicVideos, onShowMusicVideosChange) = rememberPreference(
+        ShowMusicVideosKey,
+        defaultValue = true
     )
     val (seekIncrement, onSeekIncrementChange) = rememberPreference(
         SeekIncrementKey,
@@ -209,6 +214,15 @@ fun PlayerSettings(
                                 AudioQuality.LOW -> stringResource(R.string.audio_quality_low)
                             }
                         }
+                    )
+                },
+                {
+                    SwitchPreference(
+                        title = { Text(stringResource(R.string.show_music_videos)) },
+                        description = stringResource(R.string.show_music_videos_desc),
+                        icon = { Icon(painterResource(R.drawable.play), null) },
+                        checked = showMusicVideos,
+                        onCheckedChange = onShowMusicVideosChange
                     )
                 },
                 {

@@ -235,6 +235,8 @@ fun PlayerV3(
     state: BottomSheetState,
     navController: NavController,
     onOpenFullscreenLyrics: () -> Unit,
+    onOpenFullscreenVideo: () -> Unit = {},
+    onOpenVideoQuality: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -344,12 +346,31 @@ fun PlayerV3(
             horizontalArrangement = Arrangement.spacedBy(28.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
+            BoxWithConstraints(
                 modifier = Modifier
                     .weight(0.95f)
                     .fillMaxHeight(),
                 contentAlignment = Alignment.Center
             ) {
+                val showsVideo = rememberShowsMusicVideo(mediaMetadata)
+                val videoAspect by MusicVideoEngine.aspect.collectAsState()
+                val animatedAspect by animateFloatAsState(
+                    targetValue = if (showsVideo) videoAspect.coerceAtLeast(0.5f) else 1f,
+                    animationSpec = tween(durationMillis = 300),
+                    label = "v3LandscapeAspect"
+                )
+                val maxBoxHeight = maxHeight * 0.9f
+                val (boxW, boxH) = if (showsVideo) {
+                    if (maxWidth / animatedAspect <= maxBoxHeight) {
+                        maxWidth to (maxWidth / animatedAspect)
+                    } else {
+                        (maxBoxHeight * animatedAspect) to maxBoxHeight
+                    }
+                } else {
+                    val square = minOf(maxWidth, maxBoxHeight)
+                    square to square
+                }
+
                 ArtworkWithGestureBox(
                     mediaMetadata = mediaMetadata,
                     coverResolution = coverResolution,
@@ -373,7 +394,9 @@ fun PlayerV3(
                         seekDirectionText = "+${playerConnection.seekIncrementMs / 1000}s"
                         showSeekFeedback = true
                     },
-                    modifier = Modifier.fillMaxHeight(0.9f).aspectRatio(1f)
+                    onOpenFullscreenVideo = onOpenFullscreenVideo,
+                    onOpenVideoQuality = onOpenVideoQuality,
+                    modifier = Modifier.size(width = boxW, height = boxH)
                 )
             }
 
@@ -573,12 +596,20 @@ fun PlayerV3(
                 }
             }
 
+            val showsVideo = rememberShowsMusicVideo(mediaMetadata)
+            val videoAspect by MusicVideoEngine.aspect.collectAsState()
+            val animatedAspect by animateFloatAsState(
+                targetValue = if (showsVideo) videoAspect.coerceAtLeast(1f) else 1f,
+                animationSpec = tween(durationMillis = 300),
+                label = "v3PortraitAspect"
+            )
+
             // Artwork Section
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1.25f, fill = false)
-                    .aspectRatio(1f),
+                    .aspectRatio(animatedAspect),
                 contentAlignment = Alignment.Center
             ) {
                 ArtworkWithGestureBox(
@@ -604,6 +635,8 @@ fun PlayerV3(
                         seekDirectionText = "+${playerConnection.seekIncrementMs / 1000}s"
                         showSeekFeedback = true
                     },
+                    onOpenFullscreenVideo = onOpenFullscreenVideo,
+                    onOpenVideoQuality = onOpenVideoQuality,
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -715,12 +748,21 @@ private fun ArtworkWithGestureBox(
     onSwipeNext: () -> Unit,
     onDoubleTapRewind: () -> Unit,
     onDoubleTapForward: () -> Unit,
+    onOpenFullscreenVideo: () -> Unit = {},
+    onOpenVideoQuality: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val showsVideo = rememberShowsMusicVideo(mediaMetadata)
+    var videoRendered by remember(mediaMetadata?.id) { mutableStateOf(false) }
+
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(thumbnailCornerRadius.dp))
-            .background(if (isAppleMusicStyle) Color.Transparent else adaptiveSurface)
+            .background(
+                if (showsVideo) Color.Black
+                else if (isAppleMusicStyle) Color.Transparent
+                else adaptiveSurface
+            )
             .pointerInput(Unit) {
                 detectTapGestures(
                     onTap = { onOpenFullscreenLyrics() },
@@ -740,7 +782,12 @@ private fun ArtworkWithGestureBox(
             ),
         contentAlignment = Alignment.Center
     ) {
-        if (!isAppleMusicStyle) {
+        if (isAppleMusicStyle && showsVideo && !videoRendered) {
+            VideoLoadingBackdrop(
+                modifier = Modifier.fillMaxSize(),
+                videoId = mediaMetadata?.id,
+            )
+        } else if (!isAppleMusicStyle) {
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(mediaMetadata?.thumbnailUrl?.resize(coverResolution.size, coverResolution.size))
@@ -751,6 +798,25 @@ private fun ArtworkWithGestureBox(
                 contentDescription = stringResource(R.string.cover_art),
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
+            )
+        }
+
+        if (showsVideo && mediaMetadata != null) {
+            AndroidMusicVideo(
+                videoId = mediaMetadata.id,
+                fit = true,
+                onRenderedChanged = { videoRendered = it },
+                modifier = Modifier.fillMaxSize(),
+                priority = 1,
+                showLoadingOverlay = !isAppleMusicStyle,
+            )
+            VideoCornerControls(
+                fullscreen = false,
+                onToggleFullscreen = onOpenFullscreenVideo,
+                onOpenQuality = onOpenVideoQuality,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(12.dp),
             )
         }
 

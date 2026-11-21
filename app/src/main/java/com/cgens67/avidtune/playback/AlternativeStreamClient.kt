@@ -18,6 +18,15 @@ data class AlternativeStreamData(
     val contentLength: Long = 0L,
 )
 
+data class AlternativeVideoStreamData(
+    val streamUrl: String,
+    val clientName: String,
+    val width: Int,
+    val height: Int,
+    val mimeType: String,
+    val availableHeights: List<Int>,
+)
+
 object AlternativeStreamClient {
     private const val TAG = "AlternativeStream"
 
@@ -201,6 +210,126 @@ object AlternativeStreamClient {
         return null
     }
 
-    // Retained for backward compatibility if called elsewhere
+    fun getVideoStreamData(videoId: String, maxHeight: Int): AlternativeVideoStreamData? {
+        data class Candidate(
+            val url: String,
+            val width: Int,
+            val height: Int,
+            val mimeType: String,
+            val videoOnly: Boolean,
+        )
+
+        fun pickCandidate(candidates: List<Candidate>, sourceName: String): AlternativeVideoStreamData? {
+            if (candidates.isEmpty()) return null
+            val heights = candidates.map { it.height }.filter { it > 0 }.distinct().sortedDescending()
+            val targetHeight = heights.filter { it <= maxHeight }.maxOrNull() ?: heights.minOrNull() ?: return null
+            val chosen = candidates.filter { it.height == targetHeight }.maxByOrNull { c ->
+                val videoOnlyScore = if (c.videoOnly) 1000 else 0
+                val mime = c.mimeType.lowercase()
+                val codecScore = if (maxHeight <= 1080) {
+                    when {
+                        "mp4" in mime || "avc1" in mime -> 300
+                        "vp9" in mime || "webm" in mime -> 200
+                        else -> 100
+                    }
+                } else {
+                    when {
+                        "vp9" in mime || "webm" in mime -> 300
+                        "mp4" in mime -> 200
+                        else -> 100
+                    }
+                }
+                videoOnlyScore + codecScore
+            } ?: return null
+
+            return AlternativeVideoStreamData(
+                streamUrl = chosen.url,
+                clientName = sourceName,
+                width = chosen.width,
+                height = chosen.height,
+                mimeType = chosen.mimeType,
+                availableHeights = heights,
+            )
+        }
+
+        for (instance in PIPED_INSTANCES) {
+            val url = "$instance/streams/$videoId"
+            try {
+                val request = Request.Builder()
+                    .url(url)
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                    .build()
+
+                httpClient.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) return@use
+                    val body = response.body?.string() ?: return@use
+                    val json = JSONObject(body)
+                    val videoStreams = json.optJSONArray("videoStreams") ?: return@use
+                    val candidates = buildList {
+                        for (i in 0 until videoStreams.length()) {
+                            val s = videoStreams.getJSONObject(i)
+                            val streamUrl = s.optString("url")
+                            val mime = s.optString("mimeType", "video/mp4")
+                            val h = s.optInt("height", 0).takeIf { it > 0 }
+                                ?: Regex("""(\d+)p""").find(s.optString("quality"))?.groupValues?.get(1)?.toIntOrNull()
+                                ?: 0
+                            val w = s.optInt("width", 0).takeIf { it > 0 } ?: (h * 16 / 9)
+                            if (streamUrl.isNotBlank() && h > 0 && mime.startsWith("video/", ignoreCase = true)) {
+                                add(Candidate(streamUrl, w, h, mime, s.optBoolean("videoOnly", true)))
+                            }
+                        }
+                    }
+                    val host = runCatching { URI(instance).host }.getOrNull() ?: instance
+                    pickCandidate(candidates, "Piped ($host)")?.let { return it }
+                }
+            } catch (e: Exception) {
+                Timber.tag(TAG).w(e, "[Piped Video] Connection to $instance failed: ${e.message}")
+            }
+        }
+
+        for (instance in INVIDIOUS_INSTANCES) {
+            val url = "$instance/api/v1/videos/$videoId?local=true"
+            try {
+                val request = Request.Builder()
+                    .url(url)
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                    .build()
+
+                httpClient.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) return@use
+                    val body = response.body?.string() ?: return@use
+                    val json = JSONObject(body)
+                    if (json.has("error")) return@use
+                    val adaptiveFormats = json.optJSONArray("adaptiveFormats") ?: return@use
+                    val candidates = buildList {
+                        for (i in 0 until adaptiveFormats.length()) {
+                            val f = adaptiveFormats.getJSONObject(i)
+                            val type = f.optString("type", "")
+                            if (!type.startsWith("video/", ignoreCase = true)) continue
+                            var streamUrl = f.optString("url")
+                            if (streamUrl.isBlank()) continue
+                            if (streamUrl.startsWith("/")) streamUrl = "$instance$streamUrl"
+                            val sizeParts = f.optString("size").split("x")
+                            val parsedW = sizeParts.getOrNull(0)?.toIntOrNull() ?: 0
+                            val parsedH = sizeParts.getOrNull(1)?.toIntOrNull()
+                                ?: Regex("""(\d+)p""").find(f.optString("qualityLabel"))?.groupValues?.get(1)?.toIntOrNull()
+                                ?: 0
+                            val w = if (parsedW > 0) parsedW else (parsedH * 16 / 9)
+                            if (parsedH > 0) {
+                                add(Candidate(streamUrl, w, parsedH, type, true))
+                            }
+                        }
+                    }
+                    val host = runCatching { URI(instance).host }.getOrNull() ?: instance
+                    pickCandidate(candidates, "Invidious ($host)")?.let { return it }
+                }
+            } catch (e: Exception) {
+                Timber.tag(TAG).w(e, "[Invidious Video] Connection to $instance failed: ${e.message}")
+            }
+        }
+
+        return null
+    }
+
     fun getStreamingUrl(videoId: String): String? = getStreamData(videoId)?.streamUrl
 }

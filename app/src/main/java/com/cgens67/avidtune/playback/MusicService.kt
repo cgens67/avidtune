@@ -105,6 +105,7 @@ import com.cgens67.avidtune.models.toMediaMetadata
 import com.cgens67.avidtune.playback.queues.EmptyQueue
 import com.cgens67.avidtune.playback.queues.Queue
 import com.cgens67.avidtune.playback.queues.YouTubeQueue
+import com.cgens67.avidtune.ui.player.MusicVideoEngine
 import com.cgens67.avidtune.playback.queues.filterExplicit
 import com.cgens67.avidtune.together.TogetherManager
 import com.cgens67.avidtune.together.TogetherRoomSettings
@@ -743,7 +744,8 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         } ?: return
 
         val currentDbFormat = database.format(mediaId).first()
-        val needsMetadata = song?.song?.duration == -1 || currentDbFormat?.loudnessDb == null
+        val needsVideoType = playbackData == null && mediaId !in MusicVideoEngine.detectedVideoIds.value
+        val needsMetadata = song?.song?.duration == -1 || currentDbFormat?.loudnessDb == null || needsVideoType
         val metadataResponse = if (needsMetadata) {
             YTPlayerUtils.playerResponseForMetadata(mediaId).getOrNull()
         } else null
@@ -752,6 +754,10 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             ?: mediaMetadata.duration.takeIf { it != -1 }
             ?: (playbackData?.videoDetails ?: metadataResponse?.videoDetails)?.lengthSeconds?.toInt()
             ?: -1
+
+        val resolvedVideoType = playbackData?.musicVideoType
+            ?: metadataResponse?.videoDetails?.musicVideoType
+        MusicVideoEngine.onVideoTypeResolved(mediaId, resolvedVideoType)
 
         val loudnessDb = playbackData?.audioConfig?.loudnessDb
             ?: metadataResponse?.playerConfig?.audioConfig?.loudnessDb
@@ -1372,6 +1378,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
 
                 val streamUrl = playbackData.streamUrl
                 currentPlaybackClient.value = playbackData.clientName
+                MusicVideoEngine.onVideoTypeResolved(mediaId, playbackData.musicVideoType)
                 songUrlCache[mediaId] = streamUrl to System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L)
                 return@Factory dataSpec.withUri(streamUrl.toUri())
             } catch (e: Exception) {

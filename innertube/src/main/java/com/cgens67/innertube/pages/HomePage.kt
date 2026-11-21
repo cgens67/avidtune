@@ -13,10 +13,11 @@ import com.cgens67.innertube.models.PlaylistItem
 import com.cgens67.innertube.models.PodcastItem
 import com.cgens67.innertube.models.SectionListRenderer
 import com.cgens67.innertube.models.SongItem
+import com.cgens67.innertube.models.WatchEndpoint.WatchEndpointMusicSupportedConfigs.WatchEndpointMusicConfig.Companion.MUSIC_VIDEO_TYPE_OMV
 import com.cgens67.innertube.models.YTItem
-import com.cgens67.innertube.models.splitBySeparator
 import com.cgens67.innertube.models.filterExplicit
 import com.cgens67.innertube.models.filterVideoSongs
+import com.cgens67.innertube.models.splitBySeparator
 import com.cgens67.innertube.utils.parseTime
 import timber.log.Timber
 
@@ -119,6 +120,13 @@ data class HomePage(
                     ?.splitBySeparator()
                     ?: return null
 
+                val resolvedMusicVideoType = renderer.musicVideoType
+                    ?: if (!renderer.isEpisode && renderer.thumbnail?.isNotSquare() == true) {
+                        MUSIC_VIDEO_TYPE_OMV
+                    } else {
+                        null
+                    }
+
                 return SongItem(
                     id = renderer.videoId ?: return null,
                     title =
@@ -147,6 +155,7 @@ data class HomePage(
                             ?.firstOrNull()
                             ?.text
                             ?.parseTime(),
+                    musicVideoType = resolvedMusicVideoType,
                     thumbnail = renderer.thumbnail?.getThumbnailUrl() ?: return null,
                     explicit = renderer.badges?.find {
                         it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
@@ -166,6 +175,12 @@ data class HomePage(
                                 ?.text ?: return null
                         val videoId = renderer.navigationEndpoint.watchEndpoint?.videoId ?: return null
                         val artists = PageHelper.extractArtists(subtitleRuns)
+                        val resolvedMusicVideoType = renderer.musicVideoType
+                            ?: if (!renderer.isEpisode && renderer.thumbnailRenderer.isNotSquare()) {
+                                MUSIC_VIDEO_TYPE_OMV
+                            } else {
+                                null
+                            }
 
                         SongItem(
                             id = videoId,
@@ -180,6 +195,7 @@ data class HomePage(
                                 )
                             },
                             duration = null,
+                            musicVideoType = resolvedMusicVideoType,
                             thumbnail = renderer.thumbnailRenderer.getThumbnailUrl()
                                 ?: return null,
                             explicit = renderer.subtitleBadges?.any {

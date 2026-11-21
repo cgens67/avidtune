@@ -1,6 +1,8 @@
 package com.cgens67.avidtune.ui.player
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -25,17 +27,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastForEach
 import androidx.media3.common.C
 import androidx.media3.common.Player
-import coil.compose.AsyncImage
 import coil.compose.SubcomposeAsyncImage
 import coil.request.CachePolicy
 import coil.request.ImageRequest
@@ -57,6 +56,8 @@ fun Thumbnail(
     modifier: Modifier = Modifier,
     isPlayerExpanded: Boolean = true,
     isLandscape: Boolean = false,
+    onOpenFullscreenVideo: () -> Unit = {},
+    onOpenVideoQuality: () -> Unit = {},
 ) {
     val playerConnection = LocalPlayerConnection.current ?: return
     val context = LocalContext.current
@@ -90,6 +91,15 @@ fun Thumbnail(
         PlayerBackgroundStyle.DEFAULT -> MaterialTheme.colorScheme.onBackground
         else -> Color.White
     }
+
+    val showsVideo = rememberShowsMusicVideo(mediaMetadata)
+    val videoAspect by MusicVideoEngine.aspect.collectAsState()
+    val animatedVideoAspect by animateFloatAsState(
+        targetValue = if (showsVideo) videoAspect.coerceAtLeast(0.5f) else 1f,
+        animationSpec = tween(durationMillis = 300),
+        label = "thumbnailVideoAspect",
+    )
+    var videoRendered by remember(mediaMetadata?.id) { mutableStateOf(false) }
 
     val thumbnailLazyGridState = rememberLazyGridState()
 
@@ -190,6 +200,7 @@ fun Thumbnail(
                     contentAlignment = Alignment.Center
                 ) {
                     val size = maxWidth - PlayerHorizontalPadding * 2
+                    val containerMaxHeight = maxHeight
 
                     LazyHorizontalGrid(
                         rows = GridCells.Fixed(1),
@@ -198,7 +209,15 @@ fun Thumbnail(
                         userScrollEnabled = swipeThumbnail && isPlayerExpanded,
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        items(mediaItems) { item ->
+                        itemsIndexed(
+                            items = mediaItems,
+                            key = { index, item ->
+                                "${item.mediaId}_${mediaItems.subList(0, index).count { it.mediaId == item.mediaId }}"
+                            },
+                        ) { index, item ->
+                            val isCurrentItem = index == currentMediaIndex && item.mediaId == mediaMetadata?.id
+                            val showVideoOverlay = isCurrentItem && showsVideo
+
                             Box(
                                 modifier = Modifier
                                     .width(maxWidth)
@@ -221,38 +240,74 @@ fun Thumbnail(
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
-                                if (isAppleMusicStyle) {
-                                    // CARÁTULA OCULTA
+                                val boxModifier = if (showVideoOverlay) {
+                                    val clampedHeight = (size / animatedVideoAspect).coerceAtMost(containerMaxHeight)
+                                    val clampedWidth = (clampedHeight * animatedVideoAspect).coerceAtMost(size)
+                                    Modifier.width(clampedWidth).height(clampedHeight)
+                                } else {
+                                    Modifier.size(size)
+                                }
+
+                                if (isAppleMusicStyle && !showVideoOverlay) {
                                     Box(modifier = Modifier.size(size))
                                 } else {
                                     Box(
-                                        modifier = Modifier
-                                            .size(size)
+                                        modifier = boxModifier
                                             .clip(RoundedCornerShape(thumbnailCornerRadius.dp * 2))
-                                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                                            .background(
+                                                if (showVideoOverlay) Color.Black
+                                                else MaterialTheme.colorScheme.surfaceVariant
+                                            )
                                     ) {
-                                        SubcomposeAsyncImage(
-                                            model = ImageRequest.Builder(LocalContext.current)
-                                                .data(item.mediaMetadata.artworkUri?.toString()?.resize(coverResolution.size, coverResolution.size))
-                                                .memoryCachePolicy(CachePolicy.ENABLED)
-                                                .diskCachePolicy(CachePolicy.ENABLED)
-                                                .networkCachePolicy(CachePolicy.ENABLED)
-                                                .crossfade(true)
-                                                .build(),
-                                            contentDescription = null,
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier.fillMaxSize(),
-                                            loading = {
-                                                Box(
-                                                    modifier = Modifier.fillMaxSize(),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    CircularWavyProgressIndicator(
-                                                        color = MaterialTheme.colorScheme.primary
-                                                    )
+                                        if (isAppleMusicStyle && showVideoOverlay && !videoRendered) {
+                                            VideoLoadingBackdrop(
+                                                modifier = Modifier.fillMaxSize(),
+                                                videoId = item.mediaId,
+                                            )
+                                        } else if (!isAppleMusicStyle && !(showVideoOverlay && videoRendered)) {
+                                            SubcomposeAsyncImage(
+                                                model = ImageRequest.Builder(LocalContext.current)
+                                                    .data(item.mediaMetadata.artworkUri?.toString()?.resize(coverResolution.size, coverResolution.size))
+                                                    .memoryCachePolicy(CachePolicy.ENABLED)
+                                                    .diskCachePolicy(CachePolicy.ENABLED)
+                                                    .networkCachePolicy(CachePolicy.ENABLED)
+                                                    .crossfade(true)
+                                                    .build(),
+                                                contentDescription = null,
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier.fillMaxSize(),
+                                                loading = {
+                                                    Box(
+                                                        modifier = Modifier.fillMaxSize(),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        CircularWavyProgressIndicator(
+                                                            color = MaterialTheme.colorScheme.primary
+                                                        )
+                                                    }
                                                 }
-                                            }
-                                        )
+                                            )
+                                        }
+
+                                        if (showVideoOverlay) {
+                                            AndroidMusicVideo(
+                                                videoId = item.mediaId,
+                                                fit = true,
+                                                onRenderedChanged = { videoRendered = it },
+                                                modifier = Modifier.fillMaxSize(),
+                                                priority = 1,
+                                                showLoadingOverlay = !isAppleMusicStyle,
+                                            )
+
+                                            VideoCornerControls(
+                                                fullscreen = false,
+                                                onToggleFullscreen = onOpenFullscreenVideo,
+                                                onOpenQuality = onOpenVideoQuality,
+                                                modifier = Modifier
+                                                    .align(Alignment.TopEnd)
+                                                    .padding(12.dp),
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -261,7 +316,7 @@ fun Thumbnail(
                 }
             }
         }
-        
+
         AnimatedVisibility(
             visible = error != null,
             enter = fadeIn(),

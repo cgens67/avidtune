@@ -1525,5 +1525,18 @@
     <string name="alarm_exact_permission">Exakte Wecker</string>
     <string name="alarm_fullscreen_permission">Sperrbildschirm</string>
     <string name="off">Aus</string>
+    
+    <!-- Music Video Playback -->
+    <string name="show_music_videos">Musikvideos anzeigen</string>
+    <string name="show_music_videos_desc">Synchronisiertes Video beim Anhören eines Musikvideos abspielen</string>
+    <string name="video_quality">Videoqualität</string>
+    <string name="video_quality_auto">Automatisch</string>
+    <string name="watch_music_video">Musikvideo ansehen</string>
+    <string name="switch_to_audio">Zur Audioversion wechseln</string>
+    <string name="video_audio_only">Nur Audio für diesen Titel</string>
+    <string name="video_show_picture">Videobild anzeigen</string>
+    <string name="video_not_found">Kein Musikvideo gefunden</string>
+    
+    <string name="switch_to_video">Zum Video wechseln</string>
 
 </resources>

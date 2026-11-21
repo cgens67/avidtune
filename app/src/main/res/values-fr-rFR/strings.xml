@@ -1508,5 +1508,18 @@
     <string name="alarm_exact_permission">Alarmes exactes</string>
     <string name="alarm_fullscreen_permission">Écran verrouillé</string>
     <string name="off">Désactivé</string>
+    
+    <!-- Music Video Playback -->
+    <string name="show_music_videos">Afficher les clips vidéo</string>
+    <string name="show_music_videos_desc">Lire la vidéo synchronisée lors de l\'écoute d\'un clip vidéo</string>
+    <string name="video_quality">Qualité vidéo</string>
+    <string name="video_quality_auto">Auto</string>
+    <string name="watch_music_video">Regarder le clip vidéo</string>
+    <string name="switch_to_audio">Passer à la version audio</string>
+    <string name="video_audio_only">Audio uniquement pour ce titre</string>
+    <string name="video_show_picture">Afficher l\'image vidéo</string>
+    <string name="video_not_found">Aucun clip vidéo trouvé</string>
+    
+    <string name="switch_to_video">Passer à la vidéo</string>
 
 </resources>

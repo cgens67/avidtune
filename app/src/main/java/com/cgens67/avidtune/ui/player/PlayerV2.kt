@@ -519,6 +519,8 @@ fun PlayerV2ArtistDisplay(
 fun PlayerV2(
     state: BottomSheetState,
     navController: NavController,
+    onOpenFullscreenVideo: () -> Unit = {},
+    onOpenVideoQuality: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -769,6 +771,8 @@ fun PlayerV2(
             adaptiveSurface = adaptiveSurface,
             currentSkipSegments = currentSkipSegments,
             sponsorBlockEnabled = sponsorBlockEnabled,
+            onOpenFullscreenVideo = onOpenFullscreenVideo,
+            onOpenVideoQuality = onOpenVideoQuality,
             modifier = modifier
         )
     } else {
@@ -811,6 +815,8 @@ fun PlayerV2(
             adaptiveSurface = adaptiveSurface,
             currentSkipSegments = currentSkipSegments,
             sponsorBlockEnabled = sponsorBlockEnabled,
+            onOpenFullscreenVideo = onOpenFullscreenVideo,
+            onOpenVideoQuality = onOpenVideoQuality,
             modifier = modifier
         )
     }
@@ -907,6 +913,8 @@ private fun PlayerV2Landscape(
     adaptiveSurface: Color,
     currentSkipSegments: List<Pair<Long, Long>> = emptyList(),
     sponsorBlockEnabled: Boolean = false,
+    onOpenFullscreenVideo: () -> Unit = {},
+    onOpenVideoQuality: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val playerConnection = LocalPlayerConnection.current ?: return
@@ -914,6 +922,8 @@ private fun PlayerV2Landscape(
     val bottomSheetPageState = LocalBottomSheetPageState.current
     val coverRadius = thumbnailCornerRadius.dp
     val isAppleMusicBg = playerBackground == PlayerBackgroundStyle.APPLE_MUSIC || playerBackground == PlayerBackgroundStyle.IMMERSIVE_ARTWORK
+    val showsVideo = rememberShowsMusicVideo(mediaMetadata)
+    var videoRendered by remember(mediaMetadata?.id) { mutableStateOf(false) }
 
     val isLiked = currentSong?.song?.liked == true
     val currentPos = sliderPosition ?: position
@@ -957,34 +967,58 @@ private fun PlayerV2Landscape(
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (currentUiState == PlayerInternalState.COVER) {
-                Box(
+                BoxWithConstraints(
                     modifier = Modifier
                         .weight(0.95f)
                         .fillMaxHeight(),
                     contentAlignment = Alignment.Center
                 ) {
+                    val videoAspect by MusicVideoEngine.aspect.collectAsState()
+                    val animatedAspect by animateFloatAsState(
+                        targetValue = if (showsVideo) videoAspect.coerceAtLeast(0.5f) else 1f,
+                        animationSpec = tween(durationMillis = 300),
+                        label = "v2LandscapeAspect"
+                    )
+                    val maxBoxHeight = maxHeight * (if (minimalPlayerDesign) 0.92f else 0.88f)
+                    val (boxW, boxH) = if (showsVideo) {
+                        if (maxWidth / animatedAspect <= maxBoxHeight) {
+                            maxWidth to (maxWidth / animatedAspect)
+                        } else {
+                            (maxBoxHeight * animatedAspect) to maxBoxHeight
+                        }
+                    } else {
+                        val square = minOf(maxWidth, maxBoxHeight)
+                        square to square
+                    }
+
                     Box(
                         modifier = Modifier
-                            .fillMaxHeight(if (minimalPlayerDesign) 0.92f else 0.88f)
-                            .aspectRatio(1f)
+                            .size(width = boxW, height = boxH)
                             .customSoftShadow(
                                 elevation = playerThumbnailShadowElevation.dp,
                                 cornerRadius = coverRadius,
                                 enabled = showPlayerThumbnailShadow && !isAppleMusicBg
                             )
                             .background(
-                                if (isAppleMusicBg) Color.Transparent else adaptiveSurface,
+                                if (showsVideo) Color.Black
+                                else if (isAppleMusicBg) Color.Transparent
+                                else adaptiveSurface,
                                 RoundedCornerShape(coverRadius)
                             )
                             .clip(RoundedCornerShape(coverRadius))
-                            .clickable(enabled = isAppleMusicBg) { onPlayerStateChange(PlayerInternalState.LYRICS) }
+                            .clickable(enabled = isAppleMusicBg && !showsVideo) { onPlayerStateChange(PlayerInternalState.LYRICS) }
                             .SwipeGesture(
                                 enabled = !isListenTogetherGuest,
                                 onSwipeLeft = { if (canSkipNext) playerConnection.player.seekToNext() },
                                 onSwipeRight = { if (canSkipPrevious) playerConnection.player.seekToPrevious() }
                             )
                     ) {
-                        if (isAppleMusicBg) {
+                        if (isAppleMusicBg && showsVideo && !videoRendered) {
+                            VideoLoadingBackdrop(
+                                modifier = Modifier.fillMaxSize(),
+                                videoId = mediaMetadata?.id,
+                            )
+                        } else if (isAppleMusicBg) {
                         } else if (hidePlayerThumbnail) {
                             Box(
                                 modifier = Modifier.fillMaxSize(),
@@ -1009,6 +1043,25 @@ private fun PlayerV2Landscape(
                                 contentDescription = stringResource(R.string.cover_art),
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop
+                            )
+                        }
+
+                        if (showsVideo && mediaMetadata != null) {
+                            AndroidMusicVideo(
+                                videoId = mediaMetadata.id,
+                                fit = true,
+                                onRenderedChanged = { videoRendered = it },
+                                modifier = Modifier.fillMaxSize(),
+                                priority = 1,
+                                showLoadingOverlay = !isAppleMusicBg,
+                            )
+                            VideoCornerControls(
+                                fullscreen = false,
+                                onToggleFullscreen = onOpenFullscreenVideo,
+                                onOpenQuality = onOpenVideoQuality,
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(10.dp),
                             )
                         }
                     }
@@ -1642,6 +1695,8 @@ private fun PlayerV2Portrait(
     adaptiveSurface: Color,
     currentSkipSegments: List<Pair<Long, Long>> = emptyList(),
     sponsorBlockEnabled: Boolean = false,
+    onOpenFullscreenVideo: () -> Unit = {},
+    onOpenVideoQuality: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val playerConnection = LocalPlayerConnection.current ?: return
@@ -1652,6 +1707,8 @@ private fun PlayerV2Portrait(
     val isLiked = currentSong?.song?.liked == true
     val coverRadius = thumbnailCornerRadius.dp
     val isAppleMusicBg = playerBackground == PlayerBackgroundStyle.APPLE_MUSIC || playerBackground == PlayerBackgroundStyle.IMMERSIVE_ARTWORK
+    val showsVideo = rememberShowsMusicVideo(mediaMetadata)
+    var videoRendered by remember(mediaMetadata?.id) { mutableStateOf(false) }
 
     Box(
         modifier = modifier
@@ -1734,6 +1791,13 @@ private fun PlayerV2Portrait(
                         ) {
                             Spacer(modifier = Modifier.weight(1f))
 
+                            val videoAspect by MusicVideoEngine.aspect.collectAsState()
+                            val animatedAspect by animateFloatAsState(
+                                targetValue = if (showsVideo) videoAspect.coerceAtLeast(1f) else 1f,
+                                animationSpec = tween(durationMillis = 300),
+                                label = "v2PortraitAspect"
+                            )
+
                             Box(
                                 modifier = Modifier
                                     .sharedElement(
@@ -1744,25 +1808,32 @@ private fun PlayerV2Portrait(
                                         }
                                     )
                                     .fillMaxWidth()
-                                    .aspectRatio(1f)
+                                    .aspectRatio(animatedAspect)
                                     .customSoftShadow(
                                         elevation = playerThumbnailShadowElevation.dp,
                                         cornerRadius = coverRadius,
                                         enabled = showPlayerThumbnailShadow && !isAppleMusicBg
                                     )
                                     .background(
-                                        if (isAppleMusicBg) Color.Transparent else adaptiveSurface,
+                                        if (showsVideo) Color.Black
+                                        else if (isAppleMusicBg) Color.Transparent
+                                        else adaptiveSurface,
                                         RoundedCornerShape(coverRadius)
                                     )
                                     .clip(RoundedCornerShape(coverRadius))
-                                    .clickable(enabled = isAppleMusicBg) { onPlayerStateChange(PlayerInternalState.LYRICS) }
+                                    .clickable(enabled = isAppleMusicBg && !showsVideo) { onPlayerStateChange(PlayerInternalState.LYRICS) }
                                     .SwipeGesture(
                                         enabled = !isListenTogetherGuest,
                                         onSwipeLeft = { if (canSkipNext) playerConnection.player.seekToNext() },
                                         onSwipeRight = { if (canSkipPrevious) playerConnection.player.seekToPrevious() }
                                     )
                             ) {
-                                if (isAppleMusicBg) {
+                                if (isAppleMusicBg && showsVideo && !videoRendered) {
+                                    VideoLoadingBackdrop(
+                                        modifier = Modifier.fillMaxSize(),
+                                        videoId = mediaMetadata?.id,
+                                    )
+                                } else if (isAppleMusicBg) {
                                 } else if (hidePlayerThumbnail) {
                                     Box(
                                         modifier = Modifier.fillMaxSize(),
@@ -1787,6 +1858,25 @@ private fun PlayerV2Portrait(
                                         contentDescription = stringResource(R.string.cover_art),
                                         modifier = Modifier.fillMaxSize(),
                                         contentScale = ContentScale.Crop
+                                    )
+                                }
+
+                                if (showsVideo && mediaMetadata != null) {
+                                    AndroidMusicVideo(
+                                        videoId = mediaMetadata.id,
+                                        fit = true,
+                                        onRenderedChanged = { videoRendered = it },
+                                        modifier = Modifier.fillMaxSize(),
+                                        priority = 1,
+                                        showLoadingOverlay = !isAppleMusicBg,
+                                    )
+                                    VideoCornerControls(
+                                        fullscreen = false,
+                                        onToggleFullscreen = onOpenFullscreenVideo,
+                                        onOpenQuality = onOpenVideoQuality,
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .padding(12.dp),
                                     )
                                 }
                             }

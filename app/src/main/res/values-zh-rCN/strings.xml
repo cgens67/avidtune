@@ -1510,4 +1510,17 @@
     <string name="alarm_fullscreen_permission">锁屏显示</string>
     <string name="off">关闭</string>
     
+    <!-- Music Video Playback -->
+    <string name="show_music_videos">显示音乐视频</string>
+    <string name="show_music_videos_desc">播放音乐视频时同步显示视频画面</string>
+    <string name="video_quality">视频画质</string>
+    <string name="video_quality_auto">自动</string>
+    <string name="watch_music_video">观看音乐视频</string>
+    <string name="switch_to_audio">切换至音频版本</string>
+    <string name="video_audio_only">仅播放此曲目的音频</string>
+    <string name="video_show_picture">显示视频画面</string>
+    <string name="video_not_found">未找到音乐视频</string>
+    
+    <string name="switch_to_video">切换到视频</string>
+    
 </resources>

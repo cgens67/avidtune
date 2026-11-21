@@ -47,7 +47,6 @@ import com.cgens67.avidtune.ui.screens.settings.PlayerSettings
 import com.cgens67.avidtune.ui.screens.settings.PrivacySettings
 import com.cgens67.avidtune.ui.screens.settings.SettingsScreen
 import com.cgens67.avidtune.ui.screens.settings.StorageSettings
-import com.cgens67.avidtune.ui.screens.settings.ThemeCreatorScreen
 import com.cgens67.avidtune.ui.screens.settings.AlarmSettingsScreen
 import com.cgens67.avidtune.ui.screens.settings.EditAlarmScreen
 
@@ -279,9 +278,6 @@ fun NavGraphBuilder.navigationBuilder(
     }
     composable("settings/appearance/palette") {
         PalettePickerScreen(navController)
-    }
-    composable("settings/appearance/theme_creator") {
-        ThemeCreatorScreen(navController, scrollBehavior)
     }
     composable("settings/account") {
         AccountSettings(navController, scrollBehavior)

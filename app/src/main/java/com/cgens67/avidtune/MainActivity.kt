@@ -42,6 +42,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
@@ -385,6 +387,7 @@ class MainActivity : ComponentActivity() {
             }
 
             var showFullscreenLyrics by remember { mutableStateOf(false) }
+            var showFullscreenVideo by rememberSaveable { mutableStateOf(false) }
             var showTogetherScreen by rememberSaveable { mutableStateOf(false) }
 
             val enableDynamicTheme by rememberPreference(DynamicThemeKey, defaultValue = true)
@@ -1352,6 +1355,9 @@ class MainActivity : ComponentActivity() {
                                                 onOpenFullscreenLyrics = {
                                                     showFullscreenLyrics = true
                                                 },
+                                                onOpenFullscreenVideo = {
+                                                    showFullscreenVideo = true
+                                                },
                                                 modifier = Modifier.fillMaxSize()
                                             )
 
@@ -1656,6 +1662,29 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             }
+                        }
+
+                        com.cgens67.avidtune.ui.player.HideSystemBars(showFullscreenVideo)
+
+                        AnimatedVisibility(
+                            visible = showFullscreenVideo,
+                            enter = fadeIn(tween(220)) + scaleIn(
+                                initialScale = 0.94f,
+                                animationSpec = tween(220),
+                            ),
+                            exit = fadeOut(tween(200)) + scaleOut(
+                                targetScale = 0.94f,
+                                animationSpec = tween(200),
+                            ),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .zIndex(200f),
+                        ) {
+                            com.cgens67.avidtune.ui.player.FullscreenVideoPlayer(
+                                onExitFullscreen = { showFullscreenVideo = false },
+                                active = showFullscreenVideo,
+                                modifier = Modifier.fillMaxSize(),
+                            )
                         }
 
                         LaunchedEffect(shouldShowSearchBar, openSearchImmediately) {

@@ -4,10 +4,16 @@ import com.cgens67.innertube.models.Album
 import com.cgens67.innertube.models.Artist
 import com.cgens67.innertube.models.BrowseEndpoint
 import com.cgens67.innertube.models.PlaylistPanelVideoRenderer
+import com.cgens67.innertube.models.PlaylistPanelVideoWrapperRenderer
 import com.cgens67.innertube.models.SongItem
 import com.cgens67.innertube.models.WatchEndpoint
+import com.cgens67.innertube.models.WatchEndpoint.WatchEndpointMusicSupportedConfigs.WatchEndpointMusicConfig.Companion.MUSIC_VIDEO_TYPE_ATV
+import com.cgens67.innertube.models.WatchEndpoint.WatchEndpointMusicSupportedConfigs.WatchEndpointMusicConfig.Companion.MUSIC_VIDEO_TYPE_OMV
+import com.cgens67.innertube.models.isNotSquare
+import com.cgens67.innertube.models.response.NextResponse
 import com.cgens67.innertube.models.splitBySeparator
 import com.cgens67.innertube.utils.parseTime
+import kotlinx.serialization.json.contentOrNull
 
 data class NextResult(
     val title: String? = null,
@@ -17,6 +23,37 @@ data class NextResult(
     val relatedEndpoint: BrowseEndpoint? = null,
     val continuation: String?,
     val endpoint: WatchEndpoint,
+)
+
+data class VersionTimeMap(
+    val segments: List<Segment>,
+) {
+    data class Segment(
+        val fromStartMs: Long,
+        val toStartMs: Long,
+        val durationMs: Long,
+    )
+
+    fun map(positionMs: Long): Long {
+        if (segments.isEmpty()) return positionMs
+        segments.firstOrNull { positionMs in it.fromStartMs until (it.fromStartMs + it.durationMs) }?.let { seg ->
+            return (seg.toStartMs + (positionMs - seg.fromStartMs)).coerceAtLeast(0L)
+        }
+        val next = segments.firstOrNull { it.fromStartMs > positionMs }
+        if (next != null) return next.toStartMs.coerceAtLeast(0L)
+        val last = segments.last()
+        return (last.toStartMs + last.durationMs).coerceAtLeast(0L)
+    }
+
+    fun inverted(): VersionTimeMap =
+        VersionTimeMap(
+            segments.map { Segment(fromStartMs = it.toStartMs, toStartMs = it.fromStartMs, durationMs = it.durationMs) }
+        )
+}
+
+data class VersionCounterpartResult(
+    val song: SongItem,
+    val timeMap: VersionTimeMap?,
 )
 
 object NextPage {
@@ -68,17 +105,82 @@ object NextPage {
             it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
         } == true
 
+        val resolvedMusicVideoType = renderer.navigationEndpoint?.musicVideoType
+            ?: if (renderer.thumbnail?.isNotSquare() == true) MUSIC_VIDEO_TYPE_OMV else null
+
         return SongItem(
             id = videoId,
             title = title,
             artists = artists,
             album = album,
             duration = duration,
-            musicVideoType = renderer.navigationEndpoint?.musicVideoType,
+            musicVideoType = resolvedMusicVideoType,
             thumbnail = thumbnail,
             explicit = explicit,
             libraryAddToken = libraryTokens.addToken,
             libraryRemoveToken = libraryTokens.removeToken
         )
+    }
+
+    fun parseVersionCounterpart(
+        response: NextResponse,
+        videoId: String,
+        wantAudio: Boolean,
+    ): VersionCounterpartResult? {
+        val tabs = response.contents?.singleColumnMusicWatchNextResultsRenderer
+            ?.tabbedRenderer?.watchNextTabbedResultsRenderer?.tabs.orEmpty()
+        val queueTab = tabs.firstNotNullOfOrNull { it.tabRenderer?.content?.musicQueueRenderer }
+        val playlistPanel = response.continuationContents?.playlistPanelContinuation
+            ?: response.contents?.singleColumnMusicWatchNextResultsRenderer?.playlist?.playlistPanelRenderer
+            ?: queueTab?.content?.playlistPanelRenderer
+            ?: return null
+
+        fun PlaylistPanelVideoRenderer.fits(): Boolean {
+            val type = navigationEndpoint?.musicVideoType ?: return true
+            return (type == MUSIC_VIDEO_TYPE_ATV) == wantAudio
+        }
+
+        fun timeMapOf(counterpart: PlaylistPanelVideoWrapperRenderer.Counterpart): VersionTimeMap? {
+            val segments = counterpart.segmentMap?.segment.orEmpty().mapNotNull { seg ->
+                val from = seg.primaryVideoStartTimeMilliseconds?.contentOrNull?.toLongOrNull() ?: return@mapNotNull null
+                val to = seg.counterpartVideoStartTimeMilliseconds?.contentOrNull?.toLongOrNull() ?: return@mapNotNull null
+                val duration = seg.durationMilliseconds?.contentOrNull?.toLongOrNull()?.takeIf { it > 0L } ?: return@mapNotNull null
+                VersionTimeMap.Segment(fromStartMs = from, toStartMs = to, durationMs = duration)
+            }
+            return segments.takeIf { it.isNotEmpty() }?.let(::VersionTimeMap)
+        }
+
+        for (content in playlistPanel.contents.orEmpty()) {
+            val wrapper = content.playlistPanelVideoWrapperRenderer ?: continue
+            val primary = wrapper.primaryRenderer?.playlistPanelVideoRenderer ?: continue
+            val counterparts = wrapper.counterpart.orEmpty()
+            val primaryId = primary.videoId ?: primary.navigationEndpoint?.watchEndpoint?.videoId
+
+            if (primaryId == videoId) {
+                val match = counterparts.firstOrNull {
+                    it.counterpartRenderer?.playlistPanelVideoRenderer?.fits() == true
+                } ?: continue
+                val renderer = match.counterpartRenderer?.playlistPanelVideoRenderer ?: continue
+                val song = fromPlaylistPanelVideoRenderer(renderer) ?: continue
+                val adjusted = song.copy(
+                    musicVideoType = if (wantAudio) MUSIC_VIDEO_TYPE_ATV else (song.musicVideoType ?: MUSIC_VIDEO_TYPE_OMV)
+                )
+                return VersionCounterpartResult(adjusted, timeMapOf(match))
+            }
+
+            val asCounterpart = counterparts.firstOrNull { cp ->
+                val cpRenderer = cp.counterpartRenderer?.playlistPanelVideoRenderer
+                val cpId = cpRenderer?.videoId ?: cpRenderer?.navigationEndpoint?.watchEndpoint?.videoId
+                cpId == videoId
+            } ?: continue
+
+            if (!primary.fits()) continue
+            val song = fromPlaylistPanelVideoRenderer(primary) ?: continue
+            val adjusted = song.copy(
+                musicVideoType = if (wantAudio) MUSIC_VIDEO_TYPE_ATV else (song.musicVideoType ?: MUSIC_VIDEO_TYPE_OMV)
+            )
+            return VersionCounterpartResult(adjusted, timeMapOf(asCounterpart)?.inverted())
+        }
+        return null
     }
 }

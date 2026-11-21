@@ -26,15 +26,21 @@ import com.cgens67.avidtune.extensions.currentMetadata
 import com.cgens67.avidtune.extensions.getCurrentQueueIndex
 import com.cgens67.avidtune.extensions.getQueueWindows
 import com.cgens67.avidtune.extensions.metadata
+import com.cgens67.avidtune.extensions.toMediaItem
 import com.cgens67.avidtune.playback.MusicService.MusicBinder
 import com.cgens67.avidtune.playback.queues.Queue
 import com.cgens67.avidtune.together.TogetherDisplayNameKey
 import com.cgens67.avidtune.together.TogetherRole
 import com.cgens67.avidtune.together.TogetherSessionState
 import com.cgens67.avidtune.together.TogetherTrack
+import com.cgens67.avidtune.ui.player.MusicVideoEngine
 import com.cgens67.avidtune.utils.dataStore
 import com.cgens67.avidtune.utils.get
 import com.cgens67.avidtune.utils.reportException
+import com.cgens67.innertube.YouTube
+import com.cgens67.innertube.models.SongItem
+import com.cgens67.innertube.models.WatchEndpoint.WatchEndpointMusicSupportedConfigs.WatchEndpointMusicConfig.Companion.MUSIC_VIDEO_TYPE_ATV
+import com.cgens67.innertube.models.WatchEndpoint.WatchEndpointMusicSupportedConfigs.WatchEndpointMusicConfig.Companion.MUSIC_VIDEO_TYPE_OMV
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -193,6 +199,7 @@ class PlayerConnection(
         Log.d(TAG, "Initializing PlayerConnection")
 
         player.addListener(this)
+        MusicVideoEngine.attach(player)
         initializeStates()
         startProgressUpdates()
 
@@ -244,6 +251,11 @@ class PlayerConnection(
             _playbackState.value = player.playbackState
             _playWhenReady.value = player.playWhenReady
             _mediaMetadata.value = player.currentMetadata
+            player.currentMetadata?.let { meta ->
+                if (meta.isVideo) {
+                    MusicVideoEngine.rememberVideoId(meta.id, true)
+                }
+            }
 
             val togetherState = service.togetherSessionState.value
             if (togetherState is TogetherSessionState.Hosting || togetherState is TogetherSessionState.Joined) {
@@ -270,6 +282,80 @@ class PlayerConnection(
         } catch (e: Exception) {
             Log.e(TAG, "Error initializing states", e)
             reportException(e)
+        }
+    }
+
+    fun switchVersion(wantVideo: Boolean, onNotFound: () -> Unit = {}) {
+        if (isGuestPlaybackRestricted) {
+            Toast.makeText(
+                context,
+                context.getString(R.string.together_playback_controlled_by_host),
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+        val currentMeta = _mediaMetadata.value ?: player.currentMetadata ?: return
+        val originalId = currentMeta.id
+        scope.launch {
+            val counterpart = withContext(Dispatchers.IO) {
+                YouTube.versionCounterpart(originalId, wantAudio = !wantVideo).getOrNull()
+            }
+            val targetItem: SongItem?
+            val mapTime: ((Long) -> Long)?
+            if (counterpart != null && counterpart.song.id != originalId) {
+                targetItem = counterpart.song
+                mapTime = counterpart.timeMap?.let { tm -> { pos: Long -> tm.map(pos) } }
+            } else {
+                val artistNames = currentMeta.artists.joinToString(" ") { it.name }
+                val query = "${currentMeta.title} $artistNames".trim()
+                val filter = if (wantVideo) {
+                    YouTube.SearchFilter.FILTER_VIDEO
+                } else {
+                    YouTube.SearchFilter.FILTER_SONG
+                }
+                val candidates = withContext(Dispatchers.IO) {
+                    YouTube.search(query, filter).getOrNull()?.items
+                        ?.filterIsInstance<SongItem>()
+                        .orEmpty()
+                }
+                val cleanTitle = currentMeta.title.substringBefore("(").substringBefore("[").trim()
+                val picked = candidates.firstOrNull { s ->
+                    s.id != originalId &&
+                        (s.title.contains(cleanTitle, ignoreCase = true) ||
+                            cleanTitle.contains(s.title.substringBefore("(").substringBefore("[").trim(), ignoreCase = true))
+                } ?: candidates.firstOrNull { it.id != originalId }
+                targetItem = picked?.copy(
+                    musicVideoType = if (wantVideo) {
+                        picked.musicVideoType ?: MUSIC_VIDEO_TYPE_OMV
+                    } else {
+                        MUSIC_VIDEO_TYPE_ATV
+                    }
+                )
+                mapTime = null
+            }
+
+            if (targetItem == null) {
+                withContext(Dispatchers.Main) { onNotFound() }
+                return@launch
+            }
+
+            withContext(Dispatchers.Main) {
+                if (player.currentMediaItem?.mediaId != originalId) return@withContext
+                val index = player.currentMediaItemIndex
+                if (index < 0 || index >= player.mediaItemCount) return@withContext
+                val targetPos = (mapTime?.invoke(player.currentPosition) ?: player.currentPosition)
+                    .coerceAtLeast(0L)
+                val wasPlaying = player.playWhenReady
+                val newMediaItem = targetItem.toMediaItem()
+                MusicVideoEngine.rememberVideoId(targetItem.id, wantVideo)
+                if (wantVideo) {
+                    MusicVideoEngine.setAudioOnlyForTrack(targetItem.id, false)
+                }
+                player.replaceMediaItem(index, newMediaItem)
+                player.seekTo(index, targetPos)
+                player.playWhenReady = wasPlaying
+                _mediaMetadata.value = newMediaItem.metadata
+            }
         }
     }
 
@@ -316,7 +402,7 @@ class PlayerConnection(
 
         _connectionState.value = newConnectionState
         _isConnected.value = newConnectionState == ConnectionState.CONNECTED ||
-                newConnectionState == ConnectionState.BUFFERING
+            newConnectionState == ConnectionState.BUFFERING
     }
 
     private fun startProgressUpdates() {
@@ -748,6 +834,11 @@ class PlayerConnection(
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         Timber.tag(TAG).d("Media item transition: ${mediaItem?.mediaId} (reason: $reason)")
         _mediaMetadata.value = mediaItem?.metadata
+        mediaItem?.metadata?.let { meta ->
+            if (meta.isVideo) {
+                MusicVideoEngine.rememberVideoId(meta.id, true)
+            }
+        }
         _currentMediaItemIndex.value = player.currentMediaItemIndex
         _currentWindowIndex.value = player.getCurrentQueueIndex()
 
@@ -764,7 +855,7 @@ class PlayerConnection(
 
     private suspend fun updateLikeStatusForCurrentSong() {
         try {
-            val currentSongId = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+            val currentSongId = withContext(Dispatchers.Main) {
                 player.currentMediaItem?.mediaId
             }
             if (currentSongId != null) {
@@ -826,12 +917,12 @@ class PlayerConnection(
                 )
 
                 val canPrevious = player.isCommandAvailable(COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM) ||
-                        !window.isLive ||
-                        player.isCommandAvailable(COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM) ||
-                        player.currentPosition > 3000
+                    !window.isLive ||
+                    player.isCommandAvailable(COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM) ||
+                    player.currentPosition > 3000
 
                 val canNext = (window.isLive && window.isDynamic) ||
-                        player.isCommandAvailable(COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+                    player.isCommandAvailable(COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
 
                 _canSkipPrevious.value = canPrevious
                 _canSkipNext.value = canNext
@@ -876,6 +967,7 @@ class PlayerConnection(
         } catch (e: Exception) {
             Log.e(TAG, "Error removing player listener", e)
         }
+        MusicVideoEngine.attach(null)
 
         instance = null
     }

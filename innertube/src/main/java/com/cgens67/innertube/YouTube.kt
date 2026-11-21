@@ -71,6 +71,7 @@ import com.cgens67.innertube.pages.SearchSuggestionPage
 import com.cgens67.innertube.pages.SearchSummary
 import com.cgens67.innertube.pages.SearchSummaryPage
 import com.cgens67.innertube.pages.NewPipeExtractor
+import com.cgens67.innertube.pages.VersionCounterpartResult
 import io.ktor.client.call.body
 import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.async
@@ -315,7 +316,7 @@ object YouTube {
             val descriptionRuns = response.contents?.sectionListRenderer?.contents?.firstOrNull { it.musicDescriptionShelfRenderer != null }?.musicDescriptionShelfRenderer?.description?.runs?.let(::mapRuns) ?: response.header?.musicImmersiveHeaderRenderer?.description?.runs?.let(::mapRuns)
             val isSubscribed = response.header?.musicImmersiveHeaderRenderer?.subscriptionButton?.subscribeButtonRenderer?.subscribed ?: response.header?.musicVisualHeaderRenderer?.subscriptionButton?.subscribeButtonRenderer?.subscribed ?: false
             val channelId = response.header?.musicImmersiveHeaderRenderer?.subscriptionButton?.subscribeButtonRenderer?.channelId ?: response.header?.musicVisualHeaderRenderer?.subscriptionButton?.subscribeButtonRenderer?.channelId
-            
+
             ArtistPage(
                 artist = ArtistItem(
                     id = browseId,
@@ -339,7 +340,7 @@ object YouTube {
         runCatching {
             val response = innerTube.browse(WEB_REMIX, endpoint.browseId, endpoint.params).body<BrowseResponse>()
             val sectionContent = response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()?.tabRenderer?.content?.sectionListRenderer?.contents?.firstOrNull()
-            
+
             when {
                 sectionContent?.gridRenderer != null -> ArtistItemsPage(title = sectionContent.gridRenderer.header?.gridHeaderRenderer?.title?.runs?.firstOrNull()?.text.orEmpty(), items = sectionContent.gridRenderer.items.mapNotNull { it.musicTwoRowItemRenderer?.let { renderer -> ArtistItemsPage.fromMusicTwoRowItemRenderer(renderer) } }, continuation = sectionContent.gridRenderer.continuations?.getContinuation())
                 sectionContent?.musicCarouselShelfRenderer != null -> ArtistItemsPage(title = sectionContent.musicCarouselShelfRenderer.header?.musicCarouselShelfBasicHeaderRenderer?.title?.runs?.firstOrNull()?.text.orEmpty(), items = sectionContent.musicCarouselShelfRenderer.contents.mapNotNull { it.musicTwoRowItemRenderer?.let { renderer -> ArtistItemsPage.fromMusicTwoRowItemRenderer(renderer) } ?: it.musicResponsiveListItemRenderer?.let { renderer -> ArtistItemsPage.fromMusicResponsiveListItemRenderer(renderer) } }, continuation = null)
@@ -377,15 +378,15 @@ object YouTube {
             val header = base?.musicResponsiveHeaderRenderer ?: base?.musicEditablePlaylistDetailHeaderRenderer?.header?.musicResponsiveHeaderRenderer
             val editable = base?.musicEditablePlaylistDetailHeaderRenderer != null
             val description: String? = header?.description?.musicDescriptionShelfRenderer?.description?.runs?.joinToString("") { it.text } ?: base?.musicEditablePlaylistDetailHeaderRenderer?.header?.musicDetailHeaderRenderer?.description?.runs?.joinToString("") { it.text } ?: response.header?.musicDetailHeaderRenderer?.description?.runs?.joinToString("") { it.text }
-            
-            val shelfContents = response.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents?.firstOrNull()?.musicPlaylistShelfRenderer?.contents 
+
+            val shelfContents = response.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents?.firstOrNull()?.musicPlaylistShelfRenderer?.contents
                 ?: response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()?.tabRenderer?.content?.sectionListRenderer?.contents?.firstOrNull()?.musicPlaylistShelfRenderer?.contents
                 ?: emptyList()
-                
-            val shelfContinuations = response.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents?.firstOrNull()?.musicPlaylistShelfRenderer?.continuations 
+
+            val shelfContinuations = response.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents?.firstOrNull()?.musicPlaylistShelfRenderer?.continuations
                 ?: response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()?.tabRenderer?.content?.sectionListRenderer?.contents?.firstOrNull()?.musicPlaylistShelfRenderer?.continuations
-                
-            val rootContinuations = response.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.continuations 
+
+            val rootContinuations = response.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.continuations
                 ?: response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()?.tabRenderer?.content?.sectionListRenderer?.continuations
 
             PlaylistPage(
@@ -411,16 +412,16 @@ object YouTube {
     suspend fun playlistContinuation(continuation: String): Result<PlaylistContinuationPage> =
         runCatching {
             val response = innerTube.browse(client = WEB_REMIX, continuation = continuation, setLogin = true).body<BrowseResponse>()
-            val contents = response.continuationContents?.sectionListContinuation?.contents?.mapNotNull { it.musicPlaylistShelfRenderer?.contents ?: it.musicShelfRenderer?.contents }?.flatten() 
-                ?: response.continuationContents?.musicPlaylistShelfContinuation?.contents 
-                ?: response.continuationContents?.musicShelfContinuation?.contents 
+            val contents = response.continuationContents?.sectionListContinuation?.contents?.mapNotNull { it.musicPlaylistShelfRenderer?.contents ?: it.musicShelfRenderer?.contents }?.flatten()
+                ?: response.continuationContents?.musicPlaylistShelfContinuation?.contents
+                ?: response.continuationContents?.musicShelfContinuation?.contents
                 ?: response.onResponseReceivedActions.orEmpty().flatMap { it.appendContinuationItemsAction?.continuationItems.orEmpty() }
             val songs = contents.mapNotNull { it.musicResponsiveListItemRenderer }.mapNotNull { PlaylistPage.fromMusicResponsiveListItemRenderer(it) }
             PlaylistContinuationPage(
-                songs = songs, 
-                continuation = response.continuationContents?.sectionListContinuation?.continuations?.getContinuation() 
-                    ?: response.continuationContents?.musicPlaylistShelfContinuation?.continuations?.getContinuation() 
-                    ?: response.continuationContents?.musicShelfContinuation?.continuations?.getContinuation() 
+                songs = songs,
+                continuation = response.continuationContents?.sectionListContinuation?.continuations?.getContinuation()
+                    ?: response.continuationContents?.musicPlaylistShelfContinuation?.continuations?.getContinuation()
+                    ?: response.continuationContents?.musicShelfContinuation?.continuations?.getContinuation()
                     ?: response.onResponseReceivedActions?.firstOrNull()?.appendContinuationItemsAction?.continuationItems?.getContinuation()
                     ?: contents.getContinuation()
             )
@@ -588,7 +589,7 @@ object YouTube {
                     ?: content.gridRenderer?.header?.gridHeaderRenderer?.title?.runs?.firstOrNull()?.text
                 val sectionItems = when {
                     content.musicShelfRenderer != null -> content.musicShelfRenderer.contents?.getItems()?.mapNotNull { SearchPage.toYTItem(it) }.orEmpty()
-                    content.musicCarouselShelfRenderer != null -> content.musicCarouselShelfRenderer.contents.mapNotNull { 
+                    content.musicCarouselShelfRenderer != null -> content.musicCarouselShelfRenderer.contents.mapNotNull {
                         it.musicTwoRowItemRenderer?.let { r -> RelatedPage.fromMusicTwoRowItemRenderer(r) }
                             ?: it.musicResponsiveListItemRenderer?.let { r -> SearchPage.toYTItem(r) }
                     }
@@ -608,6 +609,23 @@ object YouTube {
             response.queueDatas
                 .mapNotNull { it.content.videoRenderer }
                 .mapNotNull(NextPage::fromPlaylistPanelVideoRenderer)
+        }
+
+    suspend fun versionCounterpart(
+        videoId: String,
+        wantAudio: Boolean,
+    ): Result<VersionCounterpartResult?> =
+        runCatching {
+            val response = innerTube.next(
+                client = WEB_REMIX,
+                videoId = videoId,
+                playlistId = "RDAMVM$videoId",
+                playlistSetVideoId = null,
+                index = null,
+                params = null,
+                continuation = null,
+            ).body<NextResponse>()
+            NextPage.parseVersionCounterpart(response, videoId, wantAudio)
         }
 
     suspend fun next(

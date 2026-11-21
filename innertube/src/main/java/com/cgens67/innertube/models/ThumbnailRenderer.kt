@@ -22,6 +22,11 @@ data class ThumbnailRenderer(
             ?: musicAnimatedThumbnailRenderer?.backupRenderer?.getThumbnailUrl()
             ?: croppedSquareThumbnailRenderer?.getThumbnailUrl()
 
+    fun isNotSquare(): Boolean =
+        (musicThumbnailRenderer?.thumbnail
+            ?: musicAnimatedThumbnailRenderer?.backupRenderer?.thumbnail
+            ?: croppedSquareThumbnailRenderer?.thumbnail)?.isNotSquare() == true
+
     @Serializable
     data class MusicAnimatedThumbnailRenderer(
         val animatedThumbnail: Thumbnails,

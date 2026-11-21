@@ -9,6 +9,7 @@ import com.cgens67.innertube.models.MusicTwoRowItemRenderer
 import com.cgens67.innertube.models.PlaylistItem
 import com.cgens67.innertube.models.PodcastItem
 import com.cgens67.innertube.models.SongItem
+import com.cgens67.innertube.models.WatchEndpoint.WatchEndpointMusicSupportedConfigs.WatchEndpointMusicConfig.Companion.MUSIC_VIDEO_TYPE_OMV
 import com.cgens67.innertube.models.YTItem
 import com.cgens67.innertube.models.oddElements
 import com.cgens67.innertube.models.splitBySeparator
@@ -118,6 +119,12 @@ data class LibraryPage(
                     val title = renderer.title.runs?.firstOrNull()?.text ?: return null
                     val subtitleRuns = renderer.subtitle?.runs?.splitBySeparator()
                     val artists = PageHelper.extractArtists(subtitleRuns?.firstOrNull())
+                    val resolvedMusicVideoType = renderer.musicVideoType
+                        ?: if (!renderer.isEpisode && renderer.thumbnailRenderer.isNotSquare()) {
+                            MUSIC_VIDEO_TYPE_OMV
+                        } else {
+                            null
+                        }
 
                     SongItem(
                         id = videoId,
@@ -130,6 +137,7 @@ data class LibraryPage(
                             )
                         },
                         duration = subtitleRuns?.lastOrNull()?.firstOrNull()?.text?.parseTime(),
+                        musicVideoType = resolvedMusicVideoType,
                         thumbnail = renderer.thumbnailRenderer.getThumbnailUrl() ?: return null,
                         explicit = renderer.subtitleBadges?.any {
                             it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
@@ -211,13 +219,20 @@ data class LibraryPage(
                             PageHelper.extractArtists(artistRuns)
                         }
 
+                    val resolvedMusicVideoType = renderer.musicVideoType
+                        ?: if (!renderer.isEpisode && renderer.thumbnail?.isNotSquare() == true) {
+                            MUSIC_VIDEO_TYPE_OMV
+                        } else {
+                            null
+                        }
+
                     SongItem(
                         id = videoId,
                         title = title,
                         artists = artists,
                         album = album,
                         duration = renderer.fixedColumns?.firstOrNull()?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.firstOrNull()?.text?.parseTime(),
-                        musicVideoType = renderer.musicVideoType,
+                        musicVideoType = resolvedMusicVideoType,
                         thumbnail = thumbnailUrl,
                         explicit = renderer.badges?.find {
                             it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"

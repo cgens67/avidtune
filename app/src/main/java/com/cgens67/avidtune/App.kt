@@ -29,10 +29,12 @@ import com.cgens67.avidtune.constants.ProxyEnabledKey
 import com.cgens67.avidtune.constants.ProxyTypeKey
 import com.cgens67.avidtune.constants.ProxyUrlKey
 import com.cgens67.avidtune.constants.SYSTEM_DEFAULT
+import com.cgens67.avidtune.constants.ShowMusicVideosKey
 import com.cgens67.avidtune.constants.UseLoginForBrowse
 import com.cgens67.avidtune.constants.VisitorDataKey
 import com.cgens67.avidtune.extensions.toEnum
 import com.cgens67.avidtune.extensions.toInetSocketAddress
+import com.cgens67.avidtune.ui.player.MusicVideoEngine
 import com.cgens67.avidtune.utils.dataStore
 import com.cgens67.avidtune.utils.get
 import com.cgens67.avidtune.utils.reportException
@@ -55,8 +57,9 @@ class App : Application(), ImageLoaderFactory {
     @OptIn(DelicateCoroutinesApi::class)
     override fun onCreate() {
         super.onCreate()
-        instance = this;
+        instance = this
         Timber.plant(com.cgens67.avidtune.utils.MemoryLogTree())
+        MusicVideoEngine.init(this)
 
         Paxsenix.init(this)
 
@@ -93,11 +96,22 @@ class App : Application(), ImageLoaderFactory {
 
         GlobalScope.launch {
             dataStore.data
+                .map { it[ShowMusicVideosKey] ?: true }
+                .distinctUntilChanged()
+                .collect { enabled ->
+                    withContext(Dispatchers.Main) {
+                        MusicVideoEngine.setEnabled(enabled)
+                    }
+                }
+        }
+
+        GlobalScope.launch {
+            dataStore.data
                 .map { it[VisitorDataKey] }
                 .distinctUntilChanged()
                 .collect { visitorData ->
                     YouTube.visitorData = visitorData
-                        ?.takeIf { it != "null" } // Previously visitorData was sometimes saved as "null" due to a bug
+                        ?.takeIf { it != "null" }
                         ?: YouTube.visitorData().onFailure {
                             withContext(Dispatchers.Main) {
                                 Toast.makeText(this@App, "Failed to get visitorData.", LENGTH_SHORT)
@@ -117,15 +131,6 @@ class App : Application(), ImageLoaderFactory {
                 .distinctUntilChanged()
                 .collect { dataSyncId ->
                     YouTube.dataSyncId = dataSyncId?.let {
-                        /*
-                         * Workaround to avoid breaking older installations that have a dataSyncId
-                         * that contains "||" in it.
-                         * If the dataSyncId ends with "||" and contains only one id, then keep the
-                         * id before the "||".
-                         * If the dataSyncId contains "||" and is not at the end, then keep the
-                         * second id.
-                         * This is needed to keep using the same account as before.
-                         */
                         it.takeIf { !it.contains("||") }
                             ?: it.takeIf { it.endsWith("||") }?.substringBefore("||")
                             ?: it.substringAfter("||")
@@ -138,9 +143,14 @@ class App : Application(), ImageLoaderFactory {
                 .distinctUntilChanged()
                 .collect { cookie ->
                     try {
+                        val changed = YouTube.cookie != cookie
                         YouTube.cookie = cookie
+                        if (changed) {
+                            withContext(Dispatchers.Main) {
+                                MusicVideoEngine.onSessionChanged()
+                            }
+                        }
                     } catch (e: Exception) {
-                        // we now allow user input now, here be the demons. This serves as a last ditch effort to avoid a crash loop
                         Timber.e("Could not parse cookie. Clearing existing cookie. %s", e.message)
                         forgetAccount(this@App)
                     }
@@ -151,7 +161,6 @@ class App : Application(), ImageLoaderFactory {
     override fun newImageLoader(): ImageLoader {
         val cacheSize = dataStore[MaxImageCacheSizeKey]
 
-        // will crash app if you set to 0 after cache starts being used
         if (cacheSize == 0) {
             return ImageLoader.Builder(this)
                 .crossfade(true)

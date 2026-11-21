@@ -177,6 +177,7 @@ fun BottomSheetPlayer(
     state: BottomSheetState,
     navController: NavController,
     onOpenFullscreenLyrics: () -> Unit,
+    onOpenFullscreenVideo: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -369,6 +370,9 @@ fun BottomSheetPlayer(
     var showDetailsDialog by rememberSaveable {
         mutableStateOf(false)
     }
+    var showVideoQualitySheet by rememberSaveable {
+        mutableStateOf(false)
+    }
 
     val currentFormat by playerConnection.currentFormat.collectAsState(initial = null)
 
@@ -506,8 +510,13 @@ fun BottomSheetPlayer(
             PlayerV2(
                 state = state,
                 navController = navController,
+                onOpenFullscreenVideo = onOpenFullscreenVideo,
+                onOpenVideoQuality = { showVideoQualitySheet = true },
                 modifier = Modifier.fillMaxSize()
             )
+        }
+        if (showVideoQualitySheet) {
+            VideoQualitySheet(onDismiss = { showVideoQualitySheet = false })
         }
         return
     }
@@ -567,8 +576,13 @@ fun BottomSheetPlayer(
                 state = state,
                 navController = navController,
                 onOpenFullscreenLyrics = onOpenFullscreenLyrics,
+                onOpenFullscreenVideo = onOpenFullscreenVideo,
+                onOpenVideoQuality = { showVideoQualitySheet = true },
                 modifier = Modifier.fillMaxSize()
             )
+        }
+        if (showVideoQualitySheet) {
+            VideoQualitySheet(onDismiss = { showVideoQualitySheet = false })
         }
         return
     }
@@ -645,7 +659,9 @@ fun BottomSheetPlayer(
                             onOpenFullscreenLyrics = onOpenFullscreenLyrics,
                             modifier = Modifier.size(thumbnailSize),
                             isPlayerExpanded = state.isExpanded,
-                            isLandscape = true
+                            isLandscape = true,
+                            onOpenFullscreenVideo = onOpenFullscreenVideo,
+                            onOpenVideoQuality = { showVideoQualitySheet = true }
                         )
                     }
                     Column(
@@ -809,7 +825,9 @@ fun BottomSheetPlayer(
                             Thumbnail(
                                 sliderPositionProvider = { sliderPosition },
                                 onOpenFullscreenLyrics = onOpenFullscreenLyrics,
-                                isPlayerExpanded = state.isExpanded
+                                isPlayerExpanded = state.isExpanded,
+                                onOpenFullscreenVideo = onOpenFullscreenVideo,
+                                onOpenVideoQuality = { showVideoQualitySheet = true }
                             )
                         }
                     }
@@ -958,6 +976,10 @@ fun BottomSheetPlayer(
             onBackgroundColor = queueOnBgColor,
             textBackgroundColor = TextBackgroundColor,
         )
+    }
+
+    if (showVideoQualitySheet) {
+        VideoQualitySheet(onDismiss = { showVideoQualitySheet = false })
     }
 }
 

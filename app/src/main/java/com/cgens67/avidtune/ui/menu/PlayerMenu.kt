@@ -124,6 +124,8 @@ import com.cgens67.avidtune.ui.component.MenuItemData
 import com.cgens67.avidtune.ui.component.MenuGroup
 import com.cgens67.avidtune.ui.component.NewAction
 import com.cgens67.avidtune.ui.component.NewActionGrid
+import com.cgens67.avidtune.ui.player.MusicVideoEngine
+import com.cgens67.avidtune.ui.player.VideoQualitySheet
 import com.cgens67.avidtune.utils.ShareUtils
 import com.cgens67.avidtune.utils.joinByBullet
 import com.cgens67.avidtune.utils.makeTimeString
@@ -229,6 +231,24 @@ fun ColumnScope.PlayerMenu(
             videoId = mediaMetadata.id,
             onDismiss = { showMediaInfoSheet = false }
         )
+    }
+
+    val videoEnabled by MusicVideoEngine.videoPlaybackEnabled.collectAsState()
+    val detectedVideos by MusicVideoEngine.detectedVideoIds.collectAsState()
+    val noPicIds by MusicVideoEngine.noPictureIds.collectAsState()
+    val audioOnlyTracks by MusicVideoEngine.audioOnlyTracks.collectAsState()
+    val videoQuality by MusicVideoEngine.quality.collectAsState()
+
+    val isVideoTrack = mediaMetadata.isVideo || detectedVideos[mediaMetadata.id] == true
+    val isAudioOnly = mediaMetadata.id in audioOnlyTracks
+    val showsVideo = videoEnabled && isVideoTrack && mediaMetadata.id !in noPicIds && !isAudioOnly
+
+    var showVideoQualitySheet by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    if (showVideoQualitySheet) {
+        VideoQualitySheet(onDismiss = { showVideoQualitySheet = false })
     }
 
     AddToPlaylistDialog(
@@ -870,6 +890,67 @@ fun ColumnScope.PlayerMenu(
                     )
 
                     if (isQueueTrigger != true) {
+                        add(
+                            MenuItemData(
+                                title = {
+                                    Text(
+                                        text = stringResource(
+                                            if (isVideoTrack && !isAudioOnly) R.string.switch_to_audio
+                                            else R.string.switch_to_video
+                                        )
+                                    )
+                                },
+                                icon = {
+                                    Icon(
+                                        painter = painterResource(
+                                            if (isVideoTrack && !isAudioOnly) R.drawable.music_note
+                                            else R.drawable.play
+                                        ),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                },
+                                onClick = {
+                                    if (isVideoTrack && isAudioOnly) {
+                                        MusicVideoEngine.setAudioOnlyForTrack(mediaMetadata.id, false)
+                                    } else if (isVideoTrack) {
+                                        playerConnection.switchVersion(
+                                            wantVideo = false,
+                                            onNotFound = {
+                                                MusicVideoEngine.setAudioOnlyForTrack(mediaMetadata.id, true)
+                                            }
+                                        )
+                                    } else {
+                                        playerConnection.switchVersion(
+                                            wantVideo = true,
+                                            onNotFound = {
+                                                Toast.makeText(
+                                                    context,
+                                                    R.string.no_results_found,
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            }
+                                        )
+                                    }
+                                    onDismiss()
+                                }
+                            )
+                        )
+                        if (showsVideo && videoQuality.heights.size >= 2) {
+                            add(
+                                MenuItemData(
+                                    title = { Text(text = stringResource(R.string.video_quality)) },
+                                    icon = {
+                                        Icon(
+                                            painter = painterResource(R.drawable.tune),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    },
+                                    onClick = { showVideoQualitySheet = true }
+                                )
+                            )
+                        }
                         add(
                             MenuItemData(
                                 title = { Text(text = stringResource(R.string.sleep_timer)) },
