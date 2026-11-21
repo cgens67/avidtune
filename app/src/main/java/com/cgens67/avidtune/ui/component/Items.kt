@@ -16,6 +16,7 @@ import androidx.compose.animation.shrinkOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.Orientation
@@ -47,10 +48,10 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ShapeDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -106,7 +107,6 @@ import com.cgens67.avidtune.constants.ListItemHeight
 import com.cgens67.avidtune.constants.ListThumbnailSize
 import com.cgens67.avidtune.constants.SmallGridThumbnailHeight
 import com.cgens67.avidtune.constants.SwipeToSongKey
-import com.cgens67.avidtune.constants.ThumbnailCornerRadius
 import com.cgens67.avidtune.db.entities.Album
 import com.cgens67.avidtune.db.entities.Artist
 import com.cgens67.avidtune.db.entities.Playlist
@@ -157,10 +157,12 @@ inline fun ListItem(
     modifier: Modifier = Modifier,
     title: String,
     noinline subtitle: (@Composable RowScope.() -> Unit)? = null,
+    noinline titleBadges: @Composable RowScope.() -> Unit = {},
     thumbnailContent: @Composable () -> Unit,
     crossinline trailingContent: @Composable RowScope.() -> Unit = {},
     isActive: Boolean = false,
     isSelected: Boolean = false,
+    showDivider: Boolean = true,
 ) {
     val defaultContentColor = LocalContentColor.current.takeOrElse { MaterialTheme.colorScheme.onSurface }
     val titleColor = when {
@@ -169,20 +171,19 @@ inline fun ListItem(
         else -> defaultContentColor
     }
     val subtitleContentColor = when {
-        isActive -> MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+        isActive -> MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.72f)
         isSelected -> defaultContentColor.copy(alpha = 0.75f)
-        else -> defaultContentColor.copy(alpha = 0.7f)
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
     val trailingContentColor = when {
         isActive -> MaterialTheme.colorScheme.onSecondaryContainer
         isSelected -> defaultContentColor
-        else -> defaultContentColor
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
     val itemCornerRadius = rememberItemCornerRadius()
 
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
+    Box(
         modifier =
             modifier
                 .focusable()
@@ -200,33 +201,58 @@ inline fun ListItem(
                     }
                 ),
     ) {
-        Box(Modifier.padding(8.dp), contentAlignment = Alignment.Center) { thumbnailContent() }
-        Column(
-            modifier =
-                Modifier
-                    .weight(1f)
-                    .padding(horizontal = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxSize(),
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                color = titleColor,
-            )
-            if (subtitle != null) {
-                CompositionLocalProvider(LocalContentColor provides subtitleContentColor) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    ) { subtitle() }
+            Box(Modifier.padding(8.dp), contentAlignment = Alignment.Center) { thumbnailContent() }
+            Column(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .padding(horizontal = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = titleColor,
+                        modifier = Modifier.weight(1f),
+                    )
+                    CompositionLocalProvider(LocalContentColor provides subtitleContentColor) {
+                        titleBadges()
+                    }
+                }
+                if (subtitle != null) {
+                    CompositionLocalProvider(LocalContentColor provides subtitleContentColor) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) { subtitle() }
+                    }
                 }
             }
+            CompositionLocalProvider(LocalContentColor provides trailingContentColor) {
+                trailingContent()
+            }
         }
-        CompositionLocalProvider(LocalContentColor provides trailingContentColor) {
-            trailingContent()
+
+        if (showDivider && !isActive && !isSelected) {
+            HorizontalDivider(
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(start = 70.dp, end = 12.dp),
+                thickness = 0.5.dp,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+            )
         }
     }
 }
@@ -237,15 +263,19 @@ fun ListItem(
     title: String,
     subtitle: String?,
     badges: @Composable RowScope.() -> Unit = {},
+    titleBadges: @Composable RowScope.() -> Unit = {},
     thumbnailContent: @Composable () -> Unit,
     trailingContent: @Composable RowScope.() -> Unit = {},
     isActive: Boolean = false,
     isSelected: Boolean = false,
+    showDivider: Boolean = true,
 ) = ListItem(
     title = title,
     modifier = modifier,
     isActive = isActive,
     isSelected = isSelected,
+    showDivider = showDivider,
+    titleBadges = titleBadges,
     subtitle = {
         badges()
         if (!subtitle.isNullOrEmpty()) {
@@ -253,9 +283,9 @@ fun ListItem(
             Text(
                 text = subtitle,
                 color = when {
-                    isActive -> MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
-                    isSelected -> defaultSubtitleColor.copy(alpha = 0.75f)
-                    else -> defaultSubtitleColor.copy(alpha = 0.7f)
+                    isActive -> MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.72f)
+                    isSelected -> defaultSubtitleColor.copy(alpha = 0.78f)
+                    else -> defaultSubtitleColor
                 },
                 style = MaterialTheme.typography.bodySmall,
                 maxLines = 1,
@@ -273,6 +303,7 @@ fun GridItem(
     title: @Composable () -> Unit,
     subtitle: @Composable () -> Unit,
     badges: @Composable RowScope.() -> Unit = {},
+    titleBadges: @Composable RowScope.() -> Unit = {},
     thumbnailContent: @Composable BoxWithConstraintsScope.() -> Unit,
     thumbnailRatio: Float = 1f,
     fillMaxWidth: Boolean = false,
@@ -284,12 +315,12 @@ fun GridItem(
             if (fillMaxWidth) {
                 modifier
                     .focusable()
-                    .padding(12.dp)
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
                     .fillMaxWidth()
             } else {
                 modifier
                     .focusable()
-                    .padding(12.dp)
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
                     .width(GridThumbnailHeight * thumbnailRatio)
             },
     ) {
@@ -306,9 +337,21 @@ fun GridItem(
             thumbnailContent()
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
-        title()
+        Row(
+            verticalAlignment = Alignment.Top,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Box(modifier = Modifier.weight(1f)) {
+                title()
+            }
+            CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant) {
+                titleBadges()
+            }
+        }
+
+        Spacer(modifier = Modifier.height(2.dp))
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             badges()
@@ -325,6 +368,7 @@ fun GridItem(
     subtitle: String,
     isActive: Boolean = false,
     badges: @Composable RowScope.() -> Unit = {},
+    titleBadges: @Composable RowScope.() -> Unit = {},
     thumbnailContent: @Composable BoxWithConstraintsScope.() -> Unit,
     thumbnailRatio: Float = 1f,
     fillMaxWidth: Boolean = false,
@@ -334,9 +378,10 @@ fun GridItem(
         Text(
             text = title,
             style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.SemiBold,
+            lineHeight = 20.sp,
             color = if (isActive) MaterialTheme.colorScheme.primary else Color.Unspecified,
-            maxLines = 1,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Start,
             modifier = Modifier.fillMaxWidth(),
@@ -346,11 +391,13 @@ fun GridItem(
         Text(
             text = subtitle,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.secondary,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
     },
+    badges = badges,
+    titleBadges = titleBadges,
     thumbnailContent = thumbnailContent,
     thumbnailRatio = thumbnailRatio,
     fillMaxWidth = fillMaxWidth,
@@ -367,10 +414,8 @@ fun SongListItem(
     showDownloadIcon: Boolean = true,
     showSongIconPlaceholder: Boolean = false,
     isExplicit: Boolean = false,
+    showDivider: Boolean = true,
     badges: @Composable RowScope.() -> Unit = {
-        if (isExplicit) {
-            Icon.Explicit()
-        }
         if (showLikedIcon && song.song.liked) {
             Icon.Favorite()
         }
@@ -405,6 +450,11 @@ fun SongListItem(
                     viewCountText,
                 ),
             badges = badges,
+            titleBadges = {
+                if (isExplicit) {
+                    Icon.Explicit(modifier = Modifier.padding(start = 6.dp))
+                }
+            },
             thumbnailContent = {
                 ItemThumbnail(
                     thumbnailUrl = song.song.thumbnailUrl?.resize(200, 200),
@@ -421,6 +471,7 @@ fun SongListItem(
             modifier = modifier,
             isActive = isActive,
             isSelected = isSelected,
+            showDivider = showDivider,
         )
     }
 
@@ -445,6 +496,7 @@ fun SongGridItem(
     showLikedIcon: Boolean = true,
     showInLibraryIcon: Boolean = false,
     showDownloadIcon: Boolean = true,
+    isExplicit: Boolean = false,
     badges: @Composable RowScope.() -> Unit = {
         if (showLikedIcon && song.song.liked) {
             Icon.Favorite()
@@ -467,11 +519,12 @@ fun SongGridItem(
             Text(
                 text = song.song.title,
                 style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold,
+                lineHeight = 20.sp,
                 color = if (isActive) MaterialTheme.colorScheme.primary else Color.Unspecified,
-                maxLines = 1,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.basicMarquee().fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
             )
         },
         subtitle = {
@@ -483,12 +536,17 @@ fun SongGridItem(
                         viewCountText,
                     ),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.secondary,
-                maxLines = 2,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         },
         badges = badges,
+        titleBadges = {
+            if (isExplicit) {
+                Icon.Explicit(modifier = Modifier.padding(start = 6.dp, top = 2.dp))
+            }
+        },
         thumbnailContent = {
             ItemThumbnail(
                 thumbnailUrl = song.song.thumbnailUrl,
@@ -512,6 +570,7 @@ fun SongGridItem(
 fun ArtistListItem(
     artist: Artist,
     modifier: Modifier = Modifier,
+    showDivider: Boolean = true,
     badges: @Composable RowScope.() -> Unit = {
         if (artist.artist.bookmarkedAt != null) {
             Icon(
@@ -530,6 +589,7 @@ fun ArtistListItem(
     title = artist.artist.name,
     subtitle = pluralStringResource(R.plurals.n_song, artist.songCount, artist.songCount),
     badges = badges,
+    showDivider = showDivider,
     thumbnailContent = {
         AsyncImage(
             model = artist.artist.thumbnailUrl?.resize(200, 200),
@@ -538,7 +598,12 @@ fun ArtistListItem(
             modifier =
                 Modifier
                     .size(ListThumbnailSize)
-                    .clip(CircleShape),
+                    .clip(CircleShape)
+                    .border(
+                        0.5.dp,
+                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                        CircleShape,
+                    ),
         )
     },
     trailingContent = trailingContent,
@@ -567,7 +632,12 @@ fun ArtistGridItem(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .clip(CircleShape),
+                    .clip(CircleShape)
+                    .border(
+                        0.5.dp,
+                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                        CircleShape,
+                    ),
         )
     },
     fillMaxWidth = fillMaxWidth,
@@ -579,6 +649,7 @@ fun AlbumListItem(
     album: Album,
     modifier: Modifier = Modifier,
     showLikedIcon: Boolean = true,
+    showDivider: Boolean = true,
     badges: @Composable RowScope.() -> Unit = {
         val database = LocalDatabase.current
         val downloadUtil = LocalDownloadUtil.current
@@ -636,6 +707,7 @@ fun AlbumListItem(
                 album.album.year?.toString(),
             ),
         badges = badges,
+        showDivider = showDivider,
         thumbnailContent = {
             ItemThumbnail(
                 thumbnailUrl = album.album.thumbnailUrl,
@@ -702,19 +774,20 @@ fun AlbumGridItem(
             Text(
                 text = album.album.title,
                 style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold,
+                lineHeight = 20.sp,
                 color = if (isActive) MaterialTheme.colorScheme.primary else Color.Unspecified,
-                maxLines = 1,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.basicMarquee().fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
             )
         },
         subtitle = {
             Text(
                 text = album.artists.joinToString { it.name },
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.secondary,
-                maxLines = 2,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         },
@@ -751,6 +824,7 @@ fun PlaylistListItem(
     playlist: Playlist,
     modifier: Modifier = Modifier,
     autoPlaylist: Boolean = false,
+    showDivider: Boolean = true,
     badges: @Composable RowScope.() -> Unit = {},
     trailingContent: @Composable RowScope.() -> Unit = {},
 ) {
@@ -776,6 +850,7 @@ fun PlaylistListItem(
                 }
             },
         badges = badges,
+        showDivider = showDivider,
         thumbnailContent = {
             PlaylistThumbnail(
                 thumbnails = playlist.thumbnails,
@@ -810,7 +885,7 @@ fun PlaylistGridItem(
     autoPlaylist: Boolean = false,
     badges: @Composable RowScope.() -> Unit = {},
     fillMaxWidth: Boolean = false,
-    context: Context = LocalContext.current
+    context: Context = LocalContext.current,
 ) {
     val itemCornerRadius = rememberItemCornerRadius()
     GridItem(
@@ -818,10 +893,11 @@ fun PlaylistGridItem(
             Text(
                 text = playlist.playlist.name,
                 style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
+                fontWeight = FontWeight.SemiBold,
+                lineHeight = 20.sp,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.basicMarquee().fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
             )
         },
         subtitle = {
@@ -846,8 +922,8 @@ fun PlaylistGridItem(
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.secondary,
-                maxLines = 2,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         },
@@ -855,15 +931,22 @@ fun PlaylistGridItem(
         thumbnailContent = {
             val width = maxWidth
             val thumbnailUri = getPlaylistImageUri(context, playlist.playlist.id)
+            val thumbShape = RoundedCornerShape(itemCornerRadius)
 
             if (thumbnailUri != null) {
                 AsyncImage(
                     model = thumbnailUri,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(itemCornerRadius))
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .clip(thumbShape)
+                            .border(
+                                0.5.dp,
+                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                                thumbShape,
+                            ),
                 )
             } else {
                 PlaylistThumbnail(
@@ -889,7 +972,7 @@ fun PlaylistGridItem(
                             )
                         }
                     },
-                    shape = RoundedCornerShape(itemCornerRadius),
+                    shape = thumbShape,
                 )
             }
         },
@@ -1337,6 +1420,7 @@ fun MediaMetadataListItem(
     isActive: Boolean = false,
     isPlaying: Boolean = false,
     shouldLoadImage: Boolean = true,
+    showDivider: Boolean = false,
     trailingContent: @Composable RowScope.() -> Unit = {},
 ) {
     val itemCornerRadius = rememberItemCornerRadius()
@@ -1348,6 +1432,11 @@ fun MediaMetadataListItem(
                 makeTimeString(mediaMetadata.duration * 1000L),
                 viewCountText,
             ),
+        titleBadges = {
+            if (mediaMetadata.explicit) {
+                Icon.Explicit(modifier = Modifier.padding(start = 6.dp))
+            }
+        },
         thumbnailContent = {
             ItemThumbnail(
                 thumbnailUrl = mediaMetadata.thumbnailUrl,
@@ -1364,6 +1453,7 @@ fun MediaMetadataListItem(
         modifier = modifier,
         isActive = isActive,
         isSelected = isSelected,
+        showDivider = showDivider,
     )
 }
 
@@ -1378,6 +1468,8 @@ fun YouTubeListItem(
     isActive: Boolean = false,
     isPlaying: Boolean = false,
     isSwipeable: Boolean = true,
+    showExplicitBadge: Boolean = true,
+    showDivider: Boolean = true,
     trailingContent: @Composable RowScope.() -> Unit = {},
     badges: @Composable RowScope.() -> Unit = {
         val database = LocalDatabase.current
@@ -1389,7 +1481,6 @@ fun YouTubeListItem(
         ) {
             Icon.Favorite()
         }
-        if (item.explicit) Icon.Explicit()
         if (item is SongItem && song?.song?.inLibrary != null) {
             Icon.Library()
         }
@@ -1413,7 +1504,7 @@ fun YouTubeListItem(
                             ?: item.views
                             ?: (if (item.chartPosition != null) "#${item.chartPosition}" else null)
                             ?: item.chartChange
-                        
+
                         val viewsStr = stringResource(R.string.views)
                         val playsStr = stringResource(R.string.plays)
                         val views = rawViews
@@ -1439,7 +1530,7 @@ fun YouTubeListItem(
                     is PlaylistItem -> {
                         joinByBullet(item.author?.name, item.songCountText)
                     }
-                    
+
                     is EpisodeItem -> {
                         val rawViews = viewCountText ?: item.views
                         val viewsStr = stringResource(R.string.views)
@@ -1448,15 +1539,20 @@ fun YouTubeListItem(
                             ?.replace('\u00a0', ' ')
                             ?.replace(" views", " $viewsStr", ignoreCase = true)
                             ?.replace(" plays", " $playsStr", ignoreCase = true)
-                        
+
                         joinByBullet(item.author?.name, item.publishDateText, views)
                     }
-                    
+
                     is PodcastItem -> {
                         joinByBullet(item.author?.name, item.episodeCountText)
                     }
                 },
             badges = badges,
+            titleBadges = {
+                if (showExplicitBadge && item.explicit) {
+                    Icon.Explicit(modifier = Modifier.padding(start = 6.dp))
+                }
+            },
             thumbnailContent = {
                 ItemThumbnail(
                     thumbnailUrl = item.thumbnail,
@@ -1472,6 +1568,7 @@ fun YouTubeListItem(
             modifier = modifier,
             isActive = isActive,
             isSelected = isSelected,
+            showDivider = showDivider,
         )
     }
 
@@ -1493,6 +1590,7 @@ fun YouTubeGridItem(
     modifier: Modifier = Modifier,
     viewCountText: String? = null,
     coroutineScope: CoroutineScope? = null,
+    showExplicitBadge: Boolean = true,
     badges: @Composable RowScope.() -> Unit = {
         val database = LocalDatabase.current
         val song by database.song(item.id).collectAsState(initial = null)
@@ -1503,7 +1601,6 @@ fun YouTubeGridItem(
         ) {
             Icon.Favorite()
         }
-        if (item.explicit) Icon.Explicit()
         if (item is SongItem && song?.song?.inLibrary != null) Icon.Library()
         if (item is SongItem) {
             val downloads by LocalDownloadUtil.current.downloads.collectAsState()
@@ -1522,12 +1619,13 @@ fun YouTubeGridItem(
             Text(
                 text = item.title,
                 style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold,
+                lineHeight = 20.sp,
                 color = if (isActive) MaterialTheme.colorScheme.primary else Color.Unspecified,
-                maxLines = 1,
+                maxLines = if (item is ArtistItem) 1 else 2,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = if (item is ArtistItem) TextAlign.Center else TextAlign.Start,
-                modifier = Modifier.basicMarquee().fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
             )
         },
         subtitle = {
@@ -1538,7 +1636,7 @@ fun YouTubeGridItem(
                             ?: item.views
                             ?: (if (item.chartPosition != null) "#${item.chartPosition}" else null)
                             ?: item.chartChange
-                            
+
                         val viewsStr = stringResource(R.string.views)
                         val playsStr = stringResource(R.string.plays)
                         val views = rawViews
@@ -1549,7 +1647,7 @@ fun YouTubeGridItem(
                         joinByBullet(
                             item.artists.joinToString { it.name },
                             makeTimeString(item.duration?.times(1000L)),
-                            views
+                            views,
                         )
                     }
                     is AlbumItem -> joinByBullet(item.artists?.joinToString { it.name }, item.year?.toString())
@@ -1571,13 +1669,18 @@ fun YouTubeGridItem(
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.secondary,
-                    maxLines = 2,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
         },
         badges = badges,
+        titleBadges = {
+            if (showExplicitBadge && item.explicit) {
+                Icon.Explicit(modifier = Modifier.padding(start = 6.dp, top = 2.dp))
+            }
+        },
         thumbnailContent = {
             val database = LocalDatabase.current
             val playerConnection = LocalPlayerConnection.current ?: return@GridItem
@@ -1748,7 +1851,18 @@ fun ItemThumbnail(
             modifier
                 .fillMaxSize()
                 .aspectRatio(thumbnailRatio)
-                .clip(shape),
+                .clip(shape)
+                .then(
+                    if (albumIndex == null) {
+                        Modifier.border(
+                            0.5.dp,
+                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                            shape,
+                        )
+                    } else {
+                        Modifier
+                    }
+                ),
     ) {
         val cropThumbnailToSquare = false
         val isYouTubeThumb = thumbnailUrl?.contains("ytimg.com", ignoreCase = true) == true
@@ -1779,7 +1893,7 @@ fun ItemThumbnail(
                     remember(thumbnailUrl, widthPx, heightPx) {
                         ImageRequest
                             .Builder(context)
-                            .data(thumbnailUrl?.resize(544, 544))
+                            .data(thumbnailUrl.resize(544, 544))
                             .allowHardware(true)
                             .apply {
                                 if (widthPx != null && heightPx != null) {
@@ -1834,13 +1948,13 @@ fun ItemThumbnail(
                     modifier = Modifier
                         .size(24.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary)
+                        .background(MaterialTheme.colorScheme.primary),
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.done),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(16.dp),
                     )
                 }
             }
@@ -1896,7 +2010,12 @@ fun LocalThumbnail(
         modifier =
             modifier
                 .aspectRatio(thumbnailRatio)
-                .clip(shape),
+                .clip(shape)
+                .border(
+                    0.5.dp,
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                    shape,
+                ),
     ) {
         val cropThumbnailToSquare = false
         val isYouTubeThumb = thumbnailUrl?.contains("ytimg.com", ignoreCase = true) == true
@@ -2025,6 +2144,7 @@ fun PlaylistThumbnail(
     val context = LocalContext.current
     val density = LocalDensity.current
     val sizePx = with(density) { size.roundToPx().coerceAtLeast(1) }
+    val borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)
 
     when (thumbnails.size) {
         0 -> {
@@ -2034,7 +2154,8 @@ fun PlaylistThumbnail(
                     Modifier
                         .size(size)
                         .clip(shape)
-                        .background(MaterialTheme.colorScheme.surfaceContainer),
+                        .background(MaterialTheme.colorScheme.surfaceContainer)
+                        .border(0.5.dp, borderColor, shape),
             ) {
                 placeHolder()
             }
@@ -2057,7 +2178,8 @@ fun PlaylistThumbnail(
                 modifier =
                     Modifier
                         .size(size)
-                        .clip(shape),
+                        .clip(shape)
+                        .border(0.5.dp, borderColor, shape),
             )
         }
 
@@ -2066,7 +2188,8 @@ fun PlaylistThumbnail(
                 modifier =
                     Modifier
                         .size(size)
-                        .clip(shape),
+                        .clip(shape)
+                        .border(0.5.dp, borderColor, shape),
             ) {
                 listOf(
                     Alignment.TopStart,
@@ -2353,14 +2476,11 @@ private object Icon {
     }
 
     @Composable
-    fun Explicit() {
+    fun Explicit(modifier: Modifier = Modifier) {
         Icon(
             painter = painterResource(R.drawable.explicit),
             contentDescription = null,
-            modifier =
-                Modifier
-                    .size(18.dp)
-                    .padding(end = 2.dp),
+            modifier = modifier.size(16.dp),
         )
     }
 }
@@ -2371,6 +2491,7 @@ fun SmallGridItem(
     title: String,
     subtitle: String? = null,
     isActive: Boolean = false,
+    titleBadges: @Composable RowScope.() -> Unit = {},
     thumbnailContent: @Composable BoxWithConstraintsScope.() -> Unit,
     thumbnailShape: Shape,
     thumbnailRatio: Float = 1f,
@@ -2383,7 +2504,7 @@ fun SmallGridItem(
             modifier
                 .fillMaxHeight()
                 .width(GridThumbnailHeight * thumbnailRatio)
-                .padding(12.dp),
+                .padding(horizontal = 12.dp, vertical = 10.dp),
     ) {
         BoxWithConstraints(
             modifier =
@@ -2391,39 +2512,52 @@ fun SmallGridItem(
                     .height(SmallGridThumbnailHeight)
                     .aspectRatio(thumbnailRatio)
                     .clip(thumbnailShape)
+                    .border(
+                        0.5.dp,
+                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                        thumbnailShape,
+                    ),
         ) {
             thumbnailContent()
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         Column(
             horizontalAlignment = if (isArtist == true) Alignment.CenterHorizontally else Alignment.Start,
-            verticalArrangement = Arrangement.Center,
+            verticalArrangement = Arrangement.spacedBy(2.dp),
             modifier = Modifier.width(SmallGridThumbnailHeight),
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                color = if (isActive) MaterialTheme.colorScheme.primary else Color.Unspecified,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = if (isArtist == true) TextAlign.Center else TextAlign.Start,
-                modifier =
-                    Modifier
-                        .basicMarquee()
-                        .fillMaxWidth(),
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (isActive) MaterialTheme.colorScheme.primary else Color.Unspecified,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = if (isArtist == true) TextAlign.Center else TextAlign.Start,
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .basicMarquee(),
+                )
+                CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant) {
+                    titleBadges()
+                }
+            }
             if (!subtitle.isNullOrBlank()) {
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.secondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     textAlign = if (isArtist == true) TextAlign.Center else TextAlign.Start,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
         }
@@ -2435,25 +2569,32 @@ fun SongSmallGridItem(
     song: Song,
     modifier: Modifier = Modifier,
     viewCountText: String? = null,
+    isExplicit: Boolean = false,
     isActive: Boolean = false,
     isPlaying: Boolean = false,
 ) {
     val itemCornerRadius = rememberItemCornerRadius()
     val subtitle = joinByBullet(
         song.artists.joinToString { it.name },
-        viewCountText
+        viewCountText,
     )
     SmallGridItem(
         title = song.song.title,
         subtitle = subtitle,
         isActive = isActive,
+        titleBadges = {
+            if (isExplicit) {
+                Icon.Explicit(modifier = Modifier.padding(start = 4.dp))
+            }
+        },
         thumbnailContent = {
             AsyncImage(
                 model = song.song.thumbnailUrl,
                 contentDescription = null,
+                contentScale = ContentScale.Crop,
                 modifier =
                     Modifier
-                        .fillMaxWidth()
+                        .fillMaxSize()
                         .clip(RoundedCornerShape(itemCornerRadius)),
             )
 
@@ -2536,6 +2677,7 @@ fun ArtistSmallGridItem(
         AsyncImage(
             model = artist.artist.thumbnailUrl,
             contentDescription = null,
+            contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),
         )
     },
@@ -2560,6 +2702,7 @@ fun AlbumSmallGridItem(
                 AsyncImage(
                     model = song.song.thumbnailUrl,
                     contentDescription = null,
+                    contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
                 )
 
@@ -2614,6 +2757,7 @@ fun YouTubeSmallGridItem(
     modifier: Modifier = Modifier,
     viewCountText: String? = null,
     coroutineScope: CoroutineScope? = null,
+    showExplicitBadge: Boolean = true,
     isActive: Boolean = false,
     isPlaying: Boolean = false,
     fillMaxWidth: Boolean = false,
@@ -2628,10 +2772,10 @@ fun YouTubeSmallGridItem(
                 ?.replace('\u00a0', ' ')
                 ?.replace(" views", " $viewsStr", ignoreCase = true)
                 ?.replace(" plays", " $playsStr", ignoreCase = true)
-            
+
             joinByBullet(
                 item.artists.joinToString { it.name },
-                views
+                views,
             )
         }
         is AlbumItem -> item.artists?.joinToString { it.name }
@@ -2653,13 +2797,19 @@ fun YouTubeSmallGridItem(
         title = item.title,
         subtitle = subtitle,
         isActive = isActive,
+        titleBadges = {
+            if (showExplicitBadge && item.explicit) {
+                Icon.Explicit(modifier = Modifier.padding(start = 4.dp))
+            }
+        },
         thumbnailContent = {
             AsyncImage(
                 model = item.thumbnail,
                 contentDescription = null,
+                contentScale = ContentScale.Crop,
                 modifier =
                     Modifier
-                        .fillMaxWidth()
+                        .fillMaxSize()
                         .clip(if (item is ArtistItem) CircleShape else RoundedCornerShape(itemCornerRadius)),
             )
             if (item is SongItem || item is EpisodeItem) {
