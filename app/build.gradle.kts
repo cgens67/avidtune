@@ -163,6 +163,7 @@ dependencies {
     implementation(libs.ktor.client.okhttp)
     implementation(libs.ktor.client.content.negotiation)
     implementation(libs.ktor.serialization.json)
+    implementation(libs.glyphmind)
     
     // WebSockets & Server components required for Music Together feature
     implementation("io.ktor:ktor-client-websockets:${libs.versions.ktor.get()}")

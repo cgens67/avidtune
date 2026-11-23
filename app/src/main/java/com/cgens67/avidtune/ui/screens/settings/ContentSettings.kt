@@ -2,9 +2,22 @@
 
 package com.cgens67.avidtune.ui.screens.settings
 
+import android.content.res.Configuration
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +42,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
@@ -74,10 +88,17 @@ import com.cgens67.avidtune.constants.EnableDescriptionsKey
 import com.cgens67.avidtune.constants.EnableGeniusKey
 import com.cgens67.avidtune.constants.EnableKugouKey
 import com.cgens67.avidtune.constants.EnableLrcLibKey
+import com.cgens67.avidtune.constants.EnableLrcRedKey
 import com.cgens67.avidtune.constants.EnableLyricsPlusKey
+import com.cgens67.avidtune.constants.EnableLyricsRomanizationKey
+import com.cgens67.avidtune.constants.LyricsRomanizeCyrillicByLineKey
+import com.cgens67.avidtune.constants.LyricsRomanizeLanguagesKey
+import com.cgens67.avidtune.lyrics.LyricsRomanizer
+import com.cgens67.avidtune.constants.EnableMusixmatchKey
 import com.cgens67.avidtune.constants.EnableNetEaseKey
 import com.cgens67.avidtune.constants.EnablePaxsenixKey
 import com.cgens67.avidtune.constants.EnableSimpMusicKey
+import com.cgens67.avidtune.constants.EnableUnisonKey
 import com.cgens67.avidtune.constants.EnableWikipediaDescriptionsKey
 import com.cgens67.avidtune.constants.EnableYouTubeMusicDescriptionsKey
 import com.cgens67.avidtune.constants.HideExplicitKey
@@ -227,6 +248,18 @@ fun ContentSettings(
         key = EnableBiniLyricsKey,
         defaultValue = true
     )
+    val (enableLrcRed, onEnableLrcRedChange) = rememberPreference(
+        key = EnableLrcRedKey,
+        defaultValue = true
+    )
+    val (enableMusixmatch, onEnableMusixmatchChange) = rememberPreference(
+        key = EnableMusixmatchKey,
+        defaultValue = true
+    )
+    val (enableUnison, onEnableUnisonChange) = rememberPreference(
+        key = EnableUnisonKey,
+        defaultValue = true
+    )
     val (enableLyricsPlus, onEnableLyricsPlusChange) = rememberPreference(
         key = EnableLyricsPlusKey,
         defaultValue = true
@@ -239,6 +272,22 @@ fun ContentSettings(
         key = EnableGeniusKey,
         defaultValue = true
     )
+    val (enableLyricsRomanization, onEnableLyricsRomanizationChange) = rememberPreference(
+        key = EnableLyricsRomanizationKey,
+        defaultValue = false
+    )
+    val (romanizeCyrillicByLine, onRomanizeCyrillicByLineChange) = rememberPreference(
+        key = LyricsRomanizeCyrillicByLineKey,
+        defaultValue = false
+    )
+    val (romanizeLanguagesStr, onRomanizeLanguagesChange) = rememberPreference(
+        key = LyricsRomanizeLanguagesKey,
+        defaultValue = LyricsRomanizer.DEFAULT_ROMANIZE_LANGUAGES
+    )
+    val parsedRomanizeLanguages = remember(romanizeLanguagesStr) {
+        LyricsRomanizer.parseLanguages(romanizeLanguagesStr)
+    }
+    var showRomanizeLanguagesSheet by remember { mutableStateOf(false) }
 
     val (aiContentFilterEnabled, onAiContentFilterEnabledChange) = rememberPreference(
         key = AiContentFilterEnabledKey,
@@ -249,7 +298,23 @@ fun ContentSettings(
         defaultValue = false
     )
 
-    val defaultOrder = listOf("AvidLyrics", "LyricsPlus", "Paxsenix", "BiniLyrics", "BetterLyrics", "SimpMusic", "LrcLib", "Kugou", "NetEase", "Genius", "YouTube Subtitle", "YouTube Music")
+    val defaultOrder = listOf(
+        "AvidLyrics",
+        "LyricsPlus",
+        "Paxsenix",
+        "BiniLyrics",
+        "LrcRed",
+        "BetterLyrics",
+        "SimpMusic",
+        "Musixmatch",
+        "LrcLib",
+        "Kugou",
+        "NetEase",
+        "Unison",
+        "Genius",
+        "YouTube Subtitle",
+        "YouTube Music"
+    )
     val (providerOrderStr, onProviderOrderChange) = rememberPreference(LyricsProviderOrderKey, defaultOrder.joinToString(","))
     val currentOrder = remember(providerOrderStr) {
         providerOrderStr.split(",").filter { it.isNotBlank() }.let { saved ->
@@ -262,6 +327,7 @@ fun ContentSettings(
     if (showReorderDialog) {
         ReorderLyricsProvidersBottomSheet(
             currentOrder = currentOrder,
+            defaultOrder = defaultOrder,
             onDismiss = { showReorderDialog = false },
             onSave = { newOrder ->
                 onProviderOrderChange(newOrder.joinToString(","))
@@ -273,10 +339,24 @@ fun ContentSettings(
     if (showDescriptionReorderDialog) {
         ReorderDescriptionProvidersBottomSheet(
             currentOrder = currentDescriptionOrder,
+            defaultOrder = defaultDescriptionOrder,
             onDismiss = { showDescriptionReorderDialog = false },
             onSave = { newOrder ->
                 onDescriptionOrderChange(newOrder.joinToString(","))
                 showDescriptionReorderDialog = false
+            }
+        )
+    }
+
+    if (showRomanizeLanguagesSheet) {
+        RomanizationLanguagesBottomSheet(
+            languages = parsedRomanizeLanguages,
+            onDismiss = { showRomanizeLanguagesSheet = false },
+            onSave = { updated ->
+                onRomanizeLanguagesChange(
+                    updated.entries.joinToString(",") { (lang, enabled) -> "$lang:$enabled" }
+                )
+                showRomanizeLanguagesSheet = false
             }
         )
     }
@@ -318,7 +398,7 @@ fun ContentSettings(
                 // Share link format preference
                 {
                     ListPreference(
-                        title = { Text(stringResource(R.string.share)) },
+                        title = { Text(stringResource(R.string.share_song_as)) },
                         icon = { Icon(painterResource(R.drawable.share), null) },
                         selectedValue = shareFormat,
                         values = listOf(
@@ -569,6 +649,24 @@ fun ContentSettings(
                 },
                 {
                     SwitchPreference(
+                        title = { Text(stringResource(R.string.enable_lrc_red)) },
+                        description = stringResource(R.string.enable_lrc_red_desc),
+                        icon = { Icon(painterResource(R.drawable.lyrics), null) },
+                        checked = enableLrcRed,
+                        onCheckedChange = onEnableLrcRedChange,
+                    )
+                },
+                {
+                    SwitchPreference(
+                        title = { Text(stringResource(R.string.enable_musixmatch)) },
+                        description = stringResource(R.string.enable_musixmatch_desc),
+                        icon = { Icon(painterResource(R.drawable.lyrics), null) },
+                        checked = enableMusixmatch,
+                        onCheckedChange = onEnableMusixmatchChange,
+                    )
+                },
+                {
+                    SwitchPreference(
                         title = { Text(stringResource(R.string.enable_lrclib)) },
                         description = stringResource(R.string.enable_lrclib_desc),
                         icon = { Icon(painterResource(R.drawable.lyrics), null) },
@@ -596,6 +694,15 @@ fun ContentSettings(
                 },
                 {
                     SwitchPreference(
+                        title = { Text(stringResource(R.string.enable_unison)) },
+                        description = stringResource(R.string.enable_unison_desc),
+                        icon = { Icon(painterResource(R.drawable.lyrics), null) },
+                        checked = enableUnison,
+                        onCheckedChange = onEnableUnisonChange,
+                    )
+                },
+                {
+                    SwitchPreference(
                         title = { Text(stringResource(R.string.enable_genius)) },
                         description = stringResource(R.string.enable_genius_desc),
                         icon = { Icon(painterResource(R.drawable.lyrics), null) },
@@ -609,6 +716,34 @@ fun ContentSettings(
                         description = stringResource(R.string.lyrics_provider_priority_desc),
                         icon = { Icon(painterResource(R.drawable.list), null) },
                         onClick = { showReorderDialog = true }
+                    )
+                },
+                {
+                    SwitchPreference(
+                        title = { Text(stringResource(R.string.romanization_enable)) },
+                        description = stringResource(R.string.romanization_enable_desc),
+                        icon = { Icon(painterResource(R.drawable.translate), null) },
+                        checked = enableLyricsRomanization,
+                        onCheckedChange = onEnableLyricsRomanizationChange,
+                    )
+                },
+                {
+                    SwitchPreference(
+                        title = { Text(stringResource(R.string.romanization_cyrillic_per_line)) },
+                        description = stringResource(R.string.romanization_cyrillic_per_line_desc),
+                        icon = { Icon(painterResource(R.drawable.translate), null) },
+                        checked = romanizeCyrillicByLine,
+                        onCheckedChange = onRomanizeCyrillicByLineChange,
+                    )
+                },
+                {
+                    val enabledCount = parsedRomanizeLanguages.count { it.value }
+                    val totalCount = parsedRomanizeLanguages.size
+                    PreferenceEntry(
+                        title = { Text(stringResource(R.string.romanization_languages)) },
+                        description = "${stringResource(R.string.romanization_languages_desc)} ($enabledCount/$totalCount)",
+                        icon = { Icon(painterResource(R.drawable.language), null) },
+                        onClick = { showRomanizeLanguagesSheet = true }
                     )
                 }
             )
@@ -675,9 +810,12 @@ private fun getLyricsProviderDescription(providerName: String): String? {
         "SimpMusic" -> stringResource(R.string.enable_simpmusic_desc)
         "Paxsenix" -> stringResource(R.string.enable_paxsenix_desc)
         "BiniLyrics" -> stringResource(R.string.enable_binilyrics_desc)
+        "LrcRed" -> stringResource(R.string.enable_lrc_red_desc)
+        "Musixmatch" -> stringResource(R.string.enable_musixmatch_desc)
         "LrcLib" -> stringResource(R.string.enable_lrclib_desc)
         "Kugou" -> stringResource(R.string.enable_kugou_desc)
         "NetEase" -> stringResource(R.string.enable_netease_desc)
+        "Unison" -> stringResource(R.string.enable_unison_desc)
         "Genius" -> stringResource(R.string.enable_genius_desc)
         "YouTube Subtitle" -> stringResource(R.string.enable_yt_subtitle_desc)
         "YouTube Music" -> stringResource(R.string.enable_yt_music_lyrics_desc)
@@ -700,6 +838,7 @@ private fun getDescriptionProviderDescription(providerName: String): String? {
 @Composable
 fun ReorderDescriptionProvidersBottomSheet(
     currentOrder: List<String>,
+    defaultOrder: List<String>,
     onDismiss: () -> Unit,
     onSave: (List<String>) -> Unit
 ) {
@@ -735,7 +874,6 @@ fun ReorderDescriptionProvidersBottomSheet(
                 .fillMaxWidth()
                 .nestedScroll(nestedScrollConnection)
                 .windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(bottom = 16.dp)
         ) {
             Row(
                 modifier = Modifier
@@ -746,7 +884,7 @@ fun ReorderDescriptionProvidersBottomSheet(
             ) {
                 Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
                     Text(
-                        text = stringResource(R.string.provider_priority),
+                        text = stringResource(R.string.description_provider_priority),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -756,27 +894,19 @@ fun ReorderDescriptionProvidersBottomSheet(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(
-                        onClick = { 
-                            coroutineScope.launch {
-                                sheetState.hide()
-                                onDismiss()
-                            }
-                        }
-                    ) {
-                        Text(stringResource(android.R.string.cancel))
-                    }
-                    Button(
-                        onClick = { 
-                            coroutineScope.launch {
-                                sheetState.hide()
-                                onSave(list)
-                            }
-                        }
-                    ) {
-                        Text(stringResource(R.string.save))
-                    }
+
+                IconButton(
+                    onClick = {
+                        list.clear()
+                        list.addAll(defaultOrder)
+                    },
+                    modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.replay),
+                        contentDescription = stringResource(R.string.reset),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 
@@ -784,9 +914,10 @@ fun ReorderDescriptionProvidersBottomSheet(
 
             LazyColumn(
                 state = lazyListState,
-                contentPadding = PaddingValues(bottom = 80.dp, top = 8.dp),
+                contentPadding = PaddingValues(vertical = 8.dp),
                 modifier = Modifier
                     .fillMaxWidth()
+                    .weight(1f, fill = false)
                     .heightIn(max = 500.dp)
             ) {
                 items(list, key = { it }) { item ->
@@ -811,7 +942,7 @@ fun ReorderDescriptionProvidersBottomSheet(
                                     modifier = Modifier
                                         .size(28.dp)
                                         .background(
-                                            if (index == 0) MaterialTheme.colorScheme.primary 
+                                            if (index == 0) MaterialTheme.colorScheme.primary
                                             else MaterialTheme.colorScheme.surfaceVariant,
                                             CircleShape
                                         ),
@@ -820,8 +951,8 @@ fun ReorderDescriptionProvidersBottomSheet(
                                     Text(
                                         text = "${index + 1}",
                                         style = MaterialTheme.typography.labelMedium,
-                                        color = if (index == 0) MaterialTheme.colorScheme.onPrimary 
-                                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        color = if (index == 0) MaterialTheme.colorScheme.onPrimary
+                                        else MaterialTheme.colorScheme.onSurfaceVariant,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
@@ -867,6 +998,534 @@ fun ReorderDescriptionProvidersBottomSheet(
                     }
                 }
             }
+
+            HorizontalDivider()
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            sheetState.hide()
+                            onDismiss()
+                        }
+                    }
+                ) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+                Spacer(Modifier.width(12.dp))
+                Button(
+                    onClick = {
+                        coroutineScope.launch {
+                            sheetState.hide()
+                            onSave(list)
+                        }
+                    }
+                ) {
+                    Text(stringResource(R.string.save))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun romanizationLanguageLabel(language: String): String =
+    when (language) {
+        "Japanese" -> stringResource(R.string.romanization_lang_japanese)
+        "Korean" -> stringResource(R.string.romanization_lang_korean)
+        "Chinese" -> stringResource(R.string.romanization_lang_chinese)
+        "Arabic" -> stringResource(R.string.romanization_lang_arabic)
+        "Hindi" -> stringResource(R.string.romanization_lang_hindi)
+        "Punjabi" -> stringResource(R.string.romanization_lang_punjabi)
+        "Thai" -> stringResource(R.string.romanization_lang_thai)
+        "Russian" -> stringResource(R.string.romanization_lang_russian)
+        "Ukrainian" -> stringResource(R.string.romanization_lang_ukrainian)
+        "Serbian" -> stringResource(R.string.romanization_lang_serbian)
+        "Bulgarian" -> stringResource(R.string.romanization_lang_bulgarian)
+        "Belarusian" -> stringResource(R.string.romanization_lang_belarusian)
+        "Kyrgyz" -> stringResource(R.string.romanization_lang_kyrgyz)
+        "Macedonian" -> stringResource(R.string.romanization_lang_macedonian)
+        else -> language
+    }
+
+private fun romanizationLanguageMeta(language: String): Pair<String, String> =
+    when (language) {
+        "Japanese" -> "あ" to "日本語"
+        "Korean" -> "가" to "한국어"
+        "Chinese" -> "中" to "中文"
+        "Arabic" -> "ع" to "العربية"
+        "Hindi" -> "अ" to "हिन्दी"
+        "Punjabi" -> "ਅ" to "ਪੰਜਾਬੀ"
+        "Thai" -> "ก" to "ภาษาไทย"
+        "Russian" -> "Я" to "Русский"
+        "Ukrainian" -> "Ї" to "Українська"
+        "Serbian" -> "Ђ" to "Српски"
+        "Bulgarian" -> "Ж" to "Български"
+        "Belarusian" -> "Ў" to "Беларуская"
+        "Kyrgyz" -> "Ң" to "Кыргызча"
+        "Macedonian" -> "Ѓ" to "Македонски"
+        else -> language.take(1).uppercase() to language
+    }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RomanizationLanguagesBottomSheet(
+    languages: Map<String, Boolean>,
+    onDismiss: () -> Unit,
+    onSave: (Map<String, Boolean>) -> Unit
+) {
+    var selectedMap by remember(languages) { mutableStateOf(languages) }
+    var searchQuery by remember { mutableStateOf("") }
+    val lazyListState = rememberLazyListState()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val coroutineScope = rememberCoroutineScope()
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val maxSheetHeight = (configuration.screenHeightDp * if (isLandscape) 0.85f else 0.78f).dp
+
+    val enabledCount = selectedMap.values.count { it }
+    val totalCount = selectedMap.size
+    val allEnabled = totalCount > 0 && enabledCount == totalCount
+
+    val allEntries = selectedMap.entries.toList()
+    val filteredEntries = allEntries.filter { (lang, _) ->
+        if (searchQuery.isBlank()) {
+            true
+        } else {
+            val q = searchQuery.trim()
+            val (_, nativeName) = romanizationLanguageMeta(lang)
+            lang.contains(q, ignoreCase = true) || nativeName.contains(q, ignoreCase = true)
+        }
+    }
+
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                return Offset(0f, available.y)
+            }
+        }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = maxSheetHeight)
+                .nestedScroll(nestedScrollConnection)
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .imePadding()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = if (isLandscape) 14.dp else 20.dp)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(MaterialTheme.colorScheme.primaryContainer)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.translate),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.romanization_languages),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = stringResource(R.string.romanization_languages_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    Text(
+                        text = "$enabledCount/$totalCount",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                    )
+                }
+
+                Surface(
+                    onClick = {
+                        val target = !allEnabled
+                        selectedMap = selectedMap.mapValues { target }
+                    },
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            painter = painterResource(if (allEnabled) R.drawable.deselect else R.drawable.select_all),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
+
+            // Search Bar
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.search),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    BasicTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        singleLine = true,
+                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(
+                            color = MaterialTheme.colorScheme.onSurface
+                        ),
+                        modifier = Modifier.weight(1f),
+                        decorationBox = { innerTextField ->
+                            if (searchQuery.isEmpty()) {
+                                Text(
+                                    text = stringResource(R.string.search),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                )
+                            }
+                            innerTextField()
+                        }
+                    )
+                    if (searchQuery.isNotEmpty()) {
+                        Icon(
+                            painter = painterResource(R.drawable.close),
+                            contentDescription = stringResource(R.string.clear),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .size(18.dp)
+                                .clip(CircleShape)
+                                .clickable { searchQuery = "" }
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // Language List
+            if (filteredEntries.isEmpty()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f, fill = false)
+                        .padding(vertical = 36.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.search),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(26.dp)
+                        )
+                    }
+                    Text(
+                        text = stringResource(R.string.no_results_found),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = stringResource(R.string.try_another_term),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            } else {
+                LazyColumn(
+                    state = lazyListState,
+                    verticalArrangement = Arrangement.spacedBy(if (isLandscape) 8.dp else 3.dp),
+                    contentPadding = PaddingValues(bottom = 4.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f, fill = false)
+                ) {
+                    if (isLandscape) {
+                        items(
+                            items = filteredEntries.chunked(2),
+                            key = { row -> row.joinToString("_") { it.key } }
+                        ) { rowEntries ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                rowEntries.forEach { (language, checked) ->
+                                    RomanizationLanguageCard(
+                                        language = language,
+                                        checked = checked,
+                                        shape = RoundedCornerShape(18.dp),
+                                        compact = true,
+                                        onToggle = { enabled ->
+                                            selectedMap = selectedMap.toMutableMap().apply {
+                                                this[language] = enabled
+                                            }
+                                        },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                                if (rowEntries.size == 1) {
+                                    Spacer(Modifier.weight(1f))
+                                }
+                            }
+                        }
+                    } else {
+                        itemsIndexed(
+                            items = filteredEntries,
+                            key = { _, item -> item.key }
+                        ) { index, (language, checked) ->
+                            val isFirst = index == 0
+                            val isLast = index == filteredEntries.lastIndex
+                            val shape = RoundedCornerShape(
+                                topStart = if (isFirst) 20.dp else 6.dp,
+                                topEnd = if (isFirst) 20.dp else 6.dp,
+                                bottomStart = if (isLast) 20.dp else 6.dp,
+                                bottomEnd = if (isLast) 20.dp else 6.dp
+                            )
+                            RomanizationLanguageCard(
+                                language = language,
+                                checked = checked,
+                                shape = shape,
+                                compact = false,
+                                onToggle = { enabled ->
+                                    selectedMap = selectedMap.toMutableMap().apply {
+                                        this[language] = enabled
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(14.dp))
+
+            // Footer Actions
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            sheetState.hide()
+                            onDismiss()
+                        }
+                    },
+                    shape = CircleShape,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                ) {
+                    Text(
+                        text = stringResource(android.R.string.cancel),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                Button(
+                    onClick = {
+                        coroutineScope.launch {
+                            sheetState.hide()
+                            onSave(selectedMap)
+                        }
+                    },
+                    shape = CircleShape,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.save),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RomanizationLanguageCard(
+    language: String,
+    checked: Boolean,
+    shape: RoundedCornerShape,
+    compact: Boolean,
+    onToggle: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val (glyph, nativeName) = remember(language) { romanizationLanguageMeta(language) }
+
+    val cardColor by animateColorAsState(
+        targetValue = if (checked) {
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.48f)
+        } else {
+            MaterialTheme.colorScheme.surfaceContainer
+        },
+        animationSpec = tween(200),
+        label = "romanization_card_bg"
+    )
+    val glyphBgColor by animateColorAsState(
+        targetValue = if (checked) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerHighest
+        },
+        animationSpec = tween(200),
+        label = "romanization_glyph_bg"
+    )
+    val glyphTextColor by animateColorAsState(
+        targetValue = if (checked) {
+            MaterialTheme.colorScheme.onPrimary
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        },
+        animationSpec = tween(200),
+        label = "romanization_glyph_fg"
+    )
+
+    Surface(
+        onClick = { onToggle(!checked) },
+        shape = shape,
+        color = cardColor,
+        modifier = modifier
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = if (compact) 10.dp else 11.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(glyphBgColor)
+            ) {
+                Text(
+                    text = glyph,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = glyphTextColor
+                )
+            }
+
+            Spacer(Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = romanizationLanguageLabel(language),
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = if (checked) FontWeight.SemiBold else FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = nativeName,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Spacer(Modifier.width(8.dp))
+
+            Switch(
+                checked = checked,
+                onCheckedChange = onToggle,
+                thumbContent = {
+                    Icon(
+                        painter = painterResource(id = if (checked) R.drawable.check else R.drawable.close),
+                        contentDescription = null,
+                        modifier = Modifier.size(SwitchDefaults.IconSize),
+                        tint = if (checked) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.surface
+                        }
+                    )
+                },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = MaterialTheme.colorScheme.surface,
+                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                    checkedBorderColor = MaterialTheme.colorScheme.primary,
+                    uncheckedIconColor = MaterialTheme.colorScheme.surface,
+                )
+            )
         }
     }
 }
@@ -875,6 +1534,7 @@ fun ReorderDescriptionProvidersBottomSheet(
 @Composable
 fun ReorderLyricsProvidersBottomSheet(
     currentOrder: List<String>,
+    defaultOrder: List<String>,
     onDismiss: () -> Unit,
     onSave: (List<String>) -> Unit
 ) {
@@ -910,7 +1570,6 @@ fun ReorderLyricsProvidersBottomSheet(
                 .fillMaxWidth()
                 .nestedScroll(nestedScrollConnection)
                 .windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(bottom = 16.dp)
         ) {
             Row(
                 modifier = Modifier
@@ -921,7 +1580,7 @@ fun ReorderLyricsProvidersBottomSheet(
             ) {
                 Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
                     Text(
-                        text = stringResource(R.string.provider_priority),
+                        text = stringResource(R.string.lyrics_provider_priority),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -931,27 +1590,19 @@ fun ReorderLyricsProvidersBottomSheet(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(
-                        onClick = { 
-                            coroutineScope.launch {
-                                sheetState.hide()
-                                onDismiss()
-                            }
-                        }
-                    ) {
-                        Text(stringResource(android.R.string.cancel))
-                    }
-                    Button(
-                        onClick = { 
-                            coroutineScope.launch {
-                                sheetState.hide()
-                                onSave(list)
-                            }
-                        }
-                    ) {
-                        Text(stringResource(R.string.save))
-                    }
+
+                IconButton(
+                    onClick = {
+                        list.clear()
+                        list.addAll(defaultOrder)
+                    },
+                    modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.replay),
+                        contentDescription = stringResource(R.string.reset),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 
@@ -959,9 +1610,10 @@ fun ReorderLyricsProvidersBottomSheet(
 
             LazyColumn(
                 state = lazyListState,
-                contentPadding = PaddingValues(bottom = 80.dp, top = 8.dp),
+                contentPadding = PaddingValues(vertical = 8.dp),
                 modifier = Modifier
                     .fillMaxWidth()
+                    .weight(1f, fill = false)
                     .heightIn(max = 500.dp)
             ) {
                 items(list, key = { it }) { item ->
@@ -1011,9 +1663,12 @@ fun ReorderLyricsProvidersBottomSheet(
                                         "SimpMusic" -> stringResource(R.string.provider_simpmusic)
                                         "Paxsenix" -> stringResource(R.string.provider_paxsenix)
                                         "BiniLyrics" -> stringResource(R.string.provider_binilyrics)
+                                        "LrcRed" -> stringResource(R.string.provider_lrc_red)
+                                        "Musixmatch" -> stringResource(R.string.provider_musixmatch)
                                         "LrcLib" -> stringResource(R.string.provider_lrclib)
                                         "Kugou" -> stringResource(R.string.provider_kugou)
                                         "NetEase" -> stringResource(R.string.provider_netease)
+                                        "Unison" -> stringResource(R.string.provider_unison)
                                         "Genius" -> stringResource(R.string.provider_genius)
                                         "YouTube Subtitle" -> stringResource(R.string.provider_youtube_subtitle)
                                         "YouTube Music" -> stringResource(R.string.provider_youtube_music)
@@ -1048,6 +1703,39 @@ fun ReorderLyricsProvidersBottomSheet(
                             }
                         }
                     }
+                }
+            }
+
+            HorizontalDivider()
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            sheetState.hide()
+                            onDismiss()
+                        }
+                    }
+                ) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+                Spacer(Modifier.width(12.dp))
+                Button(
+                    onClick = {
+                        coroutineScope.launch {
+                            sheetState.hide()
+                            onSave(list)
+                        }
+                    }
+                ) {
+                    Text(stringResource(R.string.save))
                 }
             }
         }

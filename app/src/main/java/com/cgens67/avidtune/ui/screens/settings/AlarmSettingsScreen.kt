@@ -2027,7 +2027,7 @@ private fun AlarmSnoozeAndFadeSection(
 
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(stringResource(R.string.alarm_fade_in), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            val fadeOptions = listOf(0, 10, 20, 30)
+            val fadeOptions = listOf(0, 10, 15, 20, 30)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)

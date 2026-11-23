@@ -1523,4 +1523,38 @@
     
     <string name="switch_to_video">切换到视频</string>
     
+    <string name="synced_songs">已同步歌曲</string>
+    <string name="local_playlist">本地播放列表</string>
+    
+    <string name="enable_lrc_red">启用 LrcRed</string>
+    <string name="enable_lrc_red_desc">通过 ISRC 或搜索获取 Apple Music 逐字和逐行同步 TTML 歌词</string>
+    <string name="provider_lrc_red">LrcRed</string>
+    <string name="enable_musixmatch">启用 Musixmatch</string>
+    <string name="enable_musixmatch_desc">从 Musixmatch 获取逐字和逐行同步歌词</string>
+    <string name="provider_musixmatch">Musixmatch</string>
+    <string name="enable_unison">启用 Unison</string>
+    <string name="enable_unison_desc">从 Unison 获取社区提交的歌词（TTML、LRC 和纯文本）</string>
+    <string name="provider_unison">Unison</string>
+    
+    <string name="romanization_enable">自动显示歌词罗马音</string>
+    <string name="romanization_enable_desc">自动在非拉丁字母歌词下方显示罗马音</string>
+    <string name="romanization_cyrillic_per_line">逐行检测西里尔字母语言</string>
+    <string name="romanization_cyrillic_per_line_desc">逐行检测俄语、乌克兰语、塞尔维亚语、保加利亚语、白俄罗斯语、吉尔吉斯语和马其顿语</string>
+    <string name="romanization_languages">罗马音语言</string>
+    <string name="romanization_languages_desc">选择要转换为罗马音的文字和语言</string>
+    <string name="romanization_lang_japanese">日语</string>
+    <string name="romanization_lang_korean">韩语</string>
+    <string name="romanization_lang_chinese">中文</string>
+    <string name="romanization_lang_arabic">阿拉伯语</string>
+    <string name="romanization_lang_hindi">印地语</string>
+    <string name="romanization_lang_punjabi">旁遮普语</string>
+    <string name="romanization_lang_thai">泰语</string>
+    <string name="romanization_lang_russian">俄语</string>
+    <string name="romanization_lang_ukrainian">乌克兰语</string>
+    <string name="romanization_lang_serbian">塞尔维亚语</string>
+    <string name="romanization_lang_bulgarian">保加利亚语</string>
+    <string name="romanization_lang_belarusian">白俄罗斯语</string>
+    <string name="romanization_lang_kyrgyz">吉尔吉斯语</string>
+    <string name="romanization_lang_macedonian">马其顿语</string>
+    
 </resources>

@@ -5,29 +5,39 @@ import android.util.Base64
 import android.view.TextureView
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import androidx.annotation.OptIn
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
+import androidx.media3.common.VideoSize
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
@@ -56,11 +66,16 @@ import kotlinx.serialization.json.contentOrNull
 import okhttp3.OkHttpClient
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.roundToInt
 
 interface ArtistCanvasProvider {
     val name: String
     suspend fun isEnabled(context: Context): Boolean
-    suspend fun getCanvas(artistName: String, storefront: String = "us"): String?
+    suspend fun getCanvas(
+        artistName: String,
+        storefront: String = "us",
+        preferSquare: Boolean = true,
+    ): String?
 }
 
 object AvidCanvasProvider : ArtistCanvasProvider {
@@ -79,7 +94,11 @@ object AvidCanvasProvider : ArtistCanvasProvider {
         }
     }
 
-    override suspend fun getCanvas(artistName: String, storefront: String): String? {
+    override suspend fun getCanvas(
+        artistName: String,
+        storefront: String,
+        preferSquare: Boolean,
+    ): String? {
         return runCatching {
             val formattedName = artistName.lowercase().replace(Regex("[^a-z0-9]"), "_")
             if (formattedName.isBlank()) return@runCatching null
@@ -196,7 +215,11 @@ object AppleMusicCanvasProvider : ArtistCanvasProvider {
         }
     }
 
-    override suspend fun getCanvas(artistName: String, storefront: String): String? {
+    override suspend fun getCanvas(
+        artistName: String,
+        storefront: String,
+        preferSquare: Boolean,
+    ): String? {
         if (artistName.isBlank()) return null
         return runCatching {
             val searchUrl = "$AMP_BASE_URL/v1/catalog/$storefront/search"
@@ -252,7 +275,7 @@ object AppleMusicCanvasProvider : ArtistCanvasProvider {
 
                     val ev = attrs?.get("editorialVideo") as? JsonObject
                     if (ev != null) {
-                        val videoUrl = extractEditorialVideoUrl(ev)
+                        val videoUrl = extractEditorialVideoUrl(ev, preferSquare)
                         if (!videoUrl.isNullOrBlank()) {
                             return@runCatching videoUrl
                         }
@@ -260,7 +283,7 @@ object AppleMusicCanvasProvider : ArtistCanvasProvider {
 
                     val ea = attrs?.get("editorialArtwork") as? JsonObject
                     if (ea != null) {
-                        val videoUrl = extractEditorialVideoUrl(ea)
+                        val videoUrl = extractEditorialVideoUrl(ea, preferSquare)
                         if (!videoUrl.isNullOrBlank()) {
                             return@runCatching videoUrl
                         }
@@ -271,13 +294,55 @@ object AppleMusicCanvasProvider : ArtistCanvasProvider {
         }.getOrNull()
     }
 
-    private fun extractEditorialVideoUrl(editorialData: JsonObject): String? {
-        val preferredKeys = listOf("motionDetailRaw", "motionDetailTall", "motionDetailSquare", "motionSquareVideo1x1", "motionTallVideo3x4")
+    private fun extractEditorialVideoUrl(
+        editorialData: JsonObject,
+        preferSquare: Boolean = true,
+    ): String? {
+        val preferredKeys = if (preferSquare) {
+            listOf(
+                "motionArtistSquare1x1",
+                "motionDetailSquare",
+                "motionSquareVideo1x1",
+                "motionTallVideo3x4",
+                "motionDetailTall",
+                "motionArtistWide16x9",
+                "motionArtistFullscreen16x9",
+                "motionDetailRaw",
+            )
+        } else {
+            listOf(
+                "motionArtistFullscreen16x9",
+                "motionArtistWide16x9",
+                "motionDetailRaw",
+                "motionArtistSquare1x1",
+                "motionDetailSquare",
+                "motionSquareVideo1x1",
+                "motionTallVideo3x4",
+                "motionDetailTall",
+            )
+        }
+
         for (key in preferredKeys) {
             val element = editorialData[key] as? JsonObject
             val videoUrl = (element?.get("video") as? JsonPrimitive)?.contentOrNull
             if (!videoUrl.isNullOrBlank()) return videoUrl
         }
+
+        for ((key, value) in editorialData) {
+            val matchesPreferredAspect = if (preferSquare) {
+                key.contains("square", ignoreCase = true) || key.contains("1x1", ignoreCase = true)
+            } else {
+                key.contains("16x9", ignoreCase = true) ||
+                    key.contains("wide", ignoreCase = true) ||
+                    key.contains("fullscreen", ignoreCase = true)
+            }
+            if (matchesPreferredAspect) {
+                val element = value as? JsonObject
+                val videoUrl = (element?.get("video") as? JsonPrimitive)?.contentOrNull
+                if (!videoUrl.isNullOrBlank()) return videoUrl
+            }
+        }
+
         for ((_, value) in editorialData) {
             val element = value as? JsonObject
             val videoUrl = (element?.get("video") as? JsonPrimitive)?.contentOrNull
@@ -295,9 +360,14 @@ object ArtistCanvasHelper {
         cache.clear()
     }
 
-    suspend fun getArtistCanvas(context: Context, artistName: String, storefront: String = "us"): String? {
+    suspend fun getArtistCanvas(
+        context: Context,
+        artistName: String,
+        storefront: String = "us",
+        preferSquare: Boolean = true,
+    ): String? {
         if (artistName.isBlank()) return null
-        val cacheKey = "$storefront|$artistName"
+        val cacheKey = "$storefront|$preferSquare|$artistName"
         cache[cacheKey]?.let { return it }
 
         val orderStr = context.dataStore.data.first()[ArtistCanvasProviderOrderKey]
@@ -312,7 +382,7 @@ object ArtistCanvasHelper {
 
         for (provider in ordered) {
             if (provider.isEnabled(context)) {
-                val canvasUrl = provider.getCanvas(artistName, storefront)
+                val canvasUrl = provider.getCanvas(artistName, storefront, preferSquare)
                 if (!canvasUrl.isNullOrBlank()) {
                     cache[cacheKey] = canvasUrl
                     return canvasUrl
@@ -324,6 +394,7 @@ object ArtistCanvasHelper {
     }
 }
 
+@OptIn(UnstableApi::class)
 @Composable
 fun ArtistVideo(
     videoUrl: String,
@@ -331,7 +402,8 @@ fun ArtistVideo(
     onClick: () -> Unit = {},
 ) {
     val context = LocalContext.current
-    var isVideoReady by remember { mutableStateOf(false) }
+    var isVideoReady by remember(videoUrl) { mutableStateOf(false) }
+    var videoAspect by remember(videoUrl) { mutableFloatStateOf(0f) }
 
     val okHttpClient = remember { OkHttpClient.Builder().build() }
     val mediaSourceFactory = remember(okHttpClient) {
@@ -356,15 +428,45 @@ fun ArtistVideo(
                     false,
                 )
                 volume = 0f
+                trackSelectionParameters = trackSelectionParameters.buildUpon()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
+                    .build()
                 repeatMode = Player.REPEAT_MODE_ONE
-                videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
+                videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT
             }
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, exoPlayer) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> exoPlayer.playWhenReady = true
+                Lifecycle.Event.ON_STOP -> exoPlayer.playWhenReady = false
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     DisposableEffect(exoPlayer) {
         val listener = object : Player.Listener {
             override fun onRenderedFirstFrame() {
+                val vs = exoPlayer.videoSize
+                val w = vs.width * vs.pixelWidthHeightRatio
+                if (w > 0f && vs.height > 0) {
+                    videoAspect = w / vs.height
+                }
                 isVideoReady = true
+            }
+
+            override fun onVideoSizeChanged(videoSize: VideoSize) {
+                val width = videoSize.width * videoSize.pixelWidthHeightRatio
+                if (width > 0f && videoSize.height > 0) {
+                    videoAspect = width / videoSize.height
+                }
             }
         }
         exoPlayer.addListener(listener)
@@ -390,6 +492,7 @@ fun ArtistVideo(
 
             exoPlayer.stop()
             isVideoReady = false
+            videoAspect = 0f
             exoPlayer.setMediaItem(mediaItem)
             exoPlayer.prepare()
             exoPlayer.playWhenReady = true
@@ -398,36 +501,72 @@ fun ArtistVideo(
         }
     }
 
+    val showVideo = isVideoReady && videoAspect > 0f
+    val effectiveAspect = if (videoAspect > 0f) videoAspect else 1f
     val videoAlpha by animateFloatAsState(
-        targetValue = if (isVideoReady) 1f else 0f,
+        targetValue = if (showVideo) 1f else 0f,
         animationSpec = tween(durationMillis = 400),
         label = "videoAlpha"
     )
 
     Box(
         modifier = modifier
-            .background(Color.Black.copy(alpha = 0.3f))
-            .clickable { onClick() },
+            .clipToBounds()
+            .then(
+                if (showVideo) {
+                    Modifier.background(Color.Black.copy(alpha = 0.25f))
+                } else {
+                    Modifier
+                }
+            )
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick
+            ),
+        contentAlignment = Alignment.Center,
     ) {
         AndroidView(
             factory = { viewContext ->
-                android.widget.FrameLayout(viewContext).apply {
+                TextureView(viewContext).apply {
                     layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
-
-                    val textureView = TextureView(viewContext).apply {
-                        layoutParams = android.widget.FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT, android.view.Gravity.CENTER)
-                    }
-                    addView(textureView)
-                    exoPlayer.setVideoTextureView(textureView)
-                    setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                    isOpaque = false
+                    alpha = 0f
+                    exoPlayer.setVideoTextureView(this)
                 }
             },
-            update = { _ ->
-                // TextureView is already set in factory. Doing it here causes flickering.
+            update = { textureView ->
+                textureView.alpha = videoAlpha
             },
-            modifier = Modifier
-                .matchParentSize()
-                .alpha(videoAlpha),
+            onRelease = { textureView ->
+                exoPlayer.clearVideoTextureView(textureView)
+            },
+            modifier = Modifier.layout { measurable, constraints ->
+                val width = if (constraints.hasBoundedWidth) {
+                    constraints.maxWidth
+                } else if (constraints.hasBoundedHeight) {
+                    (constraints.maxHeight * effectiveAspect).roundToInt()
+                } else {
+                    1
+                }
+                val height = if (constraints.hasBoundedHeight) {
+                    constraints.maxHeight
+                } else {
+                    (width / effectiveAspect).roundToInt()
+                }
+                val boundsAspect = width.toFloat() / height.coerceAtLeast(1)
+                val (w, h) = if (boundsAspect > effectiveAspect) {
+                    width to (width / effectiveAspect).roundToInt()
+                } else {
+                    (height * effectiveAspect).roundToInt() to height
+                }
+                val placeable = measurable.measure(
+                    Constraints.fixed(w.coerceAtLeast(1), h.coerceAtLeast(1))
+                )
+                layout(width.coerceAtLeast(1), height.coerceAtLeast(1)) {
+                    placeable.place((width - w) / 2, (height - h) / 2)
+                }
+            },
         )
     }
 }

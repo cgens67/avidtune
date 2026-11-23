@@ -202,7 +202,7 @@ fun BottomSheetPlayer(
 
     val (playerVersion) = rememberEnumPreference(
         PlayerVersionKey,
-        defaultValue = PlayerVersion.V1
+        defaultValue = PlayerVersion.V2
     )
 
     val playerBackground by rememberEnumPreference(
@@ -657,7 +657,7 @@ fun BottomSheetPlayer(
                         Thumbnail(
                             sliderPositionProvider = { sliderPosition },
                             onOpenFullscreenLyrics = onOpenFullscreenLyrics,
-                            modifier = Modifier.size(thumbnailSize),
+                            modifier = Modifier.fillMaxSize(),
                             isPlayerExpanded = state.isExpanded,
                             isLandscape = true,
                             onOpenFullscreenVideo = onOpenFullscreenVideo,

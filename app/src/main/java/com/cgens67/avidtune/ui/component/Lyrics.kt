@@ -162,9 +162,13 @@ import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.AnimateLyricsKey
 import com.cgens67.avidtune.constants.DarkModeKey
 import com.cgens67.avidtune.constants.DisableBlurKey
+import com.cgens67.avidtune.constants.EnableLyricsRomanizationKey
 import com.cgens67.avidtune.constants.LyricsClickKey
+import com.cgens67.avidtune.constants.LyricsRomanizeCyrillicByLineKey
+import com.cgens67.avidtune.constants.LyricsRomanizeLanguagesKey
 import com.cgens67.avidtune.constants.LyricsScrollKey
 import com.cgens67.avidtune.constants.LyricsTextPositionKey
+import com.cgens67.avidtune.lyrics.LyricsRomanizer
 import com.cgens67.avidtune.constants.PlayerBackgroundStyle
 import com.cgens67.avidtune.constants.PlayerBackgroundStyleKey
 import com.cgens67.avidtune.constants.SliderStyle
@@ -328,8 +332,40 @@ fun Lyrics(
     var translationPromptText by remember(currentSongId) { mutableStateOf("") }
     var isTranslating by remember(currentSongId) { mutableStateOf(false) }
     
-    var showRomanized by remember(currentSongId) { mutableStateOf(false) }
-    var romanizedLines by remember(currentSongId) { mutableStateOf<List<String>?>(null) }
+    val enableLyricsRomanization by rememberPreference(EnableLyricsRomanizationKey, false)
+    val romanizeCyrillicByLine by rememberPreference(LyricsRomanizeCyrillicByLineKey, false)
+    val romanizeLanguagesStr by rememberPreference(
+        LyricsRomanizeLanguagesKey,
+        LyricsRomanizer.DEFAULT_ROMANIZE_LANGUAGES,
+    )
+    val enabledRomanizationLanguages = remember(romanizeLanguagesStr) {
+        LyricsRomanizer.enabledLanguageSet(romanizeLanguagesStr)
+    }
+
+    var showRomanized by remember(currentSongId, enableLyricsRomanization) {
+        mutableStateOf(enableLyricsRomanization)
+    }
+    var romanizedLines by remember(
+        currentSongId,
+        lines,
+        enabledRomanizationLanguages,
+        romanizeCyrillicByLine,
+    ) { mutableStateOf<List<String>?>(null) }
+
+    LaunchedEffect(
+        showRomanized,
+        lines,
+        enabledRomanizationLanguages,
+        romanizeCyrillicByLine,
+    ) {
+        if (showRomanized && romanizedLines == null && lines.isNotEmpty() && originalLyrics != LYRICS_NOT_FOUND) {
+            romanizedLines = LyricsRomanizer.romanizeLines(
+                lines = lines.map { it.text },
+                enabledLanguages = enabledRomanizationLanguages,
+                cyrillicByLine = romanizeCyrillicByLine,
+            )
+        }
+    }
 
     val displayedLines = if (showTranslated && translatedLines != null) translatedLines!! else lines
 
@@ -414,27 +450,7 @@ fun Lyrics(
     }
 
     val toggleRomanization = {
-        if (showRomanized) {
-            showRomanized = false
-        } else if (romanizedLines != null) {
-            showRomanized = true
-        } else {
-            scope.launch {
-                val linesToRomanize = lines.map { it.text }
-                val romanizedResult = TranslationHelper.romanize(linesToRomanize)
-
-                val finalRomanizedLines = mutableListOf<String>()
-                for (i in lines.indices) {
-                    if (lines[i].text.isNotBlank()) {
-                        finalRomanizedLines.add(romanizedResult.getOrElse(i) { "" })
-                    } else {
-                        finalRomanizedLines.add("")
-                    }
-                }
-                romanizedLines = finalRomanizedLines
-                showRomanized = true
-            }
-        }
+        showRomanized = !showRomanized
     }
 
     val playbackState by playerConnection.playbackState.collectAsState()

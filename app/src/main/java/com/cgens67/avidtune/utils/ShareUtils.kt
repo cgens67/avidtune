@@ -1,22 +1,22 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
+@file:OptIn(
+    ExperimentalMaterial3Api::class,
+    ExperimentalMaterial3ExpressiveApi::class,
+)
 
 package com.cgens67.avidtune.utils
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.drawable.ColorDrawable
 import android.view.ViewGroup
 import android.view.Window
+import android.widget.Toast
 import androidx.activity.ComponentDialog
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,42 +26,54 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialogDefaults
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MotionScheme
+import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.AppFont
 import com.cgens67.avidtune.constants.AppFontKey
+import com.cgens67.avidtune.constants.CustomThemeColorKey
 import com.cgens67.avidtune.constants.DarkModeKey
+import com.cgens67.avidtune.constants.DynamicThemeKey
 import com.cgens67.avidtune.constants.PureBlackKey
 import com.cgens67.avidtune.constants.ShareLinkFormat
 import com.cgens67.avidtune.constants.ShareLinkFormatKey
 import com.cgens67.avidtune.constants.UseSystemFontKey
 import com.cgens67.avidtune.extensions.toEnum
 import com.cgens67.avidtune.ui.screens.settings.DarkMode
+import com.cgens67.avidtune.ui.screens.settings.ThemePalettes
 import com.cgens67.avidtune.ui.theme.AvidTuneTheme
 import com.cgens67.avidtune.ui.theme.DefaultThemeColor
+import com.cgens67.avidtune.ui.theme.ThemeSeedPalette
+import com.cgens67.avidtune.ui.theme.ThemeSeedPaletteCodec
 
 object ShareUtils {
     const val AVIDTUNE_BASE_URL = "https://avidtune.vercel.app"
@@ -104,46 +116,76 @@ object ShareUtils {
         context.startActivity(Intent.createChooser(intent, null))
     }
 
+    private fun copyUrl(context: Context, url: String) {
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("Song Link", url))
+        Toast.makeText(context, R.string.link_copied, Toast.LENGTH_SHORT).show()
+    }
+
     fun shareSong(
         context: Context,
         videoId: String,
         title: String? = null,
-        positionMs: Long? = null
+        positionMs: Long? = null,
     ) {
         val format = context.dataStore.get(ShareLinkFormatKey).toEnum(ShareLinkFormat.AVIDTUNE)
 
         when (format) {
-            ShareLinkFormat.AVIDTUNE -> {
-                val url = buildAvidTuneUrl(videoId, positionMs)
-                launchShareIntent(context, url)
-            }
-            ShareLinkFormat.YOUTUBE_MUSIC -> {
-                val url = buildYouTubeMusicUrl(videoId, positionMs)
-                launchShareIntent(context, url)
-            }
-            ShareLinkFormat.ASK -> {
-                val avidTuneUrl = buildAvidTuneUrl(videoId, positionMs)
-                val ytmUrl = buildYouTubeMusicUrl(videoId, positionMs)
-                showShareFormatDialog(context, avidTuneUrl, ytmUrl)
-            }
+            ShareLinkFormat.AVIDTUNE -> launchShareIntent(context, buildAvidTuneUrl(videoId, positionMs))
+            ShareLinkFormat.YOUTUBE_MUSIC -> launchShareIntent(context, buildYouTubeMusicUrl(videoId, positionMs))
+            ShareLinkFormat.ASK -> showShareFormatDialog(
+                context = context,
+                title = title,
+                positionMs = positionMs,
+                avidTuneUrl = buildAvidTuneUrl(videoId, positionMs),
+                ytmUrl = buildYouTubeMusicUrl(videoId, positionMs),
+            )
         }
     }
 
-    private fun showShareFormatDialog(context: Context, avidTuneUrl: String, ytmUrl: String) {
+    private fun showShareFormatDialog(
+        context: Context,
+        title: String?,
+        positionMs: Long?,
+        avidTuneUrl: String,
+        ytmUrl: String,
+    ) {
         val darkThemePref = context.dataStore.get(DarkModeKey).toEnum(DarkMode.AUTO)
-        val isSystemDark = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        val isSystemDark =
+            (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         val useDarkTheme = when (darkThemePref) {
             DarkMode.ON -> true
             DarkMode.OFF -> false
             DarkMode.AUTO -> isSystemDark
         }
         val pureBlack = context.dataStore.get(PureBlackKey) ?: false
+        val dynamicTheme = context.dataStore.get(DynamicThemeKey) ?: true
+        val customThemeColor = context.dataStore.get(CustomThemeColorKey) ?: ThemePalettes.Default.id
         val useSystemFont = context.dataStore.get(UseSystemFontKey) ?: false
         val appFontStr = context.dataStore.get(AppFontKey) ?: ""
         val appFont = if (appFontStr.isNotEmpty()) {
-            try { AppFont.valueOf(appFontStr) } catch (_: Exception) { AppFont.SYSTEM }
+            runCatching { AppFont.valueOf(appFontStr) }.getOrDefault(AppFont.SYSTEM)
         } else {
             if (useSystemFont) AppFont.SYSTEM else AppFont.SF_PRO
+        }
+
+        val seedPalette: ThemeSeedPalette?
+        val themeColor: Color
+        if (dynamicTheme) {
+            seedPalette = null
+            themeColor = DefaultThemeColor
+        } else {
+            val decoded = ThemeSeedPaletteCodec.decodeFromPreference(customThemeColor)
+            if (decoded != null) {
+                seedPalette = decoded
+                themeColor = decoded.primary
+            } else {
+                val p = ThemePalettes.findById(customThemeColor, useDarkTheme)
+                    ?: ThemePalettes.findByPrimaryColor(customThemeColor, useDarkTheme)
+                    ?: ThemePalettes.Default
+                seedPalette = ThemeSeedPalette(p.primary, p.secondary, p.tertiary, p.neutral)
+                themeColor = p.primary
+            }
         }
 
         val dialog = ComponentDialog(context)
@@ -152,9 +194,8 @@ object ShareUtils {
             setBackgroundDrawable(ColorDrawable(android.graphics.Color.TRANSPARENT))
             setLayout(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
+                ViewGroup.LayoutParams.WRAP_CONTENT,
             )
-            setDimAmount(0.55f)
         }
 
         val composeView = ComposeView(context).apply {
@@ -163,211 +204,240 @@ object ShareUtils {
                 AvidTuneTheme(
                     darkTheme = useDarkTheme,
                     pureBlack = pureBlack,
-                    themeColor = DefaultThemeColor,
-                    appFont = appFont
+                    themeColor = themeColor,
+                    seedPalette = seedPalette,
+                    appFont = appFont,
                 ) {
-                    ShareFormatDialogContent(
-                        onSelectAvidTune = {
-                            dialog.dismiss()
-                            launchShareIntent(context, avidTuneUrl)
-                        },
-                        onSelectYouTubeMusic = {
-                            dialog.dismiss()
-                            launchShareIntent(context, ytmUrl)
-                        },
-                        onDismiss = { dialog.dismiss() }
-                    )
+                    MaterialTheme(
+                        colorScheme = MaterialTheme.colorScheme,
+                        typography = MaterialTheme.typography,
+                        shapes = MaterialTheme.shapes,
+                        motionScheme = MotionScheme.expressive(),
+                    ) {
+                        ShareFormatDialogContent(
+                            songTitle = title,
+                            positionMs = positionMs,
+                            avidTuneUrl = avidTuneUrl,
+                            ytmUrl = ytmUrl,
+                            onShare = { url ->
+                                dialog.dismiss()
+                                launchShareIntent(context, url)
+                            },
+                            onCopy = { url ->
+                                copyUrl(context, url)
+                                dialog.dismiss()
+                            },
+                            onDismiss = { dialog.dismiss() },
+                        )
+                    }
                 }
             }
         }
 
         dialog.setContentView(composeView)
-        try {
-            dialog.show()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        runCatching { dialog.show() }
     }
 }
 
 @Composable
 private fun ShareFormatDialogContent(
-    onSelectAvidTune: () -> Unit,
-    onSelectYouTubeMusic: () -> Unit,
-    onDismiss: () -> Unit
+    songTitle: String?,
+    positionMs: Long?,
+    avidTuneUrl: String,
+    ytmUrl: String,
+    onShare: (String) -> Unit,
+    onCopy: (String) -> Unit,
+    onDismiss: () -> Unit,
 ) {
-    Surface(
-        shape = RoundedCornerShape(28.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        tonalElevation = 6.dp,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // Icon Badge
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.share),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Title
-            Text(
-                text = stringResource(R.string.share_song_as),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Subtitle Description
-            Text(
-                text = stringResource(R.string.share_dialog_description),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Option 1: AvidTune
-            ShareOptionCard(
-                title = stringResource(R.string.app_name),
-                subtitle = "avidtune.vercel.app • " + stringResource(R.string.share_avidtune_desc),
-                icon = {
-                    Image(
-                        painter = painterResource(R.drawable.avidtune),
-                        contentDescription = null,
-                        modifier = Modifier.size(26.dp)
-                    )
-                },
-                onClick = onSelectAvidTune
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Option 2: YouTube Music
-            ShareOptionCard(
-                title = stringResource(R.string.provider_youtube_music),
-                subtitle = "music.youtube.com • " + stringResource(R.string.share_ytm_desc),
-                icon = {
-                    Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFFFF0000)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.play),
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                },
-                onClick = onSelectYouTubeMusic
-            )
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            // Cancel Button
-            TextButton(
-                onClick = onDismiss,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Text(
-                    text = stringResource(android.R.string.cancel),
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-        }
+    val timeStampLabel = remember(positionMs) {
+        positionMs?.takeIf { it >= 1000L }?.let { makeTimeString(it) }
     }
-}
 
-@Composable
-private fun ShareOptionCard(
-    title: String,
-    subtitle: String,
-    icon: @Composable () -> Unit,
-    onClick: () -> Unit
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.97f else 1f,
-        animationSpec = spring(stiffness = Spring.StiffnessMedium),
-        label = "tileScale"
+    val listColors = ListItemDefaults.colors(
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
     )
 
-    Surface(
-        onClick = onClick,
-        interactionSource = interactionSource,
-        shape = RoundedCornerShape(18.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLowest,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .scale(scale)
+            .padding(horizontal = 24.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Surface(
+            shape = AlertDialogDefaults.shape,
+            color = AlertDialogDefaults.containerColor,
+            tonalElevation = AlertDialogDefaults.TonalElevation,
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(min = 280.dp, max = 420.dp),
         ) {
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-                contentAlignment = Alignment.Center
+            Column(
+                modifier = Modifier.padding(24.dp),
             ) {
-                icon()
-            }
-
-            Spacer(modifier = Modifier.width(14.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    text = stringResource(R.string.share_song_as),
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = AlertDialogDefaults.titleContentColor,
                 )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
 
-            Icon(
-                painter = painterResource(R.drawable.arrow_forward),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                modifier = Modifier.size(18.dp)
-            )
+                if (!songTitle.isNullOrBlank() || !timeStampLabel.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        if (!songTitle.isNullOrBlank()) {
+                            Text(
+                                text = songTitle,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = AlertDialogDefaults.textContentColor,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+
+                        if (!timeStampLabel.isNullOrBlank()) {
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.schedule),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                    )
+                                    Text(
+                                        text = timeStampLabel,
+                                        style = MaterialTheme.typography.labelMedium,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+                ) {
+                    SegmentedListItem(
+                        onClick = { onShare(avidTuneUrl) },
+                        shapes = ListItemDefaults.segmentedShapes(index = 0, count = 2),
+                        colors = listColors,
+                        leadingContent = {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(MaterialShapes.Cookie9Sided.toShape())
+                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Image(
+                                    painter = painterResource(R.drawable.avidtune),
+                                    contentDescription = null,
+                                    colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimaryContainer),
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+                        },
+                        supportingContent = {
+                            Text(
+                                text = avidTuneUrl.removePrefix("https://"),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        },
+                        trailingContent = {
+                            FilledTonalIconButton(
+                                onClick = { onCopy(avidTuneUrl) },
+                                shapes = IconButtonDefaults.shapes(),
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.content_copy),
+                                    contentDescription = stringResource(R.string.action_copy),
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+                        },
+                        content = {
+                            Text(
+                                text = stringResource(R.string.app_name),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        },
+                    )
+
+                    SegmentedListItem(
+                        onClick = { onShare(ytmUrl) },
+                        shapes = ListItemDefaults.segmentedShapes(index = 1, count = 2),
+                        colors = listColors,
+                        leadingContent = {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(MaterialShapes.Circle.toShape())
+                                    .background(MaterialTheme.colorScheme.tertiaryContainer),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.play),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+                        },
+                        supportingContent = {
+                            Text(
+                                text = ytmUrl.removePrefix("https://"),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        },
+                        trailingContent = {
+                            FilledTonalIconButton(
+                                onClick = { onCopy(ytmUrl) },
+                                shapes = IconButtonDefaults.shapes(),
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.content_copy),
+                                    contentDescription = stringResource(R.string.action_copy),
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+                        },
+                        content = {
+                            Text(
+                                text = stringResource(R.string.provider_youtube_music),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        },
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    TextButton(
+                        onClick = onDismiss,
+                        shapes = ButtonDefaults.shapes(),
+                    ) {
+                        Text(text = stringResource(android.R.string.cancel))
+                    }
+                }
+            }
         }
     }
 }

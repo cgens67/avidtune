@@ -251,6 +251,7 @@ fun PlayerV3(
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
     val isPlaying by playerConnection.isPlaying.collectAsState()
     val playbackState by playerConnection.playbackState.collectAsState()
+    val error by playerConnection.error.collectAsState()
     val currentSong by playerConnection.currentSong.collectAsState(initial = null)
     val isLiked = currentSong?.song?.liked == true
 
@@ -371,33 +372,63 @@ fun PlayerV3(
                     square to square
                 }
 
-                ArtworkWithGestureBox(
-                    mediaMetadata = mediaMetadata,
-                    coverResolution = coverResolution,
-                    thumbnailCornerRadius = thumbnailCornerRadius,
-                    adaptiveSurface = adaptiveSurface,
-                    isAppleMusicStyle = isAppleMusicStyle,
-                    canSkipPrevious = canSkipPrevious,
-                    canSkipNext = canSkipNext,
-                    showSeekFeedback = showSeekFeedback,
-                    seekDirectionText = seekDirectionText,
-                    onOpenFullscreenLyrics = onOpenFullscreenLyrics,
-                    onSwipePrevious = { if (canSkipPrevious) playerConnection.seekToPrevious() },
-                    onSwipeNext = { if (canSkipNext) playerConnection.seekToNext() },
-                    onDoubleTapRewind = {
-                        playerConnection.rewind()
-                        seekDirectionText = "-${playerConnection.seekIncrementMs / 1000}s"
-                        showSeekFeedback = true
-                    },
-                    onDoubleTapForward = {
-                        playerConnection.fastForward()
-                        seekDirectionText = "+${playerConnection.seekIncrementMs / 1000}s"
-                        showSeekFeedback = true
-                    },
-                    onOpenFullscreenVideo = onOpenFullscreenVideo,
-                    onOpenVideoQuality = onOpenVideoQuality,
-                    modifier = Modifier.size(width = boxW, height = boxH)
-                )
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = error == null,
+                    enter = fadeIn(),
+                    exit = fadeOut(),
+                ) {
+                    ArtworkWithGestureBox(
+                        mediaMetadata = mediaMetadata,
+                        coverResolution = coverResolution,
+                        thumbnailCornerRadius = thumbnailCornerRadius,
+                        adaptiveSurface = adaptiveSurface,
+                        isAppleMusicStyle = isAppleMusicStyle,
+                        canSkipPrevious = canSkipPrevious,
+                        canSkipNext = canSkipNext,
+                        showSeekFeedback = showSeekFeedback,
+                        seekDirectionText = seekDirectionText,
+                        onOpenFullscreenLyrics = onOpenFullscreenLyrics,
+                        onSwipePrevious = { if (canSkipPrevious) playerConnection.seekToPrevious() },
+                        onSwipeNext = { if (canSkipNext) playerConnection.seekToNext() },
+                        onDoubleTapRewind = {
+                            playerConnection.rewind()
+                            seekDirectionText = "-${playerConnection.seekIncrementMs / 1000}s"
+                            showSeekFeedback = true
+                        },
+                        onDoubleTapForward = {
+                            playerConnection.fastForward()
+                            seekDirectionText = "+${playerConnection.seekIncrementMs / 1000}s"
+                            showSeekFeedback = true
+                        },
+                        onOpenFullscreenVideo = onOpenFullscreenVideo,
+                        onOpenVideoQuality = onOpenVideoQuality,
+                        modifier = Modifier.size(width = boxW, height = boxH)
+                    )
+                }
+
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = error != null,
+                    enter = fadeIn(),
+                    exit = fadeOut(),
+                ) {
+                    error?.let { err ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState()),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            PlaybackError(
+                                error = err,
+                                mediaId = mediaMetadata?.id,
+                                retry = {
+                                    playerConnection.player.prepare()
+                                    playerConnection.player.play()
+                                }
+                            )
+                        }
+                    }
+                }
             }
 
             Column(
@@ -608,37 +639,69 @@ fun PlayerV3(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1.25f, fill = false)
-                    .aspectRatio(animatedAspect),
+                    .weight(1.25f, fill = error != null)
+                    .let { if (error == null) it.aspectRatio(animatedAspect) else it },
                 contentAlignment = Alignment.Center
             ) {
-                ArtworkWithGestureBox(
-                    mediaMetadata = mediaMetadata,
-                    coverResolution = coverResolution,
-                    thumbnailCornerRadius = thumbnailCornerRadius,
-                    adaptiveSurface = adaptiveSurface,
-                    isAppleMusicStyle = isAppleMusicStyle,
-                    canSkipPrevious = canSkipPrevious,
-                    canSkipNext = canSkipNext,
-                    showSeekFeedback = showSeekFeedback,
-                    seekDirectionText = seekDirectionText,
-                    onOpenFullscreenLyrics = onOpenFullscreenLyrics,
-                    onSwipePrevious = { if (canSkipPrevious) playerConnection.seekToPrevious() },
-                    onSwipeNext = { if (canSkipNext) playerConnection.seekToNext() },
-                    onDoubleTapRewind = {
-                        playerConnection.rewind()
-                        seekDirectionText = "-${playerConnection.seekIncrementMs / 1000}s"
-                        showSeekFeedback = true
-                    },
-                    onDoubleTapForward = {
-                        playerConnection.fastForward()
-                        seekDirectionText = "+${playerConnection.seekIncrementMs / 1000}s"
-                        showSeekFeedback = true
-                    },
-                    onOpenFullscreenVideo = onOpenFullscreenVideo,
-                    onOpenVideoQuality = onOpenVideoQuality,
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = error == null,
+                    enter = fadeIn(),
+                    exit = fadeOut(),
                     modifier = Modifier.fillMaxSize()
-                )
+                ) {
+                    ArtworkWithGestureBox(
+                        mediaMetadata = mediaMetadata,
+                        coverResolution = coverResolution,
+                        thumbnailCornerRadius = thumbnailCornerRadius,
+                        adaptiveSurface = adaptiveSurface,
+                        isAppleMusicStyle = isAppleMusicStyle,
+                        canSkipPrevious = canSkipPrevious,
+                        canSkipNext = canSkipNext,
+                        showSeekFeedback = showSeekFeedback,
+                        seekDirectionText = seekDirectionText,
+                        onOpenFullscreenLyrics = onOpenFullscreenLyrics,
+                        onSwipePrevious = { if (canSkipPrevious) playerConnection.seekToPrevious() },
+                        onSwipeNext = { if (canSkipNext) playerConnection.seekToNext() },
+                        onDoubleTapRewind = {
+                            playerConnection.rewind()
+                            seekDirectionText = "-${playerConnection.seekIncrementMs / 1000}s"
+                            showSeekFeedback = true
+                        },
+                        onDoubleTapForward = {
+                            playerConnection.fastForward()
+                            seekDirectionText = "+${playerConnection.seekIncrementMs / 1000}s"
+                            showSeekFeedback = true
+                        },
+                        onOpenFullscreenVideo = onOpenFullscreenVideo,
+                        onOpenVideoQuality = onOpenVideoQuality,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = error != null,
+                    enter = fadeIn(),
+                    exit = fadeOut(),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    error?.let { err ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState()),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            PlaybackError(
+                                error = err,
+                                mediaId = mediaMetadata?.id,
+                                retry = {
+                                    playerConnection.player.prepare()
+                                    playerConnection.player.play()
+                                }
+                            )
+                        }
+                    }
+                }
             }
 
             Spacer(Modifier.height(10.dp))

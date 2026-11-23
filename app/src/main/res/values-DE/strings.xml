@@ -1538,5 +1538,39 @@
     <string name="video_not_found">Kein Musikvideo gefunden</string>
     
     <string name="switch_to_video">Zum Video wechseln</string>
+    
+    <string name="synced_songs">Synchronisierte Titel</string>
+    <string name="local_playlist">Lokale Playlist</string>
+    
+    <string name="enable_lrc_red">LrcRed aktivieren</string>
+    <string name="enable_lrc_red_desc">Silben- und zeilensynchrone Apple-Music-TTML-Songtexte per ISRC oder Suche abrufen</string>
+    <string name="provider_lrc_red">LrcRed</string>
+    <string name="enable_musixmatch">Musixmatch aktivieren</string>
+    <string name="enable_musixmatch_desc">Wort- und zeilensynchrone Songtexte von Musixmatch abrufen</string>
+    <string name="provider_musixmatch">Musixmatch</string>
+    <string name="enable_unison">Unison aktivieren</string>
+    <string name="enable_unison_desc">Von der Community eingereichte Songtexte von Unison abrufen (TTML, LRC und Klartext)</string>
+    <string name="provider_unison">Unison</string>
+    
+    <string name="romanization_enable">Liedtexte automatisch romanisieren</string>
+    <string name="romanization_enable_desc">Romanisierung automatisch unter nicht-lateinischen Liedtexten anzeigen</string>
+    <string name="romanization_cyrillic_per_line">Kyrillische Sprache zeilenweise erkennen</string>
+    <string name="romanization_cyrillic_per_line_desc">Russisch, Ukrainisch, Serbisch, Bulgarisch, Belarussisch, Kirgisisch und Mazedonisch zeilenweise erkennen</string>
+    <string name="romanization_languages">Sprachen für die Romanisierung</string>
+    <string name="romanization_languages_desc">Schriften und Sprachen für die Romanisierung auswählen</string>
+    <string name="romanization_lang_japanese">Japanisch</string>
+    <string name="romanization_lang_korean">Koreanisch</string>
+    <string name="romanization_lang_chinese">Chinesisch</string>
+    <string name="romanization_lang_arabic">Arabisch</string>
+    <string name="romanization_lang_hindi">Hindi</string>
+    <string name="romanization_lang_punjabi">Punjabi</string>
+    <string name="romanization_lang_thai">Thailändisch</string>
+    <string name="romanization_lang_russian">Russisch</string>
+    <string name="romanization_lang_ukrainian">Ukrainisch</string>
+    <string name="romanization_lang_serbian">Serbisch</string>
+    <string name="romanization_lang_bulgarian">Bulgarisch</string>
+    <string name="romanization_lang_belarusian">Belarussisch</string>
+    <string name="romanization_lang_kyrgyz">Kirgisisch</string>
+    <string name="romanization_lang_macedonian">Mazedonisch</string>
 
 </resources>

@@ -9,6 +9,7 @@ dependencyResolutionManagement {
         maven { 
             url = uri("https://jitpack.io") 
             content {
+                includeGroup("com.github.nyxiereal.glyphmind")
                 includeGroup("com.github.MetrolistGroup")
                 includeGroup("com.github.MetrolistGroup.innertubex")
                 includeGroup("com.github.MetrolistGroup.quackjs")

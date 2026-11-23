@@ -63,9 +63,13 @@ import com.cgens67.avidtune.LocalDatabase
 import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.AnimateLyricsKey
+import com.cgens67.avidtune.constants.EnableLyricsRomanizationKey
 import com.cgens67.avidtune.constants.LyricsClickKey
+import com.cgens67.avidtune.constants.LyricsRomanizeCyrillicByLineKey
+import com.cgens67.avidtune.constants.LyricsRomanizeLanguagesKey
 import com.cgens67.avidtune.constants.LyricsScrollKey
 import com.cgens67.avidtune.constants.LyricsTextPositionKey
+import com.cgens67.avidtune.lyrics.LyricsRomanizer
 import com.cgens67.avidtune.db.entities.LyricsEntity
 import com.cgens67.avidtune.db.entities.LyricsEntity.Companion.LYRICS_NOT_FOUND
 import com.cgens67.avidtune.di.LyricsHelperEntryPoint
@@ -95,6 +99,7 @@ fun LyricsV2(
     positionProvider: () -> Long?,
     modifier: Modifier = Modifier,
     textColor: Color = MaterialTheme.colorScheme.onSurface,
+    showRomanized: Boolean? = null,
 ) {
     val context = LocalContext.current
     val database = LocalDatabase.current
@@ -277,6 +282,16 @@ fun LyricsV2(
     val changeLyrics by rememberPreference(LyricsClickKey, true)
     val scrollLyrics by rememberPreference(LyricsScrollKey, true)
     val animateLyrics by rememberPreference(AnimateLyricsKey, true)
+    val enableLyricsRomanization by rememberPreference(EnableLyricsRomanizationKey, false)
+    val romanizeCyrillicByLine by rememberPreference(LyricsRomanizeCyrillicByLineKey, false)
+    val romanizeLanguagesStr by rememberPreference(
+        LyricsRomanizeLanguagesKey,
+        LyricsRomanizer.DEFAULT_ROMANIZE_LANGUAGES,
+    )
+    val enabledRomanizationLanguages = remember(romanizeLanguagesStr) {
+        LyricsRomanizer.enabledLanguageSet(romanizeLanguagesStr)
+    }
+    val isRomanizationVisible = showRomanized ?: enableLyricsRomanization
     val currentSkipSegments by playerConnection.currentSkipSegments.collectAsState()
     val sponsorBlockEnabled by playerConnection.sponsorBlockEnabled.collectAsState()
 
@@ -326,6 +341,28 @@ fun LyricsV2(
             originalLyrics.lines().mapIndexed { index, line ->
                 LyricsEntry(index * 100L, line)
             }
+        }
+    }
+
+    var romanizedLines by remember(
+        songId,
+        lines,
+        enabledRomanizationLanguages,
+        romanizeCyrillicByLine,
+    ) { mutableStateOf<List<String>?>(null) }
+
+    LaunchedEffect(
+        isRomanizationVisible,
+        lines,
+        enabledRomanizationLanguages,
+        romanizeCyrillicByLine,
+    ) {
+        if (isRomanizationVisible && romanizedLines == null && lines.isNotEmpty()) {
+            romanizedLines = LyricsRomanizer.romanizeLines(
+                lines = lines.map { it.text },
+                enabledLanguages = enabledRomanizationLanguages,
+                cyrillicByLine = romanizeCyrillicByLine,
+            )
         }
     }
 
@@ -489,7 +526,7 @@ fun LyricsV2(
 
                     LyricsLine(
                         entry = item,
-                        romanizedText = null,
+                        romanizedText = if (isRomanizationVisible) romanizedLines?.getOrNull(index) else null,
                         isSynced = isSynced,
                         isActive = isActiveLine,
                         distanceFromCurrent = distance,

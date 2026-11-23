@@ -204,42 +204,15 @@ object TranslationHelper {
         resultBuilder.toString().replace("\r", "").trimEnd()
     }.onFailure { Timber.e(it, "Failed to translate text") }.getOrNull()
 
-    suspend fun romanize(lines: List<String>): List<String> = coroutineScope {
-        val semaphore = Semaphore(5)
-        lines.map { line ->
-            async {
-                if (line.isBlank()) return@async ""
-                semaphore.withPermit {
-                    runCatching {
-                        val response = client.get("https://translate.googleapis.com/translate_a/single") {
-                            parameter("client", "gtx")
-                            parameter("sl", "auto")
-                            parameter("tl", "en")
-                            parameter("dt", "rm")
-                            parameter("q", line)
-                            header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
-                        }
-                        if (response.status != HttpStatusCode.OK) return@runCatching line
-                        val responseText = response.bodyAsText()
-
-                        val jsonArray = Json.parseToJsonElement(responseText) as? JsonArray ?: return@runCatching line
-                        val rmSegments = jsonArray.getOrNull(0) as? JsonArray ?: return@runCatching line
-                        var rmText = ""
-                        for (segment in rmSegments) {
-                            val segmentArray = segment as? JsonArray ?: continue
-                            val text = (segmentArray.getOrNull(2) as? JsonPrimitive)?.contentOrNull
-                                ?: (segmentArray.getOrNull(3) as? JsonPrimitive)?.contentOrNull
-
-                            if (!text.isNullOrBlank() && text != "null") {
-                                rmText += text
-                            }
-                        }
-                        if (rmText.isNotBlank() && rmText != "null") rmText.trim() else line
-                    }.getOrDefault(line)
-                }
-            }
-        }.awaitAll()
-    }
+    suspend fun romanize(
+        lines: List<String>,
+        enabledLanguages: Set<String> = com.cgens67.avidtune.lyrics.LyricsRomanizer.enabledLanguageSet(""),
+        cyrillicByLine: Boolean = false,
+    ): List<String> = com.cgens67.avidtune.lyrics.LyricsRomanizer.romanizeLines(
+        lines = lines,
+        enabledLanguages = enabledLanguages,
+        cyrillicByLine = cyrillicByLine,
+    )
 
     suspend fun detectLanguage(text: String): String? = runCatching {
         if (text.isBlank()) return null

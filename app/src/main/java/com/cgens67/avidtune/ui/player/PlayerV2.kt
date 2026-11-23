@@ -16,6 +16,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -62,6 +63,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.navigation.NavController
@@ -118,26 +120,31 @@ fun Modifier.customSoftShadow(
     )
 } else this
 
+@Composable
 fun Modifier.SwipeGesture(
     enabled: Boolean = true,
     onSwipeLeft: () -> Unit = {},
     onSwipeRight: () -> Unit = {}
-): Modifier = if (!enabled) this else this.pointerInput(Unit) {
-    var totalDrag = 0f
-    detectHorizontalDragGestures(
-        onDragStart = { totalDrag = 0f },
-        onHorizontalDrag = { _, dragAmount ->
-            totalDrag += dragAmount
-        },
-        onDragEnd = {
-            if (totalDrag > 80f) {
-                onSwipeRight()
-            } else if (totalDrag < -80f) {
-                onSwipeLeft()
-            }
-        },
-        onDragCancel = { totalDrag = 0f }
-    )
+): Modifier {
+    val currentOnSwipeLeft by rememberUpdatedState(onSwipeLeft)
+    val currentOnSwipeRight by rememberUpdatedState(onSwipeRight)
+    return if (!enabled) this else this.pointerInput(enabled) {
+        var totalDrag = 0f
+        detectHorizontalDragGestures(
+            onDragStart = { totalDrag = 0f },
+            onHorizontalDrag = { _, dragAmount ->
+                totalDrag += dragAmount
+            },
+            onDragEnd = {
+                if (totalDrag > 80f) {
+                    currentOnSwipeRight()
+                } else if (totalDrag < -80f) {
+                    currentOnSwipeLeft()
+                }
+            },
+            onDragCancel = { totalDrag = 0f }
+        )
+    }
 }
 
 object PlayerSliderColors {
@@ -655,6 +662,10 @@ fun PlayerV2(
     var sliderPosition by remember { mutableStateOf<Long?>(null) }
 
     val minimalPlayerDesign by rememberPreference(MinimalPlayerDesignKey, defaultValue = false)
+    val enableLyricsRomanization by rememberPreference(EnableLyricsRomanizationKey, defaultValue = false)
+    var isRomanizedV2 by rememberSaveable(resolvedMetadata?.id, enableLyricsRomanization) {
+        mutableStateOf(enableLyricsRomanization)
+    }
 
     val playerBackground by rememberEnumPreference(
         key = PlayerBackgroundStyleKey,
@@ -697,6 +708,24 @@ fun PlayerV2(
         val rawDuration = playerConnection.player.duration
         position = playerConnection.player.currentPosition.coerceAtLeast(0L)
         duration = if (rawDuration == C.TIME_UNSET || rawDuration < 0) 0L else rawDuration
+    }
+
+    DisposableEffect(playerConnection) {
+        val listener = object : Player.Listener {
+            override fun onPositionDiscontinuity(
+                oldPosition: Player.PositionInfo,
+                newPosition: Player.PositionInfo,
+                reason: Int
+            ) {
+                if (sliderPosition == null) {
+                    position = playerConnection.player.currentPosition.coerceAtLeast(0L)
+                }
+            }
+        }
+        playerConnection.player.addListener(listener)
+        onDispose {
+            playerConnection.player.removeListener(listener)
+        }
     }
 
     val adaptivePrimary by animateColorAsState(
@@ -771,6 +800,7 @@ fun PlayerV2(
             adaptiveSurface = adaptiveSurface,
             currentSkipSegments = currentSkipSegments,
             sponsorBlockEnabled = sponsorBlockEnabled,
+            showRomanized = isRomanizedV2,
             onOpenFullscreenVideo = onOpenFullscreenVideo,
             onOpenVideoQuality = onOpenVideoQuality,
             modifier = modifier
@@ -815,6 +845,8 @@ fun PlayerV2(
             adaptiveSurface = adaptiveSurface,
             currentSkipSegments = currentSkipSegments,
             sponsorBlockEnabled = sponsorBlockEnabled,
+            showRomanized = isRomanizedV2,
+            onToggleRomanized = { isRomanizedV2 = !isRomanizedV2 },
             onOpenFullscreenVideo = onOpenFullscreenVideo,
             onOpenVideoQuality = onOpenVideoQuality,
             modifier = modifier
@@ -913,6 +945,7 @@ private fun PlayerV2Landscape(
     adaptiveSurface: Color,
     currentSkipSegments: List<Pair<Long, Long>> = emptyList(),
     sponsorBlockEnabled: Boolean = false,
+    showRomanized: Boolean = false,
     onOpenFullscreenVideo: () -> Unit = {},
     onOpenVideoQuality: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -930,6 +963,17 @@ private fun PlayerV2Landscape(
 
     val shuffleModeEnabled by playerConnection.shuffleModeEnabled.collectAsState()
     val repeatMode by playerConnection.repeatMode.collectAsState()
+    val error by playerConnection.error.collectAsState()
+    var showSeekFeedback by remember { mutableStateOf(false) }
+    var seekDirectionText by remember { mutableStateOf("") }
+    var seekFeedbackNonce by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(showSeekFeedback, seekFeedbackNonce) {
+        if (showSeekFeedback) {
+            delay(800)
+            showSeekFeedback = false
+        }
+    }
 
     AnimatedContent(
         targetState = playerState,
@@ -991,78 +1035,148 @@ private fun PlayerV2Landscape(
                         square to square
                     }
 
-                    Box(
-                        modifier = Modifier
-                            .size(width = boxW, height = boxH)
-                            .customSoftShadow(
-                                elevation = playerThumbnailShadowElevation.dp,
-                                cornerRadius = coverRadius,
-                                enabled = showPlayerThumbnailShadow && !isAppleMusicBg
-                            )
-                            .background(
-                                if (showsVideo) Color.Black
-                                else if (isAppleMusicBg) Color.Transparent
-                                else adaptiveSurface,
-                                RoundedCornerShape(coverRadius)
-                            )
-                            .clip(RoundedCornerShape(coverRadius))
-                            .clickable(enabled = isAppleMusicBg && !showsVideo) { onPlayerStateChange(PlayerInternalState.LYRICS) }
-                            .SwipeGesture(
-                                enabled = !isListenTogetherGuest,
-                                onSwipeLeft = { if (canSkipNext) playerConnection.player.seekToNext() },
-                                onSwipeRight = { if (canSkipPrevious) playerConnection.player.seekToPrevious() }
-                            )
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = error == null,
+                        enter = fadeIn(),
+                        exit = fadeOut(),
                     ) {
-                        if (isAppleMusicBg && showsVideo && !videoRendered) {
-                            VideoLoadingBackdrop(
-                                modifier = Modifier.fillMaxSize(),
-                                videoId = mediaMetadata?.id,
-                            )
-                        } else if (isAppleMusicBg) {
-                        } else if (hidePlayerThumbnail) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.avidtune_monochrome),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(72.dp),
-                                    tint = adaptivePrimary.copy(alpha = 0.5f)
+                        Box(
+                            modifier = Modifier
+                                .size(width = boxW, height = boxH)
+                                .customSoftShadow(
+                                    elevation = playerThumbnailShadowElevation.dp,
+                                    cornerRadius = coverRadius,
+                                    enabled = showPlayerThumbnailShadow && !isAppleMusicBg
+                                )
+                                .background(
+                                    if (showsVideo) Color.Black
+                                    else if (isAppleMusicBg) Color.Transparent
+                                    else adaptiveSurface,
+                                    RoundedCornerShape(coverRadius)
+                                )
+                                .clip(RoundedCornerShape(coverRadius))
+                                .pointerInput(isAppleMusicBg, showsVideo, isListenTogetherGuest) {
+                                    detectTapGestures(
+                                        onTap = if (isAppleMusicBg && !showsVideo) {
+                                            { onPlayerStateChange(PlayerInternalState.LYRICS) }
+                                        } else null,
+                                        onDoubleTap = if (!isListenTogetherGuest) {
+                                            { offset ->
+                                                if (offset.x < size.width / 2f) {
+                                                    playerConnection.rewind()
+                                                    seekDirectionText = "-${playerConnection.seekIncrementMs / 1000}s"
+                                                } else {
+                                                    playerConnection.fastForward()
+                                                    seekDirectionText = "+${playerConnection.seekIncrementMs / 1000}s"
+                                                }
+                                                showSeekFeedback = true
+                                                seekFeedbackNonce++
+                                            }
+                                        } else null
+                                    )
+                                }
+                                .SwipeGesture(
+                                    enabled = !isListenTogetherGuest,
+                                    onSwipeLeft = { if (canSkipNext) playerConnection.player.seekToNext() },
+                                    onSwipeRight = { if (canSkipPrevious) playerConnection.player.seekToPrevious() }
+                                )
+                        ) {
+                            if (isAppleMusicBg && showsVideo && !videoRendered) {
+                                VideoLoadingBackdrop(
+                                    modifier = Modifier.fillMaxSize(),
+                                    videoId = mediaMetadata?.id,
+                                )
+                            } else if (isAppleMusicBg) {
+                            } else if (hidePlayerThumbnail) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.avidtune_monochrome),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(72.dp),
+                                        tint = adaptivePrimary.copy(alpha = 0.5f)
+                                    )
+                                }
+                            } else {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(LocalContext.current)
+                                        .data(mediaMetadata?.thumbnailUrl?.resize(coverResolution.size, coverResolution.size))
+                                        .memoryCachePolicy(CachePolicy.ENABLED)
+                                        .diskCachePolicy(CachePolicy.ENABLED)
+                                        .networkCachePolicy(CachePolicy.ENABLED)
+                                        .crossfade(true)
+                                        .build(),
+                                    contentDescription = stringResource(R.string.cover_art),
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
                                 )
                             }
-                        } else {
-                            AsyncImage(
-                                model = ImageRequest.Builder(LocalContext.current)
-                                    .data(mediaMetadata?.thumbnailUrl?.resize(coverResolution.size, coverResolution.size))
-                                    .memoryCachePolicy(CachePolicy.ENABLED)
-                                    .diskCachePolicy(CachePolicy.ENABLED)
-                                    .networkCachePolicy(CachePolicy.ENABLED)
-                                    .crossfade(true)
-                                    .build(),
-                                contentDescription = stringResource(R.string.cover_art),
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
-                        }
 
-                        if (showsVideo && mediaMetadata != null) {
-                            AndroidMusicVideo(
-                                videoId = mediaMetadata.id,
-                                fit = true,
-                                onRenderedChanged = { videoRendered = it },
-                                modifier = Modifier.fillMaxSize(),
-                                priority = 1,
-                                showLoadingOverlay = !isAppleMusicBg,
-                            )
-                            VideoCornerControls(
-                                fullscreen = false,
-                                onToggleFullscreen = onOpenFullscreenVideo,
-                                onOpenQuality = onOpenVideoQuality,
+                            if (showsVideo && mediaMetadata != null) {
+                                AndroidMusicVideo(
+                                    videoId = mediaMetadata.id,
+                                    fit = true,
+                                    onRenderedChanged = { videoRendered = it },
+                                    modifier = Modifier.fillMaxSize(),
+                                    priority = 1,
+                                    showLoadingOverlay = !isAppleMusicBg,
+                                )
+                                VideoCornerControls(
+                                    fullscreen = false,
+                                    onToggleFullscreen = onOpenFullscreenVideo,
+                                    onOpenQuality = onOpenVideoQuality,
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(12.dp),
+                                )
+                            }
+
+                            androidx.compose.animation.AnimatedVisibility(
+                                visible = showSeekFeedback,
+                                enter = fadeIn(tween(150)) + scaleIn(animationSpec = tween(150)),
+                                exit = fadeOut(tween(250)) + scaleOut(animationSpec = tween(250)),
+                                modifier = Modifier.align(Alignment.Center)
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = Color.Black.copy(alpha = 0.75f),
+                                    shadowElevation = 8.dp
+                                ) {
+                                    Text(
+                                        text = seekDirectionText,
+                                        color = Color.White,
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = error != null,
+                        enter = fadeIn(),
+                        exit = fadeOut(),
+                    ) {
+                        error?.let { err ->
+                            Box(
                                 modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .padding(10.dp),
-                            )
+                                    .fillMaxSize()
+                                    .verticalScroll(rememberScrollState()),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                PlaybackError(
+                                    error = err,
+                                    mediaId = mediaMetadata?.id,
+                                    retry = {
+                                        playerConnection.player.prepare()
+                                        playerConnection.player.play()
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -1644,7 +1758,8 @@ private fun PlayerV2Landscape(
                             mediaMetadata = mediaMetadata,
                             showLyrics = true,
                             positionProvider = { sliderPosition ?: playerConnection.player.currentPosition },
-                            textColor = adaptivePrimary
+                            textColor = adaptivePrimary,
+                            showRomanized = showRomanized
                         )
                     } else if (currentUiState == PlayerInternalState.QUEUE) {
                         QueueV2(
@@ -1695,6 +1810,8 @@ private fun PlayerV2Portrait(
     adaptiveSurface: Color,
     currentSkipSegments: List<Pair<Long, Long>> = emptyList(),
     sponsorBlockEnabled: Boolean = false,
+    showRomanized: Boolean = false,
+    onToggleRomanized: () -> Unit = {},
     onOpenFullscreenVideo: () -> Unit = {},
     onOpenVideoQuality: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -1709,6 +1826,17 @@ private fun PlayerV2Portrait(
     val isAppleMusicBg = playerBackground == PlayerBackgroundStyle.APPLE_MUSIC || playerBackground == PlayerBackgroundStyle.IMMERSIVE_ARTWORK
     val showsVideo = rememberShowsMusicVideo(mediaMetadata)
     var videoRendered by remember(mediaMetadata?.id) { mutableStateOf(false) }
+    val error by playerConnection.error.collectAsState()
+    var showSeekFeedback by remember { mutableStateOf(false) }
+    var seekDirectionText by remember { mutableStateOf("") }
+    var seekFeedbackNonce by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(showSeekFeedback, seekFeedbackNonce) {
+        if (showSeekFeedback) {
+            delay(800)
+            showSeekFeedback = false
+        }
+    }
 
     Box(
         modifier = modifier
@@ -1789,8 +1917,6 @@ private fun PlayerV2Portrait(
                                 .fillMaxSize()
                                 .padding(horizontal = 24.dp)
                         ) {
-                            Spacer(modifier = Modifier.weight(1f))
-
                             val videoAspect by MusicVideoEngine.aspect.collectAsState()
                             val animatedAspect by animateFloatAsState(
                                 targetValue = if (showsVideo) videoAspect.coerceAtLeast(1f) else 1f,
@@ -1798,90 +1924,178 @@ private fun PlayerV2Portrait(
                                 label = "v2PortraitAspect"
                             )
 
-                            Box(
+                            BoxWithConstraints(
                                 modifier = Modifier
-                                    .sharedElement(
-                                        rememberSharedContentState(key = "coverArt"),
-                                        animatedVisibilityScope = this@AnimatedContent,
-                                        boundsTransform = BoundsTransform { _, _ ->
-                                            tween(durationMillis = 500, easing = FastOutSlowInEasing)
-                                        }
-                                    )
+                                    .weight(1f)
                                     .fillMaxWidth()
-                                    .aspectRatio(animatedAspect)
-                                    .customSoftShadow(
-                                        elevation = playerThumbnailShadowElevation.dp,
-                                        cornerRadius = coverRadius,
-                                        enabled = showPlayerThumbnailShadow && !isAppleMusicBg
-                                    )
-                                    .background(
-                                        if (showsVideo) Color.Black
-                                        else if (isAppleMusicBg) Color.Transparent
-                                        else adaptiveSurface,
-                                        RoundedCornerShape(coverRadius)
-                                    )
-                                    .clip(RoundedCornerShape(coverRadius))
-                                    .clickable(enabled = isAppleMusicBg && !showsVideo) { onPlayerStateChange(PlayerInternalState.LYRICS) }
-                                    .SwipeGesture(
-                                        enabled = !isListenTogetherGuest,
-                                        onSwipeLeft = { if (canSkipNext) playerConnection.player.seekToNext() },
-                                        onSwipeRight = { if (canSkipPrevious) playerConnection.player.seekToPrevious() }
-                                    )
+                                    .padding(vertical = 8.dp),
+                                contentAlignment = Alignment.Center
                             ) {
-                                if (isAppleMusicBg && showsVideo && !videoRendered) {
-                                    VideoLoadingBackdrop(
-                                        modifier = Modifier.fillMaxSize(),
-                                        videoId = mediaMetadata?.id,
-                                    )
-                                } else if (isAppleMusicBg) {
-                                } else if (hidePlayerThumbnail) {
-                                    Box(
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            painter = painterResource(R.drawable.avidtune_monochrome),
-                                            contentDescription = null,
-                                            modifier = Modifier.size(72.dp),
-                                            tint = adaptivePrimary.copy(alpha = 0.5f)
-                                        )
+                                val (boxW, boxH) = if (showsVideo) {
+                                    if (maxWidth / animatedAspect <= maxHeight) {
+                                        maxWidth to (maxWidth / animatedAspect)
+                                    } else {
+                                        (maxHeight * animatedAspect) to maxHeight
                                     }
                                 } else {
-                                    AsyncImage(
-                                        model = ImageRequest.Builder(LocalContext.current)
-                                            .data(mediaMetadata?.thumbnailUrl?.resize(coverResolution.size, coverResolution.size))
-                                            .memoryCachePolicy(CachePolicy.ENABLED)
-                                            .diskCachePolicy(CachePolicy.ENABLED)
-                                            .networkCachePolicy(CachePolicy.ENABLED)
-                                            .crossfade(true)
-                                            .build(),
-                                        contentDescription = stringResource(R.string.cover_art),
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop
-                                    )
+                                    val square = minOf(maxWidth, maxHeight)
+                                    square to square
                                 }
 
-                                if (showsVideo && mediaMetadata != null) {
-                                    AndroidMusicVideo(
-                                        videoId = mediaMetadata.id,
-                                        fit = true,
-                                        onRenderedChanged = { videoRendered = it },
-                                        modifier = Modifier.fillMaxSize(),
-                                        priority = 1,
-                                        showLoadingOverlay = !isAppleMusicBg,
-                                    )
-                                    VideoCornerControls(
-                                        fullscreen = false,
-                                        onToggleFullscreen = onOpenFullscreenVideo,
-                                        onOpenQuality = onOpenVideoQuality,
+                                androidx.compose.animation.AnimatedVisibility(
+                                    visible = error == null,
+                                    enter = fadeIn(),
+                                    exit = fadeOut(),
+                                ) {
+                                    Box(
                                         modifier = Modifier
-                                            .align(Alignment.TopEnd)
-                                            .padding(12.dp),
-                                    )
+                                            .sharedElement(
+                                                rememberSharedContentState(key = "coverArt"),
+                                                animatedVisibilityScope = this@AnimatedContent,
+                                                boundsTransform = BoundsTransform { _, _ ->
+                                                    tween(durationMillis = 500, easing = FastOutSlowInEasing)
+                                                }
+                                            )
+                                            .size(width = boxW, height = boxH)
+                                            .customSoftShadow(
+                                                elevation = playerThumbnailShadowElevation.dp,
+                                                cornerRadius = coverRadius,
+                                                enabled = showPlayerThumbnailShadow && !isAppleMusicBg
+                                            )
+                                            .background(
+                                                if (showsVideo) Color.Black
+                                                else if (isAppleMusicBg) Color.Transparent
+                                                else adaptiveSurface,
+                                                RoundedCornerShape(coverRadius)
+                                            )
+                                            .clip(RoundedCornerShape(coverRadius))
+                                            .pointerInput(isAppleMusicBg, showsVideo, isListenTogetherGuest) {
+                                                detectTapGestures(
+                                                    onTap = if (isAppleMusicBg && !showsVideo) {
+                                                        { onPlayerStateChange(PlayerInternalState.LYRICS) }
+                                                    } else null,
+                                                    onDoubleTap = if (!isListenTogetherGuest) {
+                                                        { offset ->
+                                                            if (offset.x < size.width / 2f) {
+                                                                playerConnection.rewind()
+                                                                seekDirectionText = "-${playerConnection.seekIncrementMs / 1000}s"
+                                                            } else {
+                                                                playerConnection.fastForward()
+                                                                seekDirectionText = "+${playerConnection.seekIncrementMs / 1000}s"
+                                                            }
+                                                            showSeekFeedback = true
+                                                            seekFeedbackNonce++
+                                                        }
+                                                    } else null
+                                                )
+                                            }
+                                            .SwipeGesture(
+                                                enabled = !isListenTogetherGuest,
+                                                onSwipeLeft = { if (canSkipNext) playerConnection.player.seekToNext() },
+                                                onSwipeRight = { if (canSkipPrevious) playerConnection.player.seekToPrevious() }
+                                            )
+                                    ) {
+                                        if (isAppleMusicBg && showsVideo && !videoRendered) {
+                                            VideoLoadingBackdrop(
+                                                modifier = Modifier.fillMaxSize(),
+                                                videoId = mediaMetadata?.id,
+                                            )
+                                        } else if (isAppleMusicBg) {
+                                        } else if (hidePlayerThumbnail) {
+                                            Box(
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    painter = painterResource(R.drawable.avidtune_monochrome),
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(72.dp),
+                                                    tint = adaptivePrimary.copy(alpha = 0.5f)
+                                                )
+                                            }
+                                        } else {
+                                            AsyncImage(
+                                                model = ImageRequest.Builder(LocalContext.current)
+                                                    .data(mediaMetadata?.thumbnailUrl?.resize(coverResolution.size, coverResolution.size))
+                                                    .memoryCachePolicy(CachePolicy.ENABLED)
+                                                    .diskCachePolicy(CachePolicy.ENABLED)
+                                                    .networkCachePolicy(CachePolicy.ENABLED)
+                                                    .crossfade(true)
+                                                    .build(),
+                                                contentDescription = stringResource(R.string.cover_art),
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentScale = ContentScale.Crop
+                                            )
+                                        }
+
+                                        if (showsVideo && mediaMetadata != null) {
+                                            AndroidMusicVideo(
+                                                videoId = mediaMetadata.id,
+                                                fit = true,
+                                                onRenderedChanged = { videoRendered = it },
+                                                modifier = Modifier.fillMaxSize(),
+                                                priority = 1,
+                                                showLoadingOverlay = !isAppleMusicBg,
+                                            )
+                                            VideoCornerControls(
+                                                fullscreen = false,
+                                                onToggleFullscreen = onOpenFullscreenVideo,
+                                                onOpenQuality = onOpenVideoQuality,
+                                                modifier = Modifier
+                                                    .align(Alignment.TopEnd)
+                                                    .padding(12.dp),
+                                            )
+                                        }
+
+                                        androidx.compose.animation.AnimatedVisibility(
+                                            visible = showSeekFeedback,
+                                            enter = fadeIn(tween(150)) + scaleIn(animationSpec = tween(150)),
+                                            exit = fadeOut(tween(250)) + scaleOut(animationSpec = tween(250)),
+                                            modifier = Modifier.align(Alignment.Center)
+                                        ) {
+                                            Surface(
+                                                shape = RoundedCornerShape(16.dp),
+                                                color = Color.Black.copy(alpha = 0.75f),
+                                                shadowElevation = 8.dp
+                                            ) {
+                                                Text(
+                                                    text = seekDirectionText,
+                                                    color = Color.White,
+                                                    fontSize = 18.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                androidx.compose.animation.AnimatedVisibility(
+                                    visible = error != null,
+                                    enter = fadeIn(),
+                                    exit = fadeOut(),
+                                ) {
+                                    error?.let { err ->
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .verticalScroll(rememberScrollState()),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            PlaybackError(
+                                                error = err,
+                                                mediaId = mediaMetadata?.id,
+                                                retry = {
+                                                    playerConnection.player.prepare()
+                                                    playerConnection.player.play()
+                                                }
+                                            )
+                                        }
+                                    }
                                 }
                             }
 
-                            Spacer(modifier = Modifier.weight(1f))
+                            Spacer(modifier = Modifier.height(12.dp))
 
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
@@ -2180,6 +2394,8 @@ private fun PlayerV2Portrait(
                                                         lyricsEntity = currentLyrics,
                                                         mediaMetadata = mediaMetadata!!,
                                                         onDismiss = menuState::dismiss,
+                                                        isRomanized = showRomanized,
+                                                        onRomanizeClick = onToggleRomanized,
                                                         navController = navController
                                                     )
                                                 }
@@ -2210,7 +2426,8 @@ private fun PlayerV2Portrait(
                                             mediaMetadata = mediaMetadata,
                                             showLyrics = true,
                                             positionProvider = { sliderPosition ?: playerConnection.player.currentPosition },
-                                            textColor = adaptivePrimary
+                                            textColor = adaptivePrimary,
+                                            showRomanized = showRomanized
                                         )
 
                                         Box(

@@ -168,7 +168,7 @@ fun AppearanceSettings(
 
     val (playerVersion, onPlayerVersionChange) = rememberEnumPreference(
         PlayerVersionKey,
-        defaultValue = PlayerVersion.V1
+        defaultValue = PlayerVersion.V2
     )
 
     val (playerButtonsStyle, onPlayerButtonsStyleChange) = rememberEnumPreference(

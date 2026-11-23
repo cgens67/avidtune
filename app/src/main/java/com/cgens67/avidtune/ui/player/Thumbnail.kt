@@ -101,54 +101,11 @@ fun Thumbnail(
     )
     var videoRendered by remember(mediaMetadata?.id) { mutableStateOf(false) }
 
-    val thumbnailLazyGridState = rememberLazyGridState()
-
-    val timeline = playerConnection.player.currentTimeline
-    val currentIndex = playerConnection.player.currentMediaItemIndex
-    val shuffleModeEnabled = playerConnection.player.shuffleModeEnabled
-
-    val previousMediaMetadata = if (swipeThumbnail && !timeline.isEmpty) {
-        val index = timeline.getPreviousWindowIndex(currentIndex, Player.REPEAT_MODE_OFF, shuffleModeEnabled)
-        if (index != C.INDEX_UNSET) playerConnection.player.getMediaItemAt(index) else null
-    } else null
-
-    val nextMediaMetadata = if (swipeThumbnail && !timeline.isEmpty) {
-        val index = timeline.getNextWindowIndex(currentIndex, Player.REPEAT_MODE_OFF, shuffleModeEnabled)
-        if (index != C.INDEX_UNSET) playerConnection.player.getMediaItemAt(index) else null
-    } else null
-
     val currentMediaItem = playerConnection.player.currentMediaItem
-    val mediaItems = listOfNotNull(previousMediaMetadata, currentMediaItem, nextMediaMetadata)
-    val currentMediaIndex = mediaItems.indexOf(currentMediaItem).coerceAtLeast(0)
-
-    val snapProvider = remember(thumbnailLazyGridState) {
-        SnapLayoutInfoProvider(
-            lazyGridState = thumbnailLazyGridState,
-            positionInLayout = { layoutSize, itemSize ->
-                layoutSize / 2f - itemSize / 2f
-            }
-        )
-    }
-
-    LaunchedEffect(currentMediaItem) {
-        if (currentMediaIndex != -1) {
-            thumbnailLazyGridState.scrollToItem(currentMediaIndex)
-        }
-    }
-
-    LaunchedEffect(thumbnailLazyGridState.isScrollInProgress) {
-        if (!thumbnailLazyGridState.isScrollInProgress) {
-            val visibleIndex = thumbnailLazyGridState.firstVisibleItemIndex
-            if (visibleIndex != currentMediaIndex && visibleIndex != -1) {
-                if (visibleIndex < currentMediaIndex && canSkipPrevious) {
-                    playerConnection.player.seekToPreviousMediaItem()
-                } else if (visibleIndex > currentMediaIndex && canSkipNext) {
-                    playerConnection.player.seekToNext()
-                }
-                thumbnailLazyGridState.scrollToItem(currentMediaIndex)
-            }
-        }
-    }
+    val currentMediaId = mediaMetadata?.id ?: currentMediaItem?.mediaId
+    val currentArtworkUrl = mediaMetadata?.thumbnailUrl
+        ?: currentMediaItem?.mediaMetadata?.artworkUri?.toString()
+    val showVideoOverlay = currentMediaId != null && showsVideo
 
     var showSeekEffect by remember { mutableStateOf(false) }
     var seekDirection by remember { mutableStateOf("") }
@@ -199,116 +156,103 @@ fun Thumbnail(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    val size = maxWidth - PlayerHorizontalPadding * 2
+                    val size = minOf(maxWidth - (if (isLandscape) 16.dp else PlayerHorizontalPadding) * 2, maxHeight - 16.dp).coerceAtLeast(120.dp)
+                    val videoMaxWidth = (maxWidth - if (isLandscape) 32.dp else 24.dp).coerceAtLeast(120.dp)
                     val containerMaxHeight = maxHeight
 
-                    LazyHorizontalGrid(
-                        rows = GridCells.Fixed(1),
-                        state = thumbnailLazyGridState,
-                        flingBehavior = rememberSnapFlingBehavior(snapProvider),
-                        userScrollEnabled = swipeThumbnail && isPlayerExpanded,
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        itemsIndexed(
-                            items = mediaItems,
-                            key = { index, item ->
-                                "${item.mediaId}_${mediaItems.subList(0, index).count { it.mediaId == item.mediaId }}"
-                            },
-                        ) { index, item ->
-                            val isCurrentItem = index == currentMediaIndex && item.mediaId == mediaMetadata?.id
-                            val showVideoOverlay = isCurrentItem && showsVideo
-
-                            Box(
-                                modifier = Modifier
-                                    .width(maxWidth)
-                                    .fillMaxSize()
-                                    .pointerInput(Unit) {
-                                        detectTapGestures(
-                                            onTap = { onOpenFullscreenLyrics() },
-                                            onDoubleTap = { offset ->
-                                                if (offset.x < size.toPx() / 2) {
-                                                    playerConnection.rewind()
-                                                    seekDirection = "-${playerConnection.seekIncrementMs / 1000}s"
-                                                    showSeekEffect = true
-                                                } else {
-                                                    playerConnection.fastForward()
-                                                    seekDirection = "+${playerConnection.seekIncrementMs / 1000}s"
-                                                    showSeekEffect = true
-                                                }
-                                            }
-                                        )
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                val boxModifier = if (showVideoOverlay) {
-                                    val clampedHeight = (size / animatedVideoAspect).coerceAtMost(containerMaxHeight)
-                                    val clampedWidth = (clampedHeight * animatedVideoAspect).coerceAtMost(size)
-                                    Modifier.width(clampedWidth).height(clampedHeight)
-                                } else {
-                                    Modifier.size(size)
-                                }
-
-                                if (isAppleMusicStyle && !showVideoOverlay) {
-                                    Box(modifier = Modifier.size(size))
-                                } else {
-                                    Box(
-                                        modifier = boxModifier
-                                            .clip(RoundedCornerShape(thumbnailCornerRadius.dp * 2))
-                                            .background(
-                                                if (showVideoOverlay) Color.Black
-                                                else MaterialTheme.colorScheme.surfaceVariant
-                                            )
-                                    ) {
-                                        if (isAppleMusicStyle && showVideoOverlay && !videoRendered) {
-                                            VideoLoadingBackdrop(
-                                                modifier = Modifier.fillMaxSize(),
-                                                videoId = item.mediaId,
-                                            )
-                                        } else if (!isAppleMusicStyle && !(showVideoOverlay && videoRendered)) {
-                                            SubcomposeAsyncImage(
-                                                model = ImageRequest.Builder(LocalContext.current)
-                                                    .data(item.mediaMetadata.artworkUri?.toString()?.resize(coverResolution.size, coverResolution.size))
-                                                    .memoryCachePolicy(CachePolicy.ENABLED)
-                                                    .diskCachePolicy(CachePolicy.ENABLED)
-                                                    .networkCachePolicy(CachePolicy.ENABLED)
-                                                    .crossfade(true)
-                                                    .build(),
-                                                contentDescription = null,
-                                                contentScale = ContentScale.Crop,
-                                                modifier = Modifier.fillMaxSize(),
-                                                loading = {
-                                                    Box(
-                                                        modifier = Modifier.fillMaxSize(),
-                                                        contentAlignment = Alignment.Center
-                                                    ) {
-                                                        CircularWavyProgressIndicator(
-                                                            color = MaterialTheme.colorScheme.primary
-                                                        )
-                                                    }
-                                                }
-                                            )
-                                        }
-
-                                        if (showVideoOverlay) {
-                                            AndroidMusicVideo(
-                                                videoId = item.mediaId,
-                                                fit = true,
-                                                onRenderedChanged = { videoRendered = it },
-                                                modifier = Modifier.fillMaxSize(),
-                                                priority = 1,
-                                                showLoadingOverlay = !isAppleMusicStyle,
-                                            )
-
-                                            VideoCornerControls(
-                                                fullscreen = false,
-                                                onToggleFullscreen = onOpenFullscreenVideo,
-                                                onOpenQuality = onOpenVideoQuality,
-                                                modifier = Modifier
-                                                    .align(Alignment.TopEnd)
-                                                    .padding(12.dp),
-                                            )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .pointerInput(Unit) {
+                                detectTapGestures(
+                                    onTap = { onOpenFullscreenLyrics() },
+                                    onDoubleTap = { offset ->
+                                        if (offset.x < maxWidth.toPx() / 2) {
+                                            playerConnection.rewind()
+                                            seekDirection = "-${playerConnection.seekIncrementMs / 1000}s"
+                                            showSeekEffect = true
+                                        } else {
+                                            playerConnection.fastForward()
+                                            seekDirection = "+${playerConnection.seekIncrementMs / 1000}s"
+                                            showSeekEffect = true
                                         }
                                     }
+                                )
+                            }
+                            .SwipeGesture(
+                                enabled = swipeThumbnail && isPlayerExpanded && !playerConnection.isGuestPlaybackRestricted,
+                                onSwipeLeft = { if (canSkipNext) playerConnection.seekToNext() },
+                                onSwipeRight = { if (canSkipPrevious) playerConnection.seekToPrevious() }
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val boxModifier = if (showVideoOverlay) {
+                            val clampedHeight = (videoMaxWidth / animatedVideoAspect).coerceAtMost(if (isLandscape) (containerMaxHeight - 16.dp).coerceAtLeast(120.dp) else containerMaxHeight)
+                            val clampedWidth = (clampedHeight * animatedVideoAspect).coerceAtMost(videoMaxWidth)
+                            Modifier.width(clampedWidth).height(clampedHeight)
+                        } else {
+                            Modifier.size(size)
+                        }
+
+                        if (isAppleMusicStyle && !showVideoOverlay) {
+                            Box(modifier = Modifier.size(size))
+                        } else {
+                            Box(
+                                modifier = boxModifier
+                                    .clip(RoundedCornerShape(thumbnailCornerRadius.dp * 2))
+                                    .background(
+                                        if (showVideoOverlay) Color.Black
+                                        else MaterialTheme.colorScheme.surfaceVariant
+                                    )
+                            ) {
+                                if (isAppleMusicStyle && showVideoOverlay && !videoRendered) {
+                                    VideoLoadingBackdrop(
+                                        modifier = Modifier.fillMaxSize(),
+                                        videoId = currentMediaId,
+                                    )
+                                } else if (!isAppleMusicStyle && !(showVideoOverlay && videoRendered)) {
+                                    SubcomposeAsyncImage(
+                                        model = ImageRequest.Builder(LocalContext.current)
+                                            .data(currentArtworkUrl?.resize(coverResolution.size, coverResolution.size))
+                                            .memoryCachePolicy(CachePolicy.ENABLED)
+                                            .diskCachePolicy(CachePolicy.ENABLED)
+                                            .networkCachePolicy(CachePolicy.ENABLED)
+                                            .crossfade(true)
+                                            .build(),
+                                        contentDescription = null,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize(),
+                                        loading = {
+                                            Box(
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                CircularWavyProgressIndicator(
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+                                        }
+                                    )
+                                }
+
+                                if (showVideoOverlay && currentMediaId != null) {
+                                    AndroidMusicVideo(
+                                        videoId = currentMediaId,
+                                        fit = true,
+                                        onRenderedChanged = { videoRendered = it },
+                                        modifier = Modifier.fillMaxSize(),
+                                        priority = 1,
+                                        showLoadingOverlay = !isAppleMusicStyle,
+                                    )
+
+                                    VideoCornerControls(
+                                        fullscreen = false,
+                                        onToggleFullscreen = onOpenFullscreenVideo,
+                                        onOpenQuality = onOpenVideoQuality,
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .padding(12.dp),
+                                    )
                                 }
                             }
                         }

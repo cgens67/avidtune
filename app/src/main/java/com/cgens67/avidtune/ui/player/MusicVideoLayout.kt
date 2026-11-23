@@ -8,9 +8,12 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -150,6 +153,10 @@ internal fun FullscreenVideoPlayer(
     var controlsShown by remember { mutableStateOf(true) }
     var touches by remember { mutableIntStateOf(0) }
     var showQualitySheet by rememberSaveable { mutableStateOf(false) }
+    var showSeekFeedback by remember { mutableStateOf(false) }
+    var seekDirectionText by remember { mutableStateOf("") }
+    var seekIsRewind by remember { mutableStateOf(false) }
+    var seekFeedbackNonce by remember { mutableIntStateOf(0) }
 
     var position by remember(playbackState) { mutableLongStateOf(playerConnection.player.currentPosition.coerceAtLeast(0L)) }
     var duration by remember(playbackState) {
@@ -176,14 +183,38 @@ internal fun FullscreenVideoPlayer(
         }
     }
 
+    LaunchedEffect(showSeekFeedback, seekFeedbackNonce) {
+        if (showSeekFeedback) {
+            delay(800)
+            showSeekFeedback = false
+        }
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-            ) { controlsShown = !controlsShown },
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = { controlsShown = !controlsShown },
+                    onDoubleTap = { offset ->
+                        if (!playerConnection.isGuestPlaybackRestricted) {
+                            val isLeft = offset.x < size.width / 2f
+                            if (isLeft) {
+                                playerConnection.rewind()
+                                seekDirectionText = "-${playerConnection.seekIncrementMs / 1000}s"
+                            } else {
+                                playerConnection.fastForward()
+                                seekDirectionText = "+${playerConnection.seekIncrementMs / 1000}s"
+                            }
+                            position = playerConnection.player.currentPosition.coerceAtLeast(0L)
+                            seekIsRewind = isLeft
+                            showSeekFeedback = true
+                            seekFeedbackNonce++
+                        }
+                    }
+                )
+            },
     ) {
         if (!rendered) {
             VideoLoadingBackdrop(
@@ -443,6 +474,30 @@ internal fun FullscreenVideoPlayer(
                         )
                     }
                 }
+            }
+        }
+
+        AnimatedVisibility(
+            visible = showSeekFeedback,
+            enter = fadeIn(tween(150)) + scaleIn(animationSpec = tween(150)),
+            exit = fadeOut(tween(250)) + scaleOut(animationSpec = tween(250)),
+            modifier = Modifier
+                .align(if (seekIsRewind) Alignment.CenterStart else Alignment.CenterEnd)
+                .windowInsetsPadding(WindowInsets.displayCutout)
+                .padding(horizontal = 48.dp),
+        ) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = Color.Black.copy(alpha = 0.75f),
+                shadowElevation = 8.dp,
+            ) {
+                Text(
+                    text = seekDirectionText,
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+                )
             }
         }
     }

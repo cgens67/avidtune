@@ -23,14 +23,17 @@ constructor(
         LyricsPlusProvider, // 2
         PaxsenixLyricsProvider, // 3
         BiniLyricsProvider, // 4
-        BetterLyricsProvider, // 5
-        SimpMusicLyricsProvider, // 6
-        LrcLibLyricsProvider, // 7
-        KuGouLyricsProvider, // 8
-        NetEaseLyricsProvider, // 9
-        GeniusLyricsProvider, // 10
-        YouTubeSubtitleLyricsProvider, // 11
-        YouTubeLyricsProvider // 12
+        LrcRedLyricsProvider, // 5
+        BetterLyricsProvider, // 6
+        SimpMusicLyricsProvider, // 7
+        MusixmatchLyricsProvider, // 8
+        LrcLibLyricsProvider, // 9
+        KuGouLyricsProvider, // 10
+        NetEaseLyricsProvider, // 11
+        UnisonLyricsProvider, // 12
+        GeniusLyricsProvider, // 13
+        YouTubeSubtitleLyricsProvider, // 14
+        YouTubeLyricsProvider // 15
     )
 
     private suspend fun getOrderedProviders(): List<LyricsProvider> {
@@ -128,7 +131,7 @@ constructor(
 
     companion object {
         private const val MAX_CACHE_SIZE = 3
-        private const val PROVIDER_TIMEOUT_MS = 4000L
+        private const val PROVIDER_TIMEOUT_MS = 6000L
     }
 }
 

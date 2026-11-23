@@ -1545,4 +1545,38 @@
     <string name="video_not_found">No music video found</string>
     
     <string name="switch_to_video">Switch to video</string>
+    
+    <string name="synced_songs">Synced songs</string>
+    <string name="local_playlist">Local playlist</string>
+    
+    <string name="enable_lrc_red">Enable LrcRed</string>
+    <string name="enable_lrc_red_desc">Fetch Apple Music syllable- and line-synced TTML lyrics by ISRC or search</string>
+    <string name="provider_lrc_red">LrcRed</string>
+    <string name="enable_musixmatch">Enable Musixmatch</string>
+    <string name="enable_musixmatch_desc">Fetch word- and line-synced lyrics from Musixmatch</string>
+    <string name="provider_musixmatch">Musixmatch</string>
+    <string name="enable_unison">Enable Unison</string>
+    <string name="enable_unison_desc">Fetch community-submitted lyrics from Unison (TTML, LRC, and plain text)</string>
+    <string name="provider_unison">Unison</string>
+    
+        <string name="romanization_enable">Romanize lyrics automatically</string>
+    <string name="romanization_enable_desc">Automatically display romanization beneath non-Latin lyrics</string>
+    <string name="romanization_cyrillic_per_line">Detect Cyrillic language per line</string>
+    <string name="romanization_cyrillic_per_line_desc">Detect Russian, Ukrainian, Serbian, Bulgarian, Belarusian, Kyrgyz, and Macedonian line by line</string>
+    <string name="romanization_languages">Romanization languages</string>
+    <string name="romanization_languages_desc">Choose which scripts and languages to romanize</string>
+    <string name="romanization_lang_japanese">Japanese</string>
+    <string name="romanization_lang_korean">Korean</string>
+    <string name="romanization_lang_chinese">Chinese</string>
+    <string name="romanization_lang_arabic">Arabic</string>
+    <string name="romanization_lang_hindi">Hindi</string>
+    <string name="romanization_lang_punjabi">Punjabi</string>
+    <string name="romanization_lang_thai">Thai</string>
+    <string name="romanization_lang_russian">Russian</string>
+    <string name="romanization_lang_ukrainian">Ukrainian</string>
+    <string name="romanization_lang_serbian">Serbian</string>
+    <string name="romanization_lang_bulgarian">Bulgarian</string>
+    <string name="romanization_lang_belarusian">Belarusian</string>
+    <string name="romanization_lang_kyrgyz">Kyrgyz</string>
+    <string name="romanization_lang_macedonian">Macedonian</string>
 </resources>
