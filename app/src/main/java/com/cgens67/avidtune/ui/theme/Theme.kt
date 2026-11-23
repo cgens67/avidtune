@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.palette.graphics.Palette
 import com.cgens67.avidtune.R
@@ -37,7 +38,93 @@ import kotlinx.coroutines.withContext
 
 val DefaultThemeColor = Color(0xFF4285F4)
 
+val sfProDisplay = FontFamily(
+    Font(R.font.sfprodisplayregular, FontWeight.W400),
+    Font(R.font.sfprodisplayregular, FontWeight.W500),
+    Font(R.font.sfprodisplaymedium, FontWeight.W600),
+    Font(R.font.sfprodisplaysemibold, FontWeight.W700),
+    Font(R.font.sfprodisplaybold, FontWeight.W800),
+    Font(R.font.sfprodisplayheavy, FontWeight.W900),
+)
 val sfProDisplayBold = FontFamily(Font(R.font.sfprodisplaybold))
+
+private fun sfProTypography(default: Typography): Typography = Typography(
+    displayLarge = default.displayLarge.copy(
+        fontFamily = sfProDisplay,
+        fontWeight = FontWeight.W800,
+        letterSpacing = (-0.5).sp,
+    ),
+    displayMedium = default.displayMedium.copy(
+        fontFamily = sfProDisplay,
+        fontWeight = FontWeight.W800,
+        letterSpacing = (-0.45).sp,
+    ),
+    displaySmall = default.displaySmall.copy(
+        fontFamily = sfProDisplay,
+        fontWeight = FontWeight.W800,
+        letterSpacing = (-0.4).sp,
+    ),
+    headlineLarge = default.headlineLarge.copy(
+        fontFamily = sfProDisplay,
+        fontWeight = FontWeight.W800,
+        letterSpacing = (-0.4).sp,
+    ),
+    headlineMedium = default.headlineMedium.copy(
+        fontFamily = sfProDisplay,
+        fontWeight = FontWeight.W700,
+        letterSpacing = (-0.25).sp,
+    ),
+    headlineSmall = default.headlineSmall.copy(
+        fontFamily = sfProDisplay,
+        fontWeight = FontWeight.W700,
+        letterSpacing = (-0.2).sp,
+    ),
+    titleLarge = default.titleLarge.copy(
+        fontFamily = sfProDisplay,
+        fontWeight = FontWeight.W700,
+        letterSpacing = (-0.2).sp,
+    ),
+    titleMedium = default.titleMedium.copy(
+        fontFamily = sfProDisplay,
+        fontWeight = FontWeight.W600,
+        letterSpacing = 0.05.sp,
+    ),
+    titleSmall = default.titleSmall.copy(
+        fontFamily = sfProDisplay,
+        fontWeight = FontWeight.W600,
+        letterSpacing = 0.05.sp,
+    ),
+    bodyLarge = default.bodyLarge.copy(
+        fontFamily = sfProDisplay,
+        fontWeight = FontWeight.W400,
+        letterSpacing = 0.2.sp,
+    ),
+    bodyMedium = default.bodyMedium.copy(
+        fontFamily = sfProDisplay,
+        fontWeight = FontWeight.W400,
+        letterSpacing = 0.3.sp,
+    ),
+    bodySmall = default.bodySmall.copy(
+        fontFamily = sfProDisplay,
+        fontWeight = FontWeight.W400,
+        letterSpacing = 0.3.sp,
+    ),
+    labelLarge = default.labelLarge.copy(
+        fontFamily = sfProDisplay,
+        fontWeight = FontWeight.W600,
+        letterSpacing = 0.15.sp,
+    ),
+    labelMedium = default.labelMedium.copy(
+        fontFamily = sfProDisplay,
+        fontWeight = FontWeight.W600,
+        letterSpacing = 0.25.sp,
+    ),
+    labelSmall = default.labelSmall.copy(
+        fontFamily = sfProDisplay,
+        fontWeight = FontWeight.W600,
+        letterSpacing = 0.3.sp,
+    ),
+)
 val googleSansBold = FontFamily(Font(R.font.googlesansbold))
 val spaceGroteskBold = FontFamily(Font(R.font.spacegroteskbold))
 
@@ -186,47 +273,32 @@ fun AvidTuneTheme(
 
     val typography = remember(appFont) {
         val default = Typography()
-        val customFontFamily = when(appFont) {
-            AppFont.SYSTEM -> null
-            AppFont.SF_PRO -> sfProDisplayBold
-            AppFont.GOOGLE_SANS -> googleSansBold
-            AppFont.SPACE_GROTESK -> spaceGroteskBold
-        }
+        when (appFont) {
+            AppFont.SYSTEM -> default
+            AppFont.SF_PRO -> sfProTypography(default)
+            AppFont.GOOGLE_SANS, AppFont.SPACE_GROTESK -> {
+                val customFontFamily = if (appFont == AppFont.GOOGLE_SANS) googleSansBold else spaceGroteskBold
+                val titleLetterSpacing = if (appFont == AppFont.GOOGLE_SANS) (-0.4).sp else (-0.5).sp
+                val bodyLetterSpacing = if (appFont == AppFont.GOOGLE_SANS) 0.sp else (-0.2).sp
 
-        if (customFontFamily == null) {
-            default
-        } else {
-            val titleLetterSpacing = when (appFont) {
-                AppFont.GOOGLE_SANS -> (-0.4).sp
-                AppFont.SPACE_GROTESK -> (-0.5).sp
-                AppFont.SF_PRO -> (-0.2).sp
-                else -> 0.sp
+                Typography(
+                    displayLarge = default.displayLarge.copy(fontFamily = customFontFamily, letterSpacing = titleLetterSpacing),
+                    displayMedium = default.displayMedium.copy(fontFamily = customFontFamily, letterSpacing = titleLetterSpacing),
+                    displaySmall = default.displaySmall.copy(fontFamily = customFontFamily, letterSpacing = titleLetterSpacing),
+                    headlineLarge = default.headlineLarge.copy(fontFamily = customFontFamily, letterSpacing = titleLetterSpacing),
+                    headlineMedium = default.headlineMedium.copy(fontFamily = customFontFamily, letterSpacing = titleLetterSpacing),
+                    headlineSmall = default.headlineSmall.copy(fontFamily = customFontFamily, letterSpacing = titleLetterSpacing),
+                    titleLarge = default.titleLarge.copy(fontFamily = customFontFamily, letterSpacing = titleLetterSpacing),
+                    titleMedium = default.titleMedium.copy(fontFamily = customFontFamily, letterSpacing = titleLetterSpacing),
+                    titleSmall = default.titleSmall.copy(fontFamily = customFontFamily, letterSpacing = titleLetterSpacing),
+                    bodyLarge = default.bodyLarge.copy(fontFamily = customFontFamily, letterSpacing = bodyLetterSpacing),
+                    bodyMedium = default.bodyMedium.copy(fontFamily = customFontFamily, letterSpacing = bodyLetterSpacing),
+                    bodySmall = default.bodySmall.copy(fontFamily = customFontFamily, letterSpacing = bodyLetterSpacing),
+                    labelLarge = default.labelLarge.copy(fontFamily = customFontFamily, letterSpacing = bodyLetterSpacing),
+                    labelMedium = default.labelMedium.copy(fontFamily = customFontFamily, letterSpacing = bodyLetterSpacing),
+                    labelSmall = default.labelSmall.copy(fontFamily = customFontFamily, letterSpacing = bodyLetterSpacing)
+                )
             }
-            
-            val bodyLetterSpacing = when (appFont) {
-                AppFont.GOOGLE_SANS -> 0.sp
-                AppFont.SPACE_GROTESK -> (-0.2).sp
-                AppFont.SF_PRO -> 0.sp
-                else -> 0.sp
-            }
-
-            Typography(
-                displayLarge = default.displayLarge.copy(fontFamily = customFontFamily, letterSpacing = titleLetterSpacing),
-                displayMedium = default.displayMedium.copy(fontFamily = customFontFamily, letterSpacing = titleLetterSpacing),
-                displaySmall = default.displaySmall.copy(fontFamily = customFontFamily, letterSpacing = titleLetterSpacing),
-                headlineLarge = default.headlineLarge.copy(fontFamily = customFontFamily, letterSpacing = titleLetterSpacing),
-                headlineMedium = default.headlineMedium.copy(fontFamily = customFontFamily, letterSpacing = titleLetterSpacing),
-                headlineSmall = default.headlineSmall.copy(fontFamily = customFontFamily, letterSpacing = titleLetterSpacing),
-                titleLarge = default.titleLarge.copy(fontFamily = customFontFamily, letterSpacing = titleLetterSpacing),
-                titleMedium = default.titleMedium.copy(fontFamily = customFontFamily, letterSpacing = titleLetterSpacing),
-                titleSmall = default.titleSmall.copy(fontFamily = customFontFamily, letterSpacing = titleLetterSpacing),
-                bodyLarge = default.bodyLarge.copy(fontFamily = customFontFamily, letterSpacing = bodyLetterSpacing),
-                bodyMedium = default.bodyMedium.copy(fontFamily = customFontFamily, letterSpacing = bodyLetterSpacing),
-                bodySmall = default.bodySmall.copy(fontFamily = customFontFamily, letterSpacing = bodyLetterSpacing),
-                labelLarge = default.labelLarge.copy(fontFamily = customFontFamily, letterSpacing = bodyLetterSpacing),
-                labelMedium = default.labelMedium.copy(fontFamily = customFontFamily, letterSpacing = bodyLetterSpacing),
-                labelSmall = default.labelSmall.copy(fontFamily = customFontFamily, letterSpacing = bodyLetterSpacing)
-            )
         }
     }
 

@@ -131,7 +131,7 @@ import com.cgens67.avidtune.ui.component.SettingsPage
 import com.cgens67.avidtune.ui.component.SwitchPreference
 import com.cgens67.avidtune.ui.component.ThumbnailCornerRadiusSelectorButton
 import com.cgens67.avidtune.ui.theme.googleSansBold
-import com.cgens67.avidtune.ui.theme.sfProDisplayBold
+import com.cgens67.avidtune.ui.theme.sfProDisplay
 import com.cgens67.avidtune.ui.theme.spaceGroteskBold
 import com.cgens67.avidtune.utils.dataStore
 import com.cgens67.avidtune.utils.rememberEnumPreference
@@ -957,7 +957,7 @@ fun AppFontBottomSheet(
                     val isSelected = font == selectedFont
                     val fontFamily = when (font) {
                         AppFont.SYSTEM -> FontFamily.Default
-                        AppFont.SF_PRO -> sfProDisplayBold
+                        AppFont.SF_PRO -> sfProDisplay
                         AppFont.GOOGLE_SANS -> googleSansBold
                         AppFont.SPACE_GROTESK -> spaceGroteskBold
                     }
@@ -989,7 +989,7 @@ fun AppFontBottomSheet(
                                 AppFont.SPACE_GROTESK -> stringResource(R.string.font_space_grotesk)
                             },
                             style = MaterialTheme.typography.bodyLarge,
-                            fontFamily = fontFamily,
+                            fontFamily = fontFamily, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                             color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                         )
                     }
