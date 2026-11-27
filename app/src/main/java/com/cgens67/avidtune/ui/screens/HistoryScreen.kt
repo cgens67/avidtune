@@ -1419,7 +1419,7 @@ private fun HistoryHeroSummaryCard(
                     Text(
                         text = countLabel,
                         style = MaterialTheme.typography.headlineLarge,
-                        fontWeight = FontWeight.Light,
+                        fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis

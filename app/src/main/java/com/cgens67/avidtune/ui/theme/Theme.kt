@@ -40,9 +40,9 @@ val DefaultThemeColor = Color(0xFF4285F4)
 
 val sfProDisplay = FontFamily(
     Font(R.font.sfprodisplayregular, FontWeight.W400),
-    Font(R.font.sfprodisplayregular, FontWeight.W500),
-    Font(R.font.sfprodisplaymedium, FontWeight.W600),
-    Font(R.font.sfprodisplaysemibold, FontWeight.W700),
+    Font(R.font.sfprodisplaymedium, FontWeight.W500),
+    Font(R.font.sfprodisplaysemibold, FontWeight.W600),
+    Font(R.font.sfprodisplaybold, FontWeight.W700),
     Font(R.font.sfprodisplaybold, FontWeight.W800),
     Font(R.font.sfprodisplayheavy, FontWeight.W900),
 )

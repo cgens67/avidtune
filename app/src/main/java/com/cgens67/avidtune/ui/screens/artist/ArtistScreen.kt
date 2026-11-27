@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.widget.Toast
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,6 +17,8 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -107,7 +110,6 @@ import com.cgens67.avidtune.LocalPlayerConnection
 import com.cgens67.avidtune.R
 import com.cgens67.avidtune.constants.EnableArtistCanvasKey
 import com.cgens67.avidtune.constants.EnableDescriptionsKey
-import com.cgens67.avidtune.db.MusicDatabase
 import com.cgens67.avidtune.db.entities.Artist
 import com.cgens67.avidtune.db.entities.ArtistEntity
 import com.cgens67.avidtune.db.entities.Song
@@ -160,7 +162,8 @@ import kotlinx.coroutines.withContext
 @OptIn(
     ExperimentalFoundationApi::class,
     ExperimentalMaterial3Api::class,
-    ExperimentalMaterial3ExpressiveApi::class
+    ExperimentalMaterial3ExpressiveApi::class,
+    ExperimentalLayoutApi::class,
 )
 @Composable
 fun ArtistScreen(
@@ -352,10 +355,10 @@ fun ArtistScreen(
                         }
 
                         if (isLandscape) {
-                            val leftPaneWidth = width * 0.42f
+                            val leftPaneWidth = width * 0.38f
                             val centerX = leftPaneWidth * 0.5f
                             val centerY = (140.dp.toPx()).coerceAtMost(height * 0.42f)
-                            val radius = maxOf(height * 0.85f, leftPaneWidth * 0.95f)
+                            val radius = maxOf(height * 0.85f, leftPaneWidth * 1.15f)
 
                             if (gradientColors.size >= 3) {
                                 val c0 = gradientColors[0]
@@ -365,8 +368,8 @@ fun ArtistScreen(
                                 drawRect(
                                     brush = Brush.radialGradient(
                                         colors = listOf(
-                                            adaptColor(c0, 0.75f),
-                                            adaptColor(c0, 0.35f),
+                                            adaptColor(c0, 0.78f),
+                                            adaptColor(c0, 0.36f),
                                             Color.Transparent
                                         ),
                                         center = Offset(centerX, centerY),
@@ -376,8 +379,8 @@ fun ArtistScreen(
                                 drawRect(
                                     brush = Brush.radialGradient(
                                         colors = listOf(
-                                            adaptColor(c1, 0.55f),
-                                            adaptColor(c1, 0.20f),
+                                            adaptColor(c1, 0.56f),
+                                            adaptColor(c1, 0.22f),
                                             Color.Transparent
                                         ),
                                         center = Offset(centerX * 0.4f, centerY * 0.65f),
@@ -387,11 +390,11 @@ fun ArtistScreen(
                                 drawRect(
                                     brush = Brush.radialGradient(
                                         colors = listOf(
-                                            adaptColor(c2, 0.50f),
+                                            adaptColor(c2, 0.52f),
                                             adaptColor(c2, 0.18f),
                                             Color.Transparent
                                         ),
-                                        center = Offset(centerX * 1.5f, centerY * 1.35f),
+                                        center = Offset(centerX * 1.55f, centerY * 1.35f),
                                         radius = radius * 0.85f
                                     )
                                 )
@@ -399,7 +402,7 @@ fun ArtistScreen(
                                 drawRect(
                                     brush = Brush.radialGradient(
                                         colors = listOf(
-                                            adaptColor(gradientColors[0], 0.65f),
+                                            adaptColor(gradientColors[0], 0.68f),
                                             adaptColor(gradientColors[0], 0.25f),
                                             Color.Transparent
                                         ),
@@ -413,12 +416,12 @@ fun ArtistScreen(
                                 brush = Brush.horizontalGradient(
                                     colors = listOf(
                                         Color.Transparent,
-                                        surfaceColor.copy(alpha = 0.5f),
+                                        surfaceColor.copy(alpha = 0.55f),
                                         surfaceColor,
                                         surfaceColor
                                     ),
                                     startX = leftPaneWidth * 0.65f,
-                                    endX = leftPaneWidth * 1.05f
+                                    endX = leftPaneWidth * 1.12f
                                 )
                             )
 
@@ -427,10 +430,10 @@ fun ArtistScreen(
                                     colors = listOf(
                                         Color.Transparent,
                                         Color.Transparent,
-                                        surfaceColor.copy(alpha = 0.6f),
+                                        surfaceColor.copy(alpha = 0.65f),
                                         surfaceColor
                                     ),
-                                    startY = height * 0.62f,
+                                    startY = height * 0.65f,
                                     endY = height
                                 )
                             )
@@ -531,175 +534,313 @@ fun ArtistScreen(
         if (isLandscape) {
             val statusBarTop = WindowInsets.systemBars.asPaddingValues().calculateTopPadding()
             val awareBottom = LocalPlayerAwareWindowInsets.current.asPaddingValues().calculateBottomPadding()
-            val landscapeArtworkSize = if (configuration.screenHeightDp < 420) 144.dp else 168.dp
+            val isCompactHeight = configuration.screenHeightDp < 480
+            val landscapeArtworkSize = if (isCompactHeight) 96.dp else 156.dp
+
+            val topSongsSection = artistPage?.sections?.firstOrNull { s -> s.items.all { it is SongItem } }
+            val jumpEntries = remember(librarySongs, artistPage) {
+                buildList<Pair<String, Int>> {
+                    var currentIndex = 0
+                    if (librarySongs.isNotEmpty()) {
+                        add("" to currentIndex)
+                        currentIndex += 1
+                    }
+                    artistPage?.sections?.forEach { section ->
+                        if (section.items.isNotEmpty()) {
+                            add(section.title to currentIndex)
+                            currentIndex += if (section === topSongsSection) {
+                                1 + section.items.distinctBy { it.id }.chunked(2).size
+                            } else {
+                                2
+                            }
+                        }
+                    }
+                }
+            }
 
             Row(
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
                 modifier = Modifier
                     .fillMaxSize()
                     .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Horizontal))
+                    .padding(horizontal = 16.dp),
             ) {
-                // Left Pane: Artist Profile & Actions
+                // Left Zone: Sculpted Artist Hero Card + Bio + Section Jump Rail
                 Column(
                     modifier = Modifier
-                        .weight(0.42f)
+                        .weight(0.37f)
                         .fillMaxHeight()
+                        .verticalScroll(landscapeScrollState)
                         .padding(
-                            start = 16.dp,
-                            bottom = awareBottom + 16.dp
-                        )
-                        .verticalScroll(landscapeScrollState),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                            top = statusBarTop + 56.dp,
+                            bottom = awareBottom + 16.dp,
+                        ),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     if (isFetching && artistPage == null) {
-                        Spacer(Modifier.height(statusBarTop + 60.dp))
-                        ShimmerHost(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp)
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.85f),
+                            shape = RoundedCornerShape(22.dp),
+                            modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Spacer(
+                            ShimmerHost(
                                 modifier = Modifier
-                                    .size(landscapeArtworkSize)
-                                    .clip(RoundedCornerShape(thumbnailCornerRadius.dp))
-                                    .background(MaterialTheme.colorScheme.onSurface)
-                            )
-                            Spacer(Modifier.height(14.dp))
-                            TextPlaceholder(
-                                height = 28.dp,
-                                modifier = Modifier.fillMaxWidth(0.65f)
-                            )
-                            Spacer(Modifier.height(10.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Spacer(
-                                    modifier = Modifier
-                                        .height(26.dp)
-                                        .width(72.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(MaterialTheme.colorScheme.onSurface)
-                                )
-                                Spacer(
-                                    modifier = Modifier
-                                        .height(26.dp)
-                                        .width(88.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(MaterialTheme.colorScheme.onSurface)
-                                )
-                            }
-                            Spacer(Modifier.height(14.dp))
-                            TextPlaceholder(modifier = Modifier.fillMaxWidth())
-                            TextPlaceholder(modifier = Modifier.fillMaxWidth(0.8f))
-                            Spacer(Modifier.height(16.dp))
-                            Spacer(
-                                modifier = Modifier
-                                    .height(44.dp)
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(22.dp))
-                                    .background(MaterialTheme.colorScheme.onSurface)
-                            )
+                                    .padding(14.dp)
+                            ) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Spacer(
+                                        modifier = Modifier
+                                            .size(landscapeArtworkSize)
+                                            .clip(RoundedCornerShape(thumbnailCornerRadius.dp))
+                                            .background(MaterialTheme.colorScheme.onSurface)
+                                    )
+                                    Column(
+                                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.weight(1f),
+                                    ) {
+                                        TextPlaceholder(height = 24.dp, modifier = Modifier.fillMaxWidth(0.85f))
+                                        TextPlaceholder(height = 20.dp, modifier = Modifier.fillMaxWidth(0.6f))
+                                    }
+                                }
+                                Spacer(Modifier.height(14.dp))
+                                Spacer(
+                                    modifier = Modifier
+                                        .height(40.dp)
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(20.dp))
+                                        .background(MaterialTheme.colorScheme.onSurface)
+                                )
+                                Spacer(Modifier.height(10.dp))
+                                TextPlaceholder(modifier = Modifier.fillMaxWidth())
+                                TextPlaceholder(modifier = Modifier.fillMaxWidth(0.75f))
+                            }
                         }
                     } else {
-                        Spacer(Modifier.height(statusBarTop + 60.dp))
-
-                        if (thumbnail != null) {
-                            Box(
+                        // Hero Identity Card
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.82f),
+                            shape = RoundedCornerShape(22.dp),
+                            border = BorderStroke(
+                                width = 1.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Column(
                                 modifier = Modifier
-                                    .size(landscapeArtworkSize)
-                                    .clip(RoundedCornerShape(thumbnailCornerRadius.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    .fillMaxWidth()
+                                    .padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
-                                AsyncImage(
-                                    model = thumbnail.resize(1200, 1200),
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize(),
-                                )
+                                if (isCompactHeight) {
+                                    // Compact phone landscape: Artwork + Name/Stats side by side
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        if (thumbnail != null) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(landscapeArtworkSize)
+                                                    .clip(RoundedCornerShape(thumbnailCornerRadius.dp))
+                                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                            ) {
+                                                AsyncImage(
+                                                    model = thumbnail.resize(1200, 1200),
+                                                    contentDescription = null,
+                                                    contentScale = ContentScale.Crop,
+                                                    modifier = Modifier.fillMaxSize(),
+                                                )
+                                                artistVideoUrl?.let { url ->
+                                                    ArtistVideo(
+                                                        videoUrl = url,
+                                                        modifier = Modifier.fillMaxSize()
+                                                    )
+                                                }
+                                            }
+                                        }
 
-                                artistVideoUrl?.let { url ->
-                                    ArtistVideo(
-                                        videoUrl = url,
-                                        modifier = Modifier.fillMaxSize()
-                                    )
+                                        Column(
+                                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                                            modifier = Modifier.weight(1f),
+                                        ) {
+                                            Text(
+                                                text = artistName,
+                                                style = MaterialTheme.typography.titleLarge,
+                                                fontWeight = FontWeight.Bold,
+                                                maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
+                                            ArtistBadgesRow(
+                                                subscriberCountText = artistPage?.subscriberCountText,
+                                                monthlyListenerCount = artistPage?.monthlyListenerCount,
+                                                totalPlayCount = totalPlayCount,
+                                                centered = false,
+                                                modifier = Modifier.fillMaxWidth(),
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    // Larger tablet landscape: Editorial showcase header
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        if (thumbnail != null) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(landscapeArtworkSize)
+                                                    .clip(RoundedCornerShape(thumbnailCornerRadius.dp))
+                                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                            ) {
+                                                AsyncImage(
+                                                    model = thumbnail.resize(1200, 1200),
+                                                    contentDescription = null,
+                                                    contentScale = ContentScale.Crop,
+                                                    modifier = Modifier.fillMaxSize(),
+                                                )
+                                                artistVideoUrl?.let { url ->
+                                                    ArtistVideo(
+                                                        videoUrl = url,
+                                                        modifier = Modifier.fillMaxSize()
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        Text(
+                                            text = artistName,
+                                            style = MaterialTheme.typography.headlineSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            textAlign = TextAlign.Center,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.fillMaxWidth(),
+                                        )
+                                        ArtistBadgesRow(
+                                            subscriberCountText = artistPage?.subscriberCountText,
+                                            monthlyListenerCount = artistPage?.monthlyListenerCount,
+                                            totalPlayCount = totalPlayCount,
+                                            centered = true,
+                                            modifier = Modifier.fillMaxWidth(),
+                                        )
+                                    }
                                 }
+
+                                ArtistActionButtons(
+                                    isSubscribed = libraryArtist?.artist?.bookmarkedAt != null,
+                                    radioEndpoint = artistPage?.artist?.radioEndpoint,
+                                    shuffleEndpoint = artistPage?.artist?.shuffleEndpoint,
+                                    compactTwoRow = true,
+                                    onSubscribeClick = onSubscribeClick,
+                                    onPlayQueue = playerConnection::playQueue,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
                             }
                         }
 
-                        Text(
-                            text = artistName,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp)
-                                .padding(top = 12.dp)
-                        )
+                        // Artist Bio Card
+                        if (enableDescriptions && (isDescriptionLoading || !artistDescription.isNullOrBlank())) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.78f),
+                                shape = RoundedCornerShape(18.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                ArtistDescriptionSection(
+                                    isDescriptionLoading = isDescriptionLoading,
+                                    artistDescription = artistDescription,
+                                    descriptionProvider = descriptionProvider,
+                                    isTranslated = isTranslated,
+                                    canTranslate = canTranslate,
+                                    onToggleTranslation = viewModel::toggleDescriptionTranslation,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                )
+                            }
+                        }
 
-                        ArtistBadgesRow(
-                            subscriberCountText = artistPage?.subscriberCountText,
-                            monthlyListenerCount = artistPage?.monthlyListenerCount,
-                            totalPlayCount = totalPlayCount,
-                            centered = true,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp)
-                                .padding(top = 10.dp)
-                        )
-
-                        ArtistActionButtons(
-                            isSubscribed = libraryArtist?.artist?.bookmarkedAt != null,
-                            radioEndpoint = artistPage?.artist?.radioEndpoint,
-                            shuffleEndpoint = artistPage?.artist?.shuffleEndpoint,
-                            compactTwoRow = true,
-                            onSubscribeClick = onSubscribeClick,
-                            onPlayQueue = playerConnection::playQueue,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp)
-                                .padding(top = 14.dp, bottom = 8.dp)
-                        )
-
-                        if (enableDescriptions) {
-                            ArtistDescriptionSection(
-                                isDescriptionLoading = isDescriptionLoading,
-                                artistDescription = artistDescription,
-                                descriptionProvider = descriptionProvider,
-                                isTranslated = isTranslated,
-                                canTranslate = canTranslate,
-                                onToggleTranslation = viewModel::toggleDescriptionTranslation,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp)
-                                    .padding(top = 6.dp)
-                            )
+                        // Quick Section Jump Pills
+                        if (jumpEntries.isNotEmpty()) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.78f),
+                                shape = RoundedCornerShape(18.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(10.dp),
+                                ) {
+                                    jumpEntries.forEach { (rawTitle, targetIdx) ->
+                                        val label = if (rawTitle.isEmpty()) {
+                                            stringResource(R.string.filter_library)
+                                        } else {
+                                            getTranslatedArtistSectionTitle(rawTitle)
+                                        }
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                            shape = CircleShape,
+                                            modifier = Modifier
+                                                .clip(CircleShape)
+                                                .clickable {
+                                                    coroutineScope.launch {
+                                                        lazyListState.animateScrollToItem(targetIdx)
+                                                    }
+                                                },
+                                        ) {
+                                            Text(
+                                                text = label,
+                                                style = MaterialTheme.typography.labelMedium,
+                                                fontWeight = FontWeight.Medium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
 
-                // Right Pane: Library Songs & YouTube Sections
+                // Right Zone: 2-Column Track Grids + FlowRow Discography Cards
                 LazyColumn(
                     state = lazyListState,
                     modifier = Modifier
-                        .weight(0.58f)
+                        .weight(0.63f)
                         .fillMaxHeight(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                     contentPadding = PaddingValues(
-                        top = statusBarTop + 60.dp,
+                        top = statusBarTop + 56.dp,
                         bottom = awareBottom + 24.dp,
-                        end = 16.dp
-                    )
+                    ),
                 ) {
                     if (isFetching && artistPage == null) {
                         item(key = "landscape_shimmer_list") {
-                            ShimmerHost {
-                                repeat(8) {
-                                    ListItemPlaceHolder()
+                            Surface(
+                                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                                shape = RoundedCornerShape(22.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                ShimmerHost(modifier = Modifier.padding(12.dp)) {
+                                    repeat(6) {
+                                        ListItemPlaceHolder()
+                                    }
                                 }
                             }
                         }
                     } else {
-                        artistSectionsContent(
+                        artistLandscapeSectionsContent(
                             artistId = viewModel.artistId,
                             artistName = artistName,
                             artistPage = artistPage,
@@ -1401,6 +1542,437 @@ private fun ArtistActionButtons(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
+private fun LazyListScope.artistLandscapeSectionsContent(
+    artistId: String,
+    artistName: String,
+    artistPage: ArtistPage?,
+    libraryArtist: Artist?,
+    librarySongs: List<Song>,
+    mediaMetadata: MediaMetadata?,
+    isPlaying: Boolean,
+    navController: NavController,
+    playerConnection: PlayerConnection,
+    menuState: MenuState,
+    haptic: HapticFeedback,
+    coroutineScope: CoroutineScope,
+) {
+    // 1. Library Songs Card (2-column grid of tracks)
+    if (librarySongs.isNotEmpty()) {
+        item(key = "landscape_library_card") {
+            val previewSongs = librarySongs.take(6)
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.85f),
+                shape = RoundedCornerShape(22.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    ArtistLandscapeSectionHeader(
+                        title = stringResource(R.string.filter_library),
+                        count = librarySongs.size,
+                        onMoreClick = { navController.navigate("artist/$artistId/songs") },
+                    )
+
+                    previewSongs.chunked(2).forEachIndexed { rowIdx, pair ->
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            pair.forEachIndexed { colIdx, song ->
+                                val songIndex = rowIdx * 2 + colIdx
+                                val active = song.id == mediaMetadata?.id
+                                Surface(
+                                    color = if (active) {
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.28f)
+                                    } else {
+                                        MaterialTheme.colorScheme.surfaceContainer
+                                    },
+                                    shape = RoundedCornerShape(14.dp),
+                                    border = if (active) {
+                                        BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.55f))
+                                    } else {
+                                        null
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(14.dp)),
+                                ) {
+                                    SongListItem(
+                                        song = song,
+                                        showInLibraryIcon = true,
+                                        isActive = active,
+                                        isPlaying = isPlaying,
+                                        trailingContent = {
+                                            IconButton(
+                                                onClick = {
+                                                    menuState.show {
+                                                        SongMenu(
+                                                            originalSong = song,
+                                                            navController = navController,
+                                                            onDismiss = menuState::dismiss,
+                                                        )
+                                                    }
+                                                },
+                                            ) {
+                                                Icon(
+                                                    painter = painterResource(R.drawable.more_vert),
+                                                    contentDescription = null,
+                                                )
+                                            }
+                                        },
+                                        modifier = Modifier.combinedClickable(
+                                            onClick = {
+                                                if (song.id == mediaMetadata?.id) {
+                                                    playerConnection.player.togglePlayPause()
+                                                } else {
+                                                    playerConnection.playQueue(
+                                                        ListQueue(
+                                                            title = libraryArtist?.artist?.name ?: artistName,
+                                                            items = librarySongs.map { it.toMediaItem() },
+                                                            startIndex = songIndex
+                                                        )
+                                                    )
+                                                }
+                                            },
+                                            onLongClick = {
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                menuState.show {
+                                                    SongMenu(
+                                                        originalSong = song,
+                                                        navController = navController,
+                                                        onDismiss = menuState::dismiss,
+                                                    )
+                                                }
+                                            },
+                                        ),
+                                    )
+                                }
+                            }
+                            if (pair.size == 1) {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
+                        }
+                    }
+
+                    if (librarySongs.size > 6) {
+                        Surface(
+                            onClick = { navController.navigate("artist/$artistId/songs") },
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.7f),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                text = stringResource(R.string.view_all),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 10.dp),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. YouTube Sections
+    val topSongsSection = artistPage?.sections?.firstOrNull { s -> s.items.all { it is SongItem } }
+
+    artistPage?.sections?.fastForEachIndexed { sectionIndex, section ->
+        if (section.items.isNotEmpty()) {
+            val distinctItems = section.items.distinctBy { it.id }
+
+            if (section === topSongsSection) {
+                // Top Songs Header
+                item(key = "landscape_section_header_${sectionIndex}_${section.title}") {
+                    ArtistLandscapeSectionHeader(
+                        title = getTranslatedArtistSectionTitle(section.title),
+                        count = distinctItems.size,
+                        onMoreClick = section.moreEndpoint?.let {
+                            {
+                                navController.navigate(
+                                    "artist/$artistId/items?browseId=${it.browseId}?params=${it.params}",
+                                )
+                            }
+                        },
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                    )
+                }
+
+                // Top Songs 2-column Track Cards
+                val songPairs = distinctItems.chunked(2)
+                itemsIndexed(
+                    items = songPairs,
+                    key = { pairIdx, _ -> "landscape_top_songs_row_${sectionIndex}_$pairIdx" },
+                ) { _, pair ->
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .animateItem(),
+                    ) {
+                        pair.forEach { rawItem ->
+                            val song = rawItem as SongItem
+                            val active = mediaMetadata?.id == song.id
+                            Surface(
+                                color = if (active) {
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.28f)
+                                } else {
+                                    MaterialTheme.colorScheme.surfaceContainerLow
+                                },
+                                shape = RoundedCornerShape(14.dp),
+                                border = if (active) {
+                                    BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.55f))
+                                } else {
+                                    null
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(14.dp)),
+                            ) {
+                                YouTubeListItem(
+                                    item = song,
+                                    isActive = active,
+                                    isPlaying = isPlaying,
+                                    trailingContent = {
+                                        IconButton(
+                                            onClick = {
+                                                menuState.show {
+                                                    YouTubeSongMenu(
+                                                        song = song,
+                                                        navController = navController,
+                                                        onDismiss = menuState::dismiss,
+                                                    )
+                                                }
+                                            },
+                                        ) {
+                                            Icon(
+                                                painter = painterResource(R.drawable.more_vert),
+                                                contentDescription = null,
+                                            )
+                                        }
+                                    },
+                                    modifier = Modifier.combinedClickable(
+                                        onClick = {
+                                            if (song.id == mediaMetadata?.id) {
+                                                playerConnection.player.togglePlayPause()
+                                            } else {
+                                                playerConnection.playQueue(
+                                                    YouTubeQueue(
+                                                        WatchEndpoint(videoId = song.id),
+                                                        song.toMediaMetadata()
+                                                    ),
+                                                )
+                                            }
+                                        },
+                                        onLongClick = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            menuState.show {
+                                                YouTubeSongMenu(
+                                                    song = song,
+                                                    navController = navController,
+                                                    onDismiss = menuState::dismiss,
+                                                )
+                                            }
+                                        },
+                                    ),
+                                )
+                            }
+                        }
+                        if (pair.size == 1) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+            } else {
+                // Discography / Videos / Related Artists Header
+                item(key = "landscape_section_header_${sectionIndex}_${section.title}") {
+                    ArtistLandscapeSectionHeader(
+                        title = getTranslatedArtistSectionTitle(section.title),
+                        count = distinctItems.size,
+                        onMoreClick = section.moreEndpoint?.let {
+                            {
+                                navController.navigate(
+                                    "artist/$artistId/items?browseId=${it.browseId}?params=${it.params}",
+                                )
+                            }
+                        },
+                        modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 4.dp),
+                    )
+                }
+
+                // FlowRow Grid Showcase Card (no cramped horizontal nested scrolling)
+                item(key = "landscape_section_flow_${sectionIndex}_${section.title}") {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.85f),
+                        shape = RoundedCornerShape(22.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(10.dp),
+                        ) {
+                            distinctItems.forEach { item ->
+                                YouTubeGridItem(
+                                    item = item,
+                                    isActive = when (item) {
+                                        is SongItem -> mediaMetadata?.id == item.id
+                                        is AlbumItem -> mediaMetadata?.album?.id == item.id
+                                        is EpisodeItem -> mediaMetadata?.id == item.id
+                                        else -> false
+                                    },
+                                    isPlaying = isPlaying,
+                                    coroutineScope = coroutineScope,
+                                    modifier = Modifier.combinedClickable(
+                                        onClick = {
+                                            when (item) {
+                                                is SongItem ->
+                                                    playerConnection.playQueue(
+                                                        YouTubeQueue(
+                                                            WatchEndpoint(videoId = item.id),
+                                                            item.toMediaMetadata()
+                                                        ),
+                                                    )
+                                                is EpisodeItem ->
+                                                    playerConnection.playQueue(
+                                                        YouTubeQueue(
+                                                            WatchEndpoint(videoId = item.id),
+                                                            item.asSongItem().toMediaMetadata()
+                                                        ),
+                                                    )
+                                                is AlbumItem -> navController.navigate("album/${item.id}")
+                                                is ArtistItem -> navController.navigate("artist/${item.id}")
+                                                is PlaylistItem -> navController.navigate("online_playlist/${item.id}")
+                                                is PodcastItem -> navController.navigate("online_playlist/${item.id}")
+                                            }
+                                        },
+                                        onLongClick = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            menuState.show {
+                                                when (item) {
+                                                    is SongItem -> YouTubeSongMenu(
+                                                        song = item,
+                                                        navController = navController,
+                                                        onDismiss = menuState::dismiss,
+                                                    )
+                                                    is AlbumItem -> YouTubeAlbumMenu(
+                                                        albumItem = item,
+                                                        navController = navController,
+                                                        onDismiss = menuState::dismiss,
+                                                    )
+                                                    is ArtistItem -> YouTubeArtistMenu(
+                                                        artist = item,
+                                                        onDismiss = menuState::dismiss,
+                                                    )
+                                                    is PlaylistItem -> YouTubePlaylistMenu(
+                                                        playlist = item,
+                                                        coroutineScope = coroutineScope,
+                                                        onDismiss = menuState::dismiss,
+                                                    )
+                                                    is EpisodeItem -> YouTubeSongMenu(
+                                                        song = item.asSongItem(),
+                                                        navController = navController,
+                                                        onDismiss = menuState::dismiss,
+                                                    )
+                                                    is PodcastItem -> YouTubePlaylistMenu(
+                                                        playlist = item.asPlaylistItem(),
+                                                        coroutineScope = coroutineScope,
+                                                        onDismiss = menuState::dismiss,
+                                                    )
+                                                }
+                                            }
+                                        },
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ArtistLandscapeSectionHeader(
+    title: String,
+    count: Int,
+    onMoreClick: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .fillMaxWidth()
+            .then(
+                if (onMoreClick != null) {
+                    Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable(onClick = onMoreClick)
+                } else {
+                    Modifier
+                }
+            )
+            .padding(horizontal = 4.dp, vertical = 4.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .width(3.dp)
+                .height(16.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(MaterialTheme.colorScheme.primary)
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Surface(
+            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f),
+            shape = CircleShape,
+        ) {
+            Text(
+                text = count.toString(),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+            )
+        }
+        if (onMoreClick != null) {
+            Spacer(Modifier.width(6.dp))
+            Surface(
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                shape = CircleShape,
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.navigate_next),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .padding(4.dp)
+                        .size(16.dp),
+                )
             }
         }
     }

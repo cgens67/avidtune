@@ -640,7 +640,7 @@ fun DeleteAlarmDialog(
                                     text = timePart,
                                     fontSize = 28.sp,
                                     lineHeight = 32.sp,
-                                    fontWeight = FontWeight.Light,
+                                    fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface,
                                     maxLines = 1,
                                     softWrap = false
@@ -832,7 +832,7 @@ private fun NextAlarmHeroCard(
                         text = heroTimeOnly,
                         fontSize = 44.sp,
                         lineHeight = 48.sp,
-                        fontWeight = FontWeight.Light,
+                        fontWeight = FontWeight.Bold,
                         color = if (activeAlarm != null) {
                             MaterialTheme.colorScheme.onBackground
                         } else {
@@ -904,7 +904,7 @@ private fun NextAlarmHeroCard(
                             text = heroTimeOnly,
                             fontSize = 46.sp,
                             lineHeight = 50.sp,
-                            fontWeight = FontWeight.Light,
+                            fontWeight = FontWeight.Bold,
                             color = if (activeAlarm != null) {
                                 MaterialTheme.colorScheme.onBackground
                             } else {
@@ -1312,7 +1312,7 @@ fun AlarmCard(
                         text = timeFormat.format(cal.time),
                         fontSize = 42.sp,
                         lineHeight = 46.sp,
-                        fontWeight = FontWeight.Light,
+                        fontWeight = FontWeight.Bold,
                         color = if (alarm.isEnabled) {
                             MaterialTheme.colorScheme.onBackground
                         } else {
@@ -1810,7 +1810,7 @@ private fun AlarmHeroTimeCard(
                 text = timeText,
                 fontSize = 64.sp,
                 lineHeight = 68.sp,
-                fontWeight = FontWeight.Light,
+                fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground,
                 maxLines = 1,
                 softWrap = false

@@ -102,7 +102,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -123,10 +122,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
@@ -165,9 +164,6 @@ import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
 import coil.imageLoader
 import coil.request.ImageRequest
-import com.cgens67.innertube.YouTube
-import com.cgens67.innertube.models.SongItem
-import com.cgens67.innertube.models.WatchEndpoint
 import com.cgens67.avidtune.constants.AppBarHeight
 import com.cgens67.avidtune.constants.AppFont
 import com.cgens67.avidtune.constants.AppFontKey
@@ -186,11 +182,11 @@ import com.cgens67.avidtune.constants.PauseSearchHistoryKey
 import com.cgens67.avidtune.constants.PlayerBackgroundStyle
 import com.cgens67.avidtune.constants.PlayerBackgroundStyleKey
 import com.cgens67.avidtune.constants.PureBlackKey
-import com.cgens67.avidtune.constants.UseSystemFontKey
 import com.cgens67.avidtune.constants.SearchSource
 import com.cgens67.avidtune.constants.SearchSourceKey
 import com.cgens67.avidtune.constants.SlimNavBarKey
 import com.cgens67.avidtune.constants.StopMusicOnTaskClearKey
+import com.cgens67.avidtune.constants.UseSystemFontKey
 import com.cgens67.avidtune.db.MusicDatabase
 import com.cgens67.avidtune.db.entities.SearchHistory
 import com.cgens67.avidtune.extensions.toEnum
@@ -205,11 +201,14 @@ import com.cgens67.avidtune.ui.component.AvatarSelection
 import com.cgens67.avidtune.ui.component.BottomSheetMenu
 import com.cgens67.avidtune.ui.component.FloatingNavigationToolbar
 import com.cgens67.avidtune.ui.component.IconButton
+import com.cgens67.avidtune.ui.component.LocalFloatingToolbarBackdrop
 import com.cgens67.avidtune.ui.component.LocalMenuState
 import com.cgens67.avidtune.ui.component.Lyrics
 import com.cgens67.avidtune.ui.component.SwitchPreference
 import com.cgens67.avidtune.ui.component.TopSearch
+import com.cgens67.avidtune.ui.component.floatingToolbarBackdrop
 import com.cgens67.avidtune.ui.component.rememberBottomSheetState
+import com.cgens67.avidtune.ui.component.rememberFloatingToolbarBackdropState
 import com.cgens67.avidtune.ui.component.shimmer.ShimmerTheme
 import com.cgens67.avidtune.ui.menu.YouTubeSongMenu
 import com.cgens67.avidtune.ui.player.BottomSheetPlayer
@@ -220,9 +219,9 @@ import com.cgens67.avidtune.ui.screens.search.OnlineSearchScreen
 import com.cgens67.avidtune.ui.screens.settings.DarkMode
 import com.cgens67.avidtune.ui.screens.settings.NavigationTab
 import com.cgens67.avidtune.ui.screens.settings.ThemePalettes
+import com.cgens67.avidtune.ui.theme.AvidTuneTheme
 import com.cgens67.avidtune.ui.theme.ColorSaver
 import com.cgens67.avidtune.ui.theme.DefaultThemeColor
-import com.cgens67.avidtune.ui.theme.AvidTuneTheme
 import com.cgens67.avidtune.ui.theme.ThemeSeedPalette
 import com.cgens67.avidtune.ui.theme.ThemeSeedPaletteCodec
 import com.cgens67.avidtune.ui.theme.extractThemeColor
@@ -237,14 +236,17 @@ import com.cgens67.avidtune.utils.rememberEnumPreference
 import com.cgens67.avidtune.utils.rememberPreference
 import com.cgens67.avidtune.utils.reportException
 import com.cgens67.avidtune.viewmodels.NewReleaseViewModel
+import com.cgens67.innertube.YouTube
+import com.cgens67.innertube.models.SongItem
+import com.cgens67.innertube.models.WatchEndpoint
 import com.valentinilk.shimmer.LocalShimmerTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -851,6 +853,7 @@ class MainActivity : ComponentActivity() {
                     val configuration = LocalConfiguration.current
                     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
                     val shouldShowBottomNav = !isLandscape
+                    val backdropState = rememberFloatingToolbarBackdropState()
 
                     CompositionLocalProvider(
                         LocalDatabase provides database,
@@ -860,10 +863,11 @@ class MainActivity : ComponentActivity() {
                         LocalDownloadUtil provides downloadUtil,
                         LocalShimmerTheme provides ShimmerTheme,
                         LocalSyncUtils provides syncUtils,
+                        LocalFloatingToolbarBackdrop provides backdropState,
                     ) {
                         Row(modifier = Modifier.fillMaxSize()) {
                             AnimatedVisibility(
-                                visible = isLandscape && shouldShowNavigationBar,
+                                visible = isLandscape && shouldShowNavigationBar && !playerBottomSheetState.isExpandedOrExpanding && !playerBottomSheetState.isExpanded && (playerBottomSheetState.progress.takeIf { !it.isNaN() } ?: 0f) <= 0.5f && !showFullscreenLyrics,
                                 enter = expandHorizontally() + slideInHorizontally { -it } + fadeIn(),
                                 exit = shrinkHorizontally() + slideOutHorizontally { -it } + fadeOut()
                             ) {
@@ -1398,10 +1402,6 @@ class MainActivity : ComponentActivity() {
                                             }
 
                                             if (shouldShowBottomNav) {
-                                                var lastTapTime by remember { mutableLongStateOf(0L) }
-                                                var lastTappedIcon by remember { mutableStateOf<Int?>(null) }
-                                                var navigateToExplore by remember { mutableStateOf(false) }
-
                                                 FloatingNavigationToolbar(
                                                     items = navigationItems,
                                                     pureBlack = pureBlack,
@@ -1412,71 +1412,34 @@ class MainActivity : ComponentActivity() {
                                                         } == true
                                                     },
                                                     onItemClick = { screen, isSelected ->
-                                                        val currentTapTime = System.currentTimeMillis()
-                                                        val timeSinceLastTap =
-                                                            currentTapTime - lastTapTime
-                                                        val isDoubleTap =
-                                                            screen.titleId == R.string.explore &&
-                                                                    lastTappedIcon == R.string.explore &&
-                                                                    timeSinceLastTap < 300L
-
-                                                        lastTapTime = currentTapTime
-                                                        lastTappedIcon = screen.titleId
-
-                                                        if (screen.titleId == R.string.explore) {
-                                                            if (isDoubleTap) {
-                                                                onActiveChange(true)
-                                                                navigateToExplore = false
-                                                            } else {
-                                                                navigateToExplore = true
-                                                                coroutineScope.launch {
-                                                                    delay(300L)
-                                                                    if (navigateToExplore) {
-                                                                        try {
-                                                                            navigateToScreen(
-                                                                                navController,
-                                                                                screen
-                                                                            )
-                                                                        } catch (e: Exception) {
-                                                                            Log.e(
-                                                                                "Navigation",
-                                                                                "Error navigating to screen",
-                                                                                e
-                                                                            )
-                                                                        }
-                                                                    }
-                                                                }
-                                                            }
-                                                        } else {
-                                                            if (isSelected) {
-                                                                navController.currentBackStackEntry?.savedStateHandle?.set(
-                                                                    "scrollToTop",
-                                                                    true
-                                                                )
-                                                                coroutineScope.launch {
-                                                                    try {
-                                                                        searchBarScrollBehavior.state.resetHeightOffset()
-                                                                    } catch (e: Exception) {
-                                                                        Log.e(
-                                                                            "ScrollBehavior",
-                                                                            "Error resetting scroll",
-                                                                            e
-                                                                        )
-                                                                    }
-                                                                }
-                                                            } else {
+                                                        if (isSelected) {
+                                                            navController.currentBackStackEntry?.savedStateHandle?.set(
+                                                                "scrollToTop",
+                                                                true
+                                                            )
+                                                            coroutineScope.launch {
                                                                 try {
-                                                                    navigateToScreen(
-                                                                        navController,
-                                                                        screen
-                                                                    )
+                                                                    searchBarScrollBehavior.state.resetHeightOffset()
                                                                 } catch (e: Exception) {
                                                                     Log.e(
-                                                                        "Navigation",
-                                                                        "Error navigating to screen",
+                                                                        "ScrollBehavior",
+                                                                        "Error resetting scroll",
                                                                         e
                                                                     )
                                                                 }
+                                                            }
+                                                        } else {
+                                                            try {
+                                                                navigateToScreen(
+                                                                    navController,
+                                                                    screen
+                                                                )
+                                                            } catch (e: Exception) {
+                                                                Log.e(
+                                                                    "Navigation",
+                                                                    "Error navigating to screen",
+                                                                    e
+                                                                )
                                                             }
                                                         }
                                                     },
@@ -1553,81 +1516,88 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
 
-                                    NavHost(
-                                        navController = navController,
-                                        startDestination = when (tabOpenedFromShortcut ?: defaultOpenTab) {
-                                            NavigationTab.HOME -> Screens.Home
-                                            NavigationTab.EXPLORE -> Screens.Explore
-                                            NavigationTab.LIBRARY -> Screens.Library
-                                        }.route,
-
-                                        enterTransition = {
-                                            if (initialState.destination.route in topLevelScreens && targetState.destination.route in topLevelScreens) {
-                                                fadeIn(animationSpec = tween(300, easing = FastOutSlowInEasing))
-                                            } else {
-                                                slideInHorizontally(
-                                                    initialOffsetX = { it },
-                                                    animationSpec = tween(350, easing = FastOutSlowInEasing)
-                                                ) + fadeIn(animationSpec = tween(300, easing = LinearEasing))
-                                            }
-                                        },
-
-                                        exitTransition = {
-                                            if (initialState.destination.route in topLevelScreens && targetState.destination.route in topLevelScreens) {
-                                                fadeOut(animationSpec = tween(300, easing = FastOutSlowInEasing))
-                                            } else {
-                                                slideOutHorizontally(
-                                                    targetOffsetX = { -it / 4 },
-                                                    animationSpec = tween(350, easing = FastOutSlowInEasing)
-                                                ) + fadeOut(animationSpec = tween(300, easing = LinearEasing))
-                                            }
-                                        },
-
-                                        popEnterTransition = {
-                                            if ((initialState.destination.route in topLevelScreens || initialState.destination.route?.startsWith("search/") == true) && targetState.destination.route in topLevelScreens) {
-                                                fadeIn(animationSpec = tween(300, easing = FastOutSlowInEasing))
-                                            } else {
-                                                slideInHorizontally(
-                                                    initialOffsetX = { -it / 4 },
-                                                    animationSpec = tween(350, easing = FastOutSlowInEasing)
-                                                ) + fadeIn(animationSpec = tween(300, easing = LinearEasing))
-                                            }
-                                        },
-
-                                        popExitTransition = {
-                                            if ((initialState.destination.route in topLevelScreens || initialState.destination.route?.startsWith("search/") == true) && targetState.destination.route in topLevelScreens) {
-                                                fadeOut(animationSpec = tween(300, easing = FastOutSlowInEasing))
-                                            } else {
-                                                slideOutHorizontally(
-                                                    targetOffsetX = { it },
-                                                    animationSpec = tween(350, easing = FastOutSlowInEasing)
-                                                ) + fadeOut(animationSpec = tween(200, easing = LinearEasing))
-                                            }
-                                        },
-
-                                        modifier = Modifier.nestedScroll(
-                                            if (navigationItems.fastAny { it.route == navBackStackEntry?.destination?.route } ||
-                                                navBackStackEntry?.destination?.route?.startsWith("search/") == true
-                                            ) {
-                                                searchBarScrollBehavior.nestedScrollConnection
-                                            } else {
-                                                topAppBarScrollBehavior.nestedScrollConnection
-                                            }
-                                        )
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .floatingToolbarBackdrop(backdropState)
+                                            .background(MaterialTheme.colorScheme.surface),
                                     ) {
-                                        navigationBuilder(
-                                            navController,
-                                            topAppBarScrollBehavior,
-                                            latestVersionName
-                                        )
-                                    }
-
-                                    if (showTogetherScreen) {
-                                        com.cgens67.avidtune.together.MusicTogetherScreen(
+                                        NavHost(
                                             navController = navController,
-                                            scrollBehavior = topAppBarScrollBehavior,
-                                            onBack = { showTogetherScreen = false }
-                                        )
+                                            startDestination = when (tabOpenedFromShortcut ?: defaultOpenTab) {
+                                                NavigationTab.HOME -> Screens.Home
+                                                NavigationTab.EXPLORE -> Screens.Explore
+                                                NavigationTab.LIBRARY -> Screens.Library
+                                            }.route,
+
+                                            enterTransition = {
+                                                if (initialState.destination.route in topLevelScreens && targetState.destination.route in topLevelScreens) {
+                                                    fadeIn(animationSpec = tween(300, easing = FastOutSlowInEasing))
+                                                } else {
+                                                    slideInHorizontally(
+                                                        initialOffsetX = { it },
+                                                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                                                    ) + fadeIn(animationSpec = tween(300, easing = LinearEasing))
+                                                }
+                                            },
+
+                                            exitTransition = {
+                                                if (initialState.destination.route in topLevelScreens && targetState.destination.route in topLevelScreens) {
+                                                    fadeOut(animationSpec = tween(300, easing = FastOutSlowInEasing))
+                                                } else {
+                                                    slideOutHorizontally(
+                                                        targetOffsetX = { -it / 4 },
+                                                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                                                    ) + fadeOut(animationSpec = tween(300, easing = LinearEasing))
+                                                }
+                                            },
+
+                                            popEnterTransition = {
+                                                if ((initialState.destination.route in topLevelScreens || initialState.destination.route?.startsWith("search/") == true) && targetState.destination.route in topLevelScreens) {
+                                                    fadeIn(animationSpec = tween(300, easing = FastOutSlowInEasing))
+                                                } else {
+                                                    slideInHorizontally(
+                                                        initialOffsetX = { -it / 4 },
+                                                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                                                    ) + fadeIn(animationSpec = tween(300, easing = LinearEasing))
+                                                }
+                                            },
+
+                                            popExitTransition = {
+                                                if ((initialState.destination.route in topLevelScreens || initialState.destination.route?.startsWith("search/") == true) && targetState.destination.route in topLevelScreens) {
+                                                    fadeOut(animationSpec = tween(300, easing = FastOutSlowInEasing))
+                                                } else {
+                                                    slideOutHorizontally(
+                                                        targetOffsetX = { it },
+                                                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                                                    ) + fadeOut(animationSpec = tween(200, easing = LinearEasing))
+                                                }
+                                            },
+
+                                            modifier = Modifier.nestedScroll(
+                                                if (navigationItems.fastAny { it.route == navBackStackEntry?.destination?.route } ||
+                                                    navBackStackEntry?.destination?.route?.startsWith("search/") == true
+                                                ) {
+                                                    searchBarScrollBehavior.nestedScrollConnection
+                                                } else {
+                                                    topAppBarScrollBehavior.nestedScrollConnection
+                                                }
+                                            )
+                                        ) {
+                                            navigationBuilder(
+                                                navController,
+                                                topAppBarScrollBehavior,
+                                                latestVersionName
+                                            )
+                                        }
+
+                                        if (showTogetherScreen) {
+                                            com.cgens67.avidtune.together.MusicTogetherScreen(
+                                                navController = navController,
+                                                scrollBehavior = topAppBarScrollBehavior,
+                                                onBack = { showTogetherScreen = false }
+                                            )
+                                        }
                                     }
                                 }
 

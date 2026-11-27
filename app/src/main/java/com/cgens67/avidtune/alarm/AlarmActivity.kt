@@ -460,7 +460,7 @@ private fun AlarmClockHeader(
         Text(
             text = timeText,
             fontSize = clockFontSize,
-            fontWeight = FontWeight.Light,
+            fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground,
             maxLines = 1
         )
